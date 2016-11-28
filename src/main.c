@@ -1,7 +1,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/keysym.h>
 
 int
@@ -32,18 +34,26 @@ create_key_event(Display *display, Window window, KeySym keysym, unsigned int mo
   };
 }
 
+Window
+get_focused_window(Display *display)
+{
+  Window window;
+  int focus_state;
+
+  XGetInputFocus(display, &window, &focus_state);
+  return window;
+}
+
 void
 input_key(Display *display, KeySym keysym, unsigned int modifiers)
 {
-  Window focus_win;
-  int focus_state;
-  XGetInputFocus(display, &focus_win, &focus_state);
+  Window window = get_focused_window(display);
 
-  XKeyEvent event = create_key_event(display, focus_win, keysym, modifiers, KeyPress);
-  XSendEvent(display, focus_win, True, KeyPressMask, (XEvent *)&event);
+  XKeyEvent event = create_key_event(display, window, keysym, modifiers, KeyPress);
+  XSendEvent(display, window, True, KeyPressMask, (XEvent *)&event);
 
-  event = create_key_event(display, focus_win, keysym, modifiers, KeyRelease);
-  XSendEvent(display, focus_win, True, KeyReleaseMask, (XEvent *)&event);
+  event = create_key_event(display, window, keysym, modifiers, KeyRelease);
+  XSendEvent(display, window, True, KeyReleaseMask, (XEvent *)&event);
 }
 
 void
@@ -54,9 +64,75 @@ grab_keys(Display *display)
 }
 
 void
+fetch_window_name(Display *display, Window window)
+{
+  Atom net_wm_name = XInternAtom(display, "_NET_WM_NAME", True);
+  XTextProperty prop;
+
+  XGetTextProperty(display, window, &prop, net_wm_name);
+  if (prop.nitems == 0) {
+    XGetWMName(display, window, &prop);
+  }
+
+  if (prop.nitems > 0 && prop.value) {
+    if (prop.encoding == XA_STRING) {
+      printf("XA_STRING: %s\n", (char *)prop.value);
+    } else {
+      char **l = NULL;
+      int count;
+      XmbTextPropertyToTextList(display, &prop, &l, &count);
+      if (count > 0 && *l)
+        printf("Not XA_STRING: %s\n", *l);
+      XFreeStringList(l);
+    }
+  }
+}
+
+void
+fetch_window_class(Display *display, Window window)
+{
+  Atom net_wm_name = XInternAtom(display, "WM_CLASS", True);
+  XTextProperty prop;
+
+  XGetTextProperty(display, window, &prop, net_wm_name);
+  if (prop.nitems > 0 && prop.value) {
+    if (prop.encoding == XA_STRING) {
+      printf("class XA_STRING: %s\n", (char *)prop.value);
+    } else {
+      char **l = NULL;
+      int count;
+      XmbTextPropertyToTextList(display, &prop, &l, &count);
+      if (count > 0 && *l)
+        printf("class Not XA_STRING: %s\n", *l);
+      XFreeStringList(l);
+    }
+  }
+}
+
+void
+fetch_window_pid(Display *display, Window window)
+{
+  int format;
+  unsigned long nitems, after;
+  unsigned char *data = NULL;
+  Atom ret_type;
+  Atom targ_atom = XInternAtom(display, "_NET_WM_PID", True);
+  if (XGetWindowProperty(display, window, targ_atom, 0, 65536, False,
+        XA_CARDINAL, &ret_type, &format, &nitems, &after, &data) == Success && nitems > 0) {
+    unsigned char *r = data;
+    if (r) {
+      int pid = (r[1] * 256) + r[0];
+      printf("pid: %d\n", pid);
+      XFree(r);
+    }
+  }
+}
+
+void
 event_loop(Display *display)
 {
   XEvent event;
+  XWindowAttributes attrs;
   while (1) {
     XNextEvent(display, &event);
     switch (event.type) {
@@ -65,6 +141,11 @@ event_loop(Display *display)
         break;
       case KeyRelease:
         // ignore. Is it necessary to handle this?
+        break;
+      case PropertyNotify:
+        fetch_window_name(display, get_focused_window(display));
+        fetch_window_class(display, get_focused_window(display));
+        fetch_window_pid(display, get_focused_window(display));
         break;
       case MappingNotify:
         // FIXME: refresh mapping and grag keys again
@@ -87,7 +168,7 @@ remap_keys()
   }
 
   XSetErrorHandler(error_handler);
-  XSelectInput(display, XDefaultRootWindow(display), KeyPressMask);
+  XSelectInput(display, XDefaultRootWindow(display), KeyPressMask | PropertyChangeMask);
   grab_keys(display);
 
   event_loop(display);
