@@ -21,16 +21,16 @@ event_loop(Display *display, mrb_state *mrb, mrb_value event_handler)
     XNextEvent(display, &event);
     switch (event.type) {
       case KeyPress:
-        handle_key_press(mrb, event_handler, event.xkey.serial, event.xkey.keycode, event.xkey.state);
+        handle_key_press(mrb, event_handler, event.xkey.keycode, event.xkey.state);
         break;
       case KeyRelease:
         // ignore. Is it necessary to handle this?
         break;
       case PropertyNotify:
-        handle_property_notify(mrb, event_handler, event.xproperty.serial);
+        handle_property_notify(mrb, event_handler);
         break;
       case MappingNotify:
-        handle_mapping_notify(mrb, event_handler, event.xmapping.serial);
+        handle_mapping_notify(mrb, event_handler);
         break;
       default:
         fprintf(stderr, "unexpected event detected! (%d)\n", event.type);

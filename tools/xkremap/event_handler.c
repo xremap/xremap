@@ -4,20 +4,35 @@
 mrb_value
 new_event_handler(mrb_state *mrb, mrb_value config, Display *display)
 {
-  return mrb_nil_value();
+  struct RClass *mXkremap = mrb_module_get(mrb, "Xkremap");
+  struct RClass *cEventHandler = mrb_class_get_under(mrb, mXkremap, "EventHandler");
+  return mrb_funcall(mrb, mrb_obj_value(cEventHandler), "new", 2, config, mrb_nil_value());
 }
 
 void
-handle_key_press(mrb_state *mrb, mrb_value event_handler, unsigned long serial, unsigned int keycode, unsigned int state)
+handle_key_press(mrb_state *mrb, mrb_value event_handler, unsigned int keycode, unsigned int state)
 {
+  mrb_funcall(mrb, event_handler, "handle_key_press", 2,
+      mrb_fixnum_value(keycode), mrb_fixnum_value(state));
+  if (mrb->exc) {
+    mrb_print_error(mrb);
+  }
 }
 
 void
-handle_property_notify(mrb_state *mrb, mrb_value event_handler, unsigned long serial)
+handle_property_notify(mrb_state *mrb, mrb_value event_handler)
 {
+  mrb_funcall(mrb, event_handler, "handle_property_notify", 0);
+  if (mrb->exc) {
+    mrb_print_error(mrb);
+  }
 }
 
 void
-handle_mapping_notify(mrb_state *mrb, mrb_value event_handler, unsigned long serial)
+handle_mapping_notify(mrb_state *mrb, mrb_value event_handler)
 {
+  mrb_funcall(mrb, event_handler, "handle_mapping_notify", 0);
+  if (mrb->exc) {
+    mrb_print_error(mrb);
+  }
 }
