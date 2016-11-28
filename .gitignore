@@ -1,3 +1,2 @@
-xkremap
-mruby/
-*.o
+/xkremap
+/mruby
