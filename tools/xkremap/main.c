@@ -132,7 +132,6 @@ void
 event_loop(Display *display)
 {
   XEvent event;
-  XWindowAttributes attrs;
   while (1) {
     XNextEvent(display, &event);
     switch (event.type) {
