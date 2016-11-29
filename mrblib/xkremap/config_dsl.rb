@@ -38,6 +38,10 @@ module Xkremap
       key
     end
 
+    def define(name, &block)
+      ConfigDSL.define_method(name, &block)
+    end
+
     private
 
     def compile_exp(exp)

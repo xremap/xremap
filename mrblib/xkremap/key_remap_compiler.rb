@@ -29,7 +29,7 @@ module Xkremap
           when :release
             Proc.new { XlibWrapper.release_key(@display, to.keysym, to.modifier) }
           when :execute
-            Proc.new { system("nohup #{to.command} >/dev/null 2>&1 &") }
+            Proc.new { system("nohup /bin/sh -c #{to.command.shellescape} &") }
           else
             raise "unexpected action: #{to.action.inspect}"
           end
