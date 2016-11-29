@@ -4,12 +4,16 @@ MRBSRCS := $(wildcard mrblib/xkremap/*.rb)
 MRBCSRCS := $(wildcard src/*.[ch])
 # Using master to apply https://github.com/mruby/mruby/pull/3192
 REVISION=0ff3ae1fbaed62010c54c43235e29cdc85da2f78
-.PHONY: all clean
+DESTDIR := /usr/local/bin
+.PHONY: all clean install
 
 all: xkremap
 
 clean:
 	rm -rf mruby/build/host
+
+install: xkremap
+	mv xkremap $(DESTDIR)/xkremap
 
 xkremap: mruby/build/host/bin/xkremap
 	cp mruby/build/host/bin/xkremap xkremap

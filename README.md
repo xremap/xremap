@@ -32,7 +32,7 @@ because it embeds mruby to evaluate configuration.
 $ git clone https://github.com/k0kubun/xkremap
 $ cd xkremap
 $ make
-$ sudo make install # or `make DESTDIR=~/bin/xkremap install`
+$ sudo make install # or `make DESTDIR=~/bin install`
 ```
 
 ## Usage
