@@ -8,13 +8,20 @@ module Xkremap
     # @return [Hash] : keycode(Fixnum) -> state(Fixnum) -> handler(Proc)
     def compile
       result = Hash.new { |h, k| h[k] = {} }
-      result[to_keycode(0x0062)][1<<2] = Proc.new do
-        puts 'C-b pressed!'
-      end
+      set_handlers(result)
       result
     end
 
     private
+
+    def set_handlers(result)
+      display = @display
+
+      # C-b -> Left
+      result[to_keycode(0x0062)][1<<2] = Proc.new do
+        XlibWrapper.input_key(display, 0xff51, 0)
+      end
+    end
 
     def to_keycode(keysym)
       XlibWrapper.keysym_to_keycode(@display, keysym)
