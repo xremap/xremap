@@ -1,19 +1,17 @@
-define :activate do |query, options = {}|
-  command = options[:command] || query
+define :activate do |command|
   execute(<<-SHELL)
-    match=$(wmctrl -l | grep "$(hostname) #{query}")
-    case $? in
-      1)
-        #{command}
-        ;;
-      0)
-        window_id=$(echo $match | tail -n1 | cut -d' ' -f1)
-        wmctrl -i -R $window_id
-        ;;
-    esac
+    while read line; do
+      pid="$(echo "$line" | cut -d" " -f4)"
+      if [ "x#{command}" = "x$(cat "/proc/${pid}/cmdline")" ]; then
+        window_id="$(echo "$line" | cut -d" " -f1)"
+        exec wmctrl -i -R "$window_id"
+      fi
+    done <<< "$(wmctrl -l -p)"
+
+    exec "#{command}"
   SHELL
 end
 
-remap 'C-o', to: activate('Nocturn', command: 'nocturn')
-remap 'C-u', to: activate('.*Google Chrome$', command: 'google-chrome-stable')
+remap 'C-o', to: activate('/usr/share/nocturn/Nocturn')
+remap 'C-u', to: activate('/opt/google/chrome/chrome')
 remap 'C-h', to: activate('urxvt')
