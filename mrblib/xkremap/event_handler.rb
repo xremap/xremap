@@ -3,14 +3,14 @@ module Xkremap
     # @param [Xkremap::Config] config
     # @param [Xkremap::Display] display
     def initialize(config, display)
-      @active_window  = ActiveWindow.new(display)
-      @grab_manager   = GrabManager.new(display)
-      @remap_compiler = KeyRemapCompiler.new(config, display)
+      @active_window = ActiveWindow.new(display)
+      @grab_manager  = GrabManager.new(display)
+      @key_remap_compiler = KeyRemapCompiler.new(config, display)
       remap_keys
     end
 
     def handle_key_press(keycode, state)
-      handler = @remap_handlers[keycode][state]
+      handler = @key_press_handlers[keycode][state]
       if handler
         handler.call
       else
@@ -32,7 +32,7 @@ module Xkremap
     private
 
     def remap_keys
-      @remap_handlers = @remap_compiler.compile
+      @key_press_handlers = @key_remap_compiler.compile
       @grab_manager.grab_keys
       puts 'remap keys!'
     end

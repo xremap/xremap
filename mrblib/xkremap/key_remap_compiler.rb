@@ -18,7 +18,7 @@ module Xkremap
       display = @display
 
       # C-b -> Left
-      result[to_keycode(0x0062)][1<<2] = Proc.new do
+      result[to_keycode(X11::XK_b)][1<<2] = Proc.new do
         XlibWrapper.input_key(display, 0xff51, 0)
       end
     end
