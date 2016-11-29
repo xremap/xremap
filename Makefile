@@ -2,9 +2,12 @@ current_dir := $(shell pwd)
 CSRCS := $(wildcard tools/xkremap/*.[ch])
 MRBSRCS := $(wildcard mrblib/xkremap/*.rb)
 MRBCSRCS := $(wildcard src/*.[ch])
-.PHONY: all
+.PHONY: all clean
 
 all: xkremap
+
+clean:
+	rm -rf mruby/build/host
 
 xkremap: mruby/build/host/bin/xkremap
 	cp mruby/build/host/bin/xkremap xkremap

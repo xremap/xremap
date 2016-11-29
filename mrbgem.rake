@@ -5,4 +5,7 @@ MRuby::Gem::Specification.new('xkremap') do |spec|
   spec.bins    = ['xkremap']
 
   spec.add_dependency 'mruby-eval', core: 'mruby-eval'
+
+  spec.add_dependency 'mruby-io', mgem: 'mruby-io'
+  spec.add_dependency 'mruby-onig-regexp', mgem: 'mruby-onig-regexp'
 end

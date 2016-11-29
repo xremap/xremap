@@ -3,6 +3,7 @@ module Xkremap
     def initialize(config, display)
       @config  = config
       @display = display
+      puts "Config loaded: #{@config.inspect}"
     end
 
     # @return [Hash] : keycode(Fixnum) -> state(Fixnum) -> handler(Proc)
@@ -17,9 +18,15 @@ module Xkremap
     def set_handlers(result)
       display = @display
 
-      # C-b -> Left
-      result[to_keycode(X11::XK_b)][X11::ControlMask] = Proc.new do
-        XlibWrapper.input_key(display, X11::XK_Left, X11::NoModifier)
+      @config.remaps.each do |remap|
+        from = remap.from_key
+        tos  = remap.to_keys
+
+        result[to_keycode(from.keysym)][from.modifier] = Proc.new do
+          tos.each do |to|
+            XlibWrapper.input_key(display, to.keysym, to.modifier)
+          end
+        end
       end
     end
 

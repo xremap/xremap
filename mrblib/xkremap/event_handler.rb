@@ -4,7 +4,7 @@ module Xkremap
     # @param [Xkremap::Display] display
     def initialize(config, display)
       @active_window = ActiveWindow.new(display)
-      @grab_manager  = GrabManager.new(display)
+      @grab_manager  = GrabManager.new(config, display)
       @key_remap_compiler = KeyRemapCompiler.new(config, display)
       remap_keys
     end
