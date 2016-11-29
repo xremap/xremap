@@ -19,10 +19,28 @@ module Xkremap
       ConfigDSL.new(@config, win).instance_exec(&block)
     end
 
+    def press(str)
+      key = compile_exp(str)
+      key.action = :press
+      key
+    end
+
+    def release(str)
+      key = compile_exp(str)
+      key.action = :release
+      key
+    end
+
     private
 
-    def compile_exp(str)
-      KeyExpression.compile(str)
+    def compile_exp(exp)
+      if exp.is_a?(Config::Key)
+        exp
+      elsif exp.is_a?(String)
+        KeyExpression.compile(exp)
+      else
+        raise "unexpected expression: #{exp.inspect}"
+      end
     end
   end
 end

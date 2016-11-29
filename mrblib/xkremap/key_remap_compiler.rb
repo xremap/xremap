@@ -20,11 +20,23 @@ module Xkremap
         from = remap.from_key
         tos  = remap.to_keys
 
-        result[to_keycode(from.keysym)][from.modifier] = Proc.new do
-          tos.each do |to|
-            XlibWrapper.input_key(@display, to.keysym, to.modifier)
+        actions = remap.to_keys.map do |to|
+          case to.action
+          when :input
+            Proc.new { XlibWrapper.input_key(@display, to.keysym, to.modifier) }
+          when :press
+            Proc.new { XlibWrapper.press_key(@display, to.keysym, to.modifier) }
+          when :release
+            Proc.new { XlibWrapper.release_key(@display, to.keysym, to.modifier) }
           end
         end
+
+        result[to_keycode(from.keysym)][from.modifier] =
+          if actions.length == 1
+            actions.first
+          else
+            Proc.new { actions.each { |action| action.call } }
+          end
       end
     end
 

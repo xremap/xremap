@@ -68,6 +68,50 @@ create_key_event(Display *display, Window window, KeySym keysym, unsigned int mo
   };
 }
 
+void
+send_press_event(Display *display, Window window, KeySym keysym, unsigned int modifiers)
+{
+  XKeyEvent event = create_key_event(display, window, keysym, modifiers, KeyPress);
+  XSendEvent(display, window, True, KeyPressMask, (XEvent *)&event);
+}
+
+void
+send_release_event(Display *display, Window window, KeySym keysym, unsigned int modifiers)
+{
+  XKeyEvent event = create_key_event(display, window, keysym, modifiers, KeyRelease);
+  XSendEvent(display, window, True, KeyReleaseMask, (XEvent *)&event);
+}
+
+mrb_value
+mrb_xw_press_key(mrb_state *mrb, mrb_value self)
+{
+  mrb_value display_obj;
+  mrb_int keysym, modifiers;
+  mrb_get_args(mrb, "oii", &display_obj, &keysym, &modifiers);
+
+  Display *display = extract_x_display(mrb, display_obj);
+  Window window = get_focused_window(display);
+
+  send_press_event(display, window, keysym, modifiers);
+
+  return mrb_nil_value();
+}
+
+mrb_value
+mrb_xw_release_key(mrb_state *mrb, mrb_value self)
+{
+  mrb_value display_obj;
+  mrb_int keysym, modifiers;
+  mrb_get_args(mrb, "oii", &display_obj, &keysym, &modifiers);
+
+  Display *display = extract_x_display(mrb, display_obj);
+  Window window = get_focused_window(display);
+
+  send_release_event(display, window, keysym, modifiers);
+
+  return mrb_nil_value();
+}
+
 mrb_value
 mrb_xw_input_key(mrb_state *mrb, mrb_value self)
 {
@@ -78,11 +122,9 @@ mrb_xw_input_key(mrb_state *mrb, mrb_value self)
   Display *display = extract_x_display(mrb, display_obj);
   Window window = get_focused_window(display);
 
-  XKeyEvent event = create_key_event(display, window, keysym, modifiers, KeyPress);
-  XSendEvent(display, window, True, KeyPressMask, (XEvent *)&event);
+  send_press_event(display, window, keysym, modifiers);
+  send_release_event(display, window, keysym, modifiers);
 
-  event = create_key_event(display, window, keysym, modifiers, KeyRelease);
-  XSendEvent(display, window, True, KeyReleaseMask, (XEvent *)&event);
   return mrb_nil_value();
 }
 
@@ -138,6 +180,8 @@ mrb_xkremap_xlib_wrapper_init(mrb_state *mrb, struct RClass *mXkremap)
 {
   struct RClass *cXlibWrapper = mrb_define_class_under(mrb, mXkremap, "XlibWrapper", mrb->object_class);
   mrb_define_class_method(mrb, cXlibWrapper, "input_key",           mrb_xw_input_key,           MRB_ARGS_REQ(3));
+  mrb_define_class_method(mrb, cXlibWrapper, "press_key",           mrb_xw_press_key,           MRB_ARGS_REQ(3));
+  mrb_define_class_method(mrb, cXlibWrapper, "release_key",         mrb_xw_release_key,         MRB_ARGS_REQ(3));
   mrb_define_class_method(mrb, cXlibWrapper, "keysym_to_keycode",   mrb_xw_keysym_to_keycode,   MRB_ARGS_REQ(2));
   mrb_define_class_method(mrb, cXlibWrapper, "fetch_active_window", mrb_xw_fetch_active_window, MRB_ARGS_REQ(1));
   mrb_define_class_method(mrb, cXlibWrapper, "fetch_window_class",  mrb_xw_fetch_window_class,  MRB_ARGS_REQ(2));

@@ -1,15 +1,19 @@
 module Xkremap
   class Config
-    Key    = Struct.new(:keysym, :modifier)
-    Remap  = Struct.new(:from_key, :to_keys)
+    Remap = Struct.new(:from_key, :to_keys)
+
+    class Key < Struct.new(:keysym, :modifier, :action)
+      def initialize(*)
+        super
+        self.action ||= :input
+      end
+    end
 
     class Window < Struct.new(:class_only, :class_not)
-      def class_only
-        super ? Array(super) : []
-      end
-
-      def class_not
-        super ? Array(super) : []
+      def initialize(*)
+        super
+        self.class_only = self.class_only ? Array(self.class_only) : []
+        self.class_not  = self.class_not  ? Array(self.class_not)  : []
       end
     end
 
