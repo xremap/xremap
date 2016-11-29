@@ -1,12 +1,15 @@
 #include <X11/Xlib.h>
 #include <mruby.h>
 
+extern mrb_value mrb_wrap_x_display(mrb_state *mrb, Display *display);
+
 mrb_value
 new_event_handler(mrb_state *mrb, mrb_value config, Display *display)
 {
   struct RClass *mXkremap = mrb_module_get(mrb, "Xkremap");
   struct RClass *cEventHandler = mrb_class_get_under(mrb, mXkremap, "EventHandler");
-  return mrb_funcall(mrb, mrb_obj_value(cEventHandler), "new", 2, config, mrb_nil_value());
+  mrb_value display_obj = mrb_wrap_x_display(mrb, display);
+  return mrb_funcall(mrb, mrb_obj_value(cEventHandler), "new", 2, config, display_obj);
 }
 
 void

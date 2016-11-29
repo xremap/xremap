@@ -5,7 +5,7 @@ module Xkremap
     def initialize(config, display)
       @config  = config
       @display = display
-      # grab keys
+      XlibWrapper.grab_keys(@display)
     end
 
     def handle_key_press(keycode, state)
