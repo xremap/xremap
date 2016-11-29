@@ -14,7 +14,7 @@ module Xkremap
       if handler
         handler.call
       else
-        $stderr.puts "Handler not found!: #{[keycode, state, @remap_handlers].inspect}"
+        $stderr.puts "Handler not found!: #{[keycode, state, @key_press_handlers].inspect}"
       end
     end
 
