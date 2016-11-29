@@ -1,5 +1,20 @@
 module Xkremap
   class Config
+    Key    = Struct.new(:keysym, :modifier)
+    Remap  = Struct.new(:from_key, :to_keys)
+
+    class Window < Struct.new(:class_only, :class_not)
+      def class_only
+        super ? Array(super) : []
+      end
+
+      def class_not
+        super ? Array(super) : []
+      end
+    end
+
+    AnyWindow = Window.new
+
     # @param [String] filename
     def self.load(filename)
       unless File.exist?(filename)
@@ -12,13 +27,29 @@ module Xkremap
       config
     end
 
-    attr_reader :remaps
+    attr_reader :remaps_by_window
 
     def initialize
-      @remaps = []
+      @remaps_by_window = Hash.new { |h, k| h[k] = [] }
     end
 
-    Key   = Struct.new(:keysym, :modifier)
-    Remap = Struct.new(:from_key, :to_keys)
+    def remaps_for(display, window)
+      klass = XlibWrapper.fetch_window_class(display, window)
+      remaps_by_window[AnyWindow] + class_specific_remaps(klass)
+    end
+
+    private
+
+    def class_specific_remaps(klass)
+      @remaps_by_window.select do |window, _|
+        if !window.class_only.empty?
+          window.class_only.include?(klass)
+        elsif !window.class_not.empty?
+          !window.class_not.include?(klass)
+        else
+          false
+        end
+      end.map { |_, remaps| remaps }.flatten
+    end
   end
 end

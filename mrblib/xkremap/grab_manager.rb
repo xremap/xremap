@@ -7,9 +7,9 @@ module Xkremap
       @display = display
     end
 
-    def grab_keys
+    def grab_keys_for(window)
       XlibWrapper.ungrab_keys(@display)
-      @config.remaps.each do |remap|
+      @config.remaps_for(@display, window).each do |remap|
         from = remap.from_key
         XlibWrapper.grab_key(@display, from.keysym, from.modifier)
       end

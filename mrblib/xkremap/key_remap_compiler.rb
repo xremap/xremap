@@ -7,24 +7,22 @@ module Xkremap
     end
 
     # @return [Hash] : keycode(Fixnum) -> state(Fixnum) -> handler(Proc)
-    def compile
+    def compile_for(window)
       result = Hash.new { |h, k| h[k] = {} }
-      set_handlers(result)
+      set_handlers_for(result, window)
       result
     end
 
     private
 
-    def set_handlers(result)
-      display = @display
-
-      @config.remaps.each do |remap|
+    def set_handlers_for(result, window)
+      @config.remaps_for(@display, window).each do |remap|
         from = remap.from_key
         tos  = remap.to_keys
 
         result[to_keycode(from.keysym)][from.modifier] = Proc.new do
           tos.each do |to|
-            XlibWrapper.input_key(display, to.keysym, to.modifier)
+            XlibWrapper.input_key(@display, to.keysym, to.modifier)
           end
         end
       end

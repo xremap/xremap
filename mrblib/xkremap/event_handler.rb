@@ -32,8 +32,9 @@ module Xkremap
     private
 
     def remap_keys
-      @key_press_handlers = @key_remap_compiler.compile
-      @grab_manager.grab_keys
+      window = @active_window.current_window
+      @key_press_handlers = @key_remap_compiler.compile_for(window)
+      @grab_manager.grab_keys_for(window)
       puts 'remap keys!'
     end
   end

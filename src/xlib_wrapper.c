@@ -1,8 +1,42 @@
+#include <X11/Xatom.h>
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include "mruby.h"
 
 extern Display* extract_x_display(mrb_state *mrb, mrb_value display_obj);
+
+mrb_value
+mrb_xw_fetch_window_class(mrb_state *mrb, mrb_value self)
+{
+  mrb_value display_obj;
+  mrb_int window;
+  mrb_get_args(mrb, "oi", &display_obj, &window);
+
+  Display *display = extract_x_display(mrb, display_obj);
+  Atom net_wm_name = XInternAtom(display, "WM_CLASS", True);
+
+  XTextProperty prop;
+  XGetTextProperty(display, window, &prop, net_wm_name);
+
+  mrb_value ret;
+  if (prop.nitems > 0 && prop.value) {
+    if (prop.encoding == XA_STRING) {
+      ret = mrb_str_new_cstr(mrb, (char *)prop.value);
+    } else {
+      char **l = NULL;
+      int count;
+      XmbTextPropertyToTextList(display, &prop, &l, &count);
+      if (count > 0 && *l) {
+        ret = mrb_str_new_cstr(mrb, *l);
+      } else {
+        ret = mrb_str_new_cstr(mrb, "");
+      }
+      XFreeStringList(l);
+    }
+  }
+  return ret;
+}
 
 Window
 get_focused_window(Display *display)
@@ -106,6 +140,7 @@ mrb_xkremap_xlib_wrapper_init(mrb_state *mrb, struct RClass *mXkremap)
   mrb_define_class_method(mrb, cXlibWrapper, "input_key",           mrb_xw_input_key,           MRB_ARGS_REQ(3));
   mrb_define_class_method(mrb, cXlibWrapper, "keysym_to_keycode",   mrb_xw_keysym_to_keycode,   MRB_ARGS_REQ(2));
   mrb_define_class_method(mrb, cXlibWrapper, "fetch_active_window", mrb_xw_fetch_active_window, MRB_ARGS_REQ(1));
+  mrb_define_class_method(mrb, cXlibWrapper, "fetch_window_class",  mrb_xw_fetch_window_class,  MRB_ARGS_REQ(2));
   mrb_define_class_method(mrb, cXlibWrapper, "grab_key",            mrb_xw_grab_key,            MRB_ARGS_REQ(3));
   mrb_define_class_method(mrb, cXlibWrapper, "ungrab_keys",         mrb_xw_ungrab_keys,         MRB_ARGS_REQ(1));
 }
