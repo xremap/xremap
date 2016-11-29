@@ -9,5 +9,5 @@ MRuby::Gem::Specification.new('xkremap') do |spec|
   spec.add_dependency 'mruby-io',          mgem: 'mruby-io'
   spec.add_dependency 'mruby-process',     mgem: 'mruby-process'
   spec.add_dependency 'mruby-onig-regexp', mgem: 'mruby-onig-regexp'
-  spec.add_dependency 'mruby-shellwords',          mgem: 'mruby-shellwords'
+  spec.add_dependency 'mruby-shellwords',  mgem: 'mruby-shellwords'
 end

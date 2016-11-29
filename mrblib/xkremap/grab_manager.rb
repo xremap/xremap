@@ -13,6 +13,9 @@ module Xkremap
         from = remap.from_key
         XlibWrapper.grab_key(@display, from.keysym, from.modifier)
       end
+
+      # TODO: remove this log
+      puts "remapped for class: #{XlibWrapper.fetch_window_class(@display, window).inspect}"
     end
   end
 end

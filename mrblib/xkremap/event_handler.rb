@@ -25,7 +25,6 @@ module Xkremap
     end
 
     def handle_mapping_notify
-      puts 'mapping changed!'
       remap_keys
     end
 
@@ -35,7 +34,6 @@ module Xkremap
       window = @active_window.current_window
       @key_press_handlers = @key_remap_compiler.compile_for(window)
       @grab_manager.grab_keys_for(window)
-      puts 'remap keys!'
     end
   end
 end
