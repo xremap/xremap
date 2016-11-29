@@ -1,5 +1,5 @@
 module Xkremap
-  class KeyGrabManager
+  class GrabManager
     # @param [Xkremap::Display] display
     def initialize(display)
       @display = display
