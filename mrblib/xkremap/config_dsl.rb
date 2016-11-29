@@ -7,7 +7,10 @@ module Xkremap
     end
 
     def remap(from_str, options = {})
-      to_strs = Array(options.fetch(:to))
+      # Array() doesn't work for Config::Execute somehow.
+      to_strs = options.fetch(:to)
+      to_strs = [to_strs] unless to_strs.is_a?(Array)
+
       @config.remaps_by_window[@window] << Config::Remap.new(
         compile_exp(from_str),
         to_strs.map { |str| compile_exp(str) }
@@ -17,6 +20,10 @@ module Xkremap
     def window(options = {}, &block)
       win = Config::Window.new(options[:class_only], options[:class_not])
       ConfigDSL.new(@config, win).instance_exec(&block)
+    end
+
+    def execute(str)
+      Config::Execute.new(str, :execute)
     end
 
     def press(str)
@@ -34,9 +41,10 @@ module Xkremap
     private
 
     def compile_exp(exp)
-      if exp.is_a?(Config::Key)
+      case exp
+      when Config::Key, Config::Execute
         exp
-      elsif exp.is_a?(String)
+      when String
         KeyExpression.compile(exp)
       else
         raise "unexpected expression: #{exp.inspect}"

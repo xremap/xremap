@@ -28,6 +28,10 @@ module Xkremap
             Proc.new { XlibWrapper.press_key(@display, to.keysym, to.modifier) }
           when :release
             Proc.new { XlibWrapper.release_key(@display, to.keysym, to.modifier) }
+          when :execute
+            Proc.new { system("nohup #{to.command} >/dev/null 2>&1 &") }
+          else
+            raise "unexpected action: #{to.action.inspect}"
           end
         end
 
