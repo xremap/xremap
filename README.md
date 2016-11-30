@@ -35,6 +35,12 @@ $ make
 $ sudo make install # or `make DESTDIR=~/bin install`
 ```
 
+### Arch Linux
+
+```bash
+$ yaourt -S xkremap
+```
+
 ## Usage
 
 ```

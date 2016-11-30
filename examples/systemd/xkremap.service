@@ -1,0 +1,14 @@
+# 1. Copy this to ~/.config/systemd/user/xkremap.service
+# 2. systemd --user enable xkremap
+
+[Unit]
+Description=xkremap
+
+[Service]
+ExecStart=/usr/bin/xkremap /home/k0kubun/.xkremap
+ExecStop=/usr/bin/killall xkremap
+Restart=always
+Environment=DISPLAY=:0.0
+
+[Install]
+WantedBy=graphical.target
