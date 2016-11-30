@@ -106,7 +106,7 @@ window class_only: 'slack' do
 end
 ```
 
-## Projet status
+## Project status
 
 Experimental. It's working but not tested well.
 
