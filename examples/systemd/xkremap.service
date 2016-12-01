@@ -1,5 +1,5 @@
 # 1. Copy this to ~/.config/systemd/user/xkremap.service
-# 2. systemd --user enable xkremap
+# 2. systemctl --user enable xkremap
 
 [Unit]
 Description=xkremap
