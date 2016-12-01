@@ -12,7 +12,7 @@ module Xkremap
 
       def split_into_key_and_mods(exp)
         modifiers = []
-        while exp.match(/\A(?<modifier>(C|Ctrl|M|Alt|Shift))-/)
+        while exp.match(/\A(?<modifier>(C|Ctrl|M|Alt|Shift|Super|Win))-/)
           modifier = Regexp.last_match[:modifier]
           modifiers << modifier
           exp = exp.sub(/\A#{modifier}-/, '')
@@ -28,6 +28,8 @@ module Xkremap
             mask |= X11::ControlMask
           when 'M', 'Alt'
             mask |= X11::Mod1Mask
+          when 'Super', 'Win'
+            mask |= X11::Mod4Mask
           when 'Shift'
             mask |= X11::ShiftMask
           end
