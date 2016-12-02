@@ -9,10 +9,12 @@ MRuby::Build.new do |conf|
     @mrbc.compile_options += ' -g'
   end
 
-  # Never support Visual C++.
-  # https://github.com/mruby/mruby/blob/1.2.0/CONTRIBUTING.md#comply-with-c99-isoiec-98991999
-  (conf.cc.flags.first.is_a?(String) ? conf.cc.flags : conf.cc.flags.first).reject! do |flag|
-    flag == '-Wdeclaration-after-statement'
+  conf.cc do |cc|
+    # Never support Visual C++.
+    # https://github.com/mruby/mruby/blob/1.2.0/CONTRIBUTING.md#comply-with-c99-isoiec-98991999
+    (cc.flags.first.is_a?(String) ? cc.flags : cc.flags.first).reject! do |flag|
+      flag == '-Wdeclaration-after-statement'
+    end
   end
 
   conf.linker do |linker|
