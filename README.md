@@ -32,7 +32,6 @@ because it embeds mruby to evaluate configuration.
 - bison
 
 While ruby is not runtime dependency for xkremap, mruby embedded in xkremap requires ruby to build.
-And bison is required to build ruby.
 
 ### From source code
 
