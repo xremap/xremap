@@ -28,15 +28,17 @@ module Xkremap
         exit 1
       end
 
-      config = self.new
+      config_dir = File.dirname(File.expand_path(filename))
+      config = self.new(config_dir)
       ConfigDSL.new(config).instance_eval(File.read(filename))
       config
     end
 
-    attr_reader :remaps_by_window
+    attr_reader :remaps_by_window, :config_dir
 
-    def initialize
+    def initialize(config_dir)
       @remaps_by_window = Hash.new { |h, k| h[k] = [] }
+      @config_dir = config_dir
     end
 
     def remaps_for(display, window)

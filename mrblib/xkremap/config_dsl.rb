@@ -42,6 +42,13 @@ module Xkremap
       ConfigDSL.define_method(name, &block)
     end
 
+    def include_config(filename)
+      path = File.expand_path(filename, @config.config_dir)
+      path << '.rb' unless path.start_with?('.rb')
+      raise "config file not found!: #{path.inspect}" unless File.exist?(path)
+      instance_eval(File.read(path))
+    end
+
     private
 
     def compile_exp(exp)
