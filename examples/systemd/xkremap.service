@@ -5,6 +5,7 @@
 Description=xkremap
 
 [Service]
+KillMode=process
 ExecStart=/usr/bin/xkremap /home/k0kubun/.xkremap
 ExecStop=/usr/bin/killall xkremap
 Restart=always
