@@ -1,3 +1,6 @@
+## v0.0.3
+- Allow using ENV in config
+
 ## v0.0.2
 - Add `include_config` to load config from another file
 
