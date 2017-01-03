@@ -6,6 +6,7 @@ MRuby::Gem::Specification.new('xkremap') do |spec|
 
   spec.add_dependency 'mruby-eval', core: 'mruby-eval'
 
+  spec.add_dependency 'mruby-env',         mgem: 'mruby-env'
   spec.add_dependency 'mruby-io',          mgem: 'mruby-io'
   spec.add_dependency 'mruby-process',     mgem: 'mruby-process'
   spec.add_dependency 'mruby-onig-regexp', mgem: 'mruby-onig-regexp'
