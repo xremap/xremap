@@ -30,6 +30,7 @@ because it embeds mruby to evaluate configuration.
 
 - ruby
 - bison
+- libx11-dev
 
 While ruby is not runtime dependency for xremap, mruby embedded in xremap requires ruby to build.
 
@@ -40,12 +41,6 @@ $ git clone https://github.com/k0kubun/xremap
 $ cd xremap
 $ make
 $ sudo make install # or `make DESTDIR=~/bin install`
-```
-
-### Arch Linux
-
-```bash
-$ yaourt -S xremap
 ```
 
 ## Usage
