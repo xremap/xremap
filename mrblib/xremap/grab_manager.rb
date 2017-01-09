@@ -1,7 +1,7 @@
-module Xkremap
+module Xremap
   class GrabManager
-    # @param [Xkremap::Config] config
-    # @param [Xkremap::Display] display
+    # @param [Xremap::Config] config
+    # @param [Xremap::Display] display
     def initialize(config, display)
       @config  = config
       @display = display

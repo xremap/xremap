@@ -1,7 +1,7 @@
-module Xkremap
+module Xremap
   class EventHandler
-    # @param [Xkremap::Config] config
-    # @param [Xkremap::Display] display
+    # @param [Xremap::Config] config
+    # @param [Xremap::Display] display
     def initialize(config, display)
       @active_window = ActiveWindow.new(display)
       @grab_manager  = GrabManager.new(config, display)

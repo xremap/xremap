@@ -20,8 +20,8 @@ struct mrb_data_type mrb_display_type = { "Display", mrb_display_free };
 mrb_value
 mrb_wrap_x_display(mrb_state *mrb, Display *display)
 {
-  struct RClass *mXkremap = mrb_module_get(mrb, "Xkremap");
-  struct RClass *cDisplay = mrb_class_get_under(mrb, mXkremap, "Display");
+  struct RClass *mXremap = mrb_module_get(mrb, "Xremap");
+  struct RClass *cDisplay = mrb_class_get_under(mrb, mXremap, "Display");
 
   struct mrb_display *display_ptr = (struct mrb_display *)mrb_malloc(mrb, sizeof(struct mrb_display));
   display_ptr->display = display;
@@ -39,7 +39,7 @@ extract_x_display(mrb_state *mrb, mrb_value display_obj)
 }
 
 void
-mrb_xkremap_display_init(mrb_state *mrb, struct RClass *mXkremap)
+mrb_xremap_display_init(mrb_state *mrb, struct RClass *mXremap)
 {
-  mrb_define_class_under(mrb, mXkremap, "Display", mrb->object_class);
+  mrb_define_class_under(mrb, mXremap, "Display", mrb->object_class);
 }

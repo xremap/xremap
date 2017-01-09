@@ -1,4 +1,4 @@
-module Xkremap
+module Xremap
   class KeyRemapCompiler
     def initialize(config, display)
       @config  = config

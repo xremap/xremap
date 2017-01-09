@@ -1,9 +1,9 @@
-module Xkremap
+module Xremap
   class ActiveWindow
     # @param [Fixnum] current_window
     attr_reader :current_window
 
-    # @param [Xkremap::Display] display
+    # @param [Xremap::Display] display
     def initialize(display)
       @display = display
       @current_window = fetch_active_window

@@ -1,6 +1,6 @@
-module Xkremap
+module Xremap
   class ConfigDSL
-    # @param [Xkremap::Config] config
+    # @param [Xremap::Config] config
     def initialize(config, win = Config::AnyWindow)
       @config = config
       @window = win

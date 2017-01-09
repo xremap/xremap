@@ -3,9 +3,9 @@
 #include "mruby.h"
 
 void
-mrb_xkremap_x11_constants_init(mrb_state *mrb, struct RClass *mXkremap)
+mrb_xremap_x11_constants_init(mrb_state *mrb, struct RClass *mXremap)
 {
-  struct RClass *mX11 = mrb_define_module_under(mrb, mXkremap, "X11");
+  struct RClass *mX11 = mrb_define_module_under(mrb, mXremap, "X11");
 # define define_x11_const(name) mrb_define_const(mrb, mX11, #name, mrb_fixnum_value(name))
 
   // original constant.

@@ -3,7 +3,7 @@
 #include <signal.h>
 #include <mruby.h>
 #include <X11/Xlib.h>
-#include "xkremap.h"
+#include "xremap.h"
 
 int
 error_handler(Display *display, XErrorEvent *event)
@@ -43,7 +43,7 @@ int
 main(int argc, char **argv)
 {
   if (argc != 2) {
-    fprintf(stderr, "Usage: xkremap <file>\n");
+    fprintf(stderr, "Usage: xremap <file>\n");
     return 1;
   }
 

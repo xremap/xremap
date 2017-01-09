@@ -1,0 +1,15 @@
+# 1. Copy this to ~/.config/systemd/user/xremap.service
+# 2. systemctl --user enable xremap
+
+[Unit]
+Description=xremap
+
+[Service]
+KillMode=process
+ExecStart=/usr/bin/xremap /home/k0kubun/.xremap
+ExecStop=/usr/bin/killall xremap
+Restart=always
+Environment=DISPLAY=:0.0
+
+[Install]
+WantedBy=graphical.target

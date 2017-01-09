@@ -1,8 +1,8 @@
-module Xkremap
+module Xremap
   module KeyExpression
     class << self
       # @param  [String] exp
-      # @return [Xkremap::Config::Key] key
+      # @return [Xremap::Config::Key] key
       def compile(exp)
         keyexp, modifiers = split_into_key_and_mods(exp)
         Config::Key.new(to_keysym(keyexp), modifier_mask(modifiers))

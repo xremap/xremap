@@ -176,9 +176,9 @@ mrb_xw_ungrab_keys(mrb_state *mrb, mrb_value self)
 }
 
 void
-mrb_xkremap_xlib_wrapper_init(mrb_state *mrb, struct RClass *mXkremap)
+mrb_xremap_xlib_wrapper_init(mrb_state *mrb, struct RClass *mXremap)
 {
-  struct RClass *cXlibWrapper = mrb_define_class_under(mrb, mXkremap, "XlibWrapper", mrb->object_class);
+  struct RClass *cXlibWrapper = mrb_define_class_under(mrb, mXremap, "XlibWrapper", mrb->object_class);
   mrb_define_class_method(mrb, cXlibWrapper, "input_key",           mrb_xw_input_key,           MRB_ARGS_REQ(3));
   mrb_define_class_method(mrb, cXlibWrapper, "press_key",           mrb_xw_press_key,           MRB_ARGS_REQ(3));
   mrb_define_class_method(mrb, cXlibWrapper, "release_key",         mrb_xw_release_key,         MRB_ARGS_REQ(3));

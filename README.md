@@ -1,11 +1,11 @@
-# xkremap
+# xremap
 
 Dynamic key remapper for X Window System
 
 ## Description
 
-xkremap is a key remapper for X Window System.
-With xkremap's Ruby DSL, you can simply write configuration of key bindings.
+xremap is a key remapper for X Window System.
+With xremap's Ruby DSL, you can simply write configuration of key bindings.
 
 ```rb
 remap 'C-b', to: 'Left'
@@ -21,7 +21,7 @@ window class_only: 'slack' do
 end
 ```
 
-While xkremap's configuration is written in Ruby, you can run xkremap without Ruby installation
+While xremap's configuration is written in Ruby, you can run xremap without Ruby installation
 because it embeds mruby to evaluate configuration.
 
 ## Installation
@@ -31,13 +31,13 @@ because it embeds mruby to evaluate configuration.
 - ruby
 - bison
 
-While ruby is not runtime dependency for xkremap, mruby embedded in xkremap requires ruby to build.
+While ruby is not runtime dependency for xremap, mruby embedded in xremap requires ruby to build.
 
 ### From source code
 
 ```bash
-$ git clone https://github.com/k0kubun/xkremap
-$ cd xkremap
+$ git clone https://github.com/k0kubun/xremap
+$ cd xremap
 $ make
 $ sudo make install # or `make DESTDIR=~/bin install`
 ```
@@ -45,13 +45,13 @@ $ sudo make install # or `make DESTDIR=~/bin install`
 ### Arch Linux
 
 ```bash
-$ yaourt -S xkremap
+$ yaourt -S xremap
 ```
 
 ## Usage
 
 ```
-$ xkremap /path/to/config
+$ xremap /path/to/config
 ```
 
 See [examples](./examples) to write config file.
@@ -101,7 +101,7 @@ remap 'C-h', to: execute('urxvt')
 
 ### Application-specific key bindings
 
-See xkremap's stdout to find a window class name of your application.
+See xremap's stdout to find a window class name of your application.
 
 ```rb
 window class_only: 'slack' do
@@ -119,7 +119,7 @@ Experimental. It's working but not tested well.
 
 ## Note
 
-xkremap is designed to have similar functionality with
+xremap is designed to have similar functionality with
 [Karabiner](https://github.com/tekezo/Karabiner) and
 [karabiner-dsl](https://github.com/k0kubun/karabiner-dsl)
 for Linux environments.

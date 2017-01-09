@@ -1,26 +1,26 @@
 current_dir := $(shell pwd)
-CSRCS := $(wildcard tools/xkremap/*.[ch])
-MRBSRCS := $(wildcard mrblib/xkremap/*.rb)
+CSRCS := $(wildcard tools/xremap/*.[ch])
+MRBSRCS := $(wildcard mrblib/xremap/*.rb)
 MRBCSRCS := $(wildcard src/*.[ch])
 # Using master to apply https://github.com/mruby/mruby/pull/3192
 REVISION=0ff3ae1fbaed62010c54c43235e29cdc85da2f78
 DESTDIR := /usr/local/bin
 .PHONY: all clean install
 
-all: xkremap
+all: xremap
 
 clean:
 	rm -rf mruby/build/host
 
-install: xkremap
-	mv xkremap $(DESTDIR)/xkremap
+install: xremap
+	mv xremap $(DESTDIR)/xremap
 
-xkremap: mruby/build/host/bin/xkremap
-	cp mruby/build/host/bin/xkremap xkremap
+xremap: mruby/build/host/bin/xremap
+	cp mruby/build/host/bin/xremap xremap
 
 mruby:
 	git clone https://github.com/mruby/mruby
 	git -C mruby reset --hard $(REVISION)
 
-mruby/build/host/bin/xkremap: mruby build_config.rb $(CSRCS) $(MRBSRCS) $(MRBCSRCS)
+mruby/build/host/bin/xremap: mruby build_config.rb $(CSRCS) $(MRBSRCS) $(MRBCSRCS)
 	cd mruby && MRUBY_CONFIG="$(current_dir)/build_config.rb" make
