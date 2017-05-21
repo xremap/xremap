@@ -18,16 +18,15 @@ mrb_xw_fetch_window_class(mrb_state *mrb, mrb_value self)
 
   XTextProperty prop;
 
- get_wm_name:
+  while (1) {
+    if (XGetTextProperty(display, window, &prop, net_wm_name)) { break; }
 
-  if (!XGetTextProperty(display, window, &prop, net_wm_name)) {
     unsigned int nchildren;
     Window root, parent, *children;
-    if (XQueryTree(display, window, &root, &parent, &children, &nchildren)) {
-      if (children) { XFree(children); }
-      window = parent;
-      goto get_wm_name;
-    }
+
+    if (!XQueryTree(display, window, &root, &parent, &children, &nchildren)) { break; }
+    if (children) { XFree(children); }
+    window = parent;
   }
 
   mrb_value ret;
