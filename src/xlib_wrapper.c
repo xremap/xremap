@@ -17,7 +17,17 @@ mrb_xw_fetch_window_class(mrb_state *mrb, mrb_value self)
   Atom net_wm_name = XInternAtom(display, "WM_CLASS", True);
 
   XTextProperty prop;
-  XGetTextProperty(display, window, &prop, net_wm_name);
+
+  while (1) {
+    if (XGetTextProperty(display, window, &prop, net_wm_name)) { break; }
+
+    unsigned int nchildren;
+    Window root, parent, *children;
+
+    if (!XQueryTree(display, window, &root, &parent, &children, &nchildren)) { break; }
+    if (children) { XFree(children); }
+    window = parent;
+  }
 
   mrb_value ret;
   if (prop.nitems > 0 && prop.value) {
