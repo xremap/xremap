@@ -24,8 +24,19 @@ print_client_message_event(XClientMessageEvent *event)
 int
 error_handler(Display *display, XErrorEvent *event)
 {
-  // FIXME: log error properly
-  fprintf(stderr, "error detected!\n");
+  char buffer[1024];
+
+  if (!XGetErrorText(display, event->error_code, buffer, sizeof(buffer))) {
+    buffer[0] = '\0';
+  }
+
+  fprintf(stderr,
+          "error detected! XErrorEvent(serial=%ld error_code=%d request_code=%d minor_code=%d text=%s)\n",
+          event->serial,
+          event->error_code,
+          event->request_code,
+          event->minor_code,
+          buffer);
   return 0;
 }
 
