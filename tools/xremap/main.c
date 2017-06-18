@@ -1,15 +1,42 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <inttypes.h>
 #include <mruby.h>
 #include <X11/Xlib.h>
 #include "xremap.h"
 
+void
+print_client_message_event(XClientMessageEvent *event)
+{
+  fprintf(stderr,
+          "received ClientMesssage(message_type=%" PRIu32 " format=%d data=%#lx, %#lx, %#lx, %#lx, %#lx)",
+          (uint32_t)event->message_type,
+          event->format,
+          (unsigned long)event->data.l[0],
+          (unsigned long)event->data.l[1],
+          (unsigned long)event->data.l[2],
+          (unsigned long)event->data.l[3],
+          (unsigned long)event->data.l[4]);
+
+}
+
 int
 error_handler(Display *display, XErrorEvent *event)
 {
-  // FIXME: log error properly
-  fprintf(stderr, "error detected!\n");
+  char buffer[1024];
+
+  if (!XGetErrorText(display, event->error_code, buffer, sizeof(buffer))) {
+    buffer[0] = '\0';
+  }
+
+  fprintf(stderr,
+          "error detected! XErrorEvent(serial=%ld error_code=%d request_code=%d minor_code=%d text=%s)\n",
+          event->serial,
+          event->error_code,
+          event->request_code,
+          event->minor_code,
+          buffer);
   return 0;
 }
 
@@ -32,6 +59,8 @@ event_loop(Display *display, mrb_state *mrb, mrb_value event_handler)
       case MappingNotify:
         handle_mapping_notify(mrb, event_handler);
         break;
+      case ClientMessage:
+        print_client_message_event((XClientMessageEvent*)&event);
       default:
         fprintf(stderr, "unexpected event detected! (%d)\n", event.type);
         break;
