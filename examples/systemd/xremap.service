@@ -9,6 +9,7 @@ Description=xremap
 [Service]
 KillMode=process
 ExecStart=/usr/bin/xremap /home/k0kubun/.xremap
+Type=simple
 Restart=always
 
 # Update DISPLAY to be the same as `echo $DISPLAY` on your graphical terminal.
