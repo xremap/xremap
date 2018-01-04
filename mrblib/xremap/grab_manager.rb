@@ -9,6 +9,10 @@ module Xremap
 
     def grab_keys_for(window)
       XlibWrapper.ungrab_keys(@display)
+
+      # guard segmentation fault
+      return if window == 0
+
       @config.remaps_for(@display, window).each do |remap|
         from = remap.from_key
         XlibWrapper.grab_key(@display, from.keysym, from.modifier)

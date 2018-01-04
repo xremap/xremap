@@ -9,6 +9,10 @@ module Xremap
     # @return [Hash] : keycode(Fixnum) -> state(Fixnum) -> handler(Proc)
     def compile_for(window)
       result = Hash.new { |h, k| h[k] = {} }
+
+      # guard segmentation fault
+      return result if window == 0
+
       set_handlers_for(result, window)
       result
     end
