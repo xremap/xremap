@@ -19,7 +19,7 @@ module Xremap
     private
 
     def fetch_active_window
-      sleep 0.001
+      sleep ENV.fetch('XREMAP_DELAY', '0.1').to_f
       XlibWrapper.fetch_active_window(@display)
     end
   end
