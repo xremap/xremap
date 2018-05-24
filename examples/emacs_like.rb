@@ -15,6 +15,15 @@ window class_not: 'urxvt' do
 
   remap 'C-d', to: 'Delete'
   remap 'M-d', to: 'Ctrl-Delete'
+  
+  remap 'M-w', to: 'Ctrl-c'
+  remap 'C-y', to: 'Ctrl-v'
+  remap 'C-w', to: 'Ctrl-x'
+
+  remap 'C-v', to: 'Page_Down'
+  remap 'M-v', to: 'Page_Up'
+  
+  remap 'C-s', to: 'Ctrl-f'
 
   # actually these are vim insert mode bindings, but compatible with shell
   remap 'C-u', to: ['Shift-Home', 'Ctrl-x']
