@@ -2,6 +2,13 @@
 
 Dynamic key remapper for X Window System
 
+## Project status
+
+This is an experimental project to achieve a comfortable configuration experience of key remap on Linux.
+
+Some issues are reported and some of them are hard to reproduce or resolve immediately.
+If you can fix any open issues on these platforms, you'll be welcomed as a maintainer of xremap.
+
 ## Description
 
 xremap is a key remapper for X Window System.
@@ -107,10 +114,6 @@ window class_only: 'slack' do
   remap 'Ctrl-Alt-j', to: 'Alt-Shift-Down'
 end
 ```
-
-## Project status
-
-Experimental. It's working but not tested well.
 
 ## Note
 
