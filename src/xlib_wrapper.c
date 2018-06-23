@@ -18,6 +18,12 @@ mrb_xw_fetch_window_class(mrb_state *mrb, mrb_value self)
 
   XTextProperty prop;
 
+  // XGetTextProperty can return 0 when xmonad's workspace is selected, while it usually returns 1.
+  // This prevents SEGV in such a situation.
+  if (XGetTextProperty(display, window, &prop, net_wm_name) == 0) {
+    return display_obj;
+  }
+
   while (1) {
     if (XGetTextProperty(display, window, &prop, net_wm_name)) { break; }
 
