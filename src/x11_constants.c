@@ -12,7 +12,7 @@ mrb_xremap_x11_constants_init(mrb_state *mrb, struct RClass *mXremap)
   // original constant.
   mrb_define_const(mrb, mX11, "NoModifier", mrb_fixnum_value(0));
 
-  
+  // cat /usr/include/X11/keysymdef.h | ruby -e 'puts STDIN.read.split("\n").select {|l| l.match(/\A(#define XK_|#ifdef|#endif)/) }.map{|l| l.match(/\A#define XK_/) ? %Q[  define_x11_const(#{l.split(" ")[1]});] : l }.join("\n")'
   define_x11_const(XK_VoidSymbol);
 #ifdef XK_MISCELLANY
   define_x11_const(XK_BackSpace);
