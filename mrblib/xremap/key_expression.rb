@@ -38,10 +38,10 @@ module Xremap
       end
 
       def to_keysym(keyexp)
-        begin
-          X11.const_get("XK_#{keyexp}")
-        rescue NameError # Allow non "XK_" expressions
+        if keyexp.start_with?('XF86XK_')
           X11.const_get(keyexp)
+        else
+          X11.const_get("XK_#{keyexp}")
         end
       end
     end
