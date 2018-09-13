@@ -2,3 +2,5 @@
 /mruby
 tags
 TAGS
+src/x11_constants.inc
+src/x11_constants_XF86.inc
