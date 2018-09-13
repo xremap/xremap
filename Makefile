@@ -26,7 +26,7 @@ src/x11_constants.inc:
 	cat /usr/include/X11/keysymdef.h | ruby -e 'puts STDIN.read.split("\n").select {|l| l.match(/\A(#define XK_|#ifdef|#endif)/) }.map{|l| l.match(/\A#define XK_/) ? %Q[  define_x11_const(#{l.split(" ")[1]});] : l }.join("\n")' > src/x11_constants.inc
 
 src/x11_constants_XF86.inc:
-	cat /usr/include/X11/X.h | ruby -e 'puts STDIN.read.split("\n").select {|l| l.start_with?("#")}[2..-2].map{|l| l.start_with?("#define") ? %Q[  define_x11_const(#{l.split(" ")[1]});] : l}' > src/x11_constants_XF86.inc
+	cat /usr/include/X11/XF86keysym.h | ruby -e 'puts STDIN.read.split("\n").select {|l| l.start_with?("#")}[2..-2].map{|l| l.start_with?("#define") ? %Q[  define_x11_const(#{l.split(" ")[1]});] : l}' > src/x11_constants_XF86.inc
 
 mruby/build/host/bin/xremap: mruby build_config.rb src/x11_constants.inc src/x11_constants_XF86.inc $(CSRCS) $(MRBSRCS) $(MRBCSRCS)
 	cd mruby && MRUBY_CONFIG="$(current_dir)/build_config.rb" make
