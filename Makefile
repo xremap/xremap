@@ -10,7 +10,7 @@ DESTDIR := /usr/local/bin
 all: xremap
 
 clean:
-	rm -rf mruby/build/host
+	rm -rf mruby/build/host src/*.inc
 
 install: xremap
 	mv xremap $(DESTDIR)/xremap
