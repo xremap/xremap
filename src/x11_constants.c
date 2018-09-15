@@ -11,6 +11,7 @@ mrb_xremap_x11_constants_init(mrb_state *mrb, struct RClass *mXremap)
 
   // original constant.
   mrb_define_const(mrb, mX11, "NoModifier", mrb_fixnum_value(0));
-#include "x11_constants.inc"
-#include "x11_constants_XF86.inc"
+#include "x11_constants_keysymdef.inc"
+#include "x11_constants_X.inc"
+#include "x11_constants_XF86keysym.inc"
 }
