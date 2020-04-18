@@ -15,7 +15,7 @@ module Xremap
 
       @config.remaps_for(@display, window).each do |remap|
         from = remap.from_key
-        XlibWrapper.grab_key(@display, from.keysym, from.modifier)
+        XlibWrapper.grab_key(@display, from.keysym, X11::AnyModifier)
       end
 
       # TODO: remove this log

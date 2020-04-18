@@ -156,6 +156,17 @@ mrb_xw_keysym_to_keycode(mrb_state *mrb, mrb_value self)
 }
 
 mrb_value
+mrb_xw_keycode_to_keysym(mrb_state *mrb, mrb_value self)
+{
+  mrb_value display_obj;
+  mrb_int keycode;
+  mrb_get_args(mrb, "oi", &display_obj, &keycode);
+
+  Display *display = extract_x_display(mrb, display_obj);
+  return mrb_fixnum_value(XKeycodeToKeysym(display, keycode, 0));
+}
+
+mrb_value
 mrb_xw_fetch_active_window(mrb_state *mrb, mrb_value self)
 {
   mrb_value display_obj;
@@ -199,6 +210,7 @@ mrb_xremap_xlib_wrapper_init(mrb_state *mrb, struct RClass *mXremap)
   mrb_define_class_method(mrb, cXlibWrapper, "press_key",           mrb_xw_press_key,           MRB_ARGS_REQ(3));
   mrb_define_class_method(mrb, cXlibWrapper, "release_key",         mrb_xw_release_key,         MRB_ARGS_REQ(3));
   mrb_define_class_method(mrb, cXlibWrapper, "keysym_to_keycode",   mrb_xw_keysym_to_keycode,   MRB_ARGS_REQ(2));
+  mrb_define_class_method(mrb, cXlibWrapper, "keycode_to_keysym",   mrb_xw_keycode_to_keysym,   MRB_ARGS_REQ(2));
   mrb_define_class_method(mrb, cXlibWrapper, "fetch_active_window", mrb_xw_fetch_active_window, MRB_ARGS_REQ(1));
   mrb_define_class_method(mrb, cXlibWrapper, "fetch_window_class",  mrb_xw_fetch_window_class,  MRB_ARGS_REQ(2));
   mrb_define_class_method(mrb, cXlibWrapper, "grab_key",            mrb_xw_grab_key,            MRB_ARGS_REQ(3));

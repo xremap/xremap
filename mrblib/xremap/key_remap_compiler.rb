@@ -27,11 +27,11 @@ module Xremap
         actions = remap.to_keys.map do |to|
           case to.action
           when :input
-            Proc.new { XlibWrapper.input_key(@display, to.keysym, to.modifier) }
+            Proc.new { |remaining_modifier| XlibWrapper.input_key(@display, to.keysym, to.modifier | remaining_modifier) }
           when :press
-            Proc.new { XlibWrapper.press_key(@display, to.keysym, to.modifier) }
+            Proc.new { |remaining_modifier| XlibWrapper.press_key(@display, to.keysym, to.modifier | remaining_modifier) }
           when :release
-            Proc.new { XlibWrapper.release_key(@display, to.keysym, to.modifier) }
+            Proc.new { |remaining_modifier| XlibWrapper.release_key(@display, to.keysym, to.modifier | remaining_modifier) }
           when :execute
             Proc.new { system("nohup /bin/sh -c #{to.command.shellescape} >/dev/null 2>&1 &") }
           else
@@ -39,12 +39,7 @@ module Xremap
           end
         end
 
-        result[to_keycode(from.keysym)][from.modifier] =
-          if actions.length == 1
-            actions.first
-          else
-            Proc.new { actions.each { |action| action.call } }
-          end
+        result[to_keycode(from.keysym)][from.modifier] = Proc.new { |remaining_modifier| actions.each { |action| action.call(remaining_modifier) } }
       end
     end
 
