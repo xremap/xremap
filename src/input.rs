@@ -1,7 +1,5 @@
 extern crate evdev;
 
-use std::os::unix::io::{AsRawFd, RawFd};
-use std::{io, mem, ptr};
 use evdev::Device;
 
 pub fn select_device() -> Device {
