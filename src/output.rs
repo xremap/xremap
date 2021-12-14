@@ -8,6 +8,5 @@ pub fn build_device(base_device: &Device) -> Result<VirtualDevice, Box<dyn Error
         .with_keys(base_device.supported_keys().unwrap())?
         .build()
         .unwrap();
-
     Ok(device)
 }

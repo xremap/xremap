@@ -4,6 +4,7 @@ use std::error::Error;
 mod input;
 mod output;
 mod select;
+mod transform;
 
 fn event_loop(input_device: &mut Device) -> Result<(), Box<dyn Error>> {
     let mut output_device = output::build_device(input_device).unwrap();
@@ -14,9 +15,10 @@ fn event_loop(input_device: &mut Device) -> Result<(), Box<dyn Error>> {
 
         for event in input_device.fetch_events().unwrap() {
             if event.event_type() == EventType::KEY {
-                println!("event: {:?}", event);
+                transform::on_event(event, &mut output_device);
+            } else {
+                output_device.emit(&[event]).unwrap();
             }
-            output_device.emit(&[event]).unwrap();
         }
     }
 }
