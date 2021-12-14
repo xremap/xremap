@@ -11,9 +11,10 @@ fn event_loop(input_device: &mut Device) -> Result<(), Box<dyn Error>> {
         if !select::is_readable(input_device) { continue }
 
         for event in input_device.fetch_events().unwrap() {
-            if event.event_type() == EventType::KEY {
-                println!("event: {:?}", event);
-            }
+            println!("event: {:?}", event);
+            //if event.event_type() == EventType::KEY {
+            //    println!("event: {:?}", event);
+            //}
             output_device.emit(&[event]).unwrap();
         }
     }
