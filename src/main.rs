@@ -1,14 +1,16 @@
-use std::error::Error;
 use evdev::{Device, EventType};
+use std::error::Error;
 
 mod input;
-mod select;
 mod output;
+mod select;
 
 fn event_loop(input_device: &mut Device) -> Result<(), Box<dyn Error>> {
     let mut output_device = output::build_device(input_device).unwrap();
     for _ in 0..5 {
-        if !select::is_readable(input_device) { continue }
+        if !select::is_readable(input_device) {
+            continue;
+        }
 
         for event in input_device.fetch_events().unwrap() {
             println!("event: {:?}", event);

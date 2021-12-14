@@ -1,8 +1,8 @@
 extern crate evdev;
 
+use evdev::Device;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::{io, mem, ptr};
-use evdev::Device;
 
 // A call of this function blocks until the argument device becomes readable.
 // TODO: support selecting multiple devices
@@ -21,8 +21,9 @@ pub fn is_readable(device: &mut Device) -> bool {
     } {
         -1 => Err(io::Error::last_os_error()),
         res => Ok(res as usize),
-    }.unwrap();
-    return result == 1 && fd_set.is_set(device.as_raw_fd())
+    }
+    .unwrap();
+    return result == 1 && fd_set.is_set(device.as_raw_fd());
 }
 
 fn to_fdset_ptr(opt: Option<&mut FdSet>) -> *mut libc::fd_set {

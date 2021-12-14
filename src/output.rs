@@ -1,6 +1,6 @@
-use std::error::Error;
-use evdev::{AttributeSet, Device, RelativeAxisType};
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
+use evdev::{AttributeSet, Device, RelativeAxisType};
+use std::error::Error;
 
 pub fn build_device(base_device: &Device) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut rel_axes = AttributeSet::<RelativeAxisType>::new();
