@@ -6,7 +6,7 @@ mod select;
 mod output;
 
 fn event_loop(input_device: &mut Device) -> Result<(), Box<dyn Error>> {
-    let mut output_device = output::build_device().unwrap();
+    let mut output_device = output::build_device(input_device).unwrap();
     for _ in 0..5 {
         if !select::is_readable(input_device) { continue }
 
