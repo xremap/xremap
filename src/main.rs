@@ -13,10 +13,9 @@ fn event_loop(input_device: &mut Device) -> Result<(), Box<dyn Error>> {
         }
 
         for event in input_device.fetch_events().unwrap() {
-            println!("event: {:?}", event);
-            //if event.event_type() == EventType::KEY {
-            //    println!("event: {:?}", event);
-            //}
+            if event.event_type() == EventType::KEY {
+                println!("event: {:?}", event);
+            }
             output_device.emit(&[event]).unwrap();
         }
     }
