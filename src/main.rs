@@ -46,7 +46,7 @@ fn main() {
             exit(1);
         },
     };
-    println!("{:#?}", config);
+    println!("{:?}", config);
 
     match event_loop() {
         Ok(()) => {},
