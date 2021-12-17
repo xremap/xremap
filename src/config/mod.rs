@@ -1,10 +1,12 @@
+mod key;
+
 extern crate serde_yaml;
 
-use serde::de::{value, SeqAccess, Visitor};
+use evdev::Key;
+use serde::de::{value, Error, MapAccess, SeqAccess, Visitor};
 use serde::{de, Deserialize, Deserializer};
 use std::collections::HashMap;
-use std::error::Error;
-use std::{fmt, fs};
+use std::{error, fmt, fs};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -16,7 +18,8 @@ pub struct Config {
 #[derive(Debug, Deserialize)]
 pub struct Modmap {
     pub name: String,
-    pub remap: HashMap<String, String>,
+    #[serde(deserialize_with = "modmap_remap")]
+    pub remap: HashMap<Key, Key>,
     pub wm_class: Option<WMClass>,
 }
 
@@ -27,19 +30,51 @@ pub struct Keymap {
     pub wm_class: Option<WMClass>,
 }
 
+// TODO: validate only either `only` or `not` is set
 #[derive(Debug, Deserialize)]
 pub struct WMClass {
-    // TODO: validate only either `only` or `not` is set
     #[serde(default, deserialize_with = "string_or_vec")]
     pub only: Option<Vec<String>>,
     #[serde(default, deserialize_with = "string_or_vec")]
     pub not: Option<Vec<String>>,
 }
 
-pub fn load_config(filename: &str) -> Result<Config, Box<dyn Error>> {
+pub fn load_config(filename: &str) -> Result<Config, Box<dyn error::Error>> {
     let yaml = fs::read_to_string(&filename)?;
     let config: Config = serde_yaml::from_str(&yaml)?;
     return Ok(config);
+}
+
+fn modmap_remap<'de, D>(deserializer: D) -> Result<HashMap<Key, Key>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct ModmapRemap;
+
+    impl<'de> Visitor<'de> for ModmapRemap {
+        type Value = HashMap<Key, Key>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("map of string to string")
+        }
+
+        fn visit_map<M>(self, map: M) -> Result<Self::Value, M::Error>
+        where
+            M: MapAccess<'de>,
+        {
+            let remap: HashMap<String, String> =
+                Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
+            let mut key_remap = HashMap::new();
+            for (from, to) in remap.iter() {
+                let from_key = key::parse_key(&from).map_err(M::Error::custom)?;
+                let to_key = key::parse_key(&to).map_err(M::Error::custom)?;
+                key_remap.insert(from_key, to_key);
+            }
+            Ok(key_remap)
+        }
+    }
+
+    deserializer.deserialize_any(ModmapRemap)
 }
 
 fn string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>

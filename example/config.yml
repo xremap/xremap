@@ -15,14 +15,14 @@ modmap:
       not: jetbrains-idea
     remap:
       # Use Windows since Alt is annoying in Electron apps (Slack, Nocturn)
-      KanaHira: Windows
+      KatakanaHiragana: Windows
 
   - name: Kana -> Alt
     wm_class:
       only: jetbrains-idea
     remap:
       # Use Alt since Windows is annoying in IDEA
-      KanaHira: Alt_L
+      KatakanaHiragana: Alt_L
 
 keymap:
   - name: Global
@@ -105,8 +105,9 @@ keymap:
 
       # workaround prefix key bug
       M-r:
-        3: C-M-3
-        0: C-M-0
+        remap:
+          3: C-M-3
+          0: C-M-0
 
   - name: Chrome, Slack (modified from Default)
     wm_class:

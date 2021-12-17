@@ -15,7 +15,7 @@ modmap:
       only: jetbrains-idea
     remap:
       # Use Alt since Windows is annoying in IDEA
-      KanaHira: Alt_L
+      KatakanaHiragana: Alt_L
 
 keymap:
   - name: Global
