@@ -10,12 +10,12 @@ modmap:
       Muhenkan: Ctrl_L
       Henkan: Shift_L
 
-  - name: Kana -> Windows
+  - name: Kana -> Alt
     wm_class:
-      not: jetbrains-idea
+      only: jetbrains-idea
     remap:
-      # Use Windows since Alt is annoying in Electron apps (Slack, Nocturn)
-      KanaHira: Windows
+      # Use Alt since Windows is annoying in IDEA
+      KanaHira: Alt_L
 
 keymap:
   - name: Global

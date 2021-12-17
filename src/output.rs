@@ -1,5 +1,5 @@
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
-use evdev::{Device};
+use evdev::Device;
 use std::error::Error;
 
 pub fn build_device(base_device: &Device) -> Result<VirtualDevice, Box<dyn Error>> {
@@ -7,6 +7,7 @@ pub fn build_device(base_device: &Device) -> Result<VirtualDevice, Box<dyn Error
     let device = match base_device.supported_keys() {
         Some(keys) => builder.with_keys(keys)?,
         None => builder,
-    }.build()?;
+    }
+    .build()?;
     Ok(device)
 }

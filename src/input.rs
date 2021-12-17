@@ -2,10 +2,10 @@ extern crate evdev;
 extern crate nix;
 
 use evdev::Device;
-use std::error::Error;
-use nix::sys::select::FdSet;
 use nix::sys::select::select;
-use std::os::unix::io::{AsRawFd};
+use nix::sys::select::FdSet;
+use std::error::Error;
+use std::os::unix::io::AsRawFd;
 
 pub fn select_device() -> Result<Device, Box<dyn Error>> {
     // TODO: stop hard-coding the device

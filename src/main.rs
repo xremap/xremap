@@ -1,19 +1,20 @@
-use evdev::{EventType};
-use std::error::Error;
+use evdev::EventType;
 use std::env;
+use std::error::Error;
 use std::process::exit;
 
+mod config;
 mod input;
 mod output;
 mod transform;
-mod config;
 
 fn event_loop() -> Result<(), Box<dyn Error>> {
-    let mut input_device = input::select_device()
-        .map_err(|e| format!("Failed to open an input device: {}", e))?;
+    let mut input_device =
+        input::select_device().map_err(|e| format!("Failed to open an input device: {}", e))?;
     let mut output_device = output::build_device(&input_device)
         .map_err(|e| format!("Failed to build an output device: {}", e))?;
-    input_device.grab()
+    input_device
+        .grab()
         .map_err(|e| format!("Failed to grab an input device: {}", e))?;
 
     loop {
@@ -37,22 +38,22 @@ fn main() {
         None => {
             println!("Usage: xremap <file>");
             exit(1);
-        },
+        }
     };
     let config = match config::load_config(&filename) {
         Ok(config) => config,
         Err(e) => {
             println!("Failed to load config '{}': {}", filename, e);
             exit(1);
-        },
+        }
     };
-    println!("{:?}", config);
+    println!("{:#?}", config);
 
     match event_loop() {
-        Ok(()) => {},
+        Ok(()) => {}
         Err(e) => {
             println!("Error: {}", e);
             exit(1);
-        },
+        }
     }
 }
