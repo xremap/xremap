@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 
 pub fn load_config(filename: &str) -> Result<Config, Box<dyn Error>> {
-    let yaml = fs::read_to_string(&filename).unwrap();
+    let yaml = fs::read_to_string(&filename)?;
     println!("{}", yaml.len());
     return Ok(Config { modmap: vec![], keymap: vec![] })
 }

@@ -1,4 +1,4 @@
-use evdev::{Device, EventType};
+use evdev::{EventType};
 use std::error::Error;
 use std::env;
 use std::process::exit;
@@ -9,24 +9,30 @@ mod select;
 mod transform;
 mod config;
 
-fn event_loop(input_device: &mut Device) -> Result<(), Box<dyn Error>> {
-    let mut output_device = output::build_device(input_device).unwrap();
+fn event_loop() -> Result<(), Box<dyn Error>> {
+    let mut input_device = input::select_device()
+        .map_err(|e| format!("Failed to open an input device: {}", e))?;
+    let mut output_device = output::build_device(&input_device)
+        .map_err(|e| format!("Failed to build an output device: {}", e))?;
+    input_device.grab()
+        .map_err(|e| format!("Failed to grab an input device: {}", e))?;
+
     loop {
-        if !select::is_readable(input_device) {
+        if !select::is_readable(&mut input_device)? {
             continue;
         }
 
-        for event in input_device.fetch_events().unwrap() {
+        for event in input_device.fetch_events()? {
             if event.event_type() == EventType::KEY {
-                transform::on_event(event, &mut output_device);
+                transform::on_event(event, &mut output_device)?;
             } else {
-                output_device.emit(&[event]).unwrap();
+                output_device.emit(&[event])?;
             }
         }
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let filename = match env::args().nth(1) {
         Some(filename) => filename,
         None => {
@@ -41,11 +47,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             exit(1);
         },
     };
-    println!("{:?}", config);
+    println!("{:#?}", config);
 
-    let mut device = input::select_device();
-    device.grab()?;
-    event_loop(&mut device)?;
-    device.ungrab()?;
-    Ok(())
+    match event_loop() {
+        Ok(()) => {},
+        Err(e) => {
+            println!("Error: {}", e);
+            exit(1);
+        },
+    }
 }
