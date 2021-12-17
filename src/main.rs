@@ -5,7 +5,6 @@ use std::process::exit;
 
 mod input;
 mod output;
-mod select;
 mod transform;
 mod config;
 
@@ -18,7 +17,7 @@ fn event_loop() -> Result<(), Box<dyn Error>> {
         .map_err(|e| format!("Failed to grab an input device: {}", e))?;
 
     loop {
-        if !select::is_readable(&mut input_device)? {
+        if !input::is_readable(&mut input_device)? {
             continue;
         }
 

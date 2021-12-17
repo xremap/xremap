@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 evdev = "0.11.3"
-libc = "0.2"
+nix = "0.23.1"
 yaml-rust = "0.4"
