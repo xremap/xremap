@@ -24,6 +24,8 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         "SHIFT_L" => Key::KEY_LEFTSHIFT,
         "ALT_R" => Key::KEY_RIGHTALT,
         "ALT_L" => Key::KEY_LEFTALT,
+        "WIN_R" => Key::KEY_RIGHTMETA,
+        "WIN_L" => Key::KEY_LEFTMETA,
         _ => Key::KEY_RESERVED,
     };
     if key != Key::KEY_RESERVED {

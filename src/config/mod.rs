@@ -30,7 +30,7 @@ pub struct Keymap {
     pub wm_class: Option<WMClass>,
 }
 
-// TODO: validate only either `only` or `not` is set
+// TODO: Use trait to allow only either `only` or `not`
 #[derive(Debug, Deserialize)]
 pub struct WMClass {
     #[serde(default, deserialize_with = "string_or_vec")]

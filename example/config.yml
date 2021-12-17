@@ -5,7 +5,7 @@ modmap:
       CapsLock: Esc
       Ctrl_L: Esc
 
-      # [Alt_L] [Muhenkan] [Space] [Henkan] [Kana]
+      # HHKB: [Alt_L] [Muhenkan] [Space] [Henkan] [KatakanaHiragana]
       Alt_L: Ctrl_R # for Ctrl+Click
       Muhenkan: Ctrl_L
       Henkan: Shift_L
@@ -15,7 +15,7 @@ modmap:
       not: jetbrains-idea
     remap:
       # Use Windows since Alt is annoying in Electron apps (Slack, Nocturn)
-      KatakanaHiragana: Windows
+      KatakanaHiragana: Win_L
 
   - name: Kana -> Alt
     wm_class:
