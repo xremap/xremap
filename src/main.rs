@@ -1,8 +1,11 @@
 use evdev::EventType;
 use std::env;
+use getopts::Options;
 use std::error::Error;
 use std::process::exit;
 use crate::config::Config;
+
+extern crate getopts;
 
 mod config;
 mod input;
@@ -33,15 +36,32 @@ fn event_loop(_config: &Config) -> Result<(), Box<dyn Error>> {
     }
 }
 
+fn usage(program: &str, opts: Options) -> String {
+    let brief = format!("Usage: {} CONFIG [options]", program);
+    opts.usage(&brief)
+}
+
 fn abort(message: &str) -> ! {
     println!("{}", message);
     exit(1);
 }
 
 fn main() {
-    let filename = match env::args().nth(1) {
-        Some(filename) => filename,
-        None => abort("Usage: xremap <file>"),
+    let argv: Vec<String> = env::args().collect();
+    let program = argv[0].clone();
+
+    let mut opts = Options::new();
+    opts.optmulti("", "device", "device name or path", "NAME");
+    opts.optflag("h", "help", "print this help menu");
+
+    let args = match opts.parse(&argv[1..]) {
+        Ok(args) => args,
+        Err(e) => abort(&e.to_string()),
+    };
+
+    let filename = match &args.free.iter().map(String::as_str).collect::<Vec<&str>>()[..] {
+        &[filename] => filename,
+        &[..] => abort(&usage(&program, opts)),
     };
     let config = match config::load_config(&filename) {
         Ok(config) => config,

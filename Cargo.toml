@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 evdev = "0.11.3"
+getopts = "0.2"
 nix = "0.23.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
