@@ -1,7 +1,7 @@
 use crate::config::action::Action;
 use crate::config::keypress::KeyPress;
 use crate::config::wm_class::WMClass;
-use serde::de::{Error, MapAccess, Visitor};
+use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt;
@@ -21,6 +21,13 @@ where
 {
     struct KeymapRemap;
 
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Actions {
+        Action(Action),
+        Actions(Vec<Action>),
+    }
+
     impl<'de> Visitor<'de> for KeymapRemap {
         type Value = HashMap<KeyPress, Vec<Action>>;
 
@@ -35,11 +42,9 @@ where
             let mut keymap = HashMap::new();
 
             while let Some(keypress) = map.next_key::<KeyPress>()? {
-                let actions = if let Ok(to) = map.next_value::<Action>() {
-                    vec![to]
-                } else {
-                    let error: Box<dyn std::error::Error> = "map values must be strings or maps".into();
-                    return Err(error).map_err(M::Error::custom);
+                let actions = match map.next_value::<Actions>()? {
+                    Actions::Action(action) => vec![action],
+                    Actions::Actions(actions) => actions,
                 };
                 keymap.insert(keypress, actions);
             }
