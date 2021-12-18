@@ -1,6 +1,7 @@
-use crate::config::keypress::{parse_keypress, KeyPress};
+use crate::config::action::Action;
+use crate::config::keypress::KeyPress;
 use crate::config::wm_class::WMClass;
-use serde::de::{value, Error, MapAccess, Visitor};
+use serde::de::{Error, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt;
@@ -10,37 +11,37 @@ use std::fmt;
 pub struct Keymap {
     pub name: String,
     #[serde(deserialize_with = "keymap_remap")]
-    pub remap: HashMap<KeyPress, Vec<KeyPress>>,
+    pub remap: HashMap<KeyPress, Vec<Action>>,
     pub wm_class: Option<WMClass>,
 }
 
-// TODO: Add Action trait
-
-fn keymap_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<KeyPress>>, D::Error>
+fn keymap_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
 where
     D: Deserializer<'de>,
 {
     struct KeymapRemap;
 
     impl<'de> Visitor<'de> for KeymapRemap {
-        type Value = HashMap<KeyPress, Vec<KeyPress>>;
+        type Value = HashMap<KeyPress, Vec<Action>>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("map from string to string, array, or map")
+            formatter.write_str("map from string to strings or maps")
         }
 
-        fn visit_map<M>(self, map: M) -> Result<Self::Value, M::Error>
+        fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
         where
             M: MapAccess<'de>,
         {
-            let remap: HashMap<String, String> =
-                Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
             let mut keymap = HashMap::new();
 
-            for (from, to) in remap.iter() {
-                let from_keymap = parse_keypress(&from).map_err(M::Error::custom)?;
-                let to_keymap = parse_keypress(&to).map_err(M::Error::custom)?;
-                keymap.insert(from_keymap, vec![to_keymap]);
+            while let Some(keypress) = map.next_key::<KeyPress>()? {
+                let actions = if let Ok(to) = map.next_value::<Action>() {
+                    vec![to]
+                } else {
+                    let error: Box<dyn std::error::Error> = "map values must be strings or maps".into();
+                    return Err(error).map_err(M::Error::custom);
+                };
+                keymap.insert(keypress, actions);
             }
 
             Ok(keymap)

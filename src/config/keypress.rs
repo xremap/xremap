@@ -1,6 +1,10 @@
 use crate::config::key::parse_key;
 use evdev::Key;
-use std::error::Error;
+use serde::de;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
+use std::error;
+use std::fmt::Formatter;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct KeyPress {
@@ -18,7 +22,33 @@ enum Modifier {
     Windows,
 }
 
-pub fn parse_keypress(input: &str) -> Result<KeyPress, Box<dyn Error>> {
+impl<'de> Deserialize<'de> for KeyPress {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct KeyPressVisitor;
+
+        impl<'de> Visitor<'de> for KeyPressVisitor {
+            type Value = KeyPress;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("string or map")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<KeyPress, E>
+            where
+                E: de::Error,
+            {
+                parse_keypress(value).map_err(de::Error::custom)
+            }
+        }
+
+        deserializer.deserialize_any(KeyPressVisitor)
+    }
+}
+
+fn parse_keypress(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split("-").collect();
     if let Some((key, modifiers)) = keys.split_last() {
         let mut shift = false;
@@ -32,12 +62,18 @@ pub fn parse_keypress(input: &str) -> Result<KeyPress, Box<dyn Error>> {
                 Some(Modifier::Control) => control = true,
                 Some(Modifier::Alt) => alt = true,
                 Some(Modifier::Windows) => windows = true,
-                None => return Err(format!("unknown modifier: {}", modifier).into())
+                None => return Err(format!("unknown modifier: {}", modifier).into()),
             }
         }
 
         // TODO: invalidate modifier keys in `key`?
-        Ok(KeyPress { key: parse_key(key)?, shift, control, alt, windows })
+        Ok(KeyPress {
+            key: parse_key(key)?,
+            shift,
+            control,
+            alt,
+            windows,
+        })
     } else {
         Err(format!("empty keypress: {}", input).into())
     }
