@@ -2,13 +2,14 @@ use evdev::EventType;
 use std::env;
 use std::error::Error;
 use std::process::exit;
+use crate::config::Config;
 
 mod config;
 mod input;
 mod output;
 mod transform;
 
-fn event_loop() -> Result<(), Box<dyn Error>> {
+fn event_loop(_config: &Config) -> Result<(), Box<dyn Error>> {
     let mut input_device =
         input::select_device().map_err(|e| format!("Failed to open an input device: {}", e))?;
     let mut output_device = output::build_device(&input_device)
@@ -32,28 +33,22 @@ fn event_loop() -> Result<(), Box<dyn Error>> {
     }
 }
 
+fn abort(message: &str) -> ! {
+    println!("{}", message);
+    exit(1);
+}
+
 fn main() {
     let filename = match env::args().nth(1) {
         Some(filename) => filename,
-        None => {
-            println!("Usage: xremap <file>");
-            exit(1);
-        }
+        None => abort("Usage: xremap <file>"),
     };
     let config = match config::load_config(&filename) {
         Ok(config) => config,
-        Err(e) => {
-            println!("Failed to load config '{}': {}", filename, e);
-            exit(1);
-        }
+        Err(e) => abort(&format!("Failed to load config '{}': {}", filename, e)),
     };
-    println!("{:#?}", config);
 
-    match event_loop() {
-        Ok(()) => {}
-        Err(e) => {
-            println!("Error: {}", e);
-            exit(1);
-        }
+    if let Err(e) = event_loop(&config) {
+        abort(&format!("Error: {}", e));
     }
 }

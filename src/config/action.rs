@@ -62,7 +62,10 @@ impl<'de> Deserialize<'de> for Action {
                     None => return serde_error::<Self::Value, M>("missing action"),
                 };
                 if let Some(key) = map.next_key::<String>()? {
-                    return serde_error::<Self::Value, M>(&format!("only one action key is expected but also got: {}", key));
+                    return serde_error::<Self::Value, M>(&format!(
+                        "only one action key is expected but also got: {}",
+                        key
+                    ));
                 }
                 Ok(action)
             }
