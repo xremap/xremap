@@ -18,14 +18,23 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
 
     // xremap's custom aliases like k0kubun/karabiner-dsl
     let key = match &name[..] {
-        "CTRL_R" => Key::KEY_RIGHTCTRL,
-        "CTRL_L" => Key::KEY_LEFTCTRL,
+        // Shift
         "SHIFT_R" => Key::KEY_RIGHTSHIFT,
         "SHIFT_L" => Key::KEY_LEFTSHIFT,
+        // Control
+        "CONTROL_R" => Key::KEY_RIGHTCTRL,
+        "CONTROL_L" => Key::KEY_LEFTCTRL,
+        "CTRL_R" => Key::KEY_RIGHTCTRL,
+        "CTRL_L" => Key::KEY_LEFTCTRL,
+        // Alt
         "ALT_R" => Key::KEY_RIGHTALT,
         "ALT_L" => Key::KEY_LEFTALT,
+        // Windows
+        "SUPER_R" => Key::KEY_RIGHTMETA,
+        "SUPER_L" => Key::KEY_LEFTMETA,
         "WIN_R" => Key::KEY_RIGHTMETA,
         "WIN_L" => Key::KEY_LEFTMETA,
+        // else
         _ => Key::KEY_RESERVED,
     };
     if key != Key::KEY_RESERVED {
