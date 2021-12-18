@@ -1,4 +1,5 @@
 mod action;
+mod actions;
 mod key;
 mod keymap;
 mod keypress;

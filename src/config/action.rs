@@ -1,18 +1,78 @@
-use crate::config::keypress::KeyPress;
+use crate::config::keypress::{parse_keypress, KeyPress};
+use std::collections::HashMap;
 
-use serde::Deserialize;
+use crate::config::actions::Actions;
+use serde::de;
+use serde::de::{MapAccess, Visitor};
+use serde::{Deserialize, Deserializer};
 use std::fmt::{Debug, Formatter};
 
-#[derive(Deserialize)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum Action {
     KeyPress(KeyPress),
+    Remap(HashMap<KeyPress, Vec<Action>>),
 }
 
-impl Debug for Action {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Action::KeyPress(key_press) => key_press.fmt(f),
+impl<'de> Deserialize<'de> for Action {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct ActionVisitor;
+
+        impl<'de> Visitor<'de> for ActionVisitor {
+            type Value = Action;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("string or map")
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: de::Error,
+            {
+                let keypress = parse_keypress(value).map_err(de::Error::custom)?;
+                Ok(Action::KeyPress(keypress))
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let key = map.next_key::<String>()?;
+                let action = match key.as_deref() {
+                    Some("remap") => {
+                        let mut action: HashMap<KeyPress, Vec<Action>> = HashMap::new();
+                        let remap = map.next_value::<HashMap<KeyPress, Actions>>()?;
+                        for (keypress, actions) in remap.into_iter() {
+                            let actions = match actions {
+                                Actions::Action(action) => vec![action],
+                                Actions::Actions(actions) => actions,
+                            };
+                            action.insert(keypress, actions);
+                        }
+                        Action::Remap(action)
+                    }
+                    Some(action) => {
+                        return serde_error::<Self::Value, M>(&format!(
+                            "unexpected action '{}'",
+                            action
+                        ))
+                    }
+                    None => return serde_error::<Self::Value, M>("missing action"),
+                };
+                Ok(action)
+            }
         }
+
+        deserializer.deserialize_any(ActionVisitor)
     }
+}
+
+fn serde_error<'de, V, M>(message: &str) -> Result<V, M::Error>
+where
+    M: MapAccess<'de>,
+{
+    let error: Box<dyn std::error::Error> = message.into();
+    Err(error).map_err(de::Error::custom)
 }

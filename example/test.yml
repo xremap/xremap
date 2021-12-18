@@ -33,6 +33,10 @@ keymap:
       # SKK hack for Chrome
       C-j: C-m
 
+      C-m:
+        remap:
+          C-j: a
+
   - name: Default (Nocturn, etc.)
     wm_class:
       not: [Google-chrome, Slack, Gnome-terminal, jetbrains-idea]

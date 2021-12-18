@@ -33,10 +33,10 @@ impl<'de> Deserialize<'de> for KeyPress {
             type Value = KeyPress;
 
             fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-                formatter.write_str("string or map")
+                formatter.write_str("string")
             }
 
-            fn visit_str<E>(self, value: &str) -> Result<KeyPress, E>
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
             where
                 E: de::Error,
             {
@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for KeyPress {
     }
 }
 
-fn parse_keypress(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
+pub fn parse_keypress(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split("-").collect();
     if let Some((key, modifiers)) = keys.split_last() {
         let mut shift = false;

@@ -1,10 +1,12 @@
 use crate::config::action::Action;
+use crate::config::actions::Actions;
 use crate::config::keypress::KeyPress;
 use crate::config::wm_class::WMClass;
 use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Formatter;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -21,17 +23,10 @@ where
 {
     struct KeymapRemap;
 
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum Actions {
-        Action(Action),
-        Actions(Vec<Action>),
-    }
-
     impl<'de> Visitor<'de> for KeymapRemap {
         type Value = HashMap<KeyPress, Vec<Action>>;
 
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
             formatter.write_str("map from string to strings or maps")
         }
 
