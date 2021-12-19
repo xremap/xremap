@@ -2,7 +2,7 @@ mod action;
 mod actions;
 mod key;
 mod keymap;
-mod keypress;
+pub mod keypress;
 mod modmap;
 mod wm_class;
 

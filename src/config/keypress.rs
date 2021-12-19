@@ -15,7 +15,7 @@ pub struct KeyPress {
     pub windows: bool,
 }
 
-enum Modifier {
+pub enum Modifier {
     Shift,
     Control,
     Alt,

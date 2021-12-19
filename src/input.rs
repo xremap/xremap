@@ -22,7 +22,7 @@ pub fn event_loop(mut input_devices: Vec<Device>, config: Config) -> Result<(), 
     let output_device =
         build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
 
-    let mut handler = EventHandler { config, device: output_device };
+    let mut handler = EventHandler::new(config, output_device);
     loop {
         let readable_fds = select_readable(&input_devices)?;
         for input_device in &mut input_devices {
