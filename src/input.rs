@@ -60,8 +60,8 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
 
 pub fn event_loop(mut input_devices: Vec<Device>, _config: &Config) -> Result<(), Box<dyn Error>> {
     let mut input_device = input_devices.remove(0);
-    let mut output_device = build_device(&input_device)
-        .map_err(|e| format!("Failed to build an output device: {}", e))?;
+    let mut output_device =
+        build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
     input_device
         .grab()
         .map_err(|e| format!("Failed to grab an input device: {}", e))?;
@@ -135,7 +135,7 @@ fn is_keyboard(device: &Device) -> bool {
             keys.contains(Key::KEY_SPACE)
                 && keys.contains(Key::KEY_A)
                 && keys.contains(Key::KEY_Z)
-                && !keys.contains(Key::BTN_TOOL_MOUSE)
+                && !keys.contains(Key::BTN_LEFT) // BTN_MOUSE
         }
         None => false,
     }
