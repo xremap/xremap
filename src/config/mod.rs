@@ -16,7 +16,9 @@ use std::{error, fs};
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    #[serde(default = "Vec::new")]
     pub modmap: Vec<Modmap>,
+    #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
 }
 

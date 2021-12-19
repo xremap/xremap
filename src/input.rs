@@ -13,8 +13,30 @@ use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
 
-static SEPARATOR: &str =
-    "------------------------------------------------------------------------------";
+pub fn event_loop(mut input_devices: Vec<Device>, config: &Config) -> Result<(), Box<dyn Error>> {
+    for device in &mut input_devices {
+        device
+            .grab()
+            .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
+    }
+    let mut output_device =
+        build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
+
+    loop {
+        let readable_fds = select_readable(&input_devices)?;
+        for input_device in &mut input_devices {
+            if readable_fds.contains(input_device.as_raw_fd()) {
+                for event in input_device.fetch_events()? {
+                    if event.event_type() == EventType::KEY {
+                        on_event(event, &mut output_device, &config)?;
+                    } else {
+                        output_device.emit(&[event])?;
+                    }
+                }
+            }
+        }
+    }
+}
 
 pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
     let mut path_devices = list_devices()?;
@@ -55,31 +77,6 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
     println!("{}", SEPARATOR);
 
     return Ok(path_devices.into_values().collect());
-}
-
-pub fn event_loop(mut input_devices: Vec<Device>, _config: &Config) -> Result<(), Box<dyn Error>> {
-    for device in &mut input_devices {
-        device
-            .grab()
-            .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
-    }
-    let mut output_device =
-        build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
-
-    loop {
-        let readable_fds = select_readable(&input_devices)?;
-        for input_device in &mut input_devices {
-            if readable_fds.contains(input_device.as_raw_fd()) {
-                for event in input_device.fetch_events()? {
-                    if event.event_type() == EventType::KEY {
-                        on_event(event, &mut output_device)?;
-                    } else {
-                        output_device.emit(&[event])?;
-                    }
-                }
-            }
-        }
-    }
 }
 
 fn select_readable(devices: &Vec<Device>) -> Result<FdSet, Box<dyn Error>> {
@@ -150,3 +147,6 @@ fn is_keyboard(device: &Device) -> bool {
         None => false,
     }
 }
+
+static SEPARATOR: &str =
+    "------------------------------------------------------------------------------";
