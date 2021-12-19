@@ -4,7 +4,7 @@ extern crate nix;
 use crate::output::build_device;
 use crate::transform::on_event;
 use crate::Config;
-use evdev::{Device, EventType};
+use evdev::{Device, EventType, Key};
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
 use std::collections::HashMap;
@@ -13,21 +13,43 @@ use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
 
-pub fn select_device(_devices: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
-    let path_devices = list_devices()?;
-    let mut paths: Vec<&String> = path_devices.keys().collect();
+static SEPARATOR: &str =
+    "------------------------------------------------------------------------------";
+
+pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
+    let mut path_devices = list_devices()?;
+    let mut paths: Vec<String> = path_devices.keys().map(|e| e.clone()).collect();
     paths.sort_by(|a, b| device_index(a).partial_cmp(&device_index(b)).unwrap());
-    println!("Selecting from the following devices:");
-    println!("------------------------------------------------------------------------------");
-    for path in paths {
+    println!("Selecting devices from the following list:");
+    println!("{}", SEPARATOR);
+    for path in &paths {
         if let Some(device) = path_devices.get(path) {
-            println!("{:18}: {}", path, device.name().unwrap_or("<Unnamed device>"));
+            print_device(path, device);
         }
     }
-    println!("------------------------------------------------------------------------------");
+    println!("{}", SEPARATOR);
 
-    let device = Device::open("/dev/input/event19")?;
-    return Ok(vec![device]);
+    if device_opts.is_empty() {
+        for path in &paths {
+            if let Some(device) = path_devices.get(path) {
+                if !is_keyboard(device) {
+                    path_devices.remove(path);
+                }
+            }
+        }
+        println!("Automatically selected keyboards since --device options weren't specified:");
+    } else {
+        // TODO
+        println!("Selected devices matching {:?}:", device_opts);
+    };
+
+    println!("{}", SEPARATOR);
+    for (path, device) in path_devices.iter() {
+        print_device(path, device);
+    }
+    println!("{}", SEPARATOR);
+
+    return Ok(path_devices.into_values().collect());
 }
 
 pub fn event_loop(mut input_devices: Vec<Device>, _config: &Config) -> Result<(), Box<dyn Error>> {
@@ -72,10 +94,31 @@ fn list_devices() -> Result<HashMap<String, Device>, Box<dyn Error>> {
     return Ok(path_devices);
 }
 
+fn print_device(path: &str, device: &Device) {
+    println!(
+        "{:18}: {}",
+        path,
+        device.name().unwrap_or("<Unnamed device>")
+    );
+}
+
 fn device_index(path: &str) -> i32 {
     path.trim_start_matches("/dev/input/event")
         .parse::<i32>()
         .unwrap()
+}
+
+fn is_keyboard(device: &Device) -> bool {
+    // Credit: https://github.com/mooz/xkeysnail/blob/master/xkeysnail/input.py#L17-L32
+    match device.supported_keys() {
+        Some(keys) => {
+            keys.contains(Key::KEY_SPACE)
+                && keys.contains(Key::KEY_A)
+                && keys.contains(Key::KEY_Z)
+                && !keys.contains(Key::BTN_TOOL_MOUSE)
+        }
+        None => false,
+    }
 }
 
 fn is_readable(device: &mut Device) -> Result<bool, Box<dyn Error>> {
