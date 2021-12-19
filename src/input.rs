@@ -2,7 +2,7 @@ extern crate evdev;
 extern crate nix;
 
 use crate::output::build_device;
-use crate::transform::on_event;
+use crate::event_handler::{EventHandler};
 use crate::Config;
 use evdev::{Device, EventType, Key};
 use nix::sys::select::select;
@@ -13,24 +13,25 @@ use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
 
-pub fn event_loop(mut input_devices: Vec<Device>, config: &Config) -> Result<(), Box<dyn Error>> {
+pub fn event_loop(mut input_devices: Vec<Device>, config: Config) -> Result<(), Box<dyn Error>> {
     for device in &mut input_devices {
         device
             .grab()
             .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
     }
-    let mut output_device =
+    let output_device =
         build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
 
+    let mut handler = EventHandler { config, device: output_device };
     loop {
         let readable_fds = select_readable(&input_devices)?;
         for input_device in &mut input_devices {
             if readable_fds.contains(input_device.as_raw_fd()) {
                 for event in input_device.fetch_events()? {
                     if event.event_type() == EventType::KEY {
-                        on_event(event, &mut output_device, &config)?;
+                        handler.on_event(event)?;
                     } else {
-                        output_device.emit(&[event])?;
+                        handler.send_event(event)?;
                     }
                 }
             }
