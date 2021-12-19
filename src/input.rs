@@ -13,6 +13,7 @@ use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
 
+static UNNAMED_DEVICE: &str = "<Unnamed device>";
 static SEPARATOR: &str =
     "------------------------------------------------------------------------------";
 
@@ -20,6 +21,7 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
     let mut path_devices = list_devices()?;
     let mut paths: Vec<String> = path_devices.keys().map(|e| e.clone()).collect();
     paths.sort_by(|a, b| device_index(a).partial_cmp(&device_index(b)).unwrap());
+
     println!("Selecting devices from the following list:");
     println!("{}", SEPARATOR);
     for path in &paths {
@@ -30,18 +32,22 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
     println!("{}", SEPARATOR);
 
     if device_opts.is_empty() {
-        for path in &paths {
-            if let Some(device) = path_devices.get(path) {
-                if !is_keyboard(device) {
-                    path_devices.remove(path);
-                }
-            }
-        }
-        println!("Automatically selected keyboards since --device options weren't specified:");
+        println!("Selected keyboards automatically since --device options weren't specified:");
     } else {
-        // TODO
         println!("Selected devices matching {:?}:", device_opts);
     };
+    for path in &paths {
+        if let Some(device) = path_devices.get(path) {
+            let matched = if device_opts.is_empty() {
+                is_keyboard(device)
+            } else {
+                match_device(path, device, device_opts)
+            };
+            if !matched {
+                path_devices.remove(path);
+            }
+        }
+    }
 
     println!("{}", SEPARATOR);
     for (path, device) in path_devices.iter() {
@@ -95,17 +101,31 @@ fn list_devices() -> Result<HashMap<String, Device>, Box<dyn Error>> {
 }
 
 fn print_device(path: &str, device: &Device) {
-    println!(
-        "{:18}: {}",
-        path,
-        device.name().unwrap_or("<Unnamed device>")
-    );
+    println!("{:18}: {}", path, device.name().unwrap_or(UNNAMED_DEVICE));
 }
 
 fn device_index(path: &str) -> i32 {
     path.trim_start_matches("/dev/input/event")
         .parse::<i32>()
         .unwrap()
+}
+
+fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool {
+    for device_opt in device_opts {
+        // Check exact matches for explicit selection
+        if path == device_opt || device.name().unwrap_or(UNNAMED_DEVICE) == device_opt {
+            return true;
+        }
+        // eventXX shorthand for /dev/input/eventXX
+        if device_opt.starts_with("event") && path == format!("/dev/input/{}", device_opt) {
+            return true;
+        }
+        // Allow partial matches for device names
+        if device.name().unwrap_or(UNNAMED_DEVICE).contains(device_opt) {
+            return true;
+        }
+    }
+    return false;
 }
 
 fn is_keyboard(device: &Device) -> bool {
