@@ -13,7 +13,6 @@ use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::io::AsRawFd;
 
-static UNNAMED_DEVICE: &str = "<Unnamed device>";
 static SEPARATOR: &str =
     "------------------------------------------------------------------------------";
 
@@ -26,7 +25,7 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
     println!("{}", SEPARATOR);
     for path in &paths {
         if let Some(device) = path_devices.get(path) {
-            print_device(path, device);
+            println!("{:18}: {}", path, device_name(device));
         }
     }
     println!("{}", SEPARATOR);
@@ -51,7 +50,7 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
 
     println!("{}", SEPARATOR);
     for (path, device) in path_devices.iter() {
-        print_device(path, device);
+        println!("{:18}: {}", path, device_name(device));
     }
     println!("{}", SEPARATOR);
 
@@ -59,26 +58,37 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
 }
 
 pub fn event_loop(mut input_devices: Vec<Device>, _config: &Config) -> Result<(), Box<dyn Error>> {
-    let mut input_device = input_devices.remove(0);
+    for device in &mut input_devices {
+        device
+            .grab()
+            .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
+    }
     let mut output_device =
         build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
-    input_device
-        .grab()
-        .map_err(|e| format!("Failed to grab an input device: {}", e))?;
 
     loop {
-        if !is_readable(&mut input_device)? {
-            continue;
-        }
-
-        for event in input_device.fetch_events()? {
-            if event.event_type() == EventType::KEY {
-                on_event(event, &mut output_device)?;
-            } else {
-                output_device.emit(&[event])?;
+        let readable_fds = select_readable(&input_devices)?;
+        for input_device in &mut input_devices {
+            if readable_fds.contains(input_device.as_raw_fd()) {
+                for event in input_device.fetch_events()? {
+                    if event.event_type() == EventType::KEY {
+                        on_event(event, &mut output_device)?;
+                    } else {
+                        output_device.emit(&[event])?;
+                    }
+                }
             }
         }
     }
+}
+
+fn select_readable(devices: &Vec<Device>) -> Result<FdSet, Box<dyn Error>> {
+    let mut read_fds = FdSet::new();
+    for device in devices {
+        read_fds.insert(device.as_raw_fd());
+    }
+    select(None, &mut read_fds, None, None, None)?;
+    return Ok(read_fds);
 }
 
 // We can't know the device path from evdev::enumerate(). So we re-implement it.
@@ -100,8 +110,8 @@ fn list_devices() -> Result<HashMap<String, Device>, Box<dyn Error>> {
     return Ok(path_devices);
 }
 
-fn print_device(path: &str, device: &Device) {
-    println!("{:18}: {}", path, device.name().unwrap_or(UNNAMED_DEVICE));
+fn device_name(device: &Device) -> &str {
+    device.name().unwrap_or("<Unnamed device>")
 }
 
 fn device_index(path: &str) -> i32 {
@@ -113,7 +123,7 @@ fn device_index(path: &str) -> i32 {
 fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool {
     for device_opt in device_opts {
         // Check exact matches for explicit selection
-        if path == device_opt || device.name().unwrap_or(UNNAMED_DEVICE) == device_opt {
+        if path == device_opt || device_name(device) == device_opt {
             return true;
         }
         // eventXX shorthand for /dev/input/eventXX
@@ -121,7 +131,7 @@ fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool 
             return true;
         }
         // Allow partial matches for device names
-        if device.name().unwrap_or(UNNAMED_DEVICE).contains(device_opt) {
+        if device_name(device).contains(device_opt) {
             return true;
         }
     }
@@ -139,16 +149,4 @@ fn is_keyboard(device: &Device) -> bool {
         }
         None => false,
     }
-}
-
-fn is_readable(device: &mut Device) -> Result<bool, Box<dyn Error>> {
-    let mut read_fds = FdSet::new();
-    read_fds.insert(device.as_raw_fd());
-    select(None, &mut read_fds, None, None, None)?;
-    for fd in read_fds.fds(None) {
-        if fd == device.as_raw_fd() {
-            return Ok(true);
-        }
-    }
-    return Ok(false);
 }
