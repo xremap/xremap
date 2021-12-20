@@ -9,6 +9,7 @@ use std::error::Error;
 
 pub struct EventHandler {
     device: VirtualDevice,
+    override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     shift: bool,
     control: bool,
     alt: bool,
@@ -19,6 +20,7 @@ impl EventHandler {
     pub fn new(device: VirtualDevice) -> EventHandler {
         EventHandler {
             device,
+            override_remap: None,
             shift: false,
             control: false,
             alt: false,
@@ -43,7 +45,7 @@ impl EventHandler {
         if let Some(modifier) = MODIFIER_KEYS.get(&key.code()) {
             self.update_modifier(modifier, event.value());
         } else if let Some(actions) = self.find_keymap(config, &key, event.value()) {
-            for action in actions {
+            for action in &actions {
                 self.dispatch_action(action)?;
             }
             return Ok(());
@@ -63,12 +65,7 @@ impl EventHandler {
         self.send_event(event)
     }
 
-    fn find_keymap<'a>(
-        &self,
-        config: &'a Config,
-        key: &Key,
-        value: i32,
-    ) -> Option<&'a Vec<Action>> {
+    fn find_keymap(&mut self, config: &Config, key: &Key, value: i32) -> Option<Vec<Action>> {
         if !is_pressed(value) {
             return None;
         }
@@ -80,9 +77,16 @@ impl EventHandler {
             alt: self.alt,
             windows: self.windows,
         };
+        if let Some(override_remap) = &self.override_remap {
+            let override_remap = override_remap.clone();
+            self.override_remap = None;
+            if let Some(actions) = override_remap.get(&key_press) {
+                return Some(actions.to_vec());
+            }
+        }
         for keymap in &config.keymap {
             if let Some(actions) = keymap.remap.get(&key_press) {
-                return Some(actions);
+                return Some(actions.iter().map(|a| a.clone()).collect());
             }
         }
         None
@@ -104,7 +108,16 @@ impl EventHandler {
                 self.send_modifier(key_press.control, self.control, &CONTROL_KEY)?;
                 self.send_modifier(key_press.shift, self.shift, &SHIFT_KEY)?;
             }
-            Action::Remap(_remap) => {}
+            Action::Remap(remap) => {
+                let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
+                for (key_press, actions) in remap.iter() {
+                    override_remap.insert(
+                        key_press.clone(),
+                        actions.iter().map(|a| a.clone()).collect(),
+                    );
+                }
+                self.override_remap = Some(override_remap)
+            }
         }
         Ok(())
     }

@@ -5,4 +5,6 @@
 keymap:
   - name: Global
     remap:
-      C-i: C-u
+      C-i:
+        remap:
+          C-a: C-u

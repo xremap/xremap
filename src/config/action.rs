@@ -7,7 +7,7 @@ use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt::{Debug, Formatter};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Action {
     KeyPress(KeyPress),
     Remap(HashMap<KeyPress, Vec<Action>>),

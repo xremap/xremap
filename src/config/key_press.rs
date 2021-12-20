@@ -6,7 +6,7 @@ use serde::{Deserialize, Deserializer};
 use std::error;
 use std::fmt::Formatter;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct KeyPress {
     pub key: Key,
     pub shift: bool,
