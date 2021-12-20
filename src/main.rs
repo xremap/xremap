@@ -6,6 +6,7 @@ use std::process::exit;
 
 extern crate getopts;
 
+mod client;
 mod config;
 mod event_handler;
 mod input;

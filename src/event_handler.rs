@@ -6,9 +6,11 @@ use evdev::{EventType, InputEvent, Key};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::error::Error;
+use crate::client::x11_client::X11Client;
 
 pub struct EventHandler {
     device: VirtualDevice,
+    x11_client: X11Client,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     shift: bool,
     control: bool,
@@ -20,6 +22,7 @@ impl EventHandler {
     pub fn new(device: VirtualDevice) -> EventHandler {
         EventHandler {
             device,
+            x11_client: X11Client::new(),
             override_remap: None,
             shift: false,
             control: false,
@@ -69,6 +72,7 @@ impl EventHandler {
         if !is_pressed(value) {
             return None;
         }
+        let mut wm_class_cache: Option<String> = None;
 
         let key_press = KeyPress {
             key: key.clone(),
@@ -86,6 +90,28 @@ impl EventHandler {
         }
         for keymap in &config.keymap {
             if let Some(actions) = keymap.remap.get(&key_press) {
+                // Lazily check wm_class as needed
+                if let Some(wm_class_matcher) = &keymap.wm_class {
+                    if let None = &wm_class_cache {
+                        match self.x11_client.current_wm_class() {
+                            Some(wm_class) => wm_class_cache = Some(wm_class),
+                            None => wm_class_cache = Some(String::new()),
+                        }
+                    }
+                    if let Some(wm_class) = &wm_class_cache {
+                        if let Some(wm_class_only) = &wm_class_matcher.only {
+                            if !wm_class_only.contains(wm_class) {
+                                continue;
+                            }
+                        }
+                        if let Some(wm_class_not) = &wm_class_matcher.not {
+                            if wm_class_not.contains(wm_class) {
+                                continue;
+                            }
+                        }
+                    }
+                }
+
                 return Some(actions.iter().map(|a| a.clone()).collect());
             }
         }

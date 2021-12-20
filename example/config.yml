@@ -106,12 +106,12 @@ keymap:
       # workaround prefix key bug
       M-r:
         remap:
-          3: C-M-3
-          0: C-M-0
+          '3': C-M-3
+          '0': C-M-0
 
   - name: Chrome, Slack (modified from Default)
     wm_class:
-      not: [Google-chrome, Slack]
+      only: [Google-chrome, Slack]
     remap:
       # Emacs basic
       C-b: left
@@ -185,10 +185,10 @@ keymap:
     wm_class:
       only: Nocturn
     remap:
-      Super-j: M-j,
-      Super-k: M-k,
-      Super-o: M-o,
-      Super-p: M-p,
+      Super-j: M-j
+      Super-k: M-k
+      Super-o: M-o
+      Super-p: M-p
       Super-Enter: Shift-Enter
 
   - name: Slack
