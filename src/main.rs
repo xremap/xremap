@@ -7,9 +7,9 @@ use std::process::exit;
 extern crate getopts;
 
 mod config;
+mod event_handler;
 mod input;
 mod output;
-mod event_handler;
 
 fn usage(program: &str, opts: Options) -> String {
     let brief = format!("Usage: {} CONFIG [options]", program);
@@ -53,7 +53,7 @@ fn main() {
         Err(e) => abort(&format!("Failed to select devices: {}", e)),
     };
 
-    if let Err(e) = event_loop(input_devices, config) {
+    if let Err(e) = event_loop(input_devices, &config) {
         abort(&format!("Error: {}", e));
     }
 }

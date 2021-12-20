@@ -1,8 +1,8 @@
-modmap:
-  - name: Global
-    remap:
-      a: b
+# modmap:
+#   - name: Global
+#     remap:
+#       a: b
 keymap:
   - name: Global
     remap:
-      C-i: C-h
+      C-i: C-u

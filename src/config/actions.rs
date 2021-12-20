@@ -1,5 +1,5 @@
 use crate::config::action::Action;
-use crate::config::keypress::parse_keypress;
+use crate::config::key_press::parse_key_press;
 use serde::de;
 use serde::de::{value, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -29,8 +29,8 @@ impl<'de> Deserialize<'de> for Actions {
             where
                 E: de::Error,
             {
-                let keypress = parse_keypress(value).map_err(de::Error::custom)?;
-                Ok(Actions::Action(Action::KeyPress(keypress)))
+                let key_press = parse_key_press(value).map_err(de::Error::custom)?;
+                Ok(Actions::Action(Action::KeyPress(key_press)))
             }
 
             fn visit_seq<S>(self, seq: S) -> Result<Self::Value, S::Error>

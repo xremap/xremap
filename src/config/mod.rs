@@ -1,8 +1,8 @@
-mod action;
+pub mod action;
 mod actions;
 mod key;
+pub mod key_press;
 mod keymap;
-pub mod keypress;
 mod modmap;
 mod wm_class;
 

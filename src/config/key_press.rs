@@ -40,7 +40,7 @@ impl<'de> Deserialize<'de> for KeyPress {
             where
                 E: de::Error,
             {
-                parse_keypress(value).map_err(de::Error::custom)
+                parse_key_press(value).map_err(de::Error::custom)
             }
         }
 
@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for KeyPress {
     }
 }
 
-pub fn parse_keypress(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
+pub fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split("-").collect();
     if let Some((key, modifiers)) = keys.split_last() {
         let mut shift = false;
@@ -75,7 +75,7 @@ pub fn parse_keypress(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
             windows,
         })
     } else {
-        Err(format!("empty keypress: {}", input).into())
+        Err(format!("empty key_press: {}", input).into())
     }
 }
 

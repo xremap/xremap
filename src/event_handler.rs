@@ -1,14 +1,14 @@
+use crate::config::action::Action;
+use crate::config::key_press::{KeyPress, Modifier};
+use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
-use std::error::Error;
 use lazy_static::lazy_static;
-use crate::Config;
-use crate::config::keypress::Modifier;
 use std::collections::HashMap;
+use std::error::Error;
 
 pub struct EventHandler {
-    pub config: Config,
-    pub device: VirtualDevice,
+    device: VirtualDevice,
     shift: bool,
     control: bool,
     alt: bool,
@@ -16,9 +16,8 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(config: Config, device: VirtualDevice) -> EventHandler {
+    pub fn new(device: VirtualDevice) -> EventHandler {
         EventHandler {
-            config,
             device,
             shift: false,
             control: false,
@@ -28,28 +27,95 @@ impl EventHandler {
     }
 
     // Handle EventType::KEY
-    pub fn on_event(&mut self, event: InputEvent) -> Result<(), Box<dyn Error>> {
+    pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         let mut key = Key::new(event.code());
+        // println!("=> {}: {:?}", event.value(), &key);
 
-        // Perform modmap
-        for modmap in &self.config.modmap {
+        // Apply modmap
+        for modmap in &config.modmap {
             if let Some(modmap_key) = modmap.remap.get(&key) {
                 key = modmap_key.clone();
                 break;
             }
         }
 
-        // Perform keymap
+        // Apply keymap
         if let Some(modifier) = MODIFIER_KEYS.get(&key.code()) {
             self.update_modifier(modifier, event.value());
+        } else if let Some(actions) = self.find_keymap(config, &key, event.value()) {
+            for action in actions {
+                self.dispatch_action(action)?;
+            }
+            return Ok(());
         }
 
-        self.device.emit(&[InputEvent::new(EventType::KEY, key.code(), event.value())])?;
+        self.send_key(&key, event.value())?;
         Ok(())
     }
 
-    pub fn send_event(&mut self, event: InputEvent) -> Result<(), Box<dyn Error>> {
-        self.device.emit(&[event])?;
+    pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
+        // if event.event_type() == EventType::KEY { println!("{}: {:?}", event.value(), Key::new(event.code())); }
+        self.device.emit(&[event])
+    }
+
+    fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
+        let event = InputEvent::new(EventType::KEY, key.code(), value);
+        self.send_event(event)
+    }
+
+    fn find_keymap<'a>(
+        &self,
+        config: &'a Config,
+        key: &Key,
+        value: i32,
+    ) -> Option<&'a Vec<Action>> {
+        if !is_pressed(value) {
+            return None;
+        }
+
+        let key_press = KeyPress {
+            key: key.clone(),
+            shift: self.shift,
+            control: self.control,
+            alt: self.alt,
+            windows: self.windows,
+        };
+        for keymap in &config.keymap {
+            if let Some(actions) = keymap.remap.get(&key_press) {
+                return Some(actions);
+            }
+        }
+        None
+    }
+
+    fn dispatch_action(&mut self, action: &Action) -> Result<(), Box<dyn Error>> {
+        match action {
+            Action::KeyPress(key_press) => {
+                self.send_modifier(self.shift, key_press.shift, &SHIFT_KEY)?;
+                self.send_modifier(self.control, key_press.control, &CONTROL_KEY)?;
+                self.send_modifier(self.alt, key_press.alt, &ALT_KEY)?;
+                self.send_modifier(self.windows, key_press.windows, &WINDOWS_KEY)?;
+
+                self.send_key(&key_press.key, PRESS)?;
+                self.send_key(&key_press.key, RELEASE)?;
+
+                self.send_modifier(key_press.windows, self.windows, &WINDOWS_KEY)?;
+                self.send_modifier(key_press.alt, self.alt, &ALT_KEY)?;
+                self.send_modifier(key_press.control, self.control, &CONTROL_KEY)?;
+                self.send_modifier(key_press.shift, self.shift, &SHIFT_KEY)?;
+            }
+            Action::Remap(_remap) => {}
+        }
+        Ok(())
+    }
+
+    fn send_modifier(&mut self, from: bool, to: bool, key: &Key) -> Result<(), Box<dyn Error>> {
+        if !from && to {
+            self.send_key(key, PRESS)?;
+        }
+        if from && !to {
+            self.send_key(key, RELEASE)?;
+        }
         Ok(())
     }
 
@@ -68,7 +134,7 @@ fn is_pressed(value: i32) -> bool {
 }
 
 // InputEvent#value
-// static RELEASE: i32 = 0;
+static RELEASE: i32 = 0;
 static PRESS: i32 = 1;
 static REPEAT: i32 = 2;
 
@@ -87,4 +153,9 @@ lazy_static! {
         (Key::KEY_LEFTMETA.code(), Modifier::Windows),
         (Key::KEY_RIGHTMETA.code(), Modifier::Windows),
     ].into_iter().collect();
+
+    static ref SHIFT_KEY: Key = Key::new(Key::KEY_LEFTSHIFT.code());
+    static ref CONTROL_KEY: Key = Key::new(Key::KEY_LEFTCTRL.code());
+    static ref ALT_KEY: Key = Key::new(Key::KEY_LEFTALT.code());
+    static ref WINDOWS_KEY: Key = Key::new(Key::KEY_LEFTMETA.code());
 }

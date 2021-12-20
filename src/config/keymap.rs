@@ -1,6 +1,6 @@
 use crate::config::action::Action;
 use crate::config::actions::Actions;
-use crate::config::keypress::KeyPress;
+use crate::config::key_press::KeyPress;
 use crate::config::wm_class::WMClass;
 use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -36,12 +36,12 @@ where
         {
             let mut keymap = HashMap::new();
 
-            while let Some(keypress) = map.next_key::<KeyPress>()? {
+            while let Some(key_press) = map.next_key::<KeyPress>()? {
                 let actions = match map.next_value::<Actions>()? {
                     Actions::Action(action) => vec![action],
                     Actions::Actions(actions) => actions,
                 };
-                keymap.insert(keypress, actions);
+                keymap.insert(key_press, actions);
             }
 
             Ok(keymap)

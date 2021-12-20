@@ -1,4 +1,4 @@
-use crate::config::keypress::{parse_keypress, KeyPress};
+use crate::config::key_press::{parse_key_press, KeyPress};
 use std::collections::HashMap;
 
 use crate::config::actions::Actions;
@@ -31,8 +31,8 @@ impl<'de> Deserialize<'de> for Action {
             where
                 E: de::Error,
             {
-                let keypress = parse_keypress(value).map_err(de::Error::custom)?;
-                Ok(Action::KeyPress(keypress))
+                let key_press = parse_key_press(value).map_err(de::Error::custom)?;
+                Ok(Action::KeyPress(key_press))
             }
 
             fn visit_map<M>(self, mut map: M) -> Result<Self::Value, M::Error>
@@ -44,12 +44,12 @@ impl<'de> Deserialize<'de> for Action {
                     Some("remap") => {
                         let mut action: HashMap<KeyPress, Vec<Action>> = HashMap::new();
                         let remap = map.next_value::<HashMap<KeyPress, Actions>>()?;
-                        for (keypress, actions) in remap.into_iter() {
+                        for (key_press, actions) in remap.into_iter() {
                             let actions = match actions {
                                 Actions::Action(action) => vec![action],
                                 Actions::Actions(actions) => actions,
                             };
-                            action.insert(keypress, actions);
+                            action.insert(key_press, actions);
                         }
                         Action::Remap(action)
                     }
