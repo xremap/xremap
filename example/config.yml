@@ -109,6 +109,9 @@ keymap:
           '3': C-M-3
           '0': C-M-0
 
+      # workaround
+      C-c: Esc
+
   - name: Chrome, Slack (modified from Default)
     wm_class:
       only: [Google-chrome, Slack]
