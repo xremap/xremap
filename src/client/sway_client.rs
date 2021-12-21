@@ -1,3 +1,4 @@
+use crate::client::Client;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::net::UnixStream;
@@ -16,23 +17,27 @@ impl SwayClient {
         }
     }
 
-    pub fn supported(&mut self) -> bool {
+    fn supported(&mut self) -> bool {
         match self.supported {
             Some(supported) => supported,
             None => {
-                self.supported = Some(false);
+                let mut supported = false;
                 if let Some(socket) = find_socket() {
                     if let Ok(unix_stream) = UnixStream::connect(socket) {
                         self.connection = Some(Connection(unix_stream));
-                        self.supported = Some(true);
+                        supported = true;
                     }
                 }
-                self.supported.unwrap()
+                println!("SwayClient.supported = {}", supported);
+                self.supported = Some(supported);
+                supported
             }
         }
     }
+}
 
-    pub fn current_wm_class(&mut self) -> Option<String> {
+impl Client for SwayClient {
+    fn current_wm_class(&mut self) -> Option<String> {
         if !self.supported() {
             return None;
         }
@@ -44,7 +49,7 @@ impl SwayClient {
 
         if let Ok(node) = connection.get_tree() {
             if let Some(node) = node.find_focused(|n| n.focused) {
-                return node.app_id
+                return node.app_id;
             }
         }
         None
@@ -60,7 +65,7 @@ fn find_socket() -> Option<String> {
             if let Some(fname) = path.file_name() {
                 if fname.as_bytes().starts_with(b"sway-ipc.") {
                     if let Ok(path) = path.into_os_string().into_string() {
-                        return Some(path)
+                        return Some(path);
                     }
                 }
             }

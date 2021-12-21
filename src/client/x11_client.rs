@@ -1,6 +1,9 @@
+use crate::client::Client;
+use x11_rs::xlib;
+
 pub struct X11Client {
     // Both of them are lazily initialized
-    display: Option<*mut x11::xlib::Display>,
+    display: Option<*mut xlib::Display>,
     supported: Option<bool>,
     last_wm_class: String,
 }
@@ -14,7 +17,7 @@ impl X11Client {
         }
     }
 
-    pub fn supported(&mut self) -> bool {
+    fn supported(&mut self) -> bool {
         match self.supported {
             Some(supported) => supported,
             None => {
@@ -24,7 +27,7 @@ impl X11Client {
                 } else {
                     let mut focused_window = 0;
                     let mut focus_state = 0;
-                    unsafe { x11::xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
+                    unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
                     focused_window > 0
                 };
                 println!("X11Client.supported = {}", supported);
@@ -34,7 +37,20 @@ impl X11Client {
         }
     }
 
-    pub fn current_wm_class(&mut self) -> Option<String> {
+    fn display(&mut self) -> *mut xlib::Display {
+        match self.display {
+            Some(display) => display,
+            None => {
+                let display = unsafe { xlib::XOpenDisplay(std::ptr::null()) };
+                self.display = Some(display);
+                display
+            }
+        }
+    }
+}
+
+impl Client for X11Client {
+    fn current_wm_class(&mut self) -> Option<String> {
         if !self.supported() {
             return None;
         }
@@ -42,18 +58,18 @@ impl X11Client {
         let display = self.display();
         let mut focused_window = 0;
         let mut focus_state = 0;
-        unsafe { x11::xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
+        unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
 
-        let mut x_class_hint = x11::xlib::XClassHint {
+        let mut x_class_hint = xlib::XClassHint {
             res_name: std::ptr::null_mut(),
             res_class: std::ptr::null_mut(),
         };
         let mut wm_class = String::new();
         loop {
             unsafe {
-                if x11::xlib::XGetClassHint(display, focused_window, &mut x_class_hint) == 1 {
+                if xlib::XGetClassHint(display, focused_window, &mut x_class_hint) == 1 {
                     if !x_class_hint.res_name.is_null() {
-                        x11::xlib::XFree(x_class_hint.res_name as *mut std::ffi::c_void);
+                        xlib::XFree(x_class_hint.res_name as *mut std::ffi::c_void);
                     }
 
                     if !x_class_hint.res_class.is_null() {
@@ -70,11 +86,11 @@ impl X11Client {
             }
 
             let mut nchildren: u32 = 0;
-            let mut root: x11::xlib::Window = 0;
-            let mut parent: x11::xlib::Window = 0;
-            let mut children: *mut x11::xlib::Window = &mut 0;
+            let mut root: xlib::Window = 0;
+            let mut parent: xlib::Window = 0;
+            let mut children: *mut xlib::Window = &mut 0;
             unsafe {
-                if x11::xlib::XQueryTree(
+                if xlib::XQueryTree(
                     display,
                     focused_window,
                     &mut root,
@@ -88,7 +104,7 @@ impl X11Client {
             }
             if !children.is_null() {
                 unsafe {
-                    x11::xlib::XFree(children as *mut std::ffi::c_void);
+                    xlib::XFree(children as *mut std::ffi::c_void);
                 }
             }
 
@@ -104,16 +120,5 @@ impl X11Client {
             println!("wm_class: {}", &wm_class);
         }
         Some(wm_class)
-    }
-
-    fn display(&mut self) -> *mut x11::xlib::Display {
-        match self.display {
-            Some(display) => display,
-            None => {
-                let display = unsafe { x11::xlib::XOpenDisplay(std::ptr::null()) };
-                self.display = Some(display);
-                display
-            }
-        }
     }
 }

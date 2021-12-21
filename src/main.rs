@@ -3,7 +3,6 @@ use crate::input::{event_loop, select_device};
 use getopts::Options;
 use std::env;
 use std::process::exit;
-use crate::client::sway_client::SwayClient;
 
 extern crate getopts;
 
@@ -24,10 +23,6 @@ fn abort(message: &str) -> ! {
 }
 
 fn main() {
-    let mut client = SwayClient::new();
-    println!("supported: {}", client.supported());
-    println!("active: {:?}", client.current_wm_class());
-
     let argv: Vec<String> = env::args().collect();
     let program = argv[0].clone();
 

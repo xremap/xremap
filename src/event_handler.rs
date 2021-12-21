@@ -1,4 +1,4 @@
-use crate::client::x11_client::X11Client;
+use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::wm_class::WMClass;
@@ -11,7 +11,7 @@ use std::error::Error;
 
 pub struct EventHandler {
     device: VirtualDevice,
-    x11_client: X11Client,
+    wm_client: WMClient,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     wm_class_cache: Option<String>,
     shift: PressState,
@@ -24,7 +24,7 @@ impl EventHandler {
     pub fn new(device: VirtualDevice) -> EventHandler {
         EventHandler {
             device,
-            x11_client: X11Client::new(),
+            wm_client: build_client(),
             override_remap: None,
             wm_class_cache: None,
             shift: PressState::new(false),
@@ -213,7 +213,7 @@ impl EventHandler {
     fn match_wm_class(&mut self, wm_class_matcher: &WMClass) -> bool {
         // Lazily fill the wm_class cache
         if let None = self.wm_class_cache {
-            match self.x11_client.current_wm_class() {
+            match self.wm_client.current_wm_class() {
                 Some(wm_class) => self.wm_class_cache = Some(wm_class),
                 None => self.wm_class_cache = Some(String::new()),
             }
