@@ -32,8 +32,7 @@ where
         where
             M: MapAccess<'de>,
         {
-            let remap: HashMap<String, String> =
-                Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
+            let remap: HashMap<String, String> = Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
             let mut modmap = HashMap::new();
 
             for (from, to) in remap.iter() {

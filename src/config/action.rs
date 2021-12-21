@@ -53,12 +53,7 @@ impl<'de> Deserialize<'de> for Action {
                         }
                         Action::Remap(action)
                     }
-                    Some(action) => {
-                        return serde_error::<Self::Value, M>(&format!(
-                            "unexpected action '{}'",
-                            action
-                        ))
-                    }
+                    Some(action) => return serde_error::<Self::Value, M>(&format!("unexpected action '{}'", action)),
                     None => return serde_error::<Self::Value, M>("missing action"),
                 };
                 if let Some(key) = map.next_key::<String>()? {

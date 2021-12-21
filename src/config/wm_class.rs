@@ -36,8 +36,7 @@ where
         where
             S: SeqAccess<'de>,
         {
-            let result: Vec<String> =
-                Deserialize::deserialize(value::SeqAccessDeserializer::new(seq))?;
+            let result: Vec<String> = Deserialize::deserialize(value::SeqAccessDeserializer::new(seq))?;
             Ok(Some(result))
         }
     }

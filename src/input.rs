@@ -19,8 +19,7 @@ pub fn event_loop(mut input_devices: Vec<Device>, config: &Config) -> Result<(),
             .grab()
             .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
     }
-    let output_device =
-        build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
+    let output_device = build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
 
     let mut handler = EventHandler::new(output_device);
     loop {
@@ -113,9 +112,7 @@ fn device_name(device: &Device) -> &str {
 }
 
 fn device_index(path: &str) -> i32 {
-    path.trim_start_matches("/dev/input/event")
-        .parse::<i32>()
-        .unwrap()
+    path.trim_start_matches("/dev/input/event").parse::<i32>().unwrap()
 }
 
 fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool {
@@ -149,5 +146,4 @@ fn is_keyboard(device: &Device) -> bool {
     }
 }
 
-static SEPARATOR: &str =
-    "------------------------------------------------------------------------------";
+static SEPARATOR: &str = "------------------------------------------------------------------------------";

@@ -37,8 +37,7 @@ impl<'de> Deserialize<'de> for Actions {
             where
                 S: SeqAccess<'de>,
             {
-                let actions: Vec<Action> =
-                    Deserialize::deserialize(value::SeqAccessDeserializer::new(seq))?;
+                let actions: Vec<Action> = Deserialize::deserialize(value::SeqAccessDeserializer::new(seq))?;
                 Ok(Actions::Actions(actions))
             }
 
@@ -46,8 +45,7 @@ impl<'de> Deserialize<'de> for Actions {
             where
                 M: MapAccess<'de>,
             {
-                let action: Action =
-                    Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
+                let action: Action = Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
                 Ok(Actions::Action(action))
             }
         }
