@@ -1,17 +1,19 @@
+use crate::client::x11_client::X11Client;
 use crate::config::action::Action;
 use crate::config::key_press::{KeyPress, Modifier};
+use crate::config::wm_class::WMClass;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::error::Error;
-use crate::client::x11_client::X11Client;
 
 pub struct EventHandler {
     device: VirtualDevice,
     x11_client: X11Client,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
+    wm_class_cache: Option<String>,
     shift: bool,
     control: bool,
     alt: bool,
@@ -24,6 +26,7 @@ impl EventHandler {
             device,
             x11_client: X11Client::new(),
             override_remap: None,
+            wm_class_cache: None,
             shift: false,
             control: false,
             alt: false,
@@ -33,12 +36,18 @@ impl EventHandler {
 
     // Handle EventType::KEY
     pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+        self.wm_class_cache = None; // expire cache
         let mut key = Key::new(event.code());
         // println!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
         for modmap in &config.modmap {
             if let Some(modmap_key) = modmap.remap.get(&key) {
+                if let Some(wm_class_matcher) = &modmap.wm_class {
+                    if !self.match_wm_class(wm_class_matcher) {
+                        continue;
+                    }
+                }
                 key = modmap_key.clone();
                 break;
             }
@@ -72,7 +81,6 @@ impl EventHandler {
         if !is_pressed(value) {
             return None;
         }
-        let mut wm_class_cache: Option<String> = None;
 
         let key_press = KeyPress {
             key: key.clone(),
@@ -90,28 +98,11 @@ impl EventHandler {
         }
         for keymap in &config.keymap {
             if let Some(actions) = keymap.remap.get(&key_press) {
-                // Lazily check wm_class as needed
                 if let Some(wm_class_matcher) = &keymap.wm_class {
-                    if let None = &wm_class_cache {
-                        match self.x11_client.current_wm_class() {
-                            Some(wm_class) => wm_class_cache = Some(wm_class),
-                            None => wm_class_cache = Some(String::new()),
-                        }
-                    }
-                    if let Some(wm_class) = &wm_class_cache {
-                        if let Some(wm_class_only) = &wm_class_matcher.only {
-                            if !wm_class_only.contains(wm_class) {
-                                continue;
-                            }
-                        }
-                        if let Some(wm_class_not) = &wm_class_matcher.not {
-                            if wm_class_not.contains(wm_class) {
-                                continue;
-                            }
-                        }
+                    if !self.match_wm_class(wm_class_matcher) {
+                        continue;
                     }
                 }
-
                 return Some(actions.iter().map(|a| a.clone()).collect());
             }
         }
@@ -158,6 +149,26 @@ impl EventHandler {
         Ok(())
     }
 
+    fn match_wm_class(&mut self, wm_class_matcher: &WMClass) -> bool {
+        // Lazily fill the wm_class cache
+        if let None = self.wm_class_cache {
+            match self.x11_client.current_wm_class() {
+                Some(wm_class) => self.wm_class_cache = Some(wm_class),
+                None => self.wm_class_cache = Some(String::new()),
+            }
+        }
+
+        if let Some(wm_class) = &self.wm_class_cache {
+            if let Some(wm_class_only) = &wm_class_matcher.only {
+                return wm_class_only.contains(wm_class);
+            }
+            if let Some(wm_class_not) = &wm_class_matcher.not {
+                return !wm_class_not.contains(wm_class);
+            }
+        }
+        false
+    }
+
     fn update_modifier(&mut self, modifier: &Modifier, value: i32) {
         match modifier {
             Modifier::Shift => self.shift = is_pressed(value),
@@ -193,8 +204,8 @@ lazy_static! {
         (Key::KEY_RIGHTMETA.code(), Modifier::Windows),
     ].into_iter().collect();
 
-    static ref SHIFT_KEY: Key = Key::new(Key::KEY_LEFTSHIFT.code());
-    static ref CONTROL_KEY: Key = Key::new(Key::KEY_LEFTCTRL.code());
-    static ref ALT_KEY: Key = Key::new(Key::KEY_LEFTALT.code());
-    static ref WINDOWS_KEY: Key = Key::new(Key::KEY_LEFTMETA.code());
+    static ref SHIFT_KEY: Key = Key::new(Key::KEY_RIGHTSHIFT.code());
+    static ref CONTROL_KEY: Key = Key::new(Key::KEY_RIGHTCTRL.code());
+    static ref ALT_KEY: Key = Key::new(Key::KEY_RIGHTALT.code());
+    static ref WINDOWS_KEY: Key = Key::new(Key::KEY_RIGHTMETA.code());
 }

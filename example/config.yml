@@ -1,6 +1,6 @@
 modmap:
   - name: Global
-    remap: 
+    remap:
       # CapsLock/Ctrl_L -> Esc
       CapsLock: Esc
       Ctrl_L: Esc
@@ -15,7 +15,7 @@ modmap:
       not: jetbrains-idea
     remap:
       # Use Windows since Alt is annoying in Electron apps (Slack, Nocturn)
-      KatakanaHiragana: Win_L
+      KatakanaHiragana: Win_R
 
   - name: Kana -> Alt
     wm_class:

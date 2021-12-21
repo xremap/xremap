@@ -4,7 +4,7 @@ mod key;
 pub mod key_press;
 mod keymap;
 mod modmap;
-mod wm_class;
+pub mod wm_class;
 
 extern crate serde_yaml;
 
