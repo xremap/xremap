@@ -19,10 +19,15 @@ impl X11Client {
             Some(supported) => supported,
             None => {
                 let display = self.display();
-                let mut focused_window = 0;
-                let mut focus_state = 0;
-                unsafe { x11::xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
-                let supported = focused_window > 0;
+                let supported = if display.is_null() {
+                    false
+                } else {
+                    let mut focused_window = 0;
+                    let mut focus_state = 0;
+                    unsafe { x11::xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
+                    focused_window > 0
+                };
+                println!("X11Client.supported = {}", supported);
                 self.supported = Some(supported);
                 supported
             }
