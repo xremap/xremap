@@ -45,10 +45,24 @@ impl X11Client {
             res_name: std::ptr::null_mut(),
             res_class: std::ptr::null_mut(),
         };
+        let mut wm_class = String::new();
         loop {
             unsafe {
                 if x11::xlib::XGetClassHint(display, focused_window, &mut x_class_hint) == 1 {
-                    break;
+                    if !x_class_hint.res_name.is_null() {
+                        x11::xlib::XFree(x_class_hint.res_name as *mut std::ffi::c_void);
+                    }
+
+                    if !x_class_hint.res_class.is_null() {
+                        // Note: into_string() seems to free `x_class_hint.res_class`. So XFree isn't needed.
+                        wm_class = std::ffi::CString::from_raw(x_class_hint.res_class as *mut i8)
+                            .into_string()
+                            .unwrap();
+                        // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
+                        if &wm_class != "FocusProxy" {
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -82,27 +96,11 @@ impl X11Client {
             focused_window = parent;
         }
 
-        if !x_class_hint.res_name.is_null() {
-            unsafe {
-                x11::xlib::XFree(x_class_hint.res_name as *mut std::ffi::c_void);
-            }
+        if &self.last_wm_class != &wm_class {
+            self.last_wm_class = wm_class.clone();
+            println!("wm_class: {}", &wm_class);
         }
-
-        if !x_class_hint.res_class.is_null() {
-            let wm_class = unsafe {
-                // Note: This seems to free `x_class_hint.res_class`. So XFree on it would double-free it.
-                std::ffi::CString::from_raw(x_class_hint.res_class as *mut i8)
-                    .into_string()
-                    .unwrap()
-            };
-            if &self.last_wm_class != &wm_class {
-                self.last_wm_class = wm_class.clone();
-                println!("wm_class: {}", &wm_class);
-            }
-            Some(wm_class)
-        } else {
-            None
-        }
+        Some(wm_class)
     }
 
     fn display(&mut self) -> *mut x11::xlib::Display {

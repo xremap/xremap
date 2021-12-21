@@ -1,6 +1,6 @@
 use crate::client::x11_client::X11Client;
 use crate::config::action::Action;
-use crate::config::key_press::{KeyPress, Modifier};
+use crate::config::key_press::KeyPress;
 use crate::config::wm_class::WMClass;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
@@ -14,10 +14,10 @@ pub struct EventHandler {
     x11_client: X11Client,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     wm_class_cache: Option<String>,
-    shift: bool,
-    control: bool,
-    alt: bool,
-    windows: bool,
+    shift: PressState,
+    control: PressState,
+    alt: PressState,
+    windows: PressState,
 }
 
 impl EventHandler {
@@ -27,10 +27,10 @@ impl EventHandler {
             x11_client: X11Client::new(),
             override_remap: None,
             wm_class_cache: None,
-            shift: false,
-            control: false,
-            alt: false,
-            windows: false,
+            shift: PressState::new(false),
+            control: PressState::new(false),
+            alt: PressState::new(false),
+            windows: PressState::new(false),
         }
     }
 
@@ -38,7 +38,7 @@ impl EventHandler {
     pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.wm_class_cache = None; // expire cache
         let mut key = Key::new(event.code());
-        // println!("=> {}: {:?}", event.value(), &key);
+        println!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
         for modmap in &config.modmap {
@@ -54,8 +54,8 @@ impl EventHandler {
         }
 
         // Apply keymap
-        if let Some(modifier) = MODIFIER_KEYS.get(&key.code()) {
-            self.update_modifier(modifier, event.value());
+        if MODIFIER_KEYS.contains(&key.code()) {
+            self.update_modifier(key.code(), event.value());
         } else if let Some(actions) = self.find_keymap(config, &key, event.value()) {
             for action in &actions {
                 self.dispatch_action(action)?;
@@ -68,7 +68,9 @@ impl EventHandler {
     }
 
     pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
-        // if event.event_type() == EventType::KEY { println!("{}: {:?}", event.value(), Key::new(event.code())); }
+        if event.event_type() == EventType::KEY {
+            println!("{}: {:?}", event.value(), Key::new(event.code()));
+        }
         self.device.emit(&[event])
     }
 
@@ -84,10 +86,10 @@ impl EventHandler {
 
         let key_press = KeyPress {
             key: key.clone(),
-            shift: self.shift,
-            control: self.control,
-            alt: self.alt,
-            windows: self.windows,
+            shift: self.shift.left || self.shift.right,
+            control: self.control.left || self.control.right,
+            alt: self.alt.left || self.control.right,
+            windows: self.windows.left || self.windows.right,
         };
         if let Some(override_remap) = &self.override_remap {
             let override_remap = override_remap.clone();
@@ -111,27 +113,49 @@ impl EventHandler {
 
     fn dispatch_action(&mut self, action: &Action) -> Result<(), Box<dyn Error>> {
         match action {
-            Action::KeyPress(key_press) => {
-                self.send_modifier(self.shift, key_press.shift, &SHIFT_KEY)?;
-                self.send_modifier(self.control, key_press.control, &CONTROL_KEY)?;
-                self.send_modifier(self.alt, key_press.alt, &ALT_KEY)?;
-                self.send_modifier(self.windows, key_press.windows, &WINDOWS_KEY)?;
+            Action::KeyPress(press) => {
+                self.send_modifier(
+                    &self.shift.clone(),
+                    &PressState::new(press.shift),
+                    &SHIFT_KEYS,
+                )?;
+                self.send_modifier(
+                    &self.control.clone(),
+                    &PressState::new(press.control),
+                    &CTRL_KEYS,
+                )?;
+                self.send_modifier(&self.alt.clone(), &PressState::new(press.alt), &ALT_KEYS)?;
+                self.send_modifier(
+                    &self.windows.clone(),
+                    &PressState::new(press.windows),
+                    &WIN_KEYS,
+                )?;
 
-                self.send_key(&key_press.key, PRESS)?;
-                self.send_key(&key_press.key, RELEASE)?;
+                self.send_key(&press.key, PRESS)?;
+                self.send_key(&press.key, RELEASE)?;
 
-                self.send_modifier(key_press.windows, self.windows, &WINDOWS_KEY)?;
-                self.send_modifier(key_press.alt, self.alt, &ALT_KEY)?;
-                self.send_modifier(key_press.control, self.control, &CONTROL_KEY)?;
-                self.send_modifier(key_press.shift, self.shift, &SHIFT_KEY)?;
+                self.send_modifier(
+                    &PressState::new(press.windows),
+                    &self.windows.clone(),
+                    &WIN_KEYS,
+                )?;
+                self.send_modifier(&PressState::new(press.alt), &self.alt.clone(), &ALT_KEYS)?;
+                self.send_modifier(
+                    &PressState::new(press.control),
+                    &self.control.clone(),
+                    &CTRL_KEYS,
+                )?;
+                self.send_modifier(
+                    &PressState::new(press.shift),
+                    &self.shift.clone(),
+                    &SHIFT_KEYS,
+                )?;
             }
             Action::Remap(remap) => {
                 let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
                 for (key_press, actions) in remap.iter() {
-                    override_remap.insert(
-                        key_press.clone(),
-                        actions.iter().map(|a| a.clone()).collect(),
-                    );
+                    override_remap
+                        .insert(key_press.clone(), actions.iter().map(|a| a.clone()).collect());
                 }
                 self.override_remap = Some(override_remap)
             }
@@ -139,12 +163,26 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_modifier(&mut self, from: bool, to: bool, key: &Key) -> Result<(), Box<dyn Error>> {
-        if !from && to {
-            self.send_key(key, PRESS)?;
+    fn send_modifier(
+        &mut self,
+        from: &PressState,
+        to: &PressState,
+        keys: &[Key; 2],
+    ) -> Result<(), Box<dyn Error>> {
+        let left_key = &keys[0];
+        if !from.left && to.left {
+            self.send_key(left_key, PRESS)?;
         }
-        if from && !to {
-            self.send_key(key, RELEASE)?;
+        if from.left && !to.left {
+            self.send_key(left_key, RELEASE)?;
+        }
+
+        let right_key = &keys[1];
+        if !from.right && to.right {
+            self.send_key(right_key, PRESS)?;
+        }
+        if from.right && !to.right {
+            self.send_key(right_key, RELEASE)?;
         }
         Ok(())
     }
@@ -169,12 +207,40 @@ impl EventHandler {
         false
     }
 
-    fn update_modifier(&mut self, modifier: &Modifier, value: i32) {
-        match modifier {
-            Modifier::Shift => self.shift = is_pressed(value),
-            Modifier::Control => self.control = is_pressed(value),
-            Modifier::Alt => self.alt = is_pressed(value),
-            Modifier::Windows => self.windows = is_pressed(value),
+    fn update_modifier(&mut self, code: u16, value: i32) {
+        if code == Key::KEY_LEFTSHIFT.code() {
+            self.shift.left = is_pressed(value)
+        } else if code == Key::KEY_RIGHTSHIFT.code() {
+            self.shift.right = is_pressed(value)
+        } else if code == Key::KEY_LEFTCTRL.code() {
+            self.control.left = is_pressed(value)
+        } else if code == Key::KEY_RIGHTCTRL.code() {
+            self.control.right = is_pressed(value)
+        } else if code == Key::KEY_LEFTALT.code() {
+            self.alt.left = is_pressed(value)
+        } else if code == Key::KEY_RIGHTALT.code() {
+            self.alt.right = is_pressed(value)
+        } else if code == Key::KEY_LEFTMETA.code() {
+            self.windows.left = is_pressed(value)
+        } else if code == Key::KEY_RIGHTMETA.code() {
+            self.windows.right = is_pressed(value)
+        } else {
+            panic!("unexpected key {:?} at update_modifier", Key::new(code));
+        }
+    }
+}
+
+#[derive(Clone)]
+struct PressState {
+    left: bool,
+    right: bool,
+}
+
+impl PressState {
+    fn new(pressed: bool) -> PressState {
+        PressState {
+            left: pressed,
+            right: pressed,
         }
     }
 }
@@ -189,23 +255,35 @@ static PRESS: i32 = 1;
 static REPEAT: i32 = 2;
 
 lazy_static! {
-    static ref MODIFIER_KEYS: HashMap<u16, Modifier> = vec![
+    static ref MODIFIER_KEYS: [u16; 8] = [
         // Shift
-        (Key::KEY_LEFTSHIFT.code(), Modifier::Shift),
-        (Key::KEY_RIGHTSHIFT.code(), Modifier::Shift),
+        Key::KEY_LEFTSHIFT.code(),
+        Key::KEY_RIGHTSHIFT.code(),
         // Control
-        (Key::KEY_LEFTCTRL.code(), Modifier::Control),
-        (Key::KEY_RIGHTCTRL.code(), Modifier::Control),
+        Key::KEY_LEFTCTRL.code(),
+        Key::KEY_RIGHTCTRL.code(),
         // Alt
-        (Key::KEY_LEFTALT.code(), Modifier::Alt),
-        (Key::KEY_RIGHTALT.code(), Modifier::Alt),
+        Key::KEY_LEFTALT.code(),
+        Key::KEY_RIGHTALT.code(),
         // Windows
-        (Key::KEY_LEFTMETA.code(), Modifier::Windows),
-        (Key::KEY_RIGHTMETA.code(), Modifier::Windows),
-    ].into_iter().collect();
+        Key::KEY_LEFTMETA.code(),
+        Key::KEY_RIGHTMETA.code(),
+    ];
 
-    static ref SHIFT_KEY: Key = Key::new(Key::KEY_RIGHTSHIFT.code());
-    static ref CONTROL_KEY: Key = Key::new(Key::KEY_RIGHTCTRL.code());
-    static ref ALT_KEY: Key = Key::new(Key::KEY_RIGHTALT.code());
-    static ref WINDOWS_KEY: Key = Key::new(Key::KEY_RIGHTMETA.code());
+    static ref SHIFT_KEYS: [Key; 2] = [
+        Key::new(Key::KEY_LEFTSHIFT.code()),
+        Key::new(Key::KEY_RIGHTSHIFT.code()),
+    ];
+    static ref CTRL_KEYS: [Key; 2] = [
+        Key::new(Key::KEY_LEFTCTRL.code()),
+        Key::new(Key::KEY_RIGHTCTRL.code()),
+    ];
+    static ref ALT_KEYS: [Key; 2] = [
+        Key::new(Key::KEY_LEFTALT.code()),
+        Key::new(Key::KEY_RIGHTALT.code()),
+    ];
+    static ref WIN_KEYS: [Key; 2] = [
+        Key::new(Key::KEY_LEFTMETA.code()),
+        Key::new(Key::KEY_RIGHTMETA.code()),
+    ];
 }
