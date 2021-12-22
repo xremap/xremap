@@ -6,6 +6,7 @@ use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
 use lazy_static::lazy_static;
+use log::debug;
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -38,7 +39,7 @@ impl EventHandler {
     pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let mut key = Key::new(event.code());
-        // println!("=> {}: {:?}", event.value(), &key);
+        debug!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
         for modmap in &config.modmap {
@@ -62,13 +63,14 @@ impl EventHandler {
             }
             return Ok(());
         }
-
         self.send_key(&key, event.value())?;
         Ok(())
     }
 
     pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
-        // if event.event_type() == EventType::KEY { println!("{}: {:?}", event.value(), Key::new(event.code())) }
+        if event.event_type() == EventType::KEY {
+            debug!("{}: {:?}", event.value(), Key::new(event.code()))
+        }
         self.device.emit(&[event])
     }
 
