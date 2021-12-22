@@ -1,5 +1,5 @@
-use zbus::Connection;
 use crate::client::Client;
+use zbus::Connection;
 
 pub struct GnomeClient {
     connection: Option<Connection>,
@@ -7,9 +7,7 @@ pub struct GnomeClient {
 
 impl GnomeClient {
     pub fn new() -> GnomeClient {
-        GnomeClient {
-            connection: None,
-        }
+        GnomeClient { connection: None }
     }
 
     fn connect(&mut self) {
@@ -48,7 +46,7 @@ impl Client for GnomeClient {
         ) {
             if let Ok((_actor, json)) = message.body::<(bool, String)>() {
                 if let Ok(wm_class) = serde_json::from_str::<String>(&json) {
-                    return Some(wm_class)
+                    return Some(wm_class);
                 }
             }
         }

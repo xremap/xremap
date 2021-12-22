@@ -140,7 +140,8 @@ fn is_keyboard(device: &Device) -> bool {
             keys.contains(Key::KEY_SPACE)
                 && keys.contains(Key::KEY_A)
                 && keys.contains(Key::KEY_Z)
-                && !keys.contains(Key::BTN_LEFT) // BTN_MOUSE
+                // BTN_MOUSE
+                && !keys.contains(Key::BTN_LEFT)
         }
         None => false,
     }

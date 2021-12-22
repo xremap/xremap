@@ -1,4 +1,5 @@
 use crate::client::Client;
+use std::env;
 use x11_rs::xlib;
 
 pub struct X11Client {
@@ -7,16 +8,25 @@ pub struct X11Client {
 
 impl X11Client {
     pub fn new() -> X11Client {
-        X11Client {
-            display: None,
-        }
+        X11Client { display: None }
     }
 
     fn connect(&mut self) -> *mut xlib::Display {
         match self.display {
             Some(display) => display,
             None => {
+                if let Err(env::VarError::NotPresent) = env::var("DISPLAY") {
+                    println!("$DISPLAY is not set. Defaulting to DISPLAY=:0");
+                    env::set_var("DISPLAY", ":0");
+                }
+
                 let display = unsafe { xlib::XOpenDisplay(std::ptr::null()) };
+                if display.is_null() {
+                    let var = env::var("DISPLAY").unwrap();
+                    println!("warning: Failed to connect to X11.");
+                    println!("If you saw \"No protocol specified\", try running `xhost +SI:localuser:root`.");
+                    println!("If not, make sure `echo $DISPLAY` outputs xremap's $DISPLAY ({}).", var);
+                }
                 self.display = Some(display);
                 display
             }
@@ -77,14 +87,7 @@ impl Client for X11Client {
             let mut parent: xlib::Window = 0;
             let mut children: *mut xlib::Window = &mut 0;
             unsafe {
-                if xlib::XQueryTree(
-                    display,
-                    focused_window,
-                    &mut root,
-                    &mut parent,
-                    &mut children,
-                    &mut nchildren,
-                ) == 0
+                if xlib::XQueryTree(display, focused_window, &mut root, &mut parent, &mut children, &mut nchildren) == 0
                 {
                     break;
                 }

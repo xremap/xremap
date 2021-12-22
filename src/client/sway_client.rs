@@ -10,9 +10,7 @@ pub struct SwayClient {
 
 impl SwayClient {
     pub fn new() -> SwayClient {
-        SwayClient {
-            connection: None,
-        }
+        SwayClient { connection: None }
     }
 
     fn connect(&mut self) {

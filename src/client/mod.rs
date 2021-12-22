@@ -24,14 +24,10 @@ impl WMClient {
         if let None = self.supported {
             let supported = self.client.supported();
             self.supported = Some(supported);
-            println!(
-                "application-client: {} (supported: {})",
-                self.name,
-                supported
-            );
+            println!("application-client: {} (supported: {})", self.name, supported);
         }
         if !self.supported.unwrap() {
-            return None
+            return None;
         }
 
         let result = self.client.current_application();
