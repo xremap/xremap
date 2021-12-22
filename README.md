@@ -15,20 +15,20 @@
 Download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
 
 If it doesn't work, please [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-and run one of the following commands:
+and run one of the following commands in this repository and use `target/release/xremap`:
 
 ```bash
 # X11
-cargo install xremap --features x11
+cargo build xremap --release --features x11
 
 # GNOME Wayland
-cargo install xremap --features gnome
+cargo build xremap --release --features gnome
 
 # Sway
-cargo install xremap --features sway
+cargo build xremap --release --features sway
 
 # Others
-cargo install xremap
+cargo build xremap --release
 ```
 
 ## Usage
