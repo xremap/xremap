@@ -1,7 +1,7 @@
 use crate::config::action::Action;
 use crate::config::actions::Actions;
 use crate::config::key_press::KeyPress;
-use crate::config::wm_class::WMClass;
+use crate::config::application::Application;
 use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -14,7 +14,7 @@ pub struct Keymap {
     pub name: String,
     #[serde(deserialize_with = "keymap_remap")]
     pub remap: HashMap<KeyPress, Vec<Action>>,
-    pub wm_class: Option<WMClass>,
+    pub application: Option<Application>,
 }
 
 fn keymap_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>

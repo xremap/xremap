@@ -1,5 +1,5 @@
 use crate::config::key::parse_key;
-use crate::config::wm_class::WMClass;
+use crate::config::application::Application;
 use evdev::Key;
 use serde::de::{value, Error, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -12,7 +12,7 @@ pub struct Modmap {
     pub name: String,
     #[serde(deserialize_with = "modmap_remap")]
     pub remap: HashMap<Key, Key>,
-    pub wm_class: Option<WMClass>,
+    pub application: Option<Application>,
 }
 
 fn modmap_remap<'de, D>(deserializer: D) -> Result<HashMap<Key, Key>, D::Error>

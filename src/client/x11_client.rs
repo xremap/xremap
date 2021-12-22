@@ -5,7 +5,6 @@ pub struct X11Client {
     // Both of them are lazily initialized
     display: Option<*mut xlib::Display>,
     supported: Option<bool>,
-    last_wm_class: String,
 }
 
 impl X11Client {
@@ -13,27 +12,6 @@ impl X11Client {
         X11Client {
             display: None,
             supported: None,
-            last_wm_class: String::new(),
-        }
-    }
-
-    fn supported(&mut self) -> bool {
-        match self.supported {
-            Some(supported) => supported,
-            None => {
-                let display = self.display();
-                let supported = if display.is_null() {
-                    false
-                } else {
-                    let mut focused_window = 0;
-                    let mut focus_state = 0;
-                    unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
-                    focused_window > 0
-                };
-                println!("X11Client.supported = {}", supported);
-                self.supported = Some(supported);
-                supported
-            }
         }
     }
 
@@ -50,7 +28,26 @@ impl X11Client {
 }
 
 impl Client for X11Client {
-    fn current_wm_class(&mut self) -> Option<String> {
+    fn supported(&mut self) -> bool {
+        match self.supported {
+            Some(supported) => supported,
+            None => {
+                let display = self.display();
+                let supported = if display.is_null() {
+                    false
+                } else {
+                    let mut focused_window = 0;
+                    let mut focus_state = 0;
+                    unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
+                    focused_window > 0
+                };
+                self.supported = Some(supported);
+                supported
+            }
+        }
+    }
+
+    fn current_application(&mut self) -> Option<String> {
         if !self.supported() {
             return None;
         }
@@ -113,11 +110,6 @@ impl Client for X11Client {
                 return None;
             }
             focused_window = parent;
-        }
-
-        if &self.last_wm_class != &wm_class {
-            self.last_wm_class = wm_class.clone();
-            println!("wm_class: {}", &wm_class);
         }
         Some(wm_class)
     }

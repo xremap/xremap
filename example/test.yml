@@ -4,7 +4,7 @@
 #       a: b
 keymap:
   - name: Global
-    wm_class:
+    application:
       only: Slack
     remap:
       C-i: C-u

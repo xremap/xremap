@@ -1,7 +1,7 @@
 use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::key_press::{KeyPress, Modifier};
-use crate::config::wm_class::WMClass;
+use crate::config::application::Application;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
@@ -13,7 +13,7 @@ pub struct EventHandler {
     device: VirtualDevice,
     wm_client: WMClient,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
-    wm_class_cache: Option<String>,
+    application_cache: Option<String>,
     shift: PressState,
     control: PressState,
     alt: PressState,
@@ -26,7 +26,7 @@ impl EventHandler {
             device,
             wm_client: build_client(),
             override_remap: None,
-            wm_class_cache: None,
+            application_cache: None,
             shift: PressState::new(false),
             control: PressState::new(false),
             alt: PressState::new(false),
@@ -36,14 +36,14 @@ impl EventHandler {
 
     // Handle EventType::KEY
     pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
-        self.wm_class_cache = None; // expire cache
+        self.application_cache = None; // expire cache
         let mut key = Key::new(event.code());
         // println!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
         for modmap in &config.modmap {
             if let Some(modmap_key) = modmap.remap.get(&key) {
-                if let Some(wm_class_matcher) = &modmap.wm_class {
+                if let Some(wm_class_matcher) = &modmap.application {
                     if !self.match_wm_class(wm_class_matcher) {
                         continue;
                     }
@@ -98,7 +98,7 @@ impl EventHandler {
         }
         for keymap in &config.keymap {
             if let Some(actions) = keymap.remap.get(&key_press) {
-                if let Some(wm_class_matcher) = &keymap.wm_class {
+                if let Some(wm_class_matcher) = &keymap.application {
                     if !self.match_wm_class(wm_class_matcher) {
                         continue;
                     }
@@ -210,21 +210,21 @@ impl EventHandler {
         }
     }
 
-    fn match_wm_class(&mut self, wm_class_matcher: &WMClass) -> bool {
+    fn match_wm_class(&mut self, application_matcher: &Application) -> bool {
         // Lazily fill the wm_class cache
-        if let None = self.wm_class_cache {
-            match self.wm_client.current_wm_class() {
-                Some(wm_class) => self.wm_class_cache = Some(wm_class),
-                None => self.wm_class_cache = Some(String::new()),
+        if let None = self.application_cache {
+            match self.wm_client.current_application() {
+                Some(application) => self.application_cache = Some(application),
+                None => self.application_cache = Some(String::new()),
             }
         }
 
-        if let Some(wm_class) = &self.wm_class_cache {
-            if let Some(wm_class_only) = &wm_class_matcher.only {
-                return wm_class_only.contains(wm_class);
+        if let Some(application) = &self.application_cache {
+            if let Some(application_only) = &application_matcher.only {
+                return application_only.contains(application);
             }
-            if let Some(wm_class_not) = &wm_class_matcher.not {
-                return !wm_class_not.contains(wm_class);
+            if let Some(application_not) = &application_matcher.not {
+                return !application_not.contains(application);
             }
         }
         false

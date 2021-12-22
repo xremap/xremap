@@ -16,7 +16,9 @@ impl SwayClient {
             supported: None,
         }
     }
+}
 
+impl Client for SwayClient {
     fn supported(&mut self) -> bool {
         match self.supported {
             Some(supported) => supported,
@@ -28,16 +30,13 @@ impl SwayClient {
                         supported = true;
                     }
                 }
-                println!("SwayClient.supported = {}", supported);
                 self.supported = Some(supported);
                 supported
             }
         }
     }
-}
 
-impl Client for SwayClient {
-    fn current_wm_class(&mut self) -> Option<String> {
+    fn current_application(&mut self) -> Option<String> {
         if !self.supported() {
             return None;
         }

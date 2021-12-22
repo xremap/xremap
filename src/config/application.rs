@@ -5,7 +5,7 @@ use std::fmt;
 // TODO: Use trait to allow only either `only` or `not`
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct WMClass {
+pub struct Application {
     #[serde(default, deserialize_with = "string_or_vec")]
     pub only: Option<Vec<String>>,
     #[serde(default, deserialize_with = "string_or_vec")]

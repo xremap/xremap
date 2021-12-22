@@ -1,21 +1,13 @@
 use crate::client::Client;
 
-pub struct NullClient {
-    called: bool,
-}
-
-impl NullClient {
-    pub fn new() -> NullClient {
-        NullClient { called: false }
-    }
-}
+pub struct NullClient;
 
 impl Client for NullClient {
-    fn current_wm_class(&mut self) -> Option<String> {
-        if !self.called {
-            self.called = true;
-            println!("NullClient.supported = false");
-        }
+    fn supported(&mut self) -> bool {
+        false
+    }
+
+    fn current_application(&mut self) -> Option<String> {
         None
     }
 }
