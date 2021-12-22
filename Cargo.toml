@@ -1,0 +1,23 @@
+[package]
+name = "xremap"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+evdev = "0.11.3"
+getopts = "0.2"
+swayipc = { git = "https://github.com/k0kubun/swayipc-rs" }
+lazy_static = "1.4.0"
+nix = "0.23.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.8"
+x11_rs = { package = "x11", version = "2.19.1", features = ["xlib"] }
+zbus = "1.9.2"
+
+[features]
+gnome = []
+sway = []
+x11 = []

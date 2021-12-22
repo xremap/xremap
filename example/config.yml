@@ -1,0 +1,215 @@
+modmap:
+  - name: Global
+    remap:
+      # CapsLock/Ctrl_L -> Esc
+      CapsLock: Esc
+      Ctrl_L: Esc
+
+      # HHKB: [Alt_L] [Muhenkan] [Space] [Henkan] [KatakanaHiragana]
+      Alt_L: Ctrl_R # for Ctrl+Click
+      Muhenkan: Ctrl_L
+      Henkan: Shift_L
+
+  - name: Kana -> Windows
+    application:
+      not: jetbrains-idea
+    remap:
+      # Use Windows since Alt is annoying in Electron apps (Slack, Nocturn)
+      KatakanaHiragana: Win_R
+
+  - name: Kana -> Alt
+    application:
+      only: jetbrains-idea
+    remap:
+      # Use Alt since Windows is annoying in IDEA
+      KatakanaHiragana: Alt_L
+
+keymap:
+  - name: Global
+    remap:
+      # Underscore without Shift
+      RO: Shift-RO
+
+      # SKK hack for Chrome
+      C-j: C-m
+
+  - name: Default (Nocturn, etc.)
+    application:
+      not: [Google-chrome, Slack, Gnome-terminal, jetbrains-idea]
+    remap:
+      # Emacs basic
+      C-b: left
+      C-f: right
+      C-p: up
+      C-n: down
+
+      # Emacs word
+      Super-b: C-left
+      Super-f: C-right
+
+      # Emacs lines
+      C-a: home # TODO: Alt-C-a
+      C-e: end # TODO: Alt-C-e
+      C-k: [Shift-end, backspace] # TODO: Alt-C-k
+
+      # Alt -> Ctrl
+      Super-a: C-a
+      Super-z: C-z
+      Super-x: C-x
+      Super-c: C-c
+      Super-v: C-v
+      Super-w: C-w
+      Super-t: C-t
+      Super-l: C-l
+
+      # actually these are vim insert mode bindings, but compatible with shell
+      C-w: [C-Shift-left, delete]
+
+      C-d: delete
+      Super-d: C-delete
+
+  - name: IDEA (modified from Default)
+    application:
+      only: jetbrains-idea
+    remap:
+      # Emacs basic
+      # C-b: left  # for Vim
+      # C-f: right # for Vim
+      C-p: up
+      C-n: down
+
+      # Emacs word
+      Super-b: C-left
+      Super-f: C-right
+
+      # Emacs lines
+      C-a: home # TODO: Alt-C-a
+      C-e: end # TODO: Alt-C-e
+      C-k: [Shift-end, backspace] # TODO: Alt-C-k
+
+      # Alt -> Ctrl
+      M-a: C-a
+      M-z: C-z
+      M-x: C-x
+      #M-c: C-c # use C-c for Esc, M-c for copy
+      #M-v: C-v # use C-v for Vim, M-v for paste
+      #M-w: C-w # avoid conflict with prefix
+      M-t: C-t
+      M-l: C-l
+
+      # actually these are vim insert mode bindings, but compatible with shell
+      # C-w: [C-Shift-left, delete]
+
+      C-d: delete
+      Super-d: C-delete
+
+      # workaround prefix key bug
+      M-r:
+        remap:
+          '3': C-M-3
+          '0': C-M-0
+
+      # workaround
+      C-c: Esc
+
+  - name: Chrome, Slack (modified from Default)
+    application:
+      only: [Google-chrome, Slack]
+    remap:
+      # Emacs basic
+      C-b: left
+      C-f: right
+      C-p: up
+      C-n: down
+
+      # Emacs word
+      Super-b: C-left
+      Super-f: C-right
+
+      # Emacs lines
+      C-a: home
+      C-e: end
+      C-k: [Shift-end, backspace]
+
+      # Alt -> Ctrl
+      Super-a: C-a
+      Super-z: C-z
+      Super-x: C-x
+      Super-c: C-c
+      Super-v: C-v
+      Super-w: C-w
+      Super-t: C-t
+      Super-l: C-l
+
+      # actually these are vim insert mode bindings, but compatible with shell
+      C-w: [C-Shift-left, delete]
+
+      # Tabs
+      Super-o: C-Shift-tab
+      Super-p: C-tab
+
+      C-d: delete
+      Super-d: C-delete
+
+  - name: Tab changes + Alt-Enter simulation
+    application:
+      not: [Gnome-terminal, Nocturn]
+    remap:
+      Super-o: C-Shift-tab
+      Super-p: C-tab
+      Super-Enter: M-Enter
+
+  - name: Google Search
+    application:
+      only: Google-chrome
+    remap:
+      Super-s: C-f
+
+  - name: Terminal
+    application:
+      only: Gnome-terminal
+    remap:
+      Super-o: M-o
+      Super-p: M-p
+      Super-j: M-j
+      Super-k: M-k
+      Super-r: M-r
+      Super-b: M-b
+      Super-f: M-f
+      Super-d: M-d
+      Super-i: M-i
+      Super-w: M-w
+      Super-w: M-w
+      Super-t: M-t
+      Super-c: M-c
+      Super-v: M-v
+
+  - name: Nocturn
+    application:
+      only: Nocturn
+    remap:
+      Super-j: M-j
+      Super-k: M-k
+      Super-o: M-o
+      Super-p: M-p
+      Super-Enter: Shift-Enter
+
+  - name: Slack
+    application:
+      only: Slack
+    remap:
+      Super-n: C-k
+      Super-k: M-up
+      Super-j: M-down
+      C-M-k: Shift-Alt-up
+      C-M-j: Shift-Alt-down
+
+      Super-1: C-1
+      Super-2: C-2
+      Super-3: C-3
+      Super-4: C-4
+      Super-5: C-5
+      Super-6: C-6
+      Super-7: C-7
+      Super-8: C-8
+      Super-9: C-9

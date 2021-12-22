@@ -1,7 +1,1 @@
-/xremap
-/mruby
-tags
-TAGS
-src/x11_constants_keysymdef.inc
-src/x11_constants_X.inc
-src/x11_constants_XF86keysym.inc
+/target

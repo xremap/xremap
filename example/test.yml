@@ -1,0 +1,10 @@
+# modmap:
+#   - name: Global
+#     remap:
+#       a: b
+keymap:
+  - name: Global
+    application:
+      only: Slack
+    remap:
+      C-i: C-u
