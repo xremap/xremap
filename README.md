@@ -8,7 +8,8 @@
 
 * **Cross-platform** - Xremap uses `evdev` and `uinput`, which works whether you use X11 or Wayland.
 
-* **Language-agnostic** - The config is JSON-compatible. Generate it from any language, e.g. Ruby, Python.
+* **Language-agnostic** - The config is JSON-compatible. Generate it from any language,
+  e.g. [Ruby](https://github.com/xremap/xremap-ruby), [Python](https://github.com/xremap/xremap-python).
 
 ## Installation
 
@@ -33,7 +34,9 @@ cargo build xremap --release
 
 ## Usage
 
-Write [a config file](#Configuration) directly, or generate it with xremap-ruby or xremap-python. Then run:
+Write [a config file](#Configuration) directly, or generate it with
+[xremap-ruby](https://github.com/xremap/xremap-ruby) or [xremap-python](https://github.com/xremap/xremap-python).
+Then run:
 
 ```
 sudo xremap config.yml
