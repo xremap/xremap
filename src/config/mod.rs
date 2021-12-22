@@ -1,10 +1,10 @@
 pub mod action;
 mod actions;
+pub mod application;
 mod key;
 pub mod key_press;
 mod keymap;
 mod modmap;
-pub mod application;
 
 extern crate serde_yaml;
 

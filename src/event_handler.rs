@@ -1,7 +1,7 @@
 use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
-use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::application::Application;
+use crate::config::key_press::{KeyPress, Modifier};
 use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};

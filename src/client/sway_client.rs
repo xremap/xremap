@@ -6,41 +6,34 @@ use swayipc::Connection;
 
 pub struct SwayClient {
     connection: Option<Connection>,
-    supported: Option<bool>,
 }
 
 impl SwayClient {
     pub fn new() -> SwayClient {
         SwayClient {
             connection: None,
-            supported: None,
+        }
+    }
+
+    fn connect(&mut self) {
+        if let None = self.connection {
+            if let Some(socket) = find_socket() {
+                if let Ok(unix_stream) = UnixStream::connect(socket) {
+                    self.connection = Some(Connection(unix_stream));
+                }
+            }
         }
     }
 }
 
 impl Client for SwayClient {
     fn supported(&mut self) -> bool {
-        match self.supported {
-            Some(supported) => supported,
-            None => {
-                let mut supported = false;
-                if let Some(socket) = find_socket() {
-                    if let Ok(unix_stream) = UnixStream::connect(socket) {
-                        self.connection = Some(Connection(unix_stream));
-                        supported = true;
-                    }
-                }
-                self.supported = Some(supported);
-                supported
-            }
-        }
+        self.connect();
+        self.connection.is_some()
     }
 
     fn current_application(&mut self) -> Option<String> {
-        if !self.supported() {
-            return None;
-        }
-
+        self.connect();
         let connection = match &mut self.connection {
             Some(connection) => connection,
             None => return None,
@@ -57,7 +50,7 @@ impl Client for SwayClient {
 
 // e.g. "/run/user/1000/sway-ipc.1000.2575.sock"
 fn find_socket() -> Option<String> {
-    let uid = 1000; // Assume a first nornal Linux user
+    let uid = 1000; // Assume a first nornal Linux user. TODO: Make it configurable
     if let Some(run_user) = read_dir(format!("/run/user/{}", uid)).as_mut().ok() {
         while let Some(entry) = run_user.next() {
             let path = entry.ok()?.path();

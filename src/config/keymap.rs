@@ -1,7 +1,7 @@
 use crate::config::action::Action;
 use crate::config::actions::Actions;
-use crate::config::key_press::KeyPress;
 use crate::config::application::Application;
+use crate::config::key_press::KeyPress;
 use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;

@@ -2,20 +2,17 @@ use crate::client::Client;
 use x11_rs::xlib;
 
 pub struct X11Client {
-    // Both of them are lazily initialized
     display: Option<*mut xlib::Display>,
-    supported: Option<bool>,
 }
 
 impl X11Client {
     pub fn new() -> X11Client {
         X11Client {
             display: None,
-            supported: None,
         }
     }
 
-    fn display(&mut self) -> *mut xlib::Display {
+    fn connect(&mut self) -> *mut xlib::Display {
         match self.display {
             Some(display) => display,
             None => {
@@ -29,21 +26,14 @@ impl X11Client {
 
 impl Client for X11Client {
     fn supported(&mut self) -> bool {
-        match self.supported {
-            Some(supported) => supported,
-            None => {
-                let display = self.display();
-                let supported = if display.is_null() {
-                    false
-                } else {
-                    let mut focused_window = 0;
-                    let mut focus_state = 0;
-                    unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
-                    focused_window > 0
-                };
-                self.supported = Some(supported);
-                supported
-            }
+        let display = self.connect();
+        if display.is_null() {
+            false
+        } else {
+            let mut focused_window = 0;
+            let mut focus_state = 0;
+            unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
+            focused_window > 0
         }
     }
 
@@ -52,7 +42,7 @@ impl Client for X11Client {
             return None;
         }
 
-        let display = self.display();
+        let display = self.connect();
         let mut focused_window = 0;
         let mut focus_state = 0;
         unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };

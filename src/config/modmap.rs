@@ -1,5 +1,5 @@
-use crate::config::key::parse_key;
 use crate::config::application::Application;
+use crate::config::key::parse_key;
 use evdev::Key;
 use serde::de::{value, Error, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
