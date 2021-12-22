@@ -23,6 +23,7 @@ fn abort(message: &str) -> ! {
 }
 
 fn main() {
+    env_logger::init();
     let argv: Vec<String> = env::args().collect();
     let program = argv[0].clone();
 
