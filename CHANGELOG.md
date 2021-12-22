@@ -1,3 +1,6 @@
+## v0.1.0
+- Rewrite the project in Rust
+
 ## v0.0.3
 - Allow using ENV in config
 
