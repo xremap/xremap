@@ -1,7 +1,7 @@
+use crate::client::Client;
 use std::env;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
-use crate::client::Client;
 use swayipc::Connection;
 
 pub struct SwayClient {
@@ -21,7 +21,7 @@ impl SwayClient {
                     None => {
                         println!("Failed to locate a SWAYSOCK from /run/user/1000/sway-ipc.*");
                         return;
-                    },
+                    }
                 };
                 println!("$SWAYSOCK is not set. Defaulting to \"{}\"", path);
                 env::set_var("SWAYSOCK", path);
