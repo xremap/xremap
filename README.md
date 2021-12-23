@@ -1,4 +1,4 @@
-# :keyboard: 𝑋𝑟𝑒𝑚𝑎𝑝
+# 𝑋𝑟𝑒𝑚𝑎𝑝 :keyboard: [![cargo](https://github.com/k0kubun/xremap/actions/workflows/build.yml/badge.svg)](https://github.com/k0kubun/xremap/actions/workflows/build.yml)
 
 `xremap` is a key remapper for Linux. Unlike `xmodmap`, it supports app-specific remapping and Wayland.
 
