@@ -1,7 +1,7 @@
-use crate::client::Client;
+use std::env;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::net::UnixStream;
+use crate::client::Client;
 use swayipc::Connection;
 
 pub struct SwayClient {
@@ -15,10 +15,21 @@ impl SwayClient {
 
     fn connect(&mut self) {
         if let None = self.connection {
-            if let Some(socket) = find_socket() {
-                if let Ok(unix_stream) = UnixStream::connect(socket) {
-                    self.connection = Some(Connection(unix_stream));
-                }
+            if let Err(env::VarError::NotPresent) = env::var("SWAYSOCK") {
+                let path = match find_socket() {
+                    Some(path) => path,
+                    None => {
+                        println!("Failed to locate a SWAYSOCK from /run/user/1000/sway-ipc.*");
+                        return;
+                    },
+                };
+                println!("$SWAYSOCK is not set. Defaulting to \"{}\"", path);
+                env::set_var("SWAYSOCK", path);
+            }
+
+            match Connection::new() {
+                Ok(connection) => self.connection = Some(connection),
+                Err(e) => println!("SwayClient#connect() failed: {}", e),
             }
         }
     }

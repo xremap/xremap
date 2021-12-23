@@ -11,9 +11,21 @@
 * **Language-agnostic** - The config is JSON-compatible. Generate it from any language,
   e.g. [Ruby](https://github.com/xremap/xremap-ruby), [Python](https://github.com/xremap/xremap-python).
 
+## Prerequisite
+
+`xremap` assumes that your user can use `evdev` and `uinput` without sudo.
+This can be configured by the following commands:
+
+```bash
+sudo gpasswd -a YOUR_USER input
+echo 'KERNEL=="uinput", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules
+```
+
+Then reboot your machine to make sure udev rules are applied.
+
 ## Installation
 
-Download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
+After the reboot, download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
 
 If it doesn't work, please [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 and run one of the following commands in this repository and use `target/release/xremap`:
@@ -32,6 +44,8 @@ cargo build xremap --release --features sway
 cargo build xremap --release
 ```
 
+You may also need to install `libx11-dev` to run the `xremap` binary for X11.
+
 ## Usage
 
 Write [a config file](#Configuration) directly, or generate it with
@@ -39,7 +53,7 @@ Write [a config file](#Configuration) directly, or generate it with
 Then run:
 
 ```
-sudo xremap config.yml
+xremap config.yml
 ```
 
 ### Dynamic binding
@@ -49,27 +63,7 @@ Xremap supports application-specific key remapping.
 While Xremap uses `evdev` and `uinput`, which is a lower layer than X11 and Wayland,
 Xremap also uses X11 or Wayland compositor-specific protocols to support `application` config.
 If you need this feature, make sure you specify the correct binary or `--features` option,
-and follow the following instructions.
-
-#### X11
-
-You may need to run `xhost +SI:localuser:root` before starting `xremap`.
-It prints `No protocol specified` for such cases.
-
-You may also need to install `libx11-dev` to run the `xremap` binary for X11.
-
-#### GNOME Wayland
-
-Before using `xremap`, update `/usr/share/dbus-1/session.conf` as follows and reboot your machine
-to allow `sudo xremap` to talk to your user's D-Bus.
-
-```diff
-   <policy context="default">
-+    <allow user="root"/>
-     <!-- Allow everything to be sent -->
-     <allow send_destination="*" eavesdrop="true"/>
-     <!-- Allow everything to be received -->
-```
+and pay attention to the error messages from `xremap`.
 
 ## Configuration
 Your `config.yml` should look like this:

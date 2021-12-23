@@ -17,7 +17,7 @@ nix = "0.23.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8"
-swayipc = { git = "https://github.com/k0kubun/swayipc-rs" }
+swayipc = "2.7.2"
 x11_rs = { package = "x11", version = "2.19.1", features = ["xlib"] }
 zbus = "1.9.2"
 

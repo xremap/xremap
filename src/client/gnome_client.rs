@@ -11,9 +11,7 @@ impl GnomeClient {
     }
 
     fn connect(&mut self) {
-        let uid = 1000; // Assume a first nornal Linux user. TODO: Make it configurable
-        let address = format!("unix:path=/run/user/{}/bus", uid);
-        match Connection::new_for_address(&address, true) {
+        match Connection::new_session() {
             Ok(connection) => self.connection = Some(connection),
             Err(e) => println!("GnomeClient#connect() failed: {}", e),
         }
