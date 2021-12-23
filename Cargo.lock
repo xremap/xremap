@@ -598,6 +598,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "swayipc"
+version = "3.0.0-alpha.3"
+source = "git+https://github.com/k0kubun/swayipc-rs#580b5b6e02b911547c4741bfe240ea8d81d1147c"
+dependencies = [
+ "serde",
+ "serde_json",
+ "swayipc-types",
+]
+
+[[package]]
+name = "swayipc-types"
+version = "1.0.0-alpha.3"
+source = "git+https://github.com/k0kubun/swayipc-rs#580b5b6e02b911547c4741bfe240ea8d81d1147c"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -742,6 +762,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "swayipc",
  "x11",
  "zbus",
 ]
