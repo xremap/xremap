@@ -4,6 +4,13 @@
 
 ## Features
 
+* You can remap any keys, e.g. Ctrl or CapsLock.
+* You can remap any key combination to another, even to a key sequence
+* You can also remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
+* Application-specific remapping. Even if it's not supported by your application, xremap can.
+
+## Concept
+
 * **Fast** - Xremap is written in Rust, which is faster than JIT-less interpreters like Python.
 
 * **Cross-platform** - Xremap uses `evdev` and `uinput`, which works whether you use X11 or Wayland.
