@@ -13,8 +13,8 @@
 
 ## Prerequisite
 
-`xremap` assumes that your user can use `evdev` and `uinput` without sudo.
-This can be configured by the following commands:
+`xremap` assumes that you can use `evdev` and `uinput` without sudo.
+It can be configured by the following commands:
 
 ```bash
 sudo gpasswd -a YOUR_USER input
