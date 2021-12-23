@@ -35,6 +35,7 @@ jobs:
         with:
           command: build
           args: --release ${{ matrix.options }}
+
   fmt:
     runs-on: ubuntu-latest
     steps:
@@ -48,3 +49,32 @@ jobs:
         with:
           command: fmt
           args: -- --check
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: Build
+        run: |
+          for feature in x11 gnome sway others; do
+            if [[ "$feature" = "others" ]]; then
+              cargo build --release
+            else
+              cargo build --release --features "$feature"
+            fi
+            (cd target/release && zip "xremap-linux-x86_64-${feature}.zip" xremap && rm xremap)
+          done
+          mkdir package && mv target/release/xremap-*.zip package/
+      - name: Release
+        run: |
+          export VERSION=$(echo "$GITHUB_REF" | sed -e 's!refs/tags/!!')
+          curl -L "https://github.com/tcnksm/ghr/releases/download/${GHR_VERSION}/ghr_${GHR_VERSION}_linux_amd64.tar.gz" | tar xvz
+          "ghr_${GHR_VERSION}_linux_amd64/ghr" -u k0kubun -r xremap -replace -n "$VERSION" "$VERSION" package/
+        env:
+          GHR_VERSION: v0.14.0
+          GITHUB_TOKEN: ${{ secrets.githubtoken }}
