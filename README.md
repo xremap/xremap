@@ -99,7 +99,7 @@ See also: [example/config.yml](./example/config.yml)
 
 `modmap` is for key-to-key remapping like xmodmap.
 Note that remapping a key to a modifier key, e.g. CapsLock to Control\_L,
-is supported only in `modmap` since `keymap` specially handles modifier keys.
+is supported only in `modmap` since `keymap` handles modifier keys differently.
 
 ```yml
 modmap:
