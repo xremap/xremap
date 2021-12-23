@@ -98,8 +98,8 @@ See also: [example/config.yml](./example/config.yml)
 ### modmap
 
 `modmap` is for key-to-key remapping like xmodmap.
-If you want to remap modifier keys, you need to use `modmap`.
-Note that `modmap` remapping happens before `keymap` remapping.
+Note that remapping a key to a modifier key, e.g. CapsLock to Control\_L, is supported only in `modmap`.
+It is to let `keymap` correctly recognize modifier key combinations.
 
 ```yml
 modmap:
@@ -118,7 +118,7 @@ Some [custom aliases](src/config/key.rs) like `SHIFT_R`, `CONTROL_L`, etc. are p
 
 ### keymap
 
-`modmap` is for remapping a sequence of key combinations to another sequence of key combinations or other actions.
+`keymap` is for remapping a sequence of key combinations to another sequence of key combinations or other actions.
 
 ```yml
 modmap:
