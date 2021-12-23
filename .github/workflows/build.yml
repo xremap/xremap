@@ -64,6 +64,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
+      - uses: Swatinem/rust-cache@v1
       - name: Build
         run: |
           for feature in x11 gnome sway others; do
