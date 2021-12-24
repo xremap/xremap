@@ -68,14 +68,10 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v1
       - name: cargo login
-        uses: actions-rs/cargo@v1
-        with:
-          command: login
-          args: ${{ secrets.cargotoken }}
-      - name: cargo publish
-        uses: actions-rs/cargo@v1
-        with:
-          command: publish
+        run: cargo login "$CARGO_TOKEN"
+        env:
+          CARGO_TOKEN: ${{ secrets.CARGO_TOKEN }}
+      - run: cargo publish
       - name: Package
         run: |
           for feature in x11 gnome sway others; do
