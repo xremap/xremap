@@ -94,4 +94,4 @@ jobs:
           "ghr_${GHR_VERSION}_linux_amd64/ghr" -u k0kubun -r xremap -replace -n "$VERSION" "$VERSION" package/
         env:
           GHR_VERSION: v0.14.0
-          GITHUB_TOKEN: ${{ secrets.githubtoken }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
