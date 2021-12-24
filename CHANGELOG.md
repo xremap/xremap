@@ -1,3 +1,8 @@
+## v0.1.2
+
+* Fix recognition of a right Alt modifier in `keymap`
+  [#43](https://github.com/k0kubun/xremap/issues/43)
+
 ## v0.1.1
 
 * Binary distribution is built on GitHub Actions
