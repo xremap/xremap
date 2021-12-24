@@ -54,7 +54,7 @@ jobs:
           command: fmt
           args: -- --check
 
-  release:
+  publish:
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
@@ -84,3 +84,10 @@ jobs:
         env:
           GHR_VERSION: v0.14.0
           GITHUB_TOKEN: ${{ secrets.githubtoken }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: login
+          args: ${{ secrets.cargotoken }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: publish
