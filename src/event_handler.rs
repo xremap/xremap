@@ -88,7 +88,7 @@ impl EventHandler {
             key: key.clone(),
             shift: self.shift.left || self.shift.right,
             control: self.control.left || self.control.right,
-            alt: self.alt.left || self.control.right,
+            alt: self.alt.left || self.alt.right,
             windows: self.windows.left || self.windows.right,
         };
         if let Some(override_remap) = &self.override_remap {
