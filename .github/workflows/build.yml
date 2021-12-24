@@ -65,6 +65,13 @@ jobs:
           toolchain: stable
           override: true
       - uses: Swatinem/rust-cache@v1
+      - uses: actions-rs/cargo@v1
+        with:
+          command: login
+          args: ${{ secrets.cargotoken }}
+      - uses: actions-rs/cargo@v1
+        with:
+          command: publish
       - name: Build
         run: |
           for feature in x11 gnome sway others; do
@@ -84,10 +91,3 @@ jobs:
         env:
           GHR_VERSION: v0.14.0
           GITHUB_TOKEN: ${{ secrets.githubtoken }}
-      - uses: actions-rs/cargo@v1
-        with:
-          command: login
-          args: ${{ secrets.cargotoken }}
-      - uses: actions-rs/cargo@v1
-        with:
-          command: publish
