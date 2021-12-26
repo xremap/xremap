@@ -121,7 +121,7 @@ Some [custom aliases](src/config/key.rs) like `SHIFT_R`, `CONTROL_L`, etc. are p
 `keymap` is for remapping a sequence of key combinations to another sequence of key combinations or other actions.
 
 ```yml
-modmap:
+keymap:
   - name: Name # Required
     remap: # Required
       # key press -> key press
