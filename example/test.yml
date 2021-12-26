@@ -1,10 +1,7 @@
-# modmap:
-#   - name: Global
-#     remap:
-#       a: b
-keymap:
-  - name: Global
-    application:
-      only: Slack
+modmap:
+  - name: SandS
     remap:
-      C-i: C-u
+      Space:
+        held: Shift_L
+        alone: Space
+        alone_timeout_millis: 500

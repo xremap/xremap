@@ -2,6 +2,7 @@ pub mod action;
 mod actions;
 pub mod application;
 mod key;
+pub mod key_action;
 pub mod key_press;
 mod keymap;
 mod modmap;
