@@ -1,6 +1,7 @@
 use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::application::Application;
+use crate::config::key_action::KeyAction;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::Config;
 use evdev::uinput::VirtualDevice;
@@ -9,10 +10,12 @@ use lazy_static::lazy_static;
 use log::debug;
 use std::collections::HashMap;
 use std::error::Error;
+use std::time::Instant;
 
 pub struct EventHandler {
     device: VirtualDevice,
     wm_client: WMClient,
+    multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     application_cache: Option<String>,
     shift: PressState,
@@ -26,6 +29,7 @@ impl EventHandler {
         EventHandler {
             device,
             wm_client: build_client(),
+            multi_purpose_keys: HashMap::new(),
             override_remap: None,
             application_cache: None,
             shift: PressState::new(false),
@@ -38,32 +42,31 @@ impl EventHandler {
     // Handle EventType::KEY
     pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.application_cache = None; // expire cache
-        let mut key = Key::new(event.code());
+        let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
-        for modmap in &config.modmap {
-            if let Some(modmap_key) = modmap.remap.get(&key) {
-                if let Some(wm_class_matcher) = &modmap.application {
-                    if !self.match_wm_class(wm_class_matcher) {
-                        continue;
-                    }
-                }
-                key = modmap_key.clone();
-                break;
-            }
+        let mut key_values = if let Some(key_action) = self.find_modmap(&config, &key) {
+            self.dispatch_keys(key_action, key, event.value())
+        } else {
+            vec![(key, event.value())]
+        };
+        if !self.multi_purpose_keys.is_empty() {
+            key_values = self.flush_timeout_keys(key_values);
         }
 
         // Apply keymap
-        if MODIFIER_KEYS.contains(&key.code()) {
-            self.update_modifier(key.code(), event.value());
-        } else if let Some(actions) = self.find_keymap(config, &key, event.value()) {
-            for action in &actions {
-                self.dispatch_action(action)?;
+        for (key, value) in key_values.into_iter() {
+            if MODIFIER_KEYS.contains(&key.code()) {
+                self.update_modifier(key.code(), value);
+            } else if let Some(actions) = self.find_keymap(config, &key, value) {
+                for action in &actions {
+                    self.dispatch_action(action)?;
+                }
+                return Ok(());
             }
-            return Ok(());
+            self.send_key(&key, value)?;
         }
-        self.send_key(&key, event.value())?;
         Ok(())
     }
 
@@ -77,6 +80,72 @@ impl EventHandler {
     fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
         let event = InputEvent::new(EventType::KEY, key.code(), value);
         self.send_event(event)
+    }
+
+    fn dispatch_keys(&mut self, key_action: KeyAction, key: Key, value: i32) -> Vec<(Key, i32)> {
+        match key_action {
+            KeyAction::Key(modmap_key) => vec![(modmap_key.clone(), value)],
+            KeyAction::MultiPurposeKey(multi_purpose_key) => {
+                if value == PRESS {
+                    self.multi_purpose_keys.insert(
+                        key.clone(),
+                        MultiPurposeKeyState {
+                            held: multi_purpose_key.held,
+                            alone: multi_purpose_key.alone,
+                            alone_timeout_at: Some(Instant::now() + multi_purpose_key.alone_timeout),
+                        },
+                    );
+                    return vec![]; // delay the press
+                } else if value == REPEAT {
+                    if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
+                        return state.repeat();
+                    }
+                } else if value == RELEASE {
+                    if let Some(state) = self.multi_purpose_keys.remove(&key) {
+                        return state.release();
+                    }
+                } else {
+                    panic!("unexpected key event value: {}", value);
+                }
+                // fallthrough on state discrepancy
+                vec![(key, value)]
+            }
+        }
+    }
+
+    fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
+        let mut flush = false;
+        for (_, value) in key_values.iter() {
+            if *value == PRESS {
+                flush = true;
+                break;
+            }
+        }
+
+        if flush {
+            let mut flushed: Vec<(Key, i32)> = vec![];
+            for (_, state) in self.multi_purpose_keys.iter_mut() {
+                flushed.extend(state.force_held());
+            }
+            flushed.extend(key_values);
+            flushed
+        } else {
+            key_values
+        }
+    }
+
+    fn find_modmap(&mut self, config: &Config, key: &Key) -> Option<KeyAction> {
+        for modmap in &config.modmap {
+            if let Some(key_action) = modmap.remap.get(&key) {
+                if let Some(application_matcher) = &modmap.application {
+                    if !self.match_application(application_matcher) {
+                        continue;
+                    }
+                }
+                return Some(key_action.clone());
+            }
+        }
+        None
     }
 
     fn find_keymap(&mut self, config: &Config, key: &Key, value: i32) -> Option<Vec<Action>> {
@@ -100,8 +169,8 @@ impl EventHandler {
         }
         for keymap in &config.keymap {
             if let Some(actions) = keymap.remap.get(&key_press) {
-                if let Some(wm_class_matcher) = &keymap.application {
-                    if !self.match_wm_class(wm_class_matcher) {
+                if let Some(application_matcher) = &keymap.application {
+                    if !self.match_application(application_matcher) {
                         continue;
                     }
                 }
@@ -212,7 +281,7 @@ impl EventHandler {
         }
     }
 
-    fn match_wm_class(&mut self, application_matcher: &Application) -> bool {
+    fn match_application(&mut self, application_matcher: &Application) -> bool {
         // Lazily fill the wm_class cache
         if let None = self.application_cache {
             match self.wm_client.current_application() {
@@ -255,30 +324,6 @@ impl EventHandler {
     }
 }
 
-#[derive(Clone)]
-struct PressState {
-    left: bool,
-    right: bool,
-}
-
-impl PressState {
-    fn new(pressed: bool) -> PressState {
-        PressState {
-            left: pressed,
-            right: pressed,
-        }
-    }
-}
-
-fn is_pressed(value: i32) -> bool {
-    value == PRESS || value == REPEAT
-}
-
-// InputEvent#value
-static RELEASE: i32 = 0;
-static PRESS: i32 = 1;
-static REPEAT: i32 = 2;
-
 lazy_static! {
     static ref MODIFIER_KEYS: [u16; 8] = [
         // Shift
@@ -311,4 +356,77 @@ lazy_static! {
         Key::new(Key::KEY_LEFTMETA.code()),
         Key::new(Key::KEY_RIGHTMETA.code()),
     ];
+}
+
+//---
+
+#[derive(Clone)]
+struct PressState {
+    left: bool,
+    right: bool,
+}
+
+impl PressState {
+    fn new(pressed: bool) -> PressState {
+        PressState {
+            left: pressed,
+            right: pressed,
+        }
+    }
+}
+
+fn is_pressed(value: i32) -> bool {
+    value == PRESS || value == REPEAT
+}
+
+// InputEvent#value
+static RELEASE: i32 = 0;
+static PRESS: i32 = 1;
+static REPEAT: i32 = 2;
+
+//---
+
+#[derive(Debug)]
+struct MultiPurposeKeyState {
+    held: Key,
+    alone: Key,
+    alone_timeout_at: Option<Instant>,
+}
+
+impl MultiPurposeKeyState {
+    fn repeat(&mut self) -> Vec<(Key, i32)> {
+        if let Some(alone_timeout_at) = &self.alone_timeout_at {
+            if Instant::now() < *alone_timeout_at {
+                vec![] // still delay the press
+            } else {
+                self.alone_timeout_at = None; // timeout
+                vec![(self.held.clone(), PRESS)]
+            }
+        } else {
+            vec![(self.held.clone(), REPEAT)]
+        }
+    }
+
+    fn release(&self) -> Vec<(Key, i32)> {
+        if let Some(alone_timeout_at) = &self.alone_timeout_at {
+            if Instant::now() < *alone_timeout_at {
+                // dispatch the delayed press and this release
+                vec![(self.alone.clone(), PRESS), (self.alone.clone(), RELEASE)]
+            } else {
+                // too late. dispatch the held key
+                vec![(self.held.clone(), PRESS), (self.held.clone(), RELEASE)]
+            }
+        } else {
+            vec![(self.held.clone(), RELEASE)]
+        }
+    }
+
+    fn force_held(&mut self) -> Vec<(Key, i32)> {
+        if self.alone_timeout_at.is_some() {
+            self.alone_timeout_at = None;
+            vec![(self.held.clone(), PRESS)]
+        } else {
+            vec![]
+        }
+    }
 }

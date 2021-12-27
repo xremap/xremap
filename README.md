@@ -15,7 +15,8 @@
 
 * You can remap any keys, e.g. Ctrl or CapsLock.
 * You can remap any key combination to another, even to a key sequence.
-* You can also remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
+* You can remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
+* You can remap a key to two different keys depending on whether it's pressed alone or held.
 * Application-specific remapping. Even if it's not supported by your application, xremap can.
 
 ## Prerequisite
@@ -105,7 +106,12 @@ is supported only in `modmap` since `keymap` handles modifier keys differently.
 modmap:
   - name: Name # Required
     remap: # Required
-      KEY_XXX: KEY_YYY
+      KEY_XXX: KEY_YYY # Required
+      # or
+      KEY_XXX:
+        held: KEY_YYY # Required
+        alone: KEY_ZZZ # Required
+        alone_timeout_millis: 1000 # Optional
     application: # Optional
       not: [Application, ...]
       # or
@@ -115,6 +121,10 @@ modmap:
 For `KEY_XXX` and `KEY_YYY`, use [these names](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
 You can skip `KEY_` and the name is case-insensitive. So `KEY_CAPSLOCK`, `CAPSLOCK`, and `CapsLock` are the same thing.
 Some [custom aliases](src/config/key.rs) like `SHIFT_R`, `CONTROL_L`, etc. are provided.
+
+If you specify a map containing `held` and `alone`, you can use the key for two purposes.
+The key is considered `alone` if it's pressed and released within `alone_timeout_millis` (default: 1000)
+before any other key is pressed. Otherwise it's considered `held`.
 
 ### keymap
 

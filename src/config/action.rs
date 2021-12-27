@@ -7,6 +7,7 @@ use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt::{Debug, Formatter};
 
+// Values in `keymap.remap`
 #[derive(Clone, Debug)]
 pub enum Action {
     KeyPress(KeyPress),
@@ -70,7 +71,7 @@ impl<'de> Deserialize<'de> for Action {
     }
 }
 
-fn serde_error<'de, V, M>(message: &str) -> Result<V, M::Error>
+pub fn serde_error<'de, V, M>(message: &str) -> Result<V, M::Error>
 where
     M: MapAccess<'de>,
 {
