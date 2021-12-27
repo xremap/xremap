@@ -35,10 +35,7 @@ jobs:
           override: true
       - uses: Swatinem/rust-cache@v1
       - name: cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release ${{ matrix.options }}
+        run: cargo build --release ${{ matrix.options }}
 
   fmt:
     runs-on: ubuntu-latest
@@ -51,10 +48,7 @@ jobs:
           toolchain: stable
           override: true
       - name: cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: -- --check
+        run: cargo fmt -- --check
 
   publish:
     runs-on: ubuntu-latest
