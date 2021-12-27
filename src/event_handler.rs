@@ -390,6 +390,7 @@ static REPEAT: i32 = 2;
 struct MultiPurposeKeyState {
     held: Key,
     alone: Key,
+    // Some if the first press is still delayed, None if already considered held.
     alone_timeout_at: Option<Instant>,
 }
 
