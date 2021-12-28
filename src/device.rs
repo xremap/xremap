@@ -50,7 +50,7 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     Ok(device)
 }
 
-pub fn input_devices(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
+pub fn input_devices(device_opts: &Vec<String>, ignore_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
     let mut path_devices = list_devices()?;
     let mut paths: Vec<String> = path_devices.keys().map(|e| e.clone()).collect();
     paths.sort_by(|a, b| device_index(a).partial_cmp(&device_index(b)).unwrap());
@@ -65,21 +65,29 @@ pub fn input_devices(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
     println!("{}", SEPARATOR);
 
     if device_opts.is_empty() {
-        println!("Selected keyboards automatically since --device options weren't specified:");
+        print!("Selected keyboards automatically since --device options weren't specified");
     } else {
-        println!("Selected devices matching {:?}:", device_opts);
+        print!("Selected devices matching {:?}", device_opts);
     };
+    if ignore_opts.is_empty() {
+        println!(":")
+    } else {
+        println!(", ignoring {:?}:", ignore_opts);
+    }
     for path in &paths {
         if let Some(device) = path_devices.get(path) {
             let matched = if device_opts.is_empty() {
                 is_keyboard(device)
             } else {
                 match_device(path, device, device_opts)
-            };
+            } && (ignore_opts.is_empty() || !match_device(path, device, ignore_opts));
             if !matched {
                 path_devices.remove(path);
             }
         }
+    }
+    if path_devices.is_empty() {
+        return Err("No device was selected!".into());
     }
 
     println!("{}", SEPARATOR);

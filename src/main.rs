@@ -28,7 +28,8 @@ fn main() {
     let program = argv[0].clone();
 
     let mut opts = Options::new();
-    opts.optmulti("", "device", "device name or path", "NAME");
+    opts.optmulti("", "device", "Include device name or path", "NAME");
+    opts.optmulti("", "ignore", "Exclude device name or path", "NAME");
     opts.optflag("h", "help", "print this help menu");
 
     let args = match opts.parse(&argv[1..]) {
@@ -49,7 +50,7 @@ fn main() {
         Err(e) => abort(&format!("Failed to load config '{}': {}", filename, e)),
     };
 
-    let input_devices = match input_devices(&args.opt_strs("device")) {
+    let input_devices = match input_devices(&args.opt_strs("device"), &args.opt_strs("ignore")) {
         Ok(input_devices) => input_devices,
         Err(e) => abort(&format!("Failed to prepare input devices: {}", e)),
     };
