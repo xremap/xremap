@@ -2,6 +2,7 @@
 
 * Add `--ignore` option to deny-list devices instead of allow-listing them
   [#46](https://github.com/k0kubun/xremap/issues/46)
+* Abort `xremap` when no device was selected
 
 ## v0.1.3
 
