@@ -5,14 +5,48 @@ use crate::config::key_action::KeyAction;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::Config;
 use evdev::uinput::VirtualDevice;
-use evdev::{EventType, InputEvent, Key};
+use evdev::{Device, EventType, InputEvent, Key};
 use lazy_static::lazy_static;
 use log::debug;
+use nix::sys::select::select;
+use nix::sys::select::FdSet;
 use std::collections::HashMap;
 use std::error::Error;
+use std::os::unix::io::AsRawFd;
 use std::time::Instant;
 
-pub struct EventHandler {
+pub fn event_loop(
+    mut input_devices: Vec<Device>,
+    output_device: VirtualDevice,
+    config: &Config,
+) -> Result<(), Box<dyn Error>> {
+    let mut handler = EventHandler::new(output_device);
+    loop {
+        let readable_fds = select_readable(&input_devices)?;
+        for input_device in &mut input_devices {
+            if readable_fds.contains(input_device.as_raw_fd()) {
+                for event in input_device.fetch_events()? {
+                    if event.event_type() == EventType::KEY {
+                        handler.on_event(event, config)?;
+                    } else {
+                        handler.send_event(event)?;
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn select_readable(devices: &Vec<Device>) -> Result<FdSet, Box<dyn Error>> {
+    let mut read_fds = FdSet::new();
+    for device in devices {
+        read_fds.insert(device.as_raw_fd());
+    }
+    select(None, &mut read_fds, None, None, None)?;
+    return Ok(read_fds);
+}
+
+struct EventHandler {
     device: VirtualDevice,
     wm_client: WMClient,
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
@@ -25,7 +59,7 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(device: VirtualDevice) -> EventHandler {
+    fn new(device: VirtualDevice) -> EventHandler {
         EventHandler {
             device,
             wm_client: build_client(),
@@ -40,7 +74,7 @@ impl EventHandler {
     }
 
     // Handle EventType::KEY
-    pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+    fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
@@ -70,7 +104,7 @@ impl EventHandler {
         Ok(())
     }
 
-    pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
+    fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
         }

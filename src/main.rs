@@ -1,5 +1,6 @@
 use crate::config::Config;
-use crate::input::{event_loop, select_device};
+use crate::device::{input_devices, output_device};
+use crate::event_handler::event_loop;
 use getopts::Options;
 use std::env;
 use std::process::exit;
@@ -8,9 +9,8 @@ extern crate getopts;
 
 mod client;
 mod config;
+mod device;
 mod event_handler;
-mod input;
-mod output;
 
 fn usage(program: &str, opts: Options) -> String {
     let brief = format!("Usage: {} CONFIG [options]", program);
@@ -49,13 +49,16 @@ fn main() {
         Err(e) => abort(&format!("Failed to load config '{}': {}", filename, e)),
     };
 
-    let devices = args.opt_strs("device");
-    let input_devices = match select_device(&devices) {
+    let input_devices = match input_devices(&args.opt_strs("device")) {
         Ok(input_devices) => input_devices,
-        Err(e) => abort(&format!("Failed to select devices: {}", e)),
+        Err(e) => abort(&format!("Failed to prepare input devices: {}", e)),
+    };
+    let output_device = match output_device() {
+        Ok(output_device) => output_device,
+        Err(e) => abort(&format!("Failed to prepare an output device: {}", e)),
     };
 
-    if let Err(e) = event_loop(input_devices, &config) {
+    if let Err(e) = event_loop(input_devices, output_device, &config) {
         abort(&format!("Error: {}", e));
     }
 }

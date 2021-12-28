@@ -1,44 +1,56 @@
 extern crate evdev;
 extern crate nix;
 
-use crate::event_handler::EventHandler;
-use crate::output::build_device;
-use crate::Config;
-use evdev::{Device, EventType, Key};
-use nix::sys::select::select;
-use nix::sys::select::FdSet;
+use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
+use evdev::{AttributeSet, Device, Key, RelativeAxisType};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::io::AsRawFd;
 
-pub fn event_loop(mut input_devices: Vec<Device>, config: &Config) -> Result<(), Box<dyn Error>> {
-    for device in &mut input_devices {
-        device
-            .grab()
-            .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
-    }
-    let output_device = build_device().map_err(|e| format!("Failed to build an output device: {}", e))?;
+static MOUSE_BTNS: [&str; 13] = [
+    "BTN_0",
+    "BTN_1",
+    "BTN_2",
+    "BTN_3",
+    "BTN_4",
+    "BTN_5",
+    "BTN_6",
+    "BTN_7",
+    "BTN_8",
+    "BTN_9",
+    "BTN_LEFT",
+    "BTN_MIDDLE",
+    "BTN_RIGHT",
+];
 
-    let mut handler = EventHandler::new(output_device);
-    loop {
-        let readable_fds = select_readable(&input_devices)?;
-        for input_device in &mut input_devices {
-            if readable_fds.contains(input_device.as_raw_fd()) {
-                for event in input_device.fetch_events()? {
-                    if event.event_type() == EventType::KEY {
-                        handler.on_event(event, config)?;
-                    } else {
-                        handler.send_event(event)?;
-                    }
-                }
-            }
+// Credit: https://github.com/mooz/xkeysnail/blob/master/xkeysnail/output.py#L10-L32
+pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
+    let mut keys: AttributeSet<Key> = AttributeSet::new();
+    for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
+        let key = Key::new(code);
+        let name = format!("{:?}", key);
+        if name.starts_with("KEY_") || MOUSE_BTNS.contains(&&**&name) {
+            keys.insert(key);
         }
     }
+
+    let mut relative_axes: AttributeSet<RelativeAxisType> = AttributeSet::new();
+    relative_axes.insert(RelativeAxisType::REL_X);
+    relative_axes.insert(RelativeAxisType::REL_Y);
+    relative_axes.insert(RelativeAxisType::REL_HWHEEL);
+    relative_axes.insert(RelativeAxisType::REL_WHEEL);
+    relative_axes.insert(RelativeAxisType::REL_MISC);
+
+    let device = VirtualDeviceBuilder::new()?
+        .name("xremap")
+        .with_keys(&keys)?
+        .with_relative_axes(&relative_axes)?
+        .build()?;
+    Ok(device)
 }
 
-pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
+pub fn input_devices(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
     let mut path_devices = list_devices()?;
     let mut paths: Vec<String> = path_devices.keys().map(|e| e.clone()).collect();
     paths.sort_by(|a, b| device_index(a).partial_cmp(&device_index(b)).unwrap());
@@ -76,16 +88,13 @@ pub fn select_device(device_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn E
     }
     println!("{}", SEPARATOR);
 
-    return Ok(path_devices.into_values().collect());
-}
-
-fn select_readable(devices: &Vec<Device>) -> Result<FdSet, Box<dyn Error>> {
-    let mut read_fds = FdSet::new();
-    for device in devices {
-        read_fds.insert(device.as_raw_fd());
+    let mut devices: Vec<Device> = path_devices.into_values().collect();
+    for device in devices.iter_mut() {
+        device
+            .grab()
+            .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
     }
-    select(None, &mut read_fds, None, None, None)?;
-    return Ok(read_fds);
+    return Ok(devices);
 }
 
 // We can't know the device path from evdev::enumerate(). So we re-implement it.
