@@ -1,3 +1,7 @@
+## Unreleased
+
+* `name` is made optional in `modmap` and `keymap`
+
 ## v0.1.4
 
 * Add `--ignore` option to deny-list devices instead of allow-listing them

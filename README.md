@@ -104,7 +104,7 @@ is supported only in `modmap` since `keymap` handles modifier keys differently.
 
 ```yml
 modmap:
-  - name: Name # Required
+  - name: Name # Optional
     remap: # Required
       KEY_XXX: KEY_YYY # Required
       # or
@@ -132,7 +132,7 @@ before any other key is pressed. Otherwise it's considered `held`.
 
 ```yml
 keymap:
-  - name: Name # Required
+  - name: Name # Optional
     remap: # Required
       # key press -> key press
       MOD1-KEY_XXX: MOD2-KEY_YYY

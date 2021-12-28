@@ -10,6 +10,7 @@ use std::fmt;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Modmap {
+    #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "modmap_remap")]
     pub remap: HashMap<Key, KeyAction>,

@@ -11,6 +11,7 @@ use std::fmt::Formatter;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Keymap {
+    #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "keymap_remap")]
     pub remap: HashMap<KeyPress, Vec<Action>>,
