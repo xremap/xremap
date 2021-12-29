@@ -1,5 +1,4 @@
 use crate::config::action::Action;
-use crate::config::action::Actions;
 use crate::config::application::Application;
 use crate::config::key_press::KeyPress;
 use serde::de::{MapAccess, Visitor};
@@ -18,13 +17,19 @@ pub struct Keymap {
     pub application: Option<Application>,
 }
 
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
+pub fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    struct KeymapRemap;
+    struct RemapVisitor;
 
-    impl<'de> Visitor<'de> for KeymapRemap {
+    #[derive(Deserialize)]
+    pub enum Actions {
+        Action(Action),
+        Actions(Vec<Action>),
+    }
+
+    impl<'de> Visitor<'de> for RemapVisitor {
         type Value = HashMap<KeyPress, Vec<Action>>;
 
         fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
@@ -49,5 +54,5 @@ where
         }
     }
 
-    deserializer.deserialize_any(KeymapRemap)
+    deserializer.deserialize_any(RemapVisitor)
 }
