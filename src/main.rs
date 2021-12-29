@@ -45,8 +45,14 @@ fn main() {
         Err(e) => abort(&format!("Failed to load config '{}': {}", filename, e)),
     };
 
-    if let Err(e) = event_loop(&config, &args.opt_strs("device"), &args.opt_strs("ignore")) {
-        abort(&format!("Error: {}", e));
+    loop {
+        if let Err(e) = event_loop(&config, &args.opt_strs("device"), &args.opt_strs("ignore")) {
+            if e.to_string().starts_with("No such device") {
+                println!("Found a removed device. Reselecting.");
+                continue;
+            }
+            abort(&format!("Error: {}", e));
+        }
     }
 }
 
