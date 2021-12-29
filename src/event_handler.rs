@@ -304,21 +304,21 @@ impl EventHandler {
     }
 
     fn update_modifier(&mut self, code: u16, value: i32) {
-        if code == evdev::Key::KEY_LEFTSHIFT.code() {
+        if code == Key::KEY_LEFTSHIFT.code() {
             self.shift.left = is_pressed(value)
-        } else if code == evdev::Key::KEY_RIGHTSHIFT.code() {
+        } else if code == Key::KEY_RIGHTSHIFT.code() {
             self.shift.right = is_pressed(value)
-        } else if code == evdev::Key::KEY_LEFTCTRL.code() {
+        } else if code == Key::KEY_LEFTCTRL.code() {
             self.control.left = is_pressed(value)
-        } else if code == evdev::Key::KEY_RIGHTCTRL.code() {
+        } else if code == Key::KEY_RIGHTCTRL.code() {
             self.control.right = is_pressed(value)
-        } else if code == evdev::Key::KEY_LEFTALT.code() {
+        } else if code == Key::KEY_LEFTALT.code() {
             self.alt.left = is_pressed(value)
-        } else if code == evdev::Key::KEY_RIGHTALT.code() {
+        } else if code == Key::KEY_RIGHTALT.code() {
             self.alt.right = is_pressed(value)
-        } else if code == evdev::Key::KEY_LEFTMETA.code() {
+        } else if code == Key::KEY_LEFTMETA.code() {
             self.windows.left = is_pressed(value)
-        } else if code == evdev::Key::KEY_RIGHTMETA.code() {
+        } else if code == Key::KEY_RIGHTMETA.code() {
             self.windows.right = is_pressed(value)
         } else {
             panic!("unexpected key {:?} at update_modifier", Key::new(code));
@@ -329,34 +329,34 @@ impl EventHandler {
 lazy_static! {
     static ref MODIFIER_KEYS: [u16; 8] = [
         // Shift
-        evdev::Key::KEY_LEFTSHIFT.code(),
-        evdev::Key::KEY_RIGHTSHIFT.code(),
+        Key::KEY_LEFTSHIFT.code(),
+        Key::KEY_RIGHTSHIFT.code(),
         // Control
-        evdev::Key::KEY_LEFTCTRL.code(),
-        evdev::Key::KEY_RIGHTCTRL.code(),
+        Key::KEY_LEFTCTRL.code(),
+        Key::KEY_RIGHTCTRL.code(),
         // Alt
-        evdev::Key::KEY_LEFTALT.code(),
-        evdev::Key::KEY_RIGHTALT.code(),
+        Key::KEY_LEFTALT.code(),
+        Key::KEY_RIGHTALT.code(),
         // Windows
-        evdev::Key::KEY_LEFTMETA.code(),
-        evdev::Key::KEY_RIGHTMETA.code(),
+        Key::KEY_LEFTMETA.code(),
+        Key::KEY_RIGHTMETA.code(),
     ];
 
     static ref SHIFT_KEYS: [Key; 2] = [
-        Key::new(evdev::Key::KEY_LEFTSHIFT.code()),
-        Key::new(evdev::Key::KEY_RIGHTSHIFT.code()),
+        Key::new(Key::KEY_LEFTSHIFT.code()),
+        Key::new(Key::KEY_RIGHTSHIFT.code()),
     ];
     static ref CONTROL_KEYS: [Key; 2] = [
-        Key::new(evdev::Key::KEY_LEFTCTRL.code()),
-        Key::new(evdev::Key::KEY_RIGHTCTRL.code()),
+        Key::new(Key::KEY_LEFTCTRL.code()),
+        Key::new(Key::KEY_RIGHTCTRL.code()),
     ];
     static ref ALT_KEYS: [Key; 2] = [
-        Key::new(evdev::Key::KEY_LEFTALT.code()),
-        Key::new(evdev::Key::KEY_RIGHTALT.code()),
+        Key::new(Key::KEY_LEFTALT.code()),
+        Key::new(Key::KEY_RIGHTALT.code()),
     ];
     static ref WINDOWS_KEYS: [Key; 2] = [
-        Key::new(evdev::Key::KEY_LEFTMETA.code()),
-        Key::new(evdev::Key::KEY_RIGHTMETA.code()),
+        Key::new(Key::KEY_LEFTMETA.code()),
+        Key::new(Key::KEY_RIGHTMETA.code()),
     ];
 }
 
