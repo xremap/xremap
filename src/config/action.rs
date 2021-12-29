@@ -1,7 +1,6 @@
 use crate::config::key_press::KeyPress;
 use std::collections::HashMap;
 
-use crate::config::actions::Actions;
 use serde::de;
 use serde::de::{IntoDeserializer, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -12,6 +11,13 @@ use std::fmt::{Debug, Formatter};
 pub enum Action {
     KeyPress(KeyPress),
     Remap(HashMap<KeyPress, Vec<Action>>),
+}
+
+// Used only for deserializing Vec<Action>
+#[derive(Deserialize)]
+pub enum Actions {
+    Action(Action),
+    Actions(Vec<Action>),
 }
 
 impl<'de> Deserialize<'de> for Action {
