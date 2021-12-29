@@ -13,12 +13,12 @@ use std::fmt::Formatter;
 pub struct Keymap {
     #[serde(default = "String::new")]
     pub name: String,
-    #[serde(deserialize_with = "keymap_remap")]
+    #[serde(deserialize_with = "deserialize_remap")]
     pub remap: HashMap<KeyPress, Vec<Action>>,
     pub application: Option<Application>,
 }
 
-fn keymap_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
+fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
 where
     D: Deserializer<'de>,
 {
