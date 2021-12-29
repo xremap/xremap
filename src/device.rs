@@ -3,6 +3,7 @@ extern crate nix;
 
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use evdev::{AttributeSet, Device, Key, RelativeAxisType};
+use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_dir;
@@ -51,7 +52,21 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     Ok(device)
 }
 
-pub fn input_devices(device_opts: &Vec<String>, ignore_opts: &Vec<String>) -> Result<Vec<Device>, Box<dyn Error>> {
+pub fn device_watcher(watch: bool) -> Result<Option<Inotify>, Box<dyn Error>> {
+    if watch {
+        let inotify = Inotify::init(InitFlags::empty())?;
+        inotify.add_watch("/dev/input", AddWatchFlags::IN_CREATE | AddWatchFlags::IN_ATTRIB)?;
+        Ok(Some(inotify))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn input_devices(
+    device_opts: &Vec<String>,
+    ignore_opts: &Vec<String>,
+    watch: bool,
+) -> Result<Vec<Device>, Box<dyn Error>> {
     let mut path_devices = list_devices()?;
     let mut paths: Vec<String> = path_devices.keys().map(|e| e.clone()).collect();
     paths.sort_by(|a, b| device_index(a).partial_cmp(&device_index(b)).unwrap());
@@ -87,13 +102,18 @@ pub fn input_devices(device_opts: &Vec<String>, ignore_opts: &Vec<String>) -> Re
             }
         }
     }
-    if path_devices.is_empty() {
-        return Err("No device was selected!".into());
-    }
 
     println!("{}", SEPARATOR);
-    for (path, device) in path_devices.iter() {
-        println!("{:18}: {}", path, device_name(device));
+    if path_devices.is_empty() {
+        if watch {
+            println!("warning: No device was selected, but --watch is waiting for new devices.");
+        } else {
+            return Err("No device was selected!".into());
+        }
+    } else {
+        for (path, device) in path_devices.iter() {
+            println!("{:18}: {}", path, device_name(device));
+        }
     }
     println!("{}", SEPARATOR);
 
