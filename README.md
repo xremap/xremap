@@ -17,8 +17,8 @@
 * Remap any key combination to another, even to a key sequence.
 * Remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
 * Remap a key to two different keys depending on whether it's pressed alone or held.
-* Automatically remap newly connected devices by starting xremap with `--watch`.
 * Application-specific remapping. Even if it's not supported by your application, xremap can.
+* Automatically remap newly connected devices by starting xremap with `--watch`.
 
 ## Prerequisite
 
