@@ -92,7 +92,7 @@ fn event_loop(
         }
         if let Some(inotify) = watcher {
             if readable_fds.contains(inotify.as_raw_fd()) {
-                println!("Detected a new device. Reselecting devices.");
+                println!("Detected device changes. Reselecting devices.");
                 return Ok(());
             }
         }
