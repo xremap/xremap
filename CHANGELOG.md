@@ -1,5 +1,7 @@
-## Unreleased
+## v0.1.5
 
+* Add `--watch` option to automatically add new devices
+* Avoid crashing on a disconnected device
 * `name` is made optional in `modmap` and `keymap`
 
 ## v0.1.4
