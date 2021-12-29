@@ -57,8 +57,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - name: cargo fmt
-        run: cargo fmt -- --check
+      - run: cargo test
 
   publish:
     runs-on: ubuntu-latest
