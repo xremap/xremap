@@ -1,4 +1,5 @@
-use crate::config::key::{parse_key, Key};
+use crate::config::key::parse_key;
+use evdev::Key;
 use serde::de;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};

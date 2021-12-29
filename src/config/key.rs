@@ -1,61 +1,31 @@
 use serde::de::Visitor;
-use serde::{Deserialize, Deserializer};
+use serde::Deserializer;
 use std::error::Error;
-use std::fmt::{Debug, Formatter};
+use std::fmt;
 use std::str::FromStr;
 
-// A wrapper of evdev::Key just to ease deserialization
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Key {
-    key: evdev::Key,
-}
+pub fn deserialize_key<'de, D>(deserializer: D) -> Result<evdev::Key, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct KeyVisitor;
 
-impl Key {
-    #[inline]
-    pub const fn new(code: u16) -> Self {
-        Key {
-            key: evdev::Key::new(code),
+    impl<'de> Visitor<'de> for KeyVisitor {
+        type Value = evdev::Key;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("string")
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(parse_key(value).map_err(serde::de::Error::custom)?)
         }
     }
 
-    #[inline]
-    pub const fn code(&self) -> u16 {
-        self.key.code()
-    }
-}
-
-impl Debug for Key {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.key.fmt(f)
-    }
-}
-
-impl<'de> Deserialize<'de> for Key {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        struct KeyVisitor;
-
-        impl<'de> Visitor<'de> for KeyVisitor {
-            type Value = Key;
-
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-                formatter.write_str("string")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: serde::de::Error,
-            {
-                Ok(Key {
-                    key: parse_key(value).map_err(serde::de::Error::custom)?,
-                })
-            }
-        }
-
-        deserializer.deserialize_any(KeyVisitor)
-    }
+    deserializer.deserialize_any(KeyVisitor)
 }
 
 pub fn parse_key(input: &str) -> Result<evdev::Key, Box<dyn Error>> {
