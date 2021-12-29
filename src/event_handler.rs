@@ -1,12 +1,11 @@
 use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::application::Application;
-use crate::config::key::Key;
 use crate::config::key_action::KeyAction;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::Config;
 use evdev::uinput::VirtualDevice;
-use evdev::{EventType, InputEvent};
+use evdev::{EventType, InputEvent, Key};
 use lazy_static::lazy_static;
 use log::debug;
 use std::collections::HashMap;
