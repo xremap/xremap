@@ -1,4 +1,0 @@
-keymap:
-  - name: Global
-    remap:
-      RO: Shift-RO

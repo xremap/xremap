@@ -6,12 +6,16 @@ pub mod key_press;
 mod keymap;
 mod modmap;
 
+#[cfg(test)]
+mod tests;
+
 extern crate serde_yaml;
 
 use keymap::Keymap;
 use modmap::Modmap;
 use serde::Deserialize;
-use std::{error, fs};
+use std::error::Error;
+use std::fs;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -22,8 +26,7 @@ pub struct Config {
     pub keymap: Vec<Keymap>,
 }
 
-pub fn load_config(filename: &str) -> Result<Config, Box<dyn error::Error>> {
+pub fn load_config(filename: &str) -> Result<Config, Box<dyn Error>> {
     let yaml = fs::read_to_string(&filename)?;
-    let config: Config = serde_yaml::from_str(&yaml)?;
-    return Ok(config);
+    Ok(serde_yaml::from_str(&yaml)?)
 }
