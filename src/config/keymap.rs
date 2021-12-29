@@ -24,7 +24,7 @@ where
     struct RemapVisitor;
 
     #[derive(Deserialize)]
-    pub enum Actions {
+    enum Actions {
         Action(Action),
         Actions(Vec<Action>),
     }
