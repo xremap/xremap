@@ -1,6 +1,6 @@
 pub mod action;
 pub mod application;
-mod key;
+pub mod key;
 pub mod key_action;
 pub mod key_press;
 mod keymap;

@@ -1,5 +1,4 @@
-use crate::config::key::parse_key;
-use evdev::Key;
+use crate::config::key::{parse_key, Key};
 use serde::de;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
@@ -48,7 +47,7 @@ impl<'de> Deserialize<'de> for KeyPress {
     }
 }
 
-pub fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
+fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split("-").collect();
     if let Some((key, modifiers)) = keys.split_last() {
         let mut shift = false;
@@ -68,7 +67,7 @@ pub fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
 
         // TODO: invalidate modifier keys in `key`?
         Ok(KeyPress {
-            key: parse_key(key)?,
+            key: Key::new(parse_key(key)?.code()),
             shift,
             control,
             alt,
