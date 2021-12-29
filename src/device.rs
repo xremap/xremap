@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
+use std::process;
 
 static MOUSE_BTNS: [&str; 13] = [
     "BTN_0",
@@ -43,7 +44,7 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
     let device = VirtualDeviceBuilder::new()?
-        .name("xremap")
+        .name(&current_device_name())
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
         .build()?;
@@ -113,9 +114,11 @@ fn list_devices() -> Result<HashMap<String, Device>, Box<dyn Error>> {
             let path = entry?.path();
             if let Some(fname) = path.file_name() {
                 if fname.as_bytes().starts_with(b"event") {
-                    let device = Device::open(&path)?;
-                    if let Ok(path) = path.into_os_string().into_string() {
-                        path_devices.insert(path, device);
+                    // Allow "Permission denied" when opening the current process's own device.
+                    if let Ok(device) = Device::open(&path) {
+                        if let Ok(path) = path.into_os_string().into_string() {
+                            path_devices.insert(path, device);
+                        }
                     }
                 }
             }
@@ -132,7 +135,16 @@ fn device_index(path: &str) -> i32 {
     path.trim_start_matches("/dev/input/event").parse::<i32>().unwrap()
 }
 
+fn current_device_name() -> String {
+    format!("xremap pid={}", process::id())
+}
+
 fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool {
+    // Force unmatch its own device
+    if device_name(device) == &current_device_name() {
+        return false;
+    }
+
     for device_opt in device_opts {
         // Check exact matches for explicit selection
         if path == device_opt || device_name(device) == device_opt {

@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::device::{input_devices, output_device};
 use crate::event_handler::EventHandler;
-use evdev::uinput::VirtualDevice;
 use evdev::{Device, EventType};
 use getopts::Options;
 use nix::sys::select::select;
@@ -46,25 +45,16 @@ fn main() {
         Err(e) => abort(&format!("Failed to load config '{}': {}", filename, e)),
     };
 
-    let input_devices = match input_devices(&args.opt_strs("device"), &args.opt_strs("ignore")) {
-        Ok(input_devices) => input_devices,
-        Err(e) => abort(&format!("Failed to prepare input devices: {}", e)),
-    };
-    let output_device = match output_device() {
-        Ok(output_device) => output_device,
-        Err(e) => abort(&format!("Failed to prepare an output device: {}", e)),
-    };
-
-    if let Err(e) = event_loop(input_devices, output_device, &config) {
+    if let Err(e) = event_loop(&config, &args.opt_strs("device"), &args.opt_strs("ignore")) {
         abort(&format!("Error: {}", e));
     }
 }
 
-fn event_loop(
-    mut input_devices: Vec<Device>,
-    output_device: VirtualDevice,
-    config: &Config,
-) -> Result<(), Box<dyn Error>> {
+fn event_loop(config: &Config, device_opts: &Vec<String>, ignore_opts: &Vec<String>) -> Result<(), Box<dyn Error>> {
+    let output_device = output_device().map_err(|e| format!("Failed to prepare an output device: {}", e))?;
+    let mut input_devices =
+        input_devices(device_opts, ignore_opts).map_err(|e| format!("Failed to prepare input devices: {}", e))?;
+
     let mut handler = EventHandler::new(output_device);
     loop {
         let readable_fds = select_readable(&input_devices)?;
