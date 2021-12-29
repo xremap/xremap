@@ -17,12 +17,10 @@ pub struct MultiPurposeKey {
     pub held: Key,
     #[serde(deserialize_with = "deserialize_key")]
     pub alone: Key,
-    #[serde(default = "MultiPurposeKey::default_alone_timeout_millis")]
+    #[serde(default = "default_alone_timeout_millis")]
     pub alone_timeout_millis: u64,
 }
 
-impl MultiPurposeKey {
-    fn default_alone_timeout_millis() -> u64 {
-        1000
-    }
+fn default_alone_timeout_millis() -> u64 {
+    1000
 }
