@@ -1,6 +1,4 @@
-modmap:
-  - remap:
-      Space:
-        held: Shift_L
-        alone: Space
-        alone_timeout_millis: 500
+keymap:
+  - name: Global
+    remap:
+      RO: Shift-RO
