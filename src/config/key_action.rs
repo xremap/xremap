@@ -3,6 +3,7 @@ use serde::Deserialize;
 
 // Values in `modmap.remap`
 #[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
 pub enum KeyAction {
     Key(Key),
     MultiPurposeKey(MultiPurposeKey),
