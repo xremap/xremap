@@ -1,32 +1,14 @@
 use evdev::Key;
-use serde::de::Visitor;
-use serde::Deserializer;
+use serde::{Deserialize, Deserializer};
 use std::error::Error;
-use std::fmt;
 use std::str::FromStr;
 
-pub fn deserialize_key<'de, D>(deserializer: D) -> Result<evdev::Key, D::Error>
+pub fn deserialize_key<'de, D>(deserializer: D) -> Result<Key, D::Error>
 where
     D: Deserializer<'de>,
 {
-    struct KeyVisitor;
-
-    impl<'de> Visitor<'de> for KeyVisitor {
-        type Value = evdev::Key;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("string")
-        }
-
-        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
-        {
-            Ok(parse_key(value).map_err(serde::de::Error::custom)?)
-        }
-    }
-
-    deserializer.deserialize_any(KeyVisitor)
+    let key = String::deserialize(deserializer)?;
+    Ok(parse_key(&key).map_err(serde::de::Error::custom)?)
 }
 
 pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
