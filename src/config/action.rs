@@ -71,7 +71,7 @@ impl<'de> Deserialize<'de> for Action {
     }
 }
 
-pub fn serde_error<'de, V, M>(message: &str) -> Result<V, M::Error>
+fn serde_error<'de, V, M>(message: &str) -> Result<V, M::Error>
 where
     M: MapAccess<'de>,
 {
