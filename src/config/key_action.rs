@@ -1,6 +1,8 @@
 use crate::config::key::deserialize_key;
 use evdev::Key;
 use serde::Deserialize;
+use serde_with::{serde_as, DurationMilliSeconds};
+use std::time::Duration;
 
 // Values in `modmap.remap`
 #[derive(Clone, Debug, Deserialize)]
@@ -11,16 +13,18 @@ pub enum KeyAction {
     MultiPurposeKey(MultiPurposeKey),
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Deserialize)]
 pub struct MultiPurposeKey {
     #[serde(deserialize_with = "deserialize_key")]
     pub held: Key,
     #[serde(deserialize_with = "deserialize_key")]
     pub alone: Key,
-    #[serde(default = "default_alone_timeout_millis")]
-    pub alone_timeout_millis: u64,
+    #[serde_as(as = "DurationMilliSeconds")]
+    #[serde(default = "default_alone_timeout", rename = "alone_timeout_millis")]
+    pub alone_timeout: Duration,
 }
 
-fn default_alone_timeout_millis() -> u64 {
-    1000
+fn default_alone_timeout() -> Duration {
+    Duration::from_millis(1000)
 }
