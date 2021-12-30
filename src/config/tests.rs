@@ -103,15 +103,15 @@ fn test_keymap_remap() {
 
 #[test]
 fn test_keymap_launch() {
-    assert_parse(indoc! {"
+    assert_parse(indoc! {r#"
     keymap:
       - remap:
           KEY_GRAVE:
             launch:
-              - '/bin/sh'
-              - '-c'
-              - 'date > /tmp/hotkey_test'
-    "})
+              - "/bin/sh"
+              - "-c"
+              - "date > /tmp/hotkey_test"
+    "#})
 }
 
 fn assert_parse(yaml: &str) {
