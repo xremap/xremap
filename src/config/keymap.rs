@@ -1,5 +1,4 @@
-use crate::config::action::Action;
-use crate::config::actions::Actions;
+use crate::config::action::{Action, Actions};
 use crate::config::application::Application;
 use crate::config::key_press::KeyPress;
 use serde::de::{MapAccess, Visitor};

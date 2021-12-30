@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for KeyPress {
     }
 }
 
-pub fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
+fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split("-").collect();
     if let Some((key, modifiers)) = keys.split_last() {
         let mut shift = false;

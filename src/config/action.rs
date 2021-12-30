@@ -1,7 +1,6 @@
 use crate::config::key_press::KeyPress;
 use std::collections::HashMap;
 
-use crate::config::actions::Actions;
 use serde::de;
 use serde::de::{IntoDeserializer, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -77,4 +76,12 @@ where
 {
     let error: Box<dyn std::error::Error> = message.into();
     Err(error).map_err(de::Error::custom)
+}
+
+// Used only for deserializing Vec<Action>
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum Actions {
+    Action(Action),
+    Actions(Vec<Action>),
 }
