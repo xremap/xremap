@@ -1,9 +1,9 @@
-use crate::config::key_press::{parse_key_press, KeyPress};
+use crate::config::key_press::KeyPress;
 use std::collections::HashMap;
 
 use crate::config::actions::Actions;
 use serde::de;
-use serde::de::{MapAccess, Visitor};
+use serde::de::{IntoDeserializer, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt::{Debug, Formatter};
 
@@ -32,7 +32,7 @@ impl<'de> Deserialize<'de> for Action {
             where
                 E: de::Error,
             {
-                let key_press = parse_key_press(value).map_err(de::Error::custom)?;
+                let key_press = Deserialize::deserialize(value.into_deserializer())?;
                 Ok(Action::KeyPress(key_press))
             }
 

@@ -1,7 +1,6 @@
 use crate::config::action::Action;
-use crate::config::key_press::parse_key_press;
 use serde::de;
-use serde::de::{value, MapAccess, SeqAccess, Visitor};
+use serde::de::{value, IntoDeserializer, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::fmt::Formatter;
 
@@ -29,7 +28,7 @@ impl<'de> Deserialize<'de> for Actions {
             where
                 E: de::Error,
             {
-                let key_press = parse_key_press(value).map_err(de::Error::custom)?;
+                let key_press = Deserialize::deserialize(value.into_deserializer())?;
                 Ok(Actions::Action(Action::KeyPress(key_press)))
             }
 
@@ -37,7 +36,7 @@ impl<'de> Deserialize<'de> for Actions {
             where
                 S: SeqAccess<'de>,
             {
-                let actions: Vec<Action> = Deserialize::deserialize(value::SeqAccessDeserializer::new(seq))?;
+                let actions = Deserialize::deserialize(value::SeqAccessDeserializer::new(seq))?;
                 Ok(Actions::Actions(actions))
             }
 
@@ -45,7 +44,7 @@ impl<'de> Deserialize<'de> for Actions {
             where
                 M: MapAccess<'de>,
             {
-                let action: Action = Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
+                let action = Deserialize::deserialize(value::MapAccessDeserializer::new(map))?;
                 Ok(Actions::Action(action))
             }
         }
