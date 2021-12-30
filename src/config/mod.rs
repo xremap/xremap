@@ -3,7 +3,6 @@ pub mod application;
 mod key;
 pub mod key_action;
 pub mod key_press;
-mod hotkey;
 mod keymap;
 mod modmap;
 
@@ -14,7 +13,6 @@ extern crate serde_yaml;
 
 use keymap::Keymap;
 use modmap::Modmap;
-use hotkey::Hotkey;
 use serde::Deserialize;
 use std::{error, fs};
 
@@ -25,8 +23,6 @@ pub struct Config {
     pub modmap: Vec<Modmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
-    #[serde(default = "Vec::new")]
-    pub hotkeys: Vec<Hotkey>,
 }
 
 pub fn load_config(filename: &str) -> Result<Config, Box<dyn error::Error>> {

@@ -1,6 +1,6 @@
+use log::{debug, error};
 use std::process::{Command, Stdio};
 use std::thread;
-use log::{debug, error};
 
 pub fn run_command(command: Vec<String>) {
     // To avoid defunct processes, spawn a thread to wait on the process.

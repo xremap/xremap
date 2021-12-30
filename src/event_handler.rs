@@ -58,13 +58,9 @@ impl EventHandler {
 
         // Apply keymap
         for (key, value) in key_values.into_iter() {
-            let key_press = self.key_to_key_press(&key);
-            // Run hotkey commands
-            if self.handle_hotkey(&key_press, value, &config) {
-                return Ok(());
-            } else if MODIFIER_KEYS.contains(&key.code()) {
+            if MODIFIER_KEYS.contains(&key.code()) {
                 self.update_modifier(key.code(), value);
-            } else if let Some(actions) = self.find_keymap(config, &key_press, value) {
+            } else if let Some(actions) = self.find_keymap(config, &key, value) {
                 for action in &actions {
                     self.dispatch_action(action)?;
                 }
@@ -73,25 +69,6 @@ impl EventHandler {
             self.send_key(&key, value)?;
         }
         Ok(())
-    }
-
-    fn handle_hotkey(&mut self, key_press: &KeyPress, value: i32, config: &Config) -> bool {
-        let mut hotkey_used = false;
-        'outer_hotkey: for hotkey in &config.hotkeys {
-            for hotkey_key_press in &hotkey.keys {
-                if hotkey_key_press == key_press && is_pressed(value) {
-                    if let Some(app) = &hotkey.application {
-                        if !self.match_application(app) {
-                            continue 'outer_hotkey;
-                        }
-                    }
-                    run_command(hotkey.command.clone());
-                    hotkey_used = true;
-                    break 'outer_hotkey;
-                }
-            }
-        }
-        return hotkey_used;
     }
 
     pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
@@ -172,21 +149,18 @@ impl EventHandler {
         None
     }
 
-    fn key_to_key_press(&mut self, key: &Key) -> KeyPress {
-        KeyPress {
+    fn find_keymap(&mut self, config: &Config, key: &Key, value: i32) -> Option<Vec<Action>> {
+        if !is_pressed(value) {
+            return None;
+        }
+
+        let key_press = KeyPress {
             key: key.clone(),
             shift: self.shift.left || self.shift.right,
             control: self.control.left || self.control.right,
             alt: self.alt.left || self.alt.right,
             windows: self.windows.left || self.windows.right,
-        }
-    }
-
-    fn find_keymap(&mut self, config: &Config, key_press: &KeyPress, value: i32) -> Option<Vec<Action>> {
-        if !is_pressed(value) {
-            return None;
-        }
-
+        };
         if let Some(override_remap) = &self.override_remap {
             let override_remap = override_remap.clone();
             self.override_remap = None;
@@ -235,6 +209,7 @@ impl EventHandler {
                 }
                 self.override_remap = Some(override_remap)
             }
+            Action::Launch(command) => run_command(command.clone()),
         }
         Ok(())
     }
