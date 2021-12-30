@@ -10,7 +10,7 @@ use lazy_static::lazy_static;
 use log::debug;
 use std::collections::HashMap;
 use std::error::Error;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub struct EventHandler {
     device: VirtualDevice,
@@ -92,9 +92,7 @@ impl EventHandler {
                         MultiPurposeKeyState {
                             held: multi_purpose_key.held,
                             alone: multi_purpose_key.alone,
-                            alone_timeout_at: Some(
-                                Instant::now() + Duration::from_millis(multi_purpose_key.alone_timeout_millis),
-                            ),
+                            alone_timeout_at: Some(Instant::now() + multi_purpose_key.alone_timeout),
                         },
                     );
                     return vec![]; // delay the press

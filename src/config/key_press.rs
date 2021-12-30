@@ -48,7 +48,7 @@ impl<'de> Deserialize<'de> for KeyPress {
     }
 }
 
-fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
+pub fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split("-").collect();
     if let Some((key, modifiers)) = keys.split_last() {
         let mut shift = false;
@@ -68,7 +68,7 @@ fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
 
         // TODO: invalidate modifier keys in `key`?
         Ok(KeyPress {
-            key: Key::new(parse_key(key)?.code()),
+            key: parse_key(key)?,
             shift,
             control,
             alt,
