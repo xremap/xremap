@@ -1,5 +1,4 @@
 use crate::client::{build_client, WMClient};
-use crate::command::run_command;
 use crate::config::action::Action;
 use crate::config::application::Application;
 use crate::config::key_action::KeyAction;
@@ -8,35 +7,40 @@ use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
 use lazy_static::lazy_static;
-use log::debug;
+use log::{debug, error};
+use nix::sys::signal;
+use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
 use std::collections::HashMap;
 use std::error::Error;
+use std::process::{Command, Stdio};
 use std::time::Instant;
 
 pub struct EventHandler {
     device: VirtualDevice,
-    wm_client: WMClient,
-    multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
-    override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
-    application_cache: Option<String>,
     shift: PressState,
     control: PressState,
     alt: PressState,
     windows: PressState,
+    wm_client: WMClient,
+    application_cache: Option<String>,
+    multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
+    override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
+    sigaction_set: bool,
 }
 
 impl EventHandler {
     pub fn new(device: VirtualDevice) -> EventHandler {
         EventHandler {
             device,
-            wm_client: build_client(),
-            multi_purpose_keys: HashMap::new(),
-            override_remap: None,
-            application_cache: None,
             shift: PressState::new(false),
             control: PressState::new(false),
             alt: PressState::new(false),
             windows: PressState::new(false),
+            wm_client: build_client(),
+            application_cache: None,
+            multi_purpose_keys: HashMap::new(),
+            override_remap: None,
+            sigaction_set: false,
         }
     }
 
@@ -209,9 +213,32 @@ impl EventHandler {
                 }
                 self.override_remap = Some(override_remap)
             }
-            Action::Launch(command) => run_command(command.clone()),
+            Action::Launch(command) => self.run_command(command.clone()),
         }
         Ok(())
+    }
+
+    pub fn run_command(&mut self, command: Vec<String>) {
+        if !self.sigaction_set {
+            // Avoid defunct processes
+            let sig_action = SigAction::new(SigHandler::SigDfl, SaFlags::SA_NOCLDWAIT, SigSet::empty());
+            unsafe {
+                sigaction(signal::SIGCHLD, &sig_action).expect("Failed to register SIGCHLD handler");
+            }
+            self.sigaction_set = true;
+        }
+
+        debug!("Running command: {:?}", command);
+        match Command::new(&command[0])
+            .args(&command[1..])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(child) => debug!("Process spawned: {:?}, pid {}", command, child.id()),
+            Err(e) => error!("Error running command: {:?}", e),
+        }
     }
 
     fn send_modifier(&mut self, modifier: Modifier, desired: &PressState) -> Result<PressState, Box<dyn Error>> {

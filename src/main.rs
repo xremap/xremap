@@ -15,7 +15,6 @@ use std::process::exit;
 extern crate getopts;
 
 mod client;
-mod command;
 mod config;
 mod device;
 mod event_handler;
