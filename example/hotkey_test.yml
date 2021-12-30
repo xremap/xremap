@@ -1,0 +1,10 @@
+hotkeys:
+  - name: hotkey_test
+    keys:
+      - KEY_GRAVE
+    application:
+      not: [Google-chrome, konsole]
+    command:
+      - "/bin/sh"
+      - "-c"
+      - "date > /tmp/hotkey_test"
