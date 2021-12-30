@@ -1,10 +1,7 @@
 use crate::config::key::parse_key;
 use evdev::Key;
-use serde::de;
-use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
 use std::error;
-use std::fmt::Formatter;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct KeyPress {
@@ -27,24 +24,8 @@ impl<'de> Deserialize<'de> for KeyPress {
     where
         D: Deserializer<'de>,
     {
-        struct KeyPressVisitor;
-
-        impl<'de> Visitor<'de> for KeyPressVisitor {
-            type Value = KeyPress;
-
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-                formatter.write_str("string")
-            }
-
-            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-            where
-                E: de::Error,
-            {
-                parse_key_press(value).map_err(de::Error::custom)
-            }
-        }
-
-        deserializer.deserialize_any(KeyPressVisitor)
+        let key_press = String::deserialize(deserializer)?;
+        Ok(parse_key_press(&key_press).map_err(serde::de::Error::custom)?)
     }
 }
 
