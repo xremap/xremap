@@ -7,6 +7,9 @@ pub mod key_press;
 mod keymap;
 mod modmap;
 
+#[cfg(test)]
+mod tests;
+
 extern crate serde_yaml;
 
 use keymap::Keymap;
