@@ -45,11 +45,7 @@ impl<'de> Deserialize<'de> for Action {
                         let mut action: HashMap<KeyPress, Vec<Action>> = HashMap::new();
                         let remap = map.next_value::<HashMap<KeyPress, Actions>>()?;
                         for (key_press, actions) in remap.into_iter() {
-                            let actions = match actions {
-                                Actions::Action(action) => vec![action],
-                                Actions::Actions(actions) => actions,
-                            };
-                            action.insert(key_press, actions);
+                            action.insert(key_press, actions.to_vec());
                         }
                         Action::Remap(action)
                     }
@@ -84,4 +80,13 @@ where
 pub enum Actions {
     Action(Action),
     Actions(Vec<Action>),
+}
+
+impl Actions {
+    pub fn to_vec(self) -> Vec<Action> {
+        match self {
+            Actions::Action(action) => vec![action],
+            Actions::Actions(actions) => actions,
+        }
+    }
 }
