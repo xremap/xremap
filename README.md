@@ -143,6 +143,9 @@ keymap:
           MOD2-KEY_YYY: MOD3-KEY_ZZZ
       # key press (MOD1-KEY_XXX) -> sequence (MOD2-KEY_YYY, MOD3-KEY_ZZZ)
       MOD1-KEY_XXX: [MOD2-KEY_YYY, MOD3-KEY_ZZZ]
+      # execute a command
+      MOD1-KEY_XXX:
+        launch: ["bash", "-c", "echo hello > /tmp/test"]
     application: # Optional
       not: [Application, ...]
       # or

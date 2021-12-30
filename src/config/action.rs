@@ -12,6 +12,8 @@ pub enum Action {
     KeyPress(KeyPress),
     #[serde(deserialize_with = "deserialize_remap")]
     Remap(HashMap<KeyPress, Vec<Action>>),
+    #[serde(deserialize_with = "deserialize_launch")]
+    Launch(Vec<String>),
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
@@ -25,6 +27,19 @@ where
         }
     }
     Err(de::Error::custom("not a map with a single \"remap\" key"))
+}
+
+fn deserialize_launch<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, Vec<String>>::deserialize(deserializer)?;
+    if let Some(launch) = action.remove("launch") {
+        if action.is_empty() {
+            return Ok(launch);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"launch\" key"))
 }
 
 // Used only for deserializing Vec<Action>
