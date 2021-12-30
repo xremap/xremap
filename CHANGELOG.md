@@ -1,3 +1,8 @@
+## v0.1.6
+
+* Add `launch` action to execute a command
+  [#52](https://github.com/k0kubun/xremap/issues/52)
+
 ## v0.1.5
 
 * Add `--watch` option to automatically add new devices

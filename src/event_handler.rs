@@ -218,7 +218,7 @@ impl EventHandler {
         Ok(())
     }
 
-    pub fn run_command(&mut self, command: Vec<String>) {
+    fn run_command(&mut self, command: Vec<String>) {
         if !self.sigaction_set {
             // Avoid defunct processes
             let sig_action = SigAction::new(SigHandler::SigDfl, SaFlags::SA_NOCLDWAIT, SigSet::empty());
