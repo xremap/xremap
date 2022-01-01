@@ -14,10 +14,10 @@ pub enum Action {
     Remap(HashMap<KeyPress, Vec<Action>>),
     #[serde(deserialize_with = "deserialize_launch")]
     Launch(Vec<String>),
-    #[serde(deserialize_with = "deserialize_with_mark")]
-    WithMark(KeyPress),
     #[serde(deserialize_with = "deserialize_set_mark")]
     SetMark(bool),
+    #[serde(deserialize_with = "deserialize_with_mark")]
+    WithMark(KeyPress),
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
@@ -46,19 +46,6 @@ where
     Err(de::Error::custom("not a map with a single \"launch\" key"))
 }
 
-fn deserialize_with_mark<'de, D>(deserializer: D) -> Result<KeyPress, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let mut action = HashMap::<String, KeyPress>::deserialize(deserializer)?;
-    if let Some(key_press) = action.remove("with_mark") {
-        if action.is_empty() {
-            return Ok(key_press);
-        }
-    }
-    Err(de::Error::custom("not a map with a single \"with_mark\" key"))
-}
-
 fn deserialize_set_mark<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
@@ -70,6 +57,19 @@ where
         }
     }
     Err(de::Error::custom("not a map with a single \"set_mark\" key"))
+}
+
+fn deserialize_with_mark<'de, D>(deserializer: D) -> Result<KeyPress, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, KeyPress>::deserialize(deserializer)?;
+    if let Some(key_press) = action.remove("with_mark") {
+        if action.is_empty() {
+            return Ok(key_press);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"with_mark\" key"))
 }
 
 // Used only for deserializing Vec<Action>

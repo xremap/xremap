@@ -198,8 +198,8 @@ impl EventHandler {
                 self.override_remap = Some(override_remap)
             }
             Action::Launch(command) => self.run_command(command.clone()),
-            Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
             Action::SetMark(set) => self.mark_set = *set,
+            Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
         }
         Ok(())
     }
