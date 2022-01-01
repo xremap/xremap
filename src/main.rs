@@ -29,6 +29,7 @@ fn main() {
     opts.optmulti("", "ignore", "Exclude a device name or path", "NAME");
     opts.optflag("", "watch", "Add new devices automatically");
     opts.optflag("h", "help", "print this help menu");
+    opts.optflag("", "version", "show version");
 
     let args = match opts.parse(&argv[1..]) {
         Ok(args) => args,
@@ -36,6 +37,10 @@ fn main() {
     };
     if args.opt_present("h") {
         println!("{}", &usage(&program, opts));
+        return;
+    }
+    if args.opt_present("version") {
+        println!("xremap version {}", env!("CARGO_PKG_VERSION"));
         return;
     }
 
