@@ -96,7 +96,7 @@ keymap:
       C-n: down
 ```
 
-See also: [example/config.yml](./example/config.yml)
+See also: [example/config.yml](example/config.yml) and [example/emacs.yml](example/emacs.yml)
 
 ### modmap
 
