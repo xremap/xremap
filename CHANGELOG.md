@@ -1,3 +1,8 @@
+## v0.1.9
+
+* Fix a bug of handling control keys inside `with_mark` of v0.1.7
+  [#55](https://github.com/k0kubun/xremap/pull/55)
+
 ## v0.1.8
 
 * Add `--version` option to show xremap's version

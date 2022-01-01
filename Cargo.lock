@@ -967,7 +967,7 @@ dependencies = [
 
 [[package]]
 name = "xremap"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "env_logger",
  "evdev",
