@@ -1,3 +1,8 @@
+## v0.1.7
+
+* Add `set_mark` and `with_mark` to emulate Emacs's mark mode
+  [#53](https://github.com/k0kubun/xremap/issues/53)
+
 ## v0.1.6
 
 * Add `launch` action to execute a command
