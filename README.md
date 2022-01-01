@@ -19,6 +19,7 @@
 * Remap a key to two different keys depending on whether it's pressed alone or held.
 * Application-specific remapping. Even if it's not supported by your application, xremap can.
 * Automatically remap newly connected devices by starting xremap with `--watch`.
+* Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
 
 ## Prerequisite
 
@@ -146,6 +147,10 @@ keymap:
       # execute a command
       MOD1-KEY_XXX:
         launch: ["bash", "-c", "echo hello > /tmp/test"]
+      # let `with_mark` also press a Shift key (useful for Emacs emulation)
+      MOD1-KEY_XXX: { set_mark: true } # use { set_mark: false } to disable it
+      # also press Shift only when { set_mark: true } is used before
+      MOD1-KEY_XXX: { with_mark: MOD2-KEY_YYY }
     application: # Optional
       not: [Application, ...]
       # or

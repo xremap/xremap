@@ -26,7 +26,7 @@ static MOUSE_BTNS: [&str; 13] = [
     "BTN_RIGHT",
 ];
 
-// Credit: https://github.com/mooz/xkeysnail/blob/master/xkeysnail/output.py#L10-L32
+// Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
 pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
@@ -183,7 +183,7 @@ fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool 
 }
 
 fn is_keyboard(device: &Device) -> bool {
-    // Credit: https://github.com/mooz/xkeysnail/blob/master/xkeysnail/input.py#L17-L32
+    // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/input.py#L17-L32
     match device.supported_keys() {
         Some(keys) => {
             keys.contains(Key::KEY_SPACE)

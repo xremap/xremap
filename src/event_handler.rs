@@ -21,11 +21,12 @@ pub struct EventHandler {
     control: PressState,
     alt: PressState,
     windows: PressState,
-    wm_client: WMClient,
+    application_client: WMClient,
     application_cache: Option<String>,
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     sigaction_set: bool,
+    mark_set: bool,
 }
 
 impl EventHandler {
@@ -36,11 +37,12 @@ impl EventHandler {
             control: PressState::new(false),
             alt: PressState::new(false),
             windows: PressState::new(false),
-            wm_client: build_client(),
+            application_client: build_client(),
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remap: None,
             sigaction_set: false,
+            mark_set: false,
         }
     }
 
@@ -187,25 +189,7 @@ impl EventHandler {
 
     fn dispatch_action(&mut self, action: &Action) -> Result<(), Box<dyn Error>> {
         match action {
-            Action::KeyPress(key_press) => {
-                let next_shift = self.build_state(Modifier::Shift, key_press.shift);
-                let next_control = self.build_state(Modifier::Control, key_press.control);
-                let next_alt = self.build_state(Modifier::Alt, key_press.alt);
-                let next_windows = self.build_state(Modifier::Windows, key_press.windows);
-
-                let prev_shift = self.send_modifier(Modifier::Shift, &next_shift)?;
-                let prev_control = self.send_modifier(Modifier::Control, &next_control)?;
-                let prev_alt = self.send_modifier(Modifier::Alt, &next_alt)?;
-                let prev_windows = self.send_modifier(Modifier::Windows, &next_windows)?;
-
-                self.send_key(&key_press.key, PRESS)?;
-                self.send_key(&key_press.key, RELEASE)?;
-
-                self.send_modifier(Modifier::Windows, &prev_windows)?;
-                self.send_modifier(Modifier::Alt, &prev_alt)?;
-                self.send_modifier(Modifier::Control, &prev_control)?;
-                self.send_modifier(Modifier::Shift, &prev_shift)?;
-            }
+            Action::KeyPress(key_press) => self.send_key_press(key_press)?,
             Action::Remap(remap) => {
                 let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
                 for (key_press, actions) in remap.iter() {
@@ -214,31 +198,31 @@ impl EventHandler {
                 self.override_remap = Some(override_remap)
             }
             Action::Launch(command) => self.run_command(command.clone()),
+            Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
+            Action::SetMark(set) => self.mark_set = *set,
         }
         Ok(())
     }
 
-    fn run_command(&mut self, command: Vec<String>) {
-        if !self.sigaction_set {
-            // Avoid defunct processes
-            let sig_action = SigAction::new(SigHandler::SigDfl, SaFlags::SA_NOCLDWAIT, SigSet::empty());
-            unsafe {
-                sigaction(signal::SIGCHLD, &sig_action).expect("Failed to register SIGCHLD handler");
-            }
-            self.sigaction_set = true;
-        }
+    fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
+        let next_shift = self.build_state(Modifier::Shift, key_press.shift);
+        let next_control = self.build_state(Modifier::Control, key_press.control);
+        let next_alt = self.build_state(Modifier::Alt, key_press.alt);
+        let next_windows = self.build_state(Modifier::Windows, key_press.windows);
 
-        debug!("Running command: {:?}", command);
-        match Command::new(&command[0])
-            .args(&command[1..])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-        {
-            Ok(child) => debug!("Process spawned: {:?}, pid {}", command, child.id()),
-            Err(e) => error!("Error running command: {:?}", e),
-        }
+        let prev_shift = self.send_modifier(Modifier::Shift, &next_shift)?;
+        let prev_control = self.send_modifier(Modifier::Control, &next_control)?;
+        let prev_alt = self.send_modifier(Modifier::Alt, &next_alt)?;
+        let prev_windows = self.send_modifier(Modifier::Windows, &next_windows)?;
+
+        self.send_key(&key_press.key, PRESS)?;
+        self.send_key(&key_press.key, RELEASE)?;
+
+        self.send_modifier(Modifier::Windows, &prev_windows)?;
+        self.send_modifier(Modifier::Alt, &prev_alt)?;
+        self.send_modifier(Modifier::Control, &prev_control)?;
+        self.send_modifier(Modifier::Shift, &prev_shift)?;
+        Ok(())
     }
 
     fn send_modifier(&mut self, modifier: Modifier, desired: &PressState) -> Result<PressState, Box<dyn Error>> {
@@ -310,10 +294,43 @@ impl EventHandler {
         }
     }
 
+    fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
+        KeyPress {
+            key: key_press.key.clone(),
+            shift: key_press.shift || self.mark_set,
+            control: key_press.shift,
+            alt: key_press.alt,
+            windows: key_press.windows,
+        }
+    }
+
+    fn run_command(&mut self, command: Vec<String>) {
+        if !self.sigaction_set {
+            // Avoid defunct processes
+            let sig_action = SigAction::new(SigHandler::SigDfl, SaFlags::SA_NOCLDWAIT, SigSet::empty());
+            unsafe {
+                sigaction(signal::SIGCHLD, &sig_action).expect("Failed to register SIGCHLD handler");
+            }
+            self.sigaction_set = true;
+        }
+
+        debug!("Running command: {:?}", command);
+        match Command::new(&command[0])
+            .args(&command[1..])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+        {
+            Ok(child) => debug!("Process spawned: {:?}, pid {}", command, child.id()),
+            Err(e) => error!("Error running command: {:?}", e),
+        }
+    }
+
     fn match_application(&mut self, application_matcher: &Application) -> bool {
         // Lazily fill the wm_class cache
         if let None = self.application_cache {
-            match self.wm_client.current_application() {
+            match self.application_client.current_application() {
                 Some(application) => self.application_cache = Some(application),
                 None => self.application_cache = Some(String::new()),
             }
