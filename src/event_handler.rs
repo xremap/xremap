@@ -298,7 +298,7 @@ impl EventHandler {
         KeyPress {
             key: key_press.key.clone(),
             shift: key_press.shift || self.mark_set,
-            control: key_press.shift,
+            control: key_press.control,
             alt: key_press.alt,
             windows: key_press.windows,
         }
