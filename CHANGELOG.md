@@ -1,3 +1,8 @@
+## v0.1.8
+
+* Add `--version` option to show xremap's version
+  [#54](https://github.com/k0kubun/xremap/issues/54)
+
 ## v0.1.7
 
 * Add `set_mark` and `with_mark` to emulate Emacs's mark mode
