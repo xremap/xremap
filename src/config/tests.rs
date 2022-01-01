@@ -114,6 +114,18 @@ fn test_keymap_launch() {
     "#})
 }
 
+#[test]
+fn test_keymap_mark() {
+    assert_parse(indoc! {"
+    keymap:
+      - remap:
+          C-space: { set_mark: true }
+          C-g: [esc, { set_mark: false }]
+          C-b: { with_mark: left }
+          M-b: { with_mark: C-left }
+    "})
+}
+
 fn assert_parse(yaml: &str) {
     let result: Result<Config, Error> = serde_yaml::from_str(&yaml);
     if let Err(e) = result {
