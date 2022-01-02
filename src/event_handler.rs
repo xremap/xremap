@@ -2,7 +2,7 @@ use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::application::Application;
 use crate::config::key_action::KeyAction;
-use crate::config::key_press::{KeyPress, Modifier};
+use crate::config::key_press::{KeyPress, Modifier, ModifierState};
 use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
@@ -33,10 +33,10 @@ impl EventHandler {
     pub fn new(device: VirtualDevice) -> EventHandler {
         EventHandler {
             device,
-            shift: PressState::new(false),
-            control: PressState::new(false),
-            alt: PressState::new(false),
-            windows: PressState::new(false),
+            shift: PressState::new(),
+            control: PressState::new(),
+            alt: PressState::new(),
+            windows: PressState::new(),
             application_client: build_client(),
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
@@ -162,10 +162,10 @@ impl EventHandler {
 
         let key_press = KeyPress {
             key: key.clone(),
-            shift: self.shift.left || self.shift.right,
-            control: self.control.left || self.control.right,
-            alt: self.alt.left || self.alt.right,
-            windows: self.windows.left || self.windows.right,
+            shift: self.shift.to_modifier_state(),
+            control: self.control.to_modifier_state(),
+            alt: self.alt.to_modifier_state(),
+            windows: self.windows.to_modifier_state(),
         };
         if let Some(override_remap) = &self.override_remap {
             let override_remap = override_remap.clone();
@@ -205,10 +205,10 @@ impl EventHandler {
     }
 
     fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
-        let next_shift = self.build_state(Modifier::Shift, key_press.shift);
-        let next_control = self.build_state(Modifier::Control, key_press.control);
-        let next_alt = self.build_state(Modifier::Alt, key_press.alt);
-        let next_windows = self.build_state(Modifier::Windows, key_press.windows);
+        let next_shift = self.build_state(Modifier::Shift, key_press.shift.clone());
+        let next_control = self.build_state(Modifier::Control, key_press.control.clone());
+        let next_alt = self.build_state(Modifier::Alt, key_press.alt.clone());
+        let next_windows = self.build_state(Modifier::Windows, key_press.windows.clone());
 
         let prev_shift = self.send_modifier(Modifier::Shift, &next_shift)?;
         let prev_control = self.send_modifier(Modifier::Control, &next_control)?;
@@ -272,35 +272,54 @@ impl EventHandler {
         Ok(original)
     }
 
-    // Choose a PressState closest to the current state
-    fn build_state(&self, modifier: Modifier, pressed: bool) -> PressState {
+    fn build_state(&self, modifier: Modifier, modifier_state: ModifierState) -> PressState {
         let press_state = match modifier {
             Modifier::Shift => &self.shift,
             Modifier::Control => &self.control,
             Modifier::Alt => &self.alt,
             Modifier::Windows => &self.windows,
         };
-        if (press_state.left || press_state.right) == pressed {
-            press_state.clone() // no change is needed
-        } else if pressed {
-            // just press left
-            PressState {
+
+        match modifier_state {
+            ModifierState::Either => {
+                // Choose a PressState closest to the current PressState
+                if press_state.left || press_state.right {
+                    press_state.clone() // no change is necessary
+                } else {
+                    // Just press left
+                    PressState {
+                        left: true,
+                        right: false,
+                    }
+                }
+            }
+            ModifierState::Left => PressState {
                 left: true,
                 right: false,
-            }
-        } else {
-            // release all
-            PressState::new(false)
+            },
+            ModifierState::Right => PressState {
+                left: false,
+                right: true,
+            },
+            ModifierState::None => PressState {
+                left: false,
+                right: false,
+            },
         }
     }
 
     fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
+        let mut shift = key_press.shift.clone();
+        if self.mark_set && shift == ModifierState::None {
+            // We don't leave Either in expand_modifiers(), so just using Left here.
+            shift = ModifierState::Left;
+        }
         KeyPress {
             key: key_press.key.clone(),
-            shift: key_press.shift || self.mark_set,
-            control: key_press.control,
-            alt: key_press.alt,
-            windows: key_press.windows,
+            shift,
+            control: key_press.control.clone(),
+            alt: key_press.alt.clone(),
+            windows: key_press.windows.clone(),
         }
     }
 
@@ -413,10 +432,20 @@ struct PressState {
 }
 
 impl PressState {
-    fn new(pressed: bool) -> PressState {
+    fn new() -> PressState {
         PressState {
-            left: pressed,
-            right: pressed,
+            left: false,
+            right: false,
+        }
+    }
+
+    fn to_modifier_state(&self) -> ModifierState {
+        if self.left {
+            ModifierState::Left
+        } else if self.right {
+            ModifierState::Right
+        } else {
+            ModifierState::None
         }
     }
 }

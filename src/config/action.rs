@@ -73,7 +73,7 @@ where
 }
 
 // Used only for deserializing Vec<Action>
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(untagged)]
 pub enum Actions {
     Action(Action),
