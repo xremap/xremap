@@ -56,7 +56,19 @@ fn test_keymap_basic() {
         remap:
           Alt-Enter: Ctrl-Enter
       - remap:
-          Alt-S: Ctrl-S
+          M-S: C-S
+    "})
+}
+
+#[test]
+fn test_keymap_lr_modifiers() {
+    assert_parse(indoc! {"
+    keymap:
+      - name: Global
+        remap:
+          LAlt-Enter: RCtrl-Enter
+      - remap:
+          RM-S: LC-S
     "})
 }
 

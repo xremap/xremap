@@ -70,21 +70,37 @@ fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
 
 fn parse_modifier(modifier: &str) -> Option<(Modifier, ModifierState)> {
     // Everything is case-insensitive
-    match &modifier.to_uppercase()[..] {
+    let mut modifier = &modifier.to_uppercase()[..];
+    let mut modifier_state = ModifierState::Either;
+    if modifier.starts_with("L") {
+        modifier = remove_first_char(modifier);
+        modifier_state = ModifierState::Left;
+    } else if modifier.starts_with("R") {
+        modifier = remove_first_char(modifier);
+        modifier_state = ModifierState::Right;
+    }
+
+    match modifier {
         // Shift
-        "SHIFT" => Some((Modifier::Shift, ModifierState::Either)),
+        "SHIFT" => Some((Modifier::Shift, modifier_state)),
         // Control
-        "C" => Some((Modifier::Control, ModifierState::Either)),
-        "CTRL" => Some((Modifier::Control, ModifierState::Either)),
-        "CONTROL" => Some((Modifier::Control, ModifierState::Either)),
+        "C" => Some((Modifier::Control, modifier_state)),
+        "CTRL" => Some((Modifier::Control, modifier_state)),
+        "CONTROL" => Some((Modifier::Control, modifier_state)),
         // Alt
-        "M" => Some((Modifier::Alt, ModifierState::Either)),
-        "ALT" => Some((Modifier::Alt, ModifierState::Either)),
+        "M" => Some((Modifier::Alt, modifier_state)),
+        "ALT" => Some((Modifier::Alt, modifier_state)),
         // Windows
-        "SUPER" => Some((Modifier::Windows, ModifierState::Either)),
-        "WIN" => Some((Modifier::Windows, ModifierState::Either)),
-        "WINDOWS" => Some((Modifier::Windows, ModifierState::Either)),
+        "SUPER" => Some((Modifier::Windows, modifier_state)),
+        "WIN" => Some((Modifier::Windows, modifier_state)),
+        "WINDOWS" => Some((Modifier::Windows, modifier_state)),
         // else
         _ => None,
     }
+}
+
+fn remove_first_char(string: &str) -> &str {
+    let mut chars = string.chars();
+    chars.next();
+    chars.as_str()
 }
