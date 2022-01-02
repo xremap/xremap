@@ -1,3 +1,8 @@
+## v0.2.0
+
+* Support left/right-specific modifiers by `_L`/`_R` prefixes
+  [#56](https://github.com/k0kubun/xremap/pull/56)
+
 ## v0.1.9
 
 * Fix a bug of handling control keys inside `with_mark` of v0.1.7
