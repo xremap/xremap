@@ -72,11 +72,11 @@ fn parse_modifier(modifier: &str) -> Option<(Modifier, ModifierState)> {
     // Everything is case-insensitive
     let mut modifier = &modifier.to_uppercase()[..];
     let mut modifier_state = ModifierState::Either;
-    if modifier.starts_with("L") {
-        modifier = remove_first_char(modifier);
+    if modifier.ends_with("_L") {
+        modifier = remove_suffix(modifier);
         modifier_state = ModifierState::Left;
-    } else if modifier.starts_with("R") {
-        modifier = remove_first_char(modifier);
+    } else if modifier.ends_with("_R") {
+        modifier = remove_suffix(modifier);
         modifier_state = ModifierState::Right;
     }
 
@@ -99,8 +99,9 @@ fn parse_modifier(modifier: &str) -> Option<(Modifier, ModifierState)> {
     }
 }
 
-fn remove_first_char(string: &str) -> &str {
+fn remove_suffix(string: &str) -> &str {
     let mut chars = string.chars();
-    chars.next();
+    chars.next_back();
+    chars.next_back();
     chars.as_str()
 }

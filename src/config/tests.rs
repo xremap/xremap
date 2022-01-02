@@ -66,9 +66,9 @@ fn test_keymap_lr_modifiers() {
     keymap:
       - name: Global
         remap:
-          LAlt-Enter: RCtrl-Enter
+          Alt_L-Enter: Ctrl_L-Enter
       - remap:
-          RM-S: LC-S
+          M_R-S: C_L-S
     "})
 }
 
