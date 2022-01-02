@@ -6,10 +6,18 @@ use std::error;
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct KeyPress {
     pub key: Key,
-    pub shift: bool,
-    pub control: bool,
-    pub alt: bool,
-    pub windows: bool,
+    pub shift: ModifierState,
+    pub control: ModifierState,
+    pub alt: ModifierState,
+    pub windows: ModifierState,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum ModifierState {
+    Left,
+    Right,
+    Either,
+    None,
 }
 
 pub enum Modifier {
@@ -32,17 +40,17 @@ impl<'de> Deserialize<'de> for KeyPress {
 fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split("-").collect();
     if let Some((key, modifiers)) = keys.split_last() {
-        let mut shift = false;
-        let mut control = false;
-        let mut alt = false;
-        let mut windows = false;
+        let mut shift = ModifierState::None;
+        let mut control = ModifierState::None;
+        let mut alt = ModifierState::None;
+        let mut windows = ModifierState::None;
 
         for modifier in modifiers.iter() {
             match parse_modifier(modifier) {
-                Some(Modifier::Shift) => shift = true,
-                Some(Modifier::Control) => control = true,
-                Some(Modifier::Alt) => alt = true,
-                Some(Modifier::Windows) => windows = true,
+                Some((Modifier::Shift, state)) => shift = state,
+                Some((Modifier::Control, state)) => control = state,
+                Some((Modifier::Alt, state)) => alt = state,
+                Some((Modifier::Windows, state)) => windows = state,
                 None => return Err(format!("unknown modifier: {}", modifier).into()),
             }
         }
@@ -60,23 +68,40 @@ fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     }
 }
 
-fn parse_modifier(modifier: &str) -> Option<Modifier> {
+fn parse_modifier(modifier: &str) -> Option<(Modifier, ModifierState)> {
     // Everything is case-insensitive
-    match &modifier.to_uppercase()[..] {
+    let mut modifier = &modifier.to_uppercase()[..];
+    let mut modifier_state = ModifierState::Either;
+    if modifier.ends_with("_L") {
+        modifier = remove_suffix(modifier);
+        modifier_state = ModifierState::Left;
+    } else if modifier.ends_with("_R") {
+        modifier = remove_suffix(modifier);
+        modifier_state = ModifierState::Right;
+    }
+
+    match modifier {
         // Shift
-        "SHIFT" => Some(Modifier::Shift),
+        "SHIFT" => Some((Modifier::Shift, modifier_state)),
         // Control
-        "C" => Some(Modifier::Control),
-        "CTRL" => Some(Modifier::Control),
-        "CONTROL" => Some(Modifier::Control),
+        "C" => Some((Modifier::Control, modifier_state)),
+        "CTRL" => Some((Modifier::Control, modifier_state)),
+        "CONTROL" => Some((Modifier::Control, modifier_state)),
         // Alt
-        "M" => Some(Modifier::Alt),
-        "ALT" => Some(Modifier::Alt),
+        "M" => Some((Modifier::Alt, modifier_state)),
+        "ALT" => Some((Modifier::Alt, modifier_state)),
         // Windows
-        "SUPER" => Some(Modifier::Windows),
-        "WIN" => Some(Modifier::Windows),
-        "WINDOWS" => Some(Modifier::Windows),
+        "SUPER" => Some((Modifier::Windows, modifier_state)),
+        "WIN" => Some((Modifier::Windows, modifier_state)),
+        "WINDOWS" => Some((Modifier::Windows, modifier_state)),
         // else
         _ => None,
     }
+}
+
+fn remove_suffix(string: &str) -> &str {
+    let mut chars = string.chars();
+    chars.next_back();
+    chars.next_back();
+    chars.as_str()
 }

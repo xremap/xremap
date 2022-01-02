@@ -167,7 +167,9 @@ For the `MOD1-` part, the following prefixes can be used (also case-insensitive)
 * Alt: `M-`, `ALT-`
 * Windows: `SUPER-`, `WIN-`, `WINDOWS-`
 
-You may use multiple prefixes like `C-M-Shift-a`.
+You can use multiple prefixes like `C-M-Shift-a`.
+You may also suffix them with `_L` or `_R` (case-insensitive) so that
+remapping is triggered only on a left or right modifier, e.g. `Ctrl_L-a`.
 
 ### application
 

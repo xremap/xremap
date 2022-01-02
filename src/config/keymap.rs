@@ -1,6 +1,6 @@
 use crate::config::action::{Action, Actions};
 use crate::config::application::Application;
-use crate::config::key_press::KeyPress;
+use crate::config::key_press::{KeyPress, Modifier, ModifierState};
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
@@ -18,6 +18,62 @@ fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Ac
 where
     D: Deserializer<'de>,
 {
-    let v = HashMap::<KeyPress, Actions>::deserialize(deserializer)?;
-    Ok(v.into_iter().map(|(k, v)| (k, v.to_vec())).collect())
+    let remap = HashMap::<KeyPress, Actions>::deserialize(deserializer)?;
+    Ok(remap
+        .into_iter()
+        .flat_map(|(key_press, actions)| {
+            expand_modifiers(key_press)
+                .into_iter()
+                .map(|k| (k, actions.clone().to_vec()))
+                .collect::<Vec<(KeyPress, Vec<Action>)>>()
+        })
+        .collect())
+}
+
+// Expand ModifierState::Either to Left and Right. Not leaving Either to save some space and computation.
+// Note that we currently don't have `Both`. Does anybody need it?
+fn expand_modifiers(key_press: KeyPress) -> Vec<KeyPress> {
+    if key_press.shift == ModifierState::Either {
+        expand_modifier(key_press, &Modifier::Shift)
+    } else if key_press.control == ModifierState::Either {
+        expand_modifier(key_press, &Modifier::Control)
+    } else if key_press.alt == ModifierState::Either {
+        expand_modifier(key_press, &Modifier::Alt)
+    } else if key_press.windows == ModifierState::Either {
+        expand_modifier(key_press, &Modifier::Windows)
+    } else {
+        vec![key_press]
+    }
+}
+
+fn expand_modifier(key_press: KeyPress, modifier: &Modifier) -> Vec<KeyPress> {
+    vec![
+        change_modifier(key_press.clone(), modifier, ModifierState::Left),
+        change_modifier(key_press, modifier, ModifierState::Right),
+    ]
+    .into_iter()
+    .flat_map(|key_press| expand_modifiers(key_press))
+    .collect()
+}
+
+fn change_modifier(key_press: KeyPress, modifier: &Modifier, state: ModifierState) -> KeyPress {
+    let mut shift = key_press.shift.clone();
+    let mut control = key_press.control.clone();
+    let mut alt = key_press.alt.clone();
+    let mut windows = key_press.windows.clone();
+
+    match modifier {
+        Modifier::Shift => shift = state,
+        Modifier::Control => control = state,
+        Modifier::Alt => alt = state,
+        Modifier::Windows => windows = state,
+    }
+
+    KeyPress {
+        key: key_press.key.clone(),
+        shift,
+        control,
+        alt,
+        windows,
+    }
 }
