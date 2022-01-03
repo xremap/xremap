@@ -1,3 +1,8 @@
+## v0.2.1
+
+* Support remapping a mouse with `BTN_SIDE`
+  [#57](https://github.com/k0kubun/xremap/pull/57)
+
 ## v0.2.0
 
 * Support left/right-specific modifiers by `_L`/`_R` prefixes
