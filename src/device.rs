@@ -10,7 +10,7 @@ use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::process;
 
-static MOUSE_BTNS: [&str; 13] = [
+static MOUSE_BTNS: [&str; 14] = [
     "BTN_0",
     "BTN_1",
     "BTN_2",
@@ -24,6 +24,7 @@ static MOUSE_BTNS: [&str; 13] = [
     "BTN_LEFT",
     "BTN_MIDDLE",
     "BTN_RIGHT",
+    "BTN_SIDE",
 ];
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
