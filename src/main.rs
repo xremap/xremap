@@ -98,6 +98,9 @@ fn event_loop(
         if let Some(inotify) = watcher {
             if readable_fds.contains(inotify.as_raw_fd()) {
                 println!("Detected device changes. Reselecting devices.");
+                for input_device in &mut input_devices {
+                    input_device.ungrab()?;
+                }
                 return Ok(());
             }
         }
