@@ -56,7 +56,7 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
 pub fn device_watcher(watch: bool) -> Result<Option<Inotify>, Box<dyn Error>> {
     if watch {
         let inotify = Inotify::init(InitFlags::empty())?;
-        inotify.add_watch("/dev/input", AddWatchFlags::IN_CREATE | AddWatchFlags::IN_ATTRIB)?;
+        inotify.add_watch("/dev/input", AddWatchFlags::IN_ALL_EVENTS)?;
         Ok(Some(inotify))
     } else {
         Ok(None)
