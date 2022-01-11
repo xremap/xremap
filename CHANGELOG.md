@@ -1,3 +1,9 @@
+## v0.2.2
+
+* Support `BTN_MISC`, `BTN_MOUSE`, `BTN_EXTRA`, `BTN_FORWARD`, `BTN_BACK`, and `BTN_TASK`
+  as mouse buttons as well
+  [#63](https://github.com/k0kubun/xremap/pull/63)
+
 ## v0.2.1
 
 * Support remapping a mouse with `BTN_SIDE`
