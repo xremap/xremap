@@ -41,17 +41,10 @@ If it doesn't work, please [install Rust](https://doc.rust-lang.org/cargo/gettin
 and run one of the following commands:
 
 ```bash
-# X11
-cargo install xremap --features x11
-
-# GNOME Wayland
-cargo install xremap --features gnome
-
-# Sway
-cargo install xremap --features sway
-
-# Others
-cargo install xremap
+cargo install xremap --features x11   # X11
+cargo install xremap --features gnome # GNOME Wayland
+cargo install xremap --features sway  # Sway
+cargo install xremap                  # Others
 ```
 
 You may also need to install `libx11-dev` to run the `xremap` binary for X11.
@@ -63,17 +56,50 @@ Write [a config file](#Configuration) directly, or generate it with
 Then run:
 
 ```
-xremap config.yml
+sudo xremap config.yml
 ```
 
 ### Dynamic binding
 
 Xremap supports application-specific key remapping.
 
-While Xremap uses `evdev` and `uinput`, which is a lower layer than X11 and Wayland,
+While Xremap uses `evdev` and `uinput` for key remapping, which is a lower layer than X11 and Wayland,
 Xremap also uses X11 or Wayland compositor-specific protocols to support `application` config.
-If you need this feature, make sure you use the correct binary or `--features` option,
-and pay attention to the error messages from `xremap`.
+If you use this feature, make sure you have an appropriate binary,
+and follow one of the following options to make it work.
+
+#### Option 1: Allow root to talk to the compositor
+
+If you use `sudo xremap`, root user usually cannot interact with the compositor for your normal user.
+You may need to allow it as follows:
+
+* X11: You may need to run `xhost +SI:localuser:root` if you see `No protocol specified`.
+* GNOME Wayland: Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
+
+```diff
+   <policy context="default">
++    <allow user="root"/>
+     <!-- Allow everything to be sent -->
+     <allow send_destination="*" eavesdrop="true"/>
+     <!-- Allow everything to be received -->
+```
+
+#### Option 2: Run xremap without sudo
+
+Alternatively, you could run `xremap` without sudo to solve the problem.
+To do so, your normal user should be able to use `evdev` and `uinput` without sudo.
+In Ubuntu, this can be configured by running the following commands and rebooting your machine.
+
+```bash
+sudo gpasswd -a YOUR_USER input
+echo 'KERNEL=="uinput", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules
+```
+
+In other platforms, you might need to create an `input` group first
+and run `echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules` as well.
+
+If you take this path, in some environments, `--watch` may fail to recognize new devices due to temporary permission issues.
+Option 1 might be more useful in such cases.
 
 ## Configuration
 Your `config.yml` should look like this:
