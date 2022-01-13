@@ -21,21 +21,9 @@
 * Automatically remap newly connected devices by starting xremap with `--watch`.
 * Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
 
-## Prerequisite
-
-`xremap` assumes that you can use `evdev` and `uinput` without sudo.
-You can configure it as follows:
-
-```bash
-sudo gpasswd -a YOUR_USER input
-echo 'KERNEL=="uinput", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules
-```
-
-Then reboot your machine to make sure the udev rule is applied.
-
 ## Installation
 
-After the reboot, download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
+Download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
 
 If it doesn't work, please [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
 and run one of the following commands:
