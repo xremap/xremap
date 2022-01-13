@@ -56,13 +56,19 @@ Xremap also uses X11 or Wayland compositor-specific protocols to support `applic
 If you use this feature, make sure you have an appropriate binary,
 and follow one of the following options to make it work.
 
-#### Option 1: Allow root to talk to the compositor
+<details>
+<summary>Option 1: Allow root to talk to the compositor</summary>
 
 If you use `sudo xremap`, root user usually cannot interact with the compositor for your normal user.
 You may need to allow it as follows:
 
-* X11: You may need to run `xhost +SI:localuser:root` if you see `No protocol specified`.
-* GNOME Wayland: Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
+#### X11
+
+You may need to run `xhost +SI:localuser:root` if you see `No protocol specified`.
+
+#### GNOME Wayland
+
+Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
 
 ```diff
    <policy context="default">
@@ -72,7 +78,10 @@ You may need to allow it as follows:
      <!-- Allow everything to be received -->
 ```
 
-#### Option 2: Run xremap without sudo
+</details>
+
+<details>
+<summary>Option 2: Run xremap without sudo</summary>
 
 Alternatively, you could run `xremap` without sudo to solve the problem.
 To do so, your normal user should be able to use `evdev` and `uinput` without sudo.
@@ -88,6 +97,8 @@ and run `echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | s
 
 If you take this path, in some environments, `--watch` may fail to recognize new devices due to temporary permission issues.
 Option 1 might be more useful in such cases.
+
+</details>
 
 ## Configuration
 Your `config.yml` should look like this:
