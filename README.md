@@ -53,7 +53,7 @@ Xremap supports application-specific key remapping.
 
 While Xremap uses `evdev` and `uinput` for key remapping, which is a lower layer than X11 and Wayland,
 Xremap also uses X11 or Wayland compositor-specific protocols to support `application` config.
-If you use this feature, make sure you have an appropriate binary,
+If you use this feature, make sure you use the appropriate binary for your platform,
 and follow one of the following options to make it work.
 
 <details>
