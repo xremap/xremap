@@ -53,18 +53,21 @@ fn main() {
         Err(e) => abort(&format!("Failed to load config '{}': {}", filename, e)),
     };
 
-    let watch = args.opt_present("watch");
+    let watcher = match device_watcher(args.opt_present("watch")) {
+        Ok(watcher) => watcher,
+        Err(e) => abort(&format!("Failed to build a watcher: {}", e)),
+    };
     loop {
         let output_device = match output_device() {
             Ok(output_device) => output_device,
             Err(e) => abort(&format!("Failed to prepare an output device: {}", e)),
         };
-        let input_devices = match input_devices(&args.opt_strs("device"), &args.opt_strs("ignore"), watch) {
+        let input_devices = match input_devices(&args.opt_strs("device"), &args.opt_strs("ignore"), watcher.is_some()) {
             Ok(input_devices) => input_devices,
             Err(e) => abort(&format!("Failed to prepare input devices: {}", e)),
         };
 
-        if let Err(e) = event_loop(output_device, input_devices, &config, watch) {
+        if let Err(e) = event_loop(output_device, input_devices, &config, watcher) {
             if e.to_string().starts_with("No such device") {
                 println!("Found a removed device. Reselecting devices.");
                 continue;
@@ -78,9 +81,8 @@ fn event_loop(
     output_device: VirtualDevice,
     mut input_devices: Vec<Device>,
     config: &Config,
-    watch: bool,
+    watcher: Option<Inotify>,
 ) -> Result<(), Box<dyn Error>> {
-    let watcher = device_watcher(watch)?;
     let mut handler = EventHandler::new(output_device);
     loop {
         let readable_fds = select_readable(&input_devices, &watcher)?;
