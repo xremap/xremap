@@ -1,3 +1,8 @@
+## v0.2.3
+
+* Detect XWayland applications properly for Sway
+  [#65](https://github.com/k0kubun/xremap/pull/65)
+
 ## v0.2.2
 
 * Support `BTN_MISC`, `BTN_MOUSE`, `BTN_EXTRA`, `BTN_FORWARD`, `BTN_BACK`, and `BTN_TASK`
