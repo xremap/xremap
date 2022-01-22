@@ -50,7 +50,11 @@ impl Client for SwayClient {
 
         if let Ok(node) = connection.get_tree() {
             if let Some(node) = node.find_focused(|n| n.focused) {
-                return node.app_id;
+                if node.app_id.is_some() {
+                    return node.app_id;
+                } else if let Some(wp) = node.window_properties {
+                    return wp.class;
+                }
             }
         }
         None
