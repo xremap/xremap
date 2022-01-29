@@ -23,7 +23,7 @@
 
 ## Installation
 
-If you are on Arch Linux, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
+If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
 
 Download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
 
