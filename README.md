@@ -23,8 +23,6 @@
 
 ## Installation
 
-If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
-
 Download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
 
 If it doesn't work, please [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
@@ -38,6 +36,10 @@ cargo install xremap                  # Others
 ```
 
 You may also need to install `libx11-dev` to run the `xremap` binary for X11.
+
+### Arch Linux
+
+If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
 
 ## Usage
 
