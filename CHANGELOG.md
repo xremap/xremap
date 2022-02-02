@@ -1,3 +1,8 @@
+## v0.2.4
+
+* Use feature-related dependencies only when needed
+  [#68](https://github.com/k0kubun/xremap/pull/68)
+
 ## v0.2.3
 
 * Detect XWayland applications properly for Sway
