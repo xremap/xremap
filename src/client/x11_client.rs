@@ -71,7 +71,7 @@ impl Client for X11Client {
 
                     if !x_class_hint.res_class.is_null() {
                         // Note: into_string() seems to free `x_class_hint.res_class`. So XFree isn't needed.
-                        wm_class = std::ffi::CString::from_raw(x_class_hint.res_class as *mut i8)
+                        wm_class = std::ffi::CString::from_raw(x_class_hint.res_class as *mut u8)
                             .into_string()
                             .unwrap();
                         // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
