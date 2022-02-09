@@ -18,6 +18,8 @@ pub enum Action {
     SetMark(bool),
     #[serde(deserialize_with = "deserialize_with_mark")]
     WithMark(KeyPress),
+    #[serde(deserialize_with = "deserialize_escape_next_key")]
+    EscapeNextKey(bool),
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
@@ -70,6 +72,19 @@ where
         }
     }
     Err(de::Error::custom("not a map with a single \"with_mark\" key"))
+}
+
+fn deserialize_escape_next_key<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, bool>::deserialize(deserializer)?;
+    if let Some(set) = action.remove("escape_next_key") {
+        if action.is_empty() {
+            return Ok(set);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"escape_next_key\" key"))
 }
 
 // Used only for deserializing Vec<Action>

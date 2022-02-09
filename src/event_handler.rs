@@ -27,6 +27,7 @@ pub struct EventHandler {
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     sigaction_set: bool,
     mark_set: bool,
+    escape_next_key: bool,
 }
 
 impl EventHandler {
@@ -43,6 +44,7 @@ impl EventHandler {
             override_remap: None,
             sigaction_set: false,
             mark_set: false,
+            escape_next_key: false,
         }
     }
 
@@ -66,11 +68,15 @@ impl EventHandler {
         for (key, value) in key_values.into_iter() {
             if MODIFIER_KEYS.contains(&key.code()) {
                 self.update_modifier(key.code(), value);
-            } else if let Some(actions) = self.find_keymap(config, &key, value) {
-                for action in &actions {
-                    self.dispatch_action(action)?;
+            } else if is_pressed(value) {
+                if self.escape_next_key {
+                    self.escape_next_key = false
+                } else if let Some(actions) = self.find_keymap(config, &key) {
+                    for action in &actions {
+                        self.dispatch_action(action)?;
+                    }
+                    continue;
                 }
-                continue;
             }
             self.send_key(&key, value)?;
         }
@@ -155,11 +161,7 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key, value: i32) -> Option<Vec<Action>> {
-        if !is_pressed(value) {
-            return None;
-        }
-
+    fn find_keymap(&mut self, config: &Config, key: &Key) -> Option<Vec<Action>> {
         let key_press = KeyPress {
             key: key.clone(),
             shift: self.shift.to_modifier_state(),
@@ -200,6 +202,7 @@ impl EventHandler {
             Action::Launch(command) => self.run_command(command.clone()),
             Action::SetMark(set) => self.mark_set = *set,
             Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
+            Action::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
         }
         Ok(())
     }
