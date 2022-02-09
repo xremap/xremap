@@ -70,7 +70,7 @@ impl EventHandler {
                 for action in &actions {
                     self.dispatch_action(action)?;
                 }
-                return Ok(());
+                continue;
             }
             self.send_key(&key, value)?;
         }
