@@ -1,3 +1,8 @@
+## v0.2.5
+
+* Support `escape_next_key` action
+  [#74](https://github.com/k0kubun/xremap/pull/74)
+
 ## v0.2.4
 
 * Use feature-related dependencies only when needed
