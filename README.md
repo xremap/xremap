@@ -180,6 +180,8 @@ keymap:
       MOD1-KEY_XXX: { set_mark: true } # use { set_mark: false } to disable it
       # also press Shift only when { set_mark: true } is used before
       MOD1-KEY_XXX: { with_mark: MOD2-KEY_YYY }
+      # the next key press will ignore keymap
+      MOD1-KEY_XXX: { escape_next_key: true }
     application: # Optional
       not: [Application, ...]
       # or
