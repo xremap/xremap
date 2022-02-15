@@ -123,6 +123,14 @@ impl EventHandler {
                 // fallthrough on state discrepancy
                 vec![(key, value)]
             }
+            KeyAction::CommandKey(command_key) => {
+                if value == PRESS {
+                    self.run_command(command_key.press)
+                } else if value == RELEASE {
+                    self.run_command(command_key.release)
+                }
+                vec![]
+            }
         }
     }
 

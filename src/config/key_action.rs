@@ -11,6 +11,7 @@ pub enum KeyAction {
     #[serde(deserialize_with = "deserialize_key")]
     Key(Key),
     MultiPurposeKey(MultiPurposeKey),
+    CommandKey(CommandKey),
 }
 
 #[serde_as]
@@ -23,6 +24,12 @@ pub struct MultiPurposeKey {
     #[serde_as(as = "DurationMilliSeconds")]
     #[serde(default = "default_alone_timeout", rename = "alone_timeout_millis")]
     pub alone_timeout: Duration,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct CommandKey {
+    pub press: Vec<String>,
+    pub release: Vec<String>,
 }
 
 fn default_alone_timeout() -> Duration {
