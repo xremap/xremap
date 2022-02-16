@@ -150,6 +150,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "3.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "678db4c39c013cc68b54d372bce2efc58e30a0337c497c9032fd196802df3bc3"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "3.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1036,6 +1045,7 @@ name = "xremap"
 version = "0.2.5"
 dependencies = [
  "clap",
+ "clap_complete",
  "env_logger",
  "evdev",
  "indoc",

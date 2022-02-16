@@ -1,13 +1,15 @@
 use crate::config::Config;
 use crate::device::{device_watcher, input_devices, output_device};
 use crate::event_handler::EventHandler;
-use clap::{ArgEnum, Parser};
+use clap::{AppSettings, ArgEnum, IntoApp, Parser};
+use clap_complete::Shell;
 use evdev::uinput::VirtualDevice;
 use evdev::{Device, EventType};
 use nix::sys::inotify::Inotify;
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
 use std::error::Error;
+use std::io::stdout;
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::process::exit;
@@ -18,7 +20,7 @@ mod device;
 mod event_handler;
 
 #[derive(Parser, Debug)]
-#[clap(version)]
+#[clap(version, global_setting(AppSettings::DeriveDisplayOrder))]
 struct Opts {
     /// Include a device name or path
     #[clap(long, use_delimiter = true)]
@@ -26,6 +28,10 @@ struct Opts {
     /// Ignore a device name or path
     #[clap(long, use_delimiter = true)]
     ignore: Vec<String>,
+    /// Targets to watch
+    ///
+    /// - Device to add new devices automatically
+    /// - Config to reload the config automatically
     #[clap(
         long,
         arg_enum,
@@ -39,13 +45,17 @@ struct Opts {
         // https://github.com/clap-rs/clap/issues/3312
         help = "Targets to watch [possible values: device, config]"
     )]
-    /// Targets to watch
-    ///
-    /// - Device to add new devices automatically
-    /// - Config to reload the config automatically
     watch: Vec<WatchTargets>,
+    /// Generate shell completions
+    ///
+    /// You can use them by storing in your shells completion file or by running
+    /// - in bash: eval "$(xremap --completions bash)"
+    /// - in fish: xremap --completions fish | source
+    #[clap(long, arg_enum, display_order = 1000, value_name = "SHELL", verbatim_doc_comment)]
+    completions: Option<Shell>,
     /// Config file
-    config: PathBuf,
+    #[clap(required_unless_present = "completions")]
+    config: Option<PathBuf>,
 }
 
 #[derive(ArgEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,7 +74,14 @@ fn main() {
         ignore,
         watch,
         config,
+        completions,
     } = Opts::parse();
+
+    if let Some(shell) = completions {
+        return clap_complete::generate(shell, &mut Opts::into_app(), "xremap", &mut stdout());
+    }
+
+    let config = config.expect("config is set, if not completions");
 
     let config = match config::load_config(&config) {
         Ok(config) => config,
