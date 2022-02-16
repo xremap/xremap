@@ -64,7 +64,7 @@ fn main() {
         ignore,
         watch,
         config,
-    } = dbg!(Opts::parse());
+    } = Opts::parse();
 
     let config = match config::load_config(&config) {
         Ok(config) => config,
