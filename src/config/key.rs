@@ -8,7 +8,7 @@ where
     D: Deserializer<'de>,
 {
     let key = String::deserialize(deserializer)?;
-    Ok(parse_key(&key).map_err(serde::de::Error::custom)?)
+    parse_key(&key).map_err(serde::de::Error::custom)
 }
 
 pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {

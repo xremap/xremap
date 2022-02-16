@@ -14,7 +14,7 @@ extern crate serde_yaml;
 use keymap::Keymap;
 use modmap::Modmap;
 use serde::Deserialize;
-use std::{error, fs};
+use std::{error, fs, path::Path};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25,8 +25,8 @@ pub struct Config {
     pub keymap: Vec<Keymap>,
 }
 
-pub fn load_config(filename: &str) -> Result<Config, Box<dyn error::Error>> {
+pub fn load_config(filename: &Path) -> Result<Config, Box<dyn error::Error>> {
     let yaml = fs::read_to_string(&filename)?;
     let config: Config = serde_yaml::from_str(&yaml)?;
-    return Ok(config);
+    Ok(config)
 }

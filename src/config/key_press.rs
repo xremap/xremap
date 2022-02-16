@@ -33,12 +33,12 @@ impl<'de> Deserialize<'de> for KeyPress {
         D: Deserializer<'de>,
     {
         let key_press = String::deserialize(deserializer)?;
-        Ok(parse_key_press(&key_press).map_err(serde::de::Error::custom)?)
+        parse_key_press(&key_press).map_err(serde::de::Error::custom)
     }
 }
 
 fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
-    let keys: Vec<&str> = input.split("-").collect();
+    let keys: Vec<&str> = input.split('-').collect();
     if let Some((key, modifiers)) = keys.split_last() {
         let mut shift = ModifierState::None;
         let mut control = ModifierState::None;

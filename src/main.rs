@@ -1,70 +1,89 @@
 use crate::config::Config;
 use crate::device::{device_watcher, input_devices, output_device};
 use crate::event_handler::EventHandler;
+use clap::{ArgEnum, Parser};
 use evdev::uinput::VirtualDevice;
 use evdev::{Device, EventType};
-use getopts::Options;
 use nix::sys::inotify::Inotify;
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
-use std::env;
 use std::error::Error;
 use std::os::unix::io::AsRawFd;
+use std::path::PathBuf;
 use std::process::exit;
-
-extern crate getopts;
 
 mod client;
 mod config;
 mod device;
 mod event_handler;
 
+#[derive(Parser, Debug)]
+#[clap(version)]
+struct Opts {
+    /// Include a device name or path
+    #[clap(long, use_delimiter = true)]
+    device: Vec<String>,
+    /// Ignore a device name or path
+    #[clap(long, use_delimiter = true)]
+    ignore: Vec<String>,
+    #[clap(
+        long,
+        arg_enum,
+        min_values = 0,
+        use_delimiter = true,
+        require_equals = true,
+        default_missing_value = "device",
+        verbatim_doc_comment,
+        hide_possible_values = true,
+        // Separating the help like this is necessary due to 
+        // https://github.com/clap-rs/clap/issues/3312
+        help = "Targets to watch [possible values: device, config]"
+    )]
+    /// Targets to watch
+    ///
+    /// - Device to add new devices automatically
+    /// - Config to reload the config automatically
+    watch: Vec<WatchTargets>,
+    /// Config file
+    config: PathBuf,
+}
+
+#[derive(ArgEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum WatchTargets {
+    /// Device to add new devices automatically
+    Device,
+    /// Config to reload the config automatically
+    Config,
+}
+
 fn main() {
     env_logger::init();
-    let argv: Vec<String> = env::args().collect();
-    let program = argv[0].clone();
 
-    let mut opts = Options::new();
-    opts.optmulti("", "device", "Include a device name or path", "NAME");
-    opts.optmulti("", "ignore", "Exclude a device name or path", "NAME");
-    opts.optflag("", "watch", "Add new devices automatically");
-    opts.optflag("h", "help", "print this help menu");
-    opts.optflag("", "version", "show version");
+    let Opts {
+        device,
+        ignore,
+        watch,
+        config,
+    } = dbg!(Opts::parse());
 
-    let args = match opts.parse(&argv[1..]) {
-        Ok(args) => args,
-        Err(e) => abort(&e.to_string()),
-    };
-    if args.opt_present("h") {
-        println!("{}", &usage(&program, opts));
-        return;
-    }
-    if args.opt_present("version") {
-        println!("xremap version {}", env!("CARGO_PKG_VERSION"));
-        return;
-    }
-
-    let filename = match &args.free.iter().map(String::as_str).collect::<Vec<&str>>()[..] {
-        &[filename] => filename,
-        &[..] => abort(&usage(&program, opts)),
-    };
-    let config = match config::load_config(&filename) {
+    let config = match config::load_config(&config) {
         Ok(config) => config,
-        Err(e) => abort(&format!("Failed to load config '{}': {}", filename, e)),
+        Err(e) => abort(&format!("Failed to load config '{}': {}", config.display(), e)),
     };
 
-    let watch = args.opt_present("watch");
+    let watch_devices = watch.contains(&WatchTargets::Device);
+
     loop {
         let output_device = match output_device() {
             Ok(output_device) => output_device,
             Err(e) => abort(&format!("Failed to prepare an output device: {}", e)),
         };
-        let input_devices = match input_devices(&args.opt_strs("device"), &args.opt_strs("ignore"), watch) {
+        let input_devices = match input_devices(&device, &ignore, watch_devices) {
             Ok(input_devices) => input_devices,
             Err(e) => abort(&format!("Failed to prepare input devices: {}", e)),
         };
 
-        if let Err(e) = event_loop(output_device, input_devices, &config, watch) {
+        if let Err(e) = event_loop(output_device, input_devices, &config, watch_devices) {
             if e.to_string().starts_with("No such device") {
                 println!("Found a removed device. Reselecting devices.");
                 continue;
@@ -104,7 +123,7 @@ fn event_loop(
     }
 }
 
-fn select_readable(devices: &Vec<Device>, watcher: &Option<Inotify>) -> Result<FdSet, Box<dyn Error>> {
+fn select_readable(devices: &[Device], watcher: &Option<Inotify>) -> Result<FdSet, Box<dyn Error>> {
     let mut read_fds = FdSet::new();
     for device in devices {
         read_fds.insert(device.as_raw_fd());
@@ -113,12 +132,7 @@ fn select_readable(devices: &Vec<Device>, watcher: &Option<Inotify>) -> Result<F
         read_fds.insert(inotify.as_raw_fd());
     }
     select(None, &mut read_fds, None, None, None)?;
-    return Ok(read_fds);
-}
-
-fn usage(program: &str, opts: Options) -> String {
-    let brief = format!("Usage: {} CONFIG [options]", program);
-    opts.usage(&brief)
+    Ok(read_fds)
 }
 
 fn abort(message: &str) -> ! {

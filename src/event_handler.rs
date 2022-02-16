@@ -55,7 +55,7 @@ impl EventHandler {
         debug!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
-        let mut key_values = if let Some(key_action) = self.find_modmap(&config, &key) {
+        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key) {
             self.dispatch_keys(key_action, key, event.value())
         } else {
             vec![(key, event.value())]
@@ -97,11 +97,11 @@ impl EventHandler {
 
     fn dispatch_keys(&mut self, key_action: KeyAction, key: Key, value: i32) -> Vec<(Key, i32)> {
         match key_action {
-            KeyAction::Key(modmap_key) => vec![(modmap_key.clone(), value)],
+            KeyAction::Key(modmap_key) => vec![(modmap_key, value)],
             KeyAction::MultiPurposeKey(multi_purpose_key) => {
                 if value == PRESS {
                     self.multi_purpose_keys.insert(
-                        key.clone(),
+                        key,
                         MultiPurposeKeyState {
                             held: multi_purpose_key.held,
                             alone: multi_purpose_key.alone,
@@ -149,7 +149,7 @@ impl EventHandler {
 
     fn find_modmap(&mut self, config: &Config, key: &Key) -> Option<KeyAction> {
         for modmap in &config.modmap {
-            if let Some(key_action) = modmap.remap.get(&key) {
+            if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(application_matcher) = &modmap.application {
                     if !self.match_application(application_matcher) {
                         continue;
@@ -163,7 +163,7 @@ impl EventHandler {
 
     fn find_keymap(&mut self, config: &Config, key: &Key) -> Option<Vec<Action>> {
         let key_press = KeyPress {
-            key: key.clone(),
+            key: *key,
             shift: self.shift.to_modifier_state(),
             control: self.control.to_modifier_state(),
             alt: self.alt.to_modifier_state(),
@@ -183,7 +183,7 @@ impl EventHandler {
                         continue;
                     }
                 }
-                return Some(actions.iter().map(|a| a.clone()).collect());
+                return Some(actions.to_vec());
             }
         }
         None
@@ -195,7 +195,7 @@ impl EventHandler {
             Action::Remap(remap) => {
                 let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
                 for (key_press, actions) in remap.iter() {
-                    override_remap.insert(key_press.clone(), actions.iter().map(|a| a.clone()).collect());
+                    override_remap.insert(key_press.clone(), actions.to_vec());
                 }
                 self.override_remap = Some(override_remap)
             }
@@ -318,7 +318,7 @@ impl EventHandler {
             shift = ModifierState::Left;
         }
         KeyPress {
-            key: key_press.key.clone(),
+            key: key_press.key,
             shift,
             control: key_press.control.clone(),
             alt: key_press.alt.clone(),
@@ -351,7 +351,7 @@ impl EventHandler {
 
     fn match_application(&mut self, application_matcher: &Application) -> bool {
         // Lazily fill the wm_class cache
-        if let None = self.application_cache {
+        if self.application_cache.is_none() {
             match self.application_client.current_application() {
                 Some(application) => self.application_cache = Some(application),
                 None => self.application_cache = Some(String::new()),
@@ -479,10 +479,10 @@ impl MultiPurposeKeyState {
                 vec![] // still delay the press
             } else {
                 self.alone_timeout_at = None; // timeout
-                vec![(self.held.clone(), PRESS)]
+                vec![(self.held, PRESS)]
             }
         } else {
-            vec![(self.held.clone(), REPEAT)]
+            vec![(self.held, REPEAT)]
         }
     }
 
@@ -490,20 +490,20 @@ impl MultiPurposeKeyState {
         if let Some(alone_timeout_at) = &self.alone_timeout_at {
             if Instant::now() < *alone_timeout_at {
                 // dispatch the delayed press and this release
-                vec![(self.alone.clone(), PRESS), (self.alone.clone(), RELEASE)]
+                vec![(self.alone, PRESS), (self.alone, RELEASE)]
             } else {
                 // too late. dispatch the held key
-                vec![(self.held.clone(), PRESS), (self.held.clone(), RELEASE)]
+                vec![(self.held, PRESS), (self.held, RELEASE)]
             }
         } else {
-            vec![(self.held.clone(), RELEASE)]
+            vec![(self.held, RELEASE)]
         }
     }
 
     fn force_held(&mut self) -> Vec<(Key, i32)> {
         if self.alone_timeout_at.is_some() {
             self.alone_timeout_at = None;
-            vec![(self.held.clone(), PRESS)]
+            vec![(self.held, PRESS)]
         } else {
             vec![]
         }

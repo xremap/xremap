@@ -21,7 +21,7 @@ impl WMClient {
     }
 
     pub fn current_application(&mut self) -> Option<String> {
-        if let None = self.supported {
+        if self.supported.is_none() {
             let supported = self.client.supported();
             self.supported = Some(supported);
             println!("application-client: {} (supported: {})", self.name, supported);
