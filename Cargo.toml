@@ -4,13 +4,13 @@ version = "0.2.5"
 edition = "2021"
 description = "Dynamic key remapp for X and Wayland"
 license = "MIT"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+clap = { version = "3.0.14", features = ["derive"] }
+clap_complete = "3.0.6"
 env_logger = "0.9.0"
 evdev = "0.11.3"
-getopts = "0.2"
 indoc = "1.0"
 lazy_static = "1.4.0"
 log = "0.4.14"
@@ -19,9 +19,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "1.11", features = ["chrono"] }
 serde_yaml = "0.8"
-zbus = { version = "1.9.2", optional = true }
-x11_rs = { package = "x11", version = "2.19.1", features = ["xlib"], optional = true }
 swayipc = { version = "2.7.2", optional = true }
+x11_rs = { package = "x11", version = "2.19.1", features = ["xlib"], optional = true }
+zbus = { version = "1.9.2", optional = true }
 
 [features]
 gnome = ["zbus"]

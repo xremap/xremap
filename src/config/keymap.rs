@@ -24,7 +24,7 @@ where
         .flat_map(|(key_press, actions)| {
             expand_modifiers(key_press)
                 .into_iter()
-                .map(|k| (k, actions.clone().to_vec()))
+                .map(|k| (k, actions.clone().into_vec()))
                 .collect::<Vec<(KeyPress, Vec<Action>)>>()
         })
         .collect())
@@ -52,7 +52,7 @@ fn expand_modifier(key_press: KeyPress, modifier: &Modifier) -> Vec<KeyPress> {
         change_modifier(key_press, modifier, ModifierState::Right),
     ]
     .into_iter()
-    .flat_map(|key_press| expand_modifiers(key_press))
+    .flat_map(expand_modifiers)
     .collect()
 }
 
@@ -70,7 +70,7 @@ fn change_modifier(key_press: KeyPress, modifier: &Modifier, state: ModifierStat
     }
 
     KeyPress {
-        key: key_press.key.clone(),
+        key: key_press.key,
         shift,
         control,
         alt,

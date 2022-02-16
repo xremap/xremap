@@ -29,7 +29,7 @@ where
     let mut action = HashMap::<String, HashMap<KeyPress, Actions>>::deserialize(deserializer)?;
     if let Some(remap) = action.remove("remap") {
         if action.is_empty() {
-            return Ok(remap.into_iter().map(|(k, v)| (k, v.to_vec())).collect());
+            return Ok(remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect());
         }
     }
     Err(de::Error::custom("not a map with a single \"remap\" key"))
@@ -96,7 +96,7 @@ pub enum Actions {
 }
 
 impl Actions {
-    pub fn to_vec(self) -> Vec<Action> {
+    pub fn into_vec(self) -> Vec<Action> {
         match self {
             Actions::Action(action) => vec![action],
             Actions::Actions(actions) => actions,

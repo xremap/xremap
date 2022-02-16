@@ -39,7 +39,7 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
         let name = format!("{:?}", key);
-        if name.starts_with("KEY_") || MOUSE_BTNS.contains(&&**&name) {
+        if name.starts_with("KEY_") || MOUSE_BTNS.contains(&&*name) {
             keys.insert(key);
         }
     }
@@ -70,12 +70,12 @@ pub fn device_watcher(watch: bool) -> Result<Option<Inotify>, Box<dyn Error>> {
 }
 
 pub fn input_devices(
-    device_opts: &Vec<String>,
-    ignore_opts: &Vec<String>,
+    device_opts: &[String],
+    ignore_opts: &[String],
     watch: bool,
 ) -> Result<Vec<Device>, Box<dyn Error>> {
     let mut path_devices = list_devices()?;
-    let mut paths: Vec<String> = path_devices.keys().map(|e| e.clone()).collect();
+    let mut paths: Vec<String> = path_devices.keys().cloned().collect();
     paths.sort_by(|a, b| device_index(a).partial_cmp(&device_index(b)).unwrap());
 
     println!("Selecting devices from the following list:");
@@ -130,14 +130,14 @@ pub fn input_devices(
             .grab()
             .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
     }
-    return Ok(devices);
+    Ok(devices)
 }
 
 // We can't know the device path from evdev::enumerate(). So we re-implement it.
 fn list_devices() -> Result<HashMap<String, Device>, Box<dyn Error>> {
     let mut path_devices: HashMap<String, Device> = HashMap::new();
-    if let Some(dev_input) = read_dir("/dev/input").as_mut().ok() {
-        while let Some(entry) = dev_input.next() {
+    if let Ok(dev_input) = read_dir("/dev/input").as_mut() {
+        for entry in dev_input {
             let path = entry?.path();
             if let Some(fname) = path.file_name() {
                 if fname.as_bytes().starts_with(b"event") {
@@ -151,7 +151,7 @@ fn list_devices() -> Result<HashMap<String, Device>, Box<dyn Error>> {
             }
         }
     }
-    return Ok(path_devices);
+    Ok(path_devices)
 }
 
 fn device_name(device: &Device) -> &str {
@@ -166,9 +166,9 @@ fn current_device_name() -> String {
     format!("xremap pid={}", process::id())
 }
 
-fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool {
+fn match_device(path: &str, device: &Device, device_opts: &[String]) -> bool {
     // Force unmatch its own device
-    if device_name(device) == &current_device_name() {
+    if device_name(device) == current_device_name() {
         return false;
     }
 
@@ -186,7 +186,7 @@ fn match_device(path: &str, device: &Device, device_opts: &Vec<String>) -> bool 
             return true;
         }
     }
-    return false;
+    false
 }
 
 fn is_keyboard(device: &Device) -> bool {
