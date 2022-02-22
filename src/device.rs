@@ -1,14 +1,18 @@
 extern crate evdev;
 extern crate nix;
 
+use anyhow::bail;
+use derive_where::derive_where;
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
-use evdev::{AttributeSet, Device, Key, RelativeAxisType};
+use evdev::{AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType};
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
-use std::process;
+use std::os::unix::prelude::AsRawFd;
+use std::path::PathBuf;
+use std::{io, process};
 
 static MOUSE_BTNS: [&str; 20] = [
     "BTN_MISC",
@@ -52,16 +56,16 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
     let device = VirtualDeviceBuilder::new()?
-        .name(&current_device_name())
+        .name(&InputDevice::current_name())
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
         .build()?;
     Ok(device)
 }
 
-pub fn device_watcher(watch: bool) -> Result<Option<Inotify>, Box<dyn Error>> {
+pub fn device_watcher(watch: bool) -> anyhow::Result<Option<Inotify>> {
     if watch {
-        let inotify = Inotify::init(InitFlags::empty())?;
+        let inotify = Inotify::init(InitFlags::IN_NONBLOCK)?;
         inotify.add_watch("/dev/input", AddWatchFlags::IN_CREATE | AddWatchFlags::IN_ATTRIB)?;
         Ok(Some(inotify))
     } else {
@@ -69,22 +73,17 @@ pub fn device_watcher(watch: bool) -> Result<Option<Inotify>, Box<dyn Error>> {
     }
 }
 
-pub fn input_devices(
+pub fn get_input_devices(
     device_opts: &[String],
     ignore_opts: &[String],
     watch: bool,
-) -> Result<Vec<Device>, Box<dyn Error>> {
-    let mut path_devices = list_devices()?;
-    let mut paths: Vec<String> = path_devices.keys().cloned().collect();
-    paths.sort_by(|a, b| device_index(a).partial_cmp(&device_index(b)).unwrap());
+) -> anyhow::Result<HashMap<PathBuf, InputDevice>> {
+    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    devices.sort();
 
     println!("Selecting devices from the following list:");
     println!("{}", SEPARATOR);
-    for path in &paths {
-        if let Some(device) = path_devices.get(path) {
-            println!("{:18}: {}", path, device_name(device));
-        }
-    }
+    devices.iter().for_each(InputDevice::print);
     println!("{}", SEPARATOR);
 
     if device_opts.is_empty() {
@@ -97,110 +96,154 @@ pub fn input_devices(
     } else {
         println!(", ignoring {:?}:", ignore_opts);
     }
-    for path in &paths {
-        if let Some(device) = path_devices.get(path) {
-            let matched = if device_opts.is_empty() {
-                is_keyboard(device)
-            } else {
-                match_device(path, device, device_opts)
-            } && (ignore_opts.is_empty() || !match_device(path, device, ignore_opts));
-            if !matched {
-                path_devices.remove(path);
-            }
-        }
-    }
+
+    let devices: Vec<_> = devices
+        .into_iter()
+        // filter map needed for mutable access
+        // alternative is `Vec::retain_mut` whenever that gets stabilized
+        .filter_map(|mut device| {
+            // filter out any not matching devices and devices that error on grab
+            (device.is_input_device(device_opts, ignore_opts) && device.grab()).then(|| device)
+        })
+        .collect();
 
     println!("{}", SEPARATOR);
-    if path_devices.is_empty() {
+    if devices.is_empty() {
         if watch {
             println!("warning: No device was selected, but --watch is waiting for new devices.");
         } else {
-            return Err("No device was selected!".into());
+            bail!("No device was selected!");
         }
     } else {
-        for (path, device) in path_devices.iter() {
-            println!("{:18}: {}", path, device_name(device));
-        }
+        devices.iter().for_each(InputDevice::print);
     }
     println!("{}", SEPARATOR);
 
-    let mut devices: Vec<Device> = path_devices.into_values().collect();
-    for device in devices.iter_mut() {
-        device
-            .grab()
-            .map_err(|e| format!("Failed to grab device '{}': {}", device_name(device), e))?;
-    }
-    Ok(devices)
+    Ok(devices.into_iter().map(From::from).collect())
 }
 
-// We can't know the device path from evdev::enumerate(). So we re-implement it.
-fn list_devices() -> Result<HashMap<String, Device>, Box<dyn Error>> {
-    let mut path_devices: HashMap<String, Device> = HashMap::new();
-    if let Ok(dev_input) = read_dir("/dev/input").as_mut() {
-        for entry in dev_input {
-            let path = entry?.path();
-            if let Some(fname) = path.file_name() {
-                if fname.as_bytes().starts_with(b"event") {
-                    // Allow "Permission denied" when opening the current process's own device.
-                    if let Ok(device) = Device::open(&path) {
-                        if let Ok(path) = path.into_os_string().into_string() {
-                            path_devices.insert(path, device);
-                        }
-                    }
-                }
+#[derive_where(PartialEq, PartialOrd, Ord)]
+pub struct InputDevice {
+    path: PathBuf,
+    #[derive_where(skip)]
+    device: Device,
+}
+
+impl Eq for InputDevice {}
+
+impl TryFrom<PathBuf> for InputDevice {
+    type Error = io::Error;
+
+    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
+        let fname = path
+            .file_name()
+            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
+        if fname.as_bytes().starts_with(b"event") {
+            Ok(Self {
+                device: Device::open(&path)?,
+                path,
+            })
+        } else {
+            Err(io::ErrorKind::InvalidInput.into())
+        }
+    }
+}
+
+impl From<InputDevice> for (PathBuf, InputDevice) {
+    fn from(device: InputDevice) -> Self {
+        (device.path.clone(), device)
+    }
+}
+
+impl AsRawFd for InputDevice {
+    fn as_raw_fd(&self) -> std::os::unix::prelude::RawFd {
+        self.device.as_raw_fd()
+    }
+}
+
+/// Device Wrappers Abstractions
+impl InputDevice {
+    pub fn grab(&mut self) -> bool {
+        if let Err(error) = self.device.grab() {
+            println!("Failed to grab device '{}' at '{}' due to: {error}", self.device_name(), self.path.display());
+            false
+        } else {
+            true
+        }
+    }
+    pub fn fetch_events(&mut self) -> io::Result<FetchEventsSynced> {
+        self.device.fetch_events()
+    }
+    fn device_name(&self) -> &str {
+        self.device.name().unwrap_or("<Unnamed device>")
+    }
+}
+
+impl InputDevice {
+    pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String]) -> bool {
+        (if device_filter.is_empty() {
+            self.is_keyboard()
+        } else {
+            self.matches(device_filter)
+        }) && (ignore_filter.is_empty() || !self.matches(ignore_filter))
+    }
+
+    // We can't know the device path from evdev::enumerate(). So we re-implement it.
+    fn devices() -> io::Result<impl Iterator<Item = InputDevice>> {
+        Ok(read_dir("/dev/input")?.filter_map(|entry| {
+            // Allow "Permission denied" when opening the current process's own device.
+            InputDevice::try_from(entry.ok()?.path()).ok()
+        }))
+    }
+
+    fn current_name() -> String {
+        format!("xremap pid={}", process::id())
+    }
+
+    fn matches(&self, filter: &[String]) -> bool {
+        // Force unmatch its own device
+        if self.device_name() == Self::current_name() {
+            return false;
+        }
+
+        for device_opt in filter {
+            let device_opt = device_opt.as_str();
+
+            // Check exact matches for explicit selection
+            if self.path.as_os_str() == device_opt || self.device_name() == device_opt {
+                return true;
+            }
+            // eventXX shorthand for /dev/input/eventXX
+            if device_opt.starts_with("event")
+                && self.path.file_name().expect("every device path has a file name") == device_opt
+            {
+                return true;
+            }
+            // Allow partial matches for device names
+            if self.device_name().contains(device_opt) {
+                return true;
             }
         }
-    }
-    Ok(path_devices)
-}
-
-fn device_name(device: &Device) -> &str {
-    device.name().unwrap_or("<Unnamed device>")
-}
-
-fn device_index(path: &str) -> i32 {
-    path.trim_start_matches("/dev/input/event").parse::<i32>().unwrap()
-}
-
-fn current_device_name() -> String {
-    format!("xremap pid={}", process::id())
-}
-
-fn match_device(path: &str, device: &Device, device_opts: &[String]) -> bool {
-    // Force unmatch its own device
-    if device_name(device) == current_device_name() {
-        return false;
+        false
     }
 
-    for device_opt in device_opts {
-        // Check exact matches for explicit selection
-        if path == device_opt || device_name(device) == device_opt {
-            return true;
-        }
-        // eventXX shorthand for /dev/input/eventXX
-        if device_opt.starts_with("event") && path == format!("/dev/input/{}", device_opt) {
-            return true;
-        }
-        // Allow partial matches for device names
-        if device_name(device).contains(device_opt) {
-            return true;
-        }
-    }
-    false
-}
-
-fn is_keyboard(device: &Device) -> bool {
-    // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/input.py#L17-L32
-    match device.supported_keys() {
-        Some(keys) => {
-            keys.contains(Key::KEY_SPACE)
+    fn is_keyboard(&self) -> bool {
+        // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/input.py#L17-L32
+        match self.device.supported_keys() {
+            Some(keys) => {
+                keys.contains(Key::KEY_SPACE)
                 && keys.contains(Key::KEY_A)
                 && keys.contains(Key::KEY_Z)
                 // BTN_MOUSE
                 && !keys.contains(Key::BTN_LEFT)
+            }
+            None => false,
         }
-        None => false,
+    }
+
+    pub fn print(&self) {
+        println!("{:18}: {}", self.path.display(), self.device_name())
     }
 }
 
-static SEPARATOR: &str = "------------------------------------------------------------------------------";
+const SEPARATOR: &str = "------------------------------------------------------------------------------";

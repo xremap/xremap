@@ -14,7 +14,7 @@ extern crate serde_yaml;
 use keymap::Keymap;
 use modmap::Modmap;
 use serde::Deserialize;
-use std::{error, fs, path::Path};
+use std::{error, fs, path::Path, time::SystemTime};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -23,10 +23,24 @@ pub struct Config {
     pub modmap: Vec<Modmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
+    #[serde(skip)]
+    pub modify_time: Option<SystemTime>,
 }
 
 pub fn load_config(filename: &Path) -> Result<Config, Box<dyn error::Error>> {
     let yaml = fs::read_to_string(&filename)?;
-    let config: Config = serde_yaml::from_str(&yaml)?;
+    let mut config: Config = serde_yaml::from_str(&yaml)?;
+    config.modify_time = filename.metadata()?.modified().ok();
     Ok(config)
 }
+
+// pub fn config_watcher(watch: bool, file: &Path) -> anyhow::Result<Option<Inotify>> {
+//     if watch {
+//         let inotify = Inotify::init(InitFlags::IN_NONBLOCK)?;
+//         inotify.add_watch(file.parent().expect("config file has a parent directory"), AddWatchFlags::IN_CREATE)?;
+//         inotify.add_watch(file, AddWatchFlags::IN_MODIFY)?;
+//         Ok(Some(inotify))
+//     } else {
+//         Ok(None)
+//     }
+// }
