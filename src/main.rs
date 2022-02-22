@@ -4,10 +4,11 @@ use crate::event_handler::EventHandler;
 use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
+use config::{config_watcher, load_config};
 use device::InputDevice;
 use evdev::EventType;
 use nix::libc::ENODEV;
-use nix::sys::inotify::Inotify;
+use nix::sys::inotify::{AddWatchFlags, Inotify};
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
 use std::io::stdout;
@@ -84,13 +85,13 @@ fn main() -> anyhow::Result<()> {
 
     let config_path = config.expect("config is set, if not completions");
 
-    let config = match config::load_config(&config_path) {
+    let mut config = match config::load_config(&config_path) {
         Ok(config) => config,
         Err(e) => bail!("Failed to load config '{}': {}", config_path.display(), e),
     };
 
     let watch_devices = watch.contains(&WatchTargets::Device);
-    // let watch_config = watch.contains(&WatchTargets::Config);
+    let watch_config = watch.contains(&WatchTargets::Config);
 
     let output_device = match output_device() {
         Ok(output_device) => output_device,
@@ -102,10 +103,8 @@ fn main() -> anyhow::Result<()> {
         Err(e) => bail!("Failed to prepare input devices: {}", e),
     };
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
-    // let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
-    let watchers: Vec<_> = device_watcher
-        .iter() /*.chain(config_watcher.iter())*/
-        .collect();
+    let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
+    let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
 
     loop {
         match 'event_loop: loop {
@@ -149,21 +148,62 @@ fn main() -> anyhow::Result<()> {
                     }))
                 }
             }
+            if let Some(inotify) = config_watcher {
+                if let Ok(events) = inotify.read_events() {
+                    for event in &events {
+                        match (event.mask, &event.name) {
+                            // Dir events
+                            (_, Some(name))
+                                if name == config_path.file_name().expect("Config path has a file name") =>
+                            {
+                                break 'event_loop Event::ReloadConfig;
+                            }
+                            // File events
+                            (mask, _) if mask.contains(AddWatchFlags::IN_MODIFY) => {
+                                break 'event_loop Event::ReloadConfig;
+                            }
+                            // Unrelated
+                            _ => (),
+                        }
+                    }
+                    input_devices.extend(events.into_iter().filter_map(|event| {
+                        event.name.and_then(|name| {
+                            let path = PathBuf::from("/dev/input/").join(name);
+                            let mut device = InputDevice::try_from(path).ok()?;
+                            if device.is_input_device(&device_filter, &ignore_filter) && device.grab() {
+                                device.print();
+                                Some(device.into())
+                            } else {
+                                None
+                            }
+                        })
+                    }))
+                }
+            }
         } {
             Event::ReloadDevices => {
                 input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
                     Ok(input_devices) => input_devices,
                     Err(e) => bail!("Failed to prepare input devices: {}", e),
                 };
-            } // Event::ReloadConfig => {
-              //     todo!()
-              // }
+            }
+            Event::ReloadConfig => match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
+                (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => {
+                    continue;
+                }
+                _ => {
+                    println!("Reloading Config");
+                    if let Ok(c) = load_config(&config_path) {
+                        config = c;
+                    }
+                }
+            },
         }
     }
 }
 
 enum Event {
-    // ReloadConfig,
+    ReloadConfig,
     ReloadDevices,
 }
 
