@@ -1,18 +1,19 @@
 use crate::config::Config;
-use crate::device::{device_watcher, input_devices, output_device};
+use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
+use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
-use evdev::uinput::VirtualDevice;
-use evdev::{Device, EventType};
-use nix::sys::inotify::Inotify;
+use config::{config_watcher, load_config};
+use device::InputDevice;
+use evdev::EventType;
+use nix::libc::ENODEV;
+use nix::sys::inotify::{AddWatchFlags, Inotify};
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
-use std::error::Error;
 use std::io::stdout;
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
-use std::process::exit;
 
 mod client;
 mod config;
@@ -66,93 +67,154 @@ enum WatchTargets {
     Config,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let Opts {
-        device,
-        ignore,
+        device: device_filter,
+        ignore: ignore_filter,
         watch,
         config,
         completions,
     } = Opts::parse();
 
     if let Some(shell) = completions {
-        return clap_complete::generate(shell, &mut Opts::into_app(), "xremap", &mut stdout());
+        clap_complete::generate(shell, &mut Opts::into_app(), "xremap", &mut stdout());
+        return Ok(());
     }
 
-    let config = config.expect("config is set, if not completions");
+    let config_path = config.expect("config is set, if not completions");
 
-    let config = match config::load_config(&config) {
+    let mut config = match config::load_config(&config_path) {
         Ok(config) => config,
-        Err(e) => abort(&format!("Failed to load config '{}': {}", config.display(), e)),
+        Err(e) => bail!("Failed to load config '{}': {}", config_path.display(), e),
     };
 
     let watch_devices = watch.contains(&WatchTargets::Device);
+    let watch_config = watch.contains(&WatchTargets::Config);
 
-    loop {
-        let output_device = match output_device() {
-            Ok(output_device) => output_device,
-            Err(e) => abort(&format!("Failed to prepare an output device: {}", e)),
-        };
-        let input_devices = match input_devices(&device, &ignore, watch_devices) {
-            Ok(input_devices) => input_devices,
-            Err(e) => abort(&format!("Failed to prepare input devices: {}", e)),
-        };
-
-        if let Err(e) = event_loop(output_device, input_devices, &config, watch_devices) {
-            if e.to_string().starts_with("No such device") {
-                println!("Found a removed device. Reselecting devices.");
-                continue;
-            }
-            abort(&format!("Error: {}", e));
-        }
-    }
-}
-
-fn event_loop(
-    output_device: VirtualDevice,
-    mut input_devices: Vec<Device>,
-    config: &Config,
-    watch: bool,
-) -> Result<(), Box<dyn Error>> {
-    let watcher = device_watcher(watch)?;
+    let output_device = match output_device() {
+        Ok(output_device) => output_device,
+        Err(e) => bail!("Failed to prepare an output device: {}", e),
+    };
     let mut handler = EventHandler::new(output_device);
+    let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
+        Ok(input_devices) => input_devices,
+        Err(e) => bail!("Failed to prepare input devices: {}", e),
+    };
+    let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
+    let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
+    let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
+
     loop {
-        let readable_fds = select_readable(&input_devices, &watcher)?;
-        for input_device in &mut input_devices {
-            if readable_fds.contains(input_device.as_raw_fd()) {
-                for event in input_device.fetch_events()? {
-                    if event.event_type() == EventType::KEY {
-                        handler.on_event(event, config)?;
-                    } else {
-                        handler.send_event(event)?;
+        match 'event_loop: loop {
+            let readable_fds = select_readable(input_devices.values(), &watchers)?;
+            for input_device in input_devices.values_mut() {
+                if readable_fds.contains(input_device.as_raw_fd()) {
+                    match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
+                        Err((Some(ENODEV), _)) => {
+                            println!("Found a removed device. Reselecting devices.");
+                            break 'event_loop Event::ReloadDevices;
+                        }
+                        Err((_, error)) => return Err(error).context("Error fetching input events"),
+                        Ok(events) => {
+                            for event in events {
+                                if event.event_type() == EventType::KEY {
+                                    handler
+                                        .on_event(event, &config)
+                                        .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
+                                } else {
+                                    handler.send_event(event)?;
+                                }
+                            }
+                        }
                     }
                 }
             }
-        }
-        if let Some(inotify) = watcher {
-            if readable_fds.contains(inotify.as_raw_fd()) {
-                println!("Detected device changes. Reselecting devices.");
-                return Ok(());
+
+            if let Some(inotify) = device_watcher {
+                if let Ok(events) = inotify.read_events() {
+                    input_devices.extend(events.into_iter().filter_map(|event| {
+                        event.name.and_then(|name| {
+                            let path = PathBuf::from("/dev/input/").join(name);
+                            let mut device = InputDevice::try_from(path).ok()?;
+                            if device.is_input_device(&device_filter, &ignore_filter) && device.grab() {
+                                device.print();
+                                Some(device.into())
+                            } else {
+                                None
+                            }
+                        })
+                    }))
+                }
             }
+            if let Some(inotify) = config_watcher {
+                if let Ok(events) = inotify.read_events() {
+                    for event in &events {
+                        match (event.mask, &event.name) {
+                            // Dir events
+                            (_, Some(name))
+                                if name == config_path.file_name().expect("Config path has a file name") =>
+                            {
+                                break 'event_loop Event::ReloadConfig;
+                            }
+                            // File events
+                            (mask, _) if mask.contains(AddWatchFlags::IN_MODIFY) => {
+                                break 'event_loop Event::ReloadConfig;
+                            }
+                            // Unrelated
+                            _ => (),
+                        }
+                    }
+                    input_devices.extend(events.into_iter().filter_map(|event| {
+                        event.name.and_then(|name| {
+                            let path = PathBuf::from("/dev/input/").join(name);
+                            let mut device = InputDevice::try_from(path).ok()?;
+                            if device.is_input_device(&device_filter, &ignore_filter) && device.grab() {
+                                device.print();
+                                Some(device.into())
+                            } else {
+                                None
+                            }
+                        })
+                    }))
+                }
+            }
+        } {
+            Event::ReloadDevices => {
+                input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
+                    Ok(input_devices) => input_devices,
+                    Err(e) => bail!("Failed to prepare input devices: {}", e),
+                };
+            }
+            Event::ReloadConfig => match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
+                (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => {
+                    continue;
+                }
+                _ => {
+                    println!("Reloading Config");
+                    if let Ok(c) = load_config(&config_path) {
+                        config = c;
+                    }
+                }
+            },
         }
     }
 }
 
-fn select_readable(devices: &[Device], watcher: &Option<Inotify>) -> Result<FdSet, Box<dyn Error>> {
+enum Event {
+    ReloadConfig,
+    ReloadDevices,
+}
+
+fn select_readable<'a>(devices: impl Iterator<Item = &'a InputDevice>, watchers: &[&Inotify]) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
-    if let Some(inotify) = watcher {
+    for inotify in watchers {
         read_fds.insert(inotify.as_raw_fd());
     }
     select(None, &mut read_fds, None, None, None)?;
     Ok(read_fds)
-}
-
-fn abort(message: &str) -> ! {
-    println!("{}", message);
-    exit(1);
 }
