@@ -31,8 +31,8 @@ struct Opts {
     ignore: Vec<String>,
     /// Targets to watch
     ///
-    /// - Device to add new devices automatically
-    /// - Config to reload the config automatically
+    /// - device: add new devices automatically
+    /// - config: reload the config automatically
     #[clap(
         long,
         arg_enum,
@@ -52,7 +52,7 @@ struct Opts {
     /// You can use them by storing in your shells completion file or by running
     /// - in bash: eval "$(xremap --completions bash)"
     /// - in fish: xremap --completions fish | source
-    #[clap(long, arg_enum, display_order = 1000, value_name = "SHELL", verbatim_doc_comment)]
+    #[clap(long, arg_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
     completions: Option<Shell>,
     /// Config file
     #[clap(required_unless_present = "completions")]
