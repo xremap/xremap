@@ -1,3 +1,10 @@
+## v0.3.0
+
+* Switch the CLI framework from getopts to clap
+* Add `--watch=config` to watch configs
+  * `--watch` works as before. You may use it as `--watch=device` as well.
+* Add `--completions` for shell completion
+
 ## v0.2.5
 
 * Support `escape_next_key` action
