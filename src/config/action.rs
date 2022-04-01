@@ -1,9 +1,11 @@
 use crate::config::key_press::KeyPress;
 use std::collections::HashMap;
 
+use crate::config::remap::Remap;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::fmt::Debug;
+use std::time::Duration;
 
 // Values in `keymap.remap`
 #[derive(Clone, Debug, Deserialize)]
@@ -11,7 +13,7 @@ use std::fmt::Debug;
 pub enum Action {
     KeyPress(KeyPress),
     #[serde(deserialize_with = "deserialize_remap")]
-    Remap(HashMap<KeyPress, Vec<Action>>),
+    Remap(Remap),
     #[serde(deserialize_with = "deserialize_launch")]
     Launch(Vec<String>),
     #[serde(deserialize_with = "deserialize_set_mark")]
@@ -22,17 +24,15 @@ pub enum Action {
     EscapeNextKey(bool),
 }
 
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
+fn deserialize_remap<'de, D>(deserializer: D) -> Result<Remap, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let mut action = HashMap::<String, HashMap<KeyPress, Actions>>::deserialize(deserializer)?;
-    if let Some(remap) = action.remove("remap") {
-        if action.is_empty() {
-            return Ok(remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect());
-        }
-    }
-    Err(de::Error::custom("not a map with a single \"remap\" key"))
+    let action = RemapActions::deserialize(deserializer)?;
+    return Ok(Remap {
+        remap: action.remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect(),
+        timeout: action.timeout_millis.map(|ms| Duration::from_millis(ms)),
+    });
 }
 
 fn deserialize_launch<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
@@ -88,7 +88,7 @@ where
 }
 
 // Used only for deserializing Vec<Action>
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Actions {
     Action(Action),
@@ -102,4 +102,11 @@ impl Actions {
             Actions::Actions(actions) => actions,
         }
     }
+}
+
+// Used only for deserializing Remap with Vec<Action>
+#[derive(Debug, Deserialize)]
+pub struct RemapActions {
+    pub remap: HashMap<KeyPress, Actions>,
+    pub timeout_millis: Option<u64>,
 }

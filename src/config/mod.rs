@@ -6,6 +6,7 @@ pub mod key_press;
 mod keymap;
 mod modmap;
 
+mod remap;
 #[cfg(test)]
 mod tests;
 

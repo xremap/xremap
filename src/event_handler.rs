@@ -25,6 +25,7 @@ pub struct EventHandler {
     application_cache: Option<String>,
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
+    override_timeout_at: Option<Instant>,
     sigaction_set: bool,
     mark_set: bool,
     escape_next_key: bool,
@@ -42,6 +43,7 @@ impl EventHandler {
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remap: None,
+            override_timeout_at: None,
             sigaction_set: false,
             mark_set: false,
             escape_next_key: false,
@@ -169,6 +171,12 @@ impl EventHandler {
             alt: self.alt.to_modifier_state(),
             windows: self.windows.to_modifier_state(),
         };
+        if let Some(override_timeout_at) = self.override_timeout_at {
+            if override_timeout_at < Instant::now() {
+                self.override_remap = None;
+                self.override_timeout_at = None;
+            }
+        }
         if let Some(override_remap) = &self.override_remap {
             let override_remap = override_remap.clone();
             self.override_remap = None;
@@ -192,12 +200,13 @@ impl EventHandler {
     fn dispatch_action(&mut self, action: &Action) -> Result<(), Box<dyn Error>> {
         match action {
             Action::KeyPress(key_press) => self.send_key_press(key_press)?,
-            Action::Remap(remap) => {
+            Action::Remap(action) => {
                 let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
-                for (key_press, actions) in remap.iter() {
+                for (key_press, actions) in action.remap.iter() {
                     override_remap.insert(key_press.clone(), actions.to_vec());
                 }
-                self.override_remap = Some(override_remap)
+                self.override_remap = Some(override_remap);
+                self.override_timeout_at = action.timeout.map(|t| Instant::now() + t)
             }
             Action::Launch(command) => self.run_command(command.clone()),
             Action::SetMark(set) => self.mark_set = *set,
