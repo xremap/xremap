@@ -182,6 +182,9 @@ fn main() -> anyhow::Result<()> {
             }
         } {
             Event::ReloadDevices => {
+                for input_device in input_devices.values_mut() {
+                    input_device.ungrab();
+                }
                 input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
                     Ok(input_devices) => input_devices,
                     Err(e) => bail!("Failed to prepare input devices: {}", e),

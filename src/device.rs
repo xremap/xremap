@@ -171,9 +171,17 @@ impl InputDevice {
             true
         }
     }
+
+    pub fn ungrab(&mut self) {
+        if let Err(error) = self.device.ungrab() {
+            println!("Failed to ungrab device '{}' at '{}' due to: {error}", self.device_name(), self.path.display());
+        }
+    }
+
     pub fn fetch_events(&mut self) -> io::Result<FetchEventsSynced> {
         self.device.fetch_events()
     }
+
     fn device_name(&self) -> &str {
         self.device.name().unwrap_or("<Unnamed device>")
     }
