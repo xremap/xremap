@@ -26,6 +26,7 @@ pub struct EventHandler {
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
     override_timeout_at: Option<Instant>,
+    override_timeout_keys: Vec<Key>,
     sigaction_set: bool,
     mark_set: bool,
     escape_next_key: bool,
@@ -44,6 +45,7 @@ impl EventHandler {
             multi_purpose_keys: HashMap::new(),
             override_remap: None,
             override_timeout_at: None,
+            override_timeout_keys: vec![],
             sigaction_set: false,
             mark_set: false,
             escape_next_key: false,
@@ -52,7 +54,20 @@ impl EventHandler {
 
     // Handle EventType::KEY
     pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+        // Pre-event updates
         self.application_cache = None; // expire cache
+        if let Some(override_timeout_at) = self.override_timeout_at {
+            if override_timeout_at < Instant::now() {
+                self.override_remap = None;
+                self.override_timeout_at = None;
+                for key in self.override_timeout_keys.clone() {
+                    self.send_key(&key, PRESS)?;
+                    self.send_key(&key, RELEASE)?;
+                }
+                self.override_timeout_keys = vec![];
+            }
+        }
+
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
 
@@ -75,7 +90,7 @@ impl EventHandler {
                     self.escape_next_key = false
                 } else if let Some(actions) = self.find_keymap(config, &key) {
                     for action in &actions {
-                        self.dispatch_action(action)?;
+                        self.dispatch_action(action, &key)?;
                     }
                     continue;
                 }
@@ -171,15 +186,11 @@ impl EventHandler {
             alt: self.alt.to_modifier_state(),
             windows: self.windows.to_modifier_state(),
         };
-        if let Some(override_timeout_at) = self.override_timeout_at {
-            if override_timeout_at < Instant::now() {
-                self.override_remap = None;
-                self.override_timeout_at = None;
-            }
-        }
         if let Some(override_remap) = &self.override_remap {
             let override_remap = override_remap.clone();
             self.override_remap = None;
+            self.override_timeout_at = None;
+            self.override_timeout_keys = vec![];
             if let Some(actions) = override_remap.get(&key_press) {
                 return Some(actions.to_vec());
             }
@@ -197,7 +208,7 @@ impl EventHandler {
         None
     }
 
-    fn dispatch_action(&mut self, action: &Action) -> Result<(), Box<dyn Error>> {
+    fn dispatch_action(&mut self, action: &Action, key: &Key) -> Result<(), Box<dyn Error>> {
         match action {
             Action::KeyPress(key_press) => self.send_key_press(key_press)?,
             Action::Remap(action) => {
@@ -206,7 +217,8 @@ impl EventHandler {
                     override_remap.insert(key_press.clone(), actions.to_vec());
                 }
                 self.override_remap = Some(override_remap);
-                self.override_timeout_at = action.timeout.map(|t| Instant::now() + t)
+                self.override_timeout_at = action.timeout.map(|t| Instant::now() + t);
+                self.override_timeout_keys.push(key.clone());
             }
             Action::Launch(command) => self.run_command(command.clone()),
             Action::SetMark(set) => self.mark_set = *set,
