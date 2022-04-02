@@ -10,6 +10,8 @@ use lazy_static::lazy_static;
 use log::{debug, error};
 use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
+use nix::sys::time::TimeSpec;
+use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::collections::HashMap;
 use std::error::Error;
 use std::process::{Command, Stdio};
@@ -17,6 +19,7 @@ use std::time::Instant;
 
 pub struct EventHandler {
     device: VirtualDevice,
+    timer: TimerFd,
     shift: PressState,
     control: PressState,
     alt: PressState,
@@ -25,7 +28,6 @@ pub struct EventHandler {
     application_cache: Option<String>,
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
-    override_timeout_at: Option<Instant>,
     override_timeout_key: Option<Key>,
     sigaction_set: bool,
     mark_set: bool,
@@ -33,9 +35,10 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(device: VirtualDevice) -> EventHandler {
+    pub fn new(device: VirtualDevice, timer: TimerFd) -> EventHandler {
         EventHandler {
             device,
+            timer,
             shift: PressState::new(),
             control: PressState::new(),
             alt: PressState::new(),
@@ -44,7 +47,6 @@ impl EventHandler {
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remap: None,
-            override_timeout_at: None,
             override_timeout_key: None,
             sigaction_set: false,
             mark_set: false,
@@ -92,6 +94,21 @@ impl EventHandler {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
         }
         self.device.emit(&[event])
+    }
+
+    pub fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
+        if let Some(key) = self.override_timeout_key {
+            self.send_key(&key, PRESS)?;
+            self.send_key(&key, RELEASE)?;
+        }
+        self.remove_override()
+    }
+
+    fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
+        self.timer.unset()?;
+        self.override_remap = None;
+        self.override_timeout_key = None;
+        Ok(())
     }
 
     fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
@@ -173,22 +190,12 @@ impl EventHandler {
             alt: self.alt.to_modifier_state(),
             windows: self.windows.to_modifier_state(),
         };
-        if let Some(override_timeout_at) = self.override_timeout_at {
-            if override_timeout_at < Instant::now() {
-                self.override_remap = None;
-                self.override_timeout_at = None;
-                self.flush_override_key()?;
-            }
-        }
         if let Some(override_remap) = &self.override_remap {
-            let override_remap = override_remap.clone();
-            self.override_remap = None;
-            self.override_timeout_at = None;
-            if let Some(actions) = override_remap.get(&key_press) {
-                self.override_timeout_key = None;
+            if let Some(actions) = override_remap.clone().get(&key_press) {
+                self.remove_override()?;
                 return Ok(Some(actions.to_vec()));
             } else {
-                self.flush_override_key()?;
+                self.timeout_override()?;
             }
         }
         for keymap in &config.keymap {
@@ -213,8 +220,12 @@ impl EventHandler {
                     override_remap.insert(key_press.clone(), actions.to_vec());
                 }
                 self.override_remap = Some(override_remap);
-                self.override_timeout_at = action.timeout.map(|t| Instant::now() + t);
-                self.override_timeout_key = Some(key.clone());
+                if let Some(timeout) = action.timeout {
+                    let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
+                    self.timer.unset()?;
+                    self.timer.set(expiration, TimerSetTimeFlags::empty())?;
+                    self.override_timeout_key = Some(key.clone());
+                }
             }
             Action::Launch(command) => self.run_command(command.clone()),
             Action::SetMark(set) => self.mark_set = *set,
@@ -406,15 +417,6 @@ impl EventHandler {
         } else {
             panic!("unexpected key {:?} at update_modifier", Key::new(code));
         }
-    }
-
-    fn flush_override_key(&mut self) -> Result<(), Box<dyn Error>> {
-        if let Some(key) = self.override_timeout_key {
-            self.send_key(&key, PRESS)?;
-            self.send_key(&key, RELEASE)?;
-        }
-        self.override_timeout_key = None;
-        Ok(())
     }
 }
 

@@ -11,8 +11,9 @@ use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, Inotify};
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
+use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::io::stdout;
-use std::os::unix::io::AsRawFd;
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
 
 mod client;
@@ -97,7 +98,9 @@ fn main() -> anyhow::Result<()> {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),
     };
-    let mut handler = EventHandler::new(output_device);
+    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
+    let timer_fd = timer.as_raw_fd();
+    let mut handler = EventHandler::new(output_device, timer);
     let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
         Ok(input_devices) => input_devices,
         Err(e) => bail!("Failed to prepare input devices: {}", e),
@@ -108,7 +111,13 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         match 'event_loop: loop {
-            let readable_fds = select_readable(input_devices.values(), &watchers)?;
+            let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
+            if readable_fds.contains(timer_fd) {
+                if let Err(error) = handler.timeout_override() {
+                    println!("Error on remap timeout: {error}")
+                }
+            }
+
             for input_device in input_devices.values_mut() {
                 if readable_fds.contains(input_device.as_raw_fd()) {
                     match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
@@ -207,8 +216,13 @@ enum Event {
     ReloadDevices,
 }
 
-fn select_readable<'a>(devices: impl Iterator<Item = &'a InputDevice>, watchers: &[&Inotify]) -> anyhow::Result<FdSet> {
+fn select_readable<'a>(
+    devices: impl Iterator<Item = &'a InputDevice>,
+    watchers: &[&Inotify],
+    timer_fd: RawFd,
+) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
+    read_fds.insert(timer_fd);
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
