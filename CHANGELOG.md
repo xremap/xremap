@@ -1,3 +1,8 @@
+## v0.3.1
+
+* Keep `--watch` working when multiple keyboards are used
+  [#85](https://github.com/k0kubun/xremap/pull/85)
+
 ## v0.3.0
 
 * Switch the CLI framework from getopts to clap
