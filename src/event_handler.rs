@@ -10,6 +10,8 @@ use lazy_static::lazy_static;
 use log::{debug, error};
 use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
+use nix::sys::time::TimeSpec;
+use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::collections::HashMap;
 use std::error::Error;
 use std::process::{Command, Stdio};
@@ -17,6 +19,7 @@ use std::time::Instant;
 
 pub struct EventHandler {
     device: VirtualDevice,
+    timer: TimerFd,
     shift: PressState,
     control: PressState,
     alt: PressState,
@@ -25,15 +28,17 @@ pub struct EventHandler {
     application_cache: Option<String>,
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
+    override_timeout_key: Option<Key>,
     sigaction_set: bool,
     mark_set: bool,
     escape_next_key: bool,
 }
 
 impl EventHandler {
-    pub fn new(device: VirtualDevice) -> EventHandler {
+    pub fn new(device: VirtualDevice, timer: TimerFd) -> EventHandler {
         EventHandler {
             device,
+            timer,
             shift: PressState::new(),
             control: PressState::new(),
             alt: PressState::new(),
@@ -42,6 +47,7 @@ impl EventHandler {
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remap: None,
+            override_timeout_key: None,
             sigaction_set: false,
             mark_set: false,
             escape_next_key: false,
@@ -71,9 +77,9 @@ impl EventHandler {
             } else if is_pressed(value) {
                 if self.escape_next_key {
                     self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, &key) {
+                } else if let Some(actions) = self.find_keymap(config, &key)? {
                     for action in &actions {
-                        self.dispatch_action(action)?;
+                        self.dispatch_action(action, &key)?;
                     }
                     continue;
                 }
@@ -88,6 +94,21 @@ impl EventHandler {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
         }
         self.device.emit(&[event])
+    }
+
+    pub fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
+        if let Some(key) = self.override_timeout_key {
+            self.send_key(&key, PRESS)?;
+            self.send_key(&key, RELEASE)?;
+        }
+        self.remove_override()
+    }
+
+    fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
+        self.timer.unset()?;
+        self.override_remap = None;
+        self.override_timeout_key = None;
+        Ok(())
     }
 
     fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
@@ -161,7 +182,7 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key) -> Option<Vec<Action>> {
+    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<Action>>, Box<dyn Error>> {
         let key_press = KeyPress {
             key: *key,
             shift: self.shift.to_modifier_state(),
@@ -170,10 +191,11 @@ impl EventHandler {
             windows: self.windows.to_modifier_state(),
         };
         if let Some(override_remap) = &self.override_remap {
-            let override_remap = override_remap.clone();
-            self.override_remap = None;
-            if let Some(actions) = override_remap.get(&key_press) {
-                return Some(actions.to_vec());
+            if let Some(actions) = override_remap.clone().get(&key_press) {
+                self.remove_override()?;
+                return Ok(Some(actions.to_vec()));
+            } else {
+                self.timeout_override()?;
             }
         }
         for keymap in &config.keymap {
@@ -183,21 +205,27 @@ impl EventHandler {
                         continue;
                     }
                 }
-                return Some(actions.to_vec());
+                return Ok(Some(actions.to_vec()));
             }
         }
-        None
+        Ok(None)
     }
 
-    fn dispatch_action(&mut self, action: &Action) -> Result<(), Box<dyn Error>> {
+    fn dispatch_action(&mut self, action: &Action, key: &Key) -> Result<(), Box<dyn Error>> {
         match action {
             Action::KeyPress(key_press) => self.send_key_press(key_press)?,
-            Action::Remap(remap) => {
+            Action::Remap(action) => {
                 let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
-                for (key_press, actions) in remap.iter() {
+                for (key_press, actions) in action.remap.iter() {
                     override_remap.insert(key_press.clone(), actions.to_vec());
                 }
-                self.override_remap = Some(override_remap)
+                self.override_remap = Some(override_remap);
+                if let Some(timeout) = action.timeout {
+                    let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
+                    self.timer.unset()?;
+                    self.timer.set(expiration, TimerSetTimeFlags::empty())?;
+                    self.override_timeout_key = Some(key.clone());
+                }
             }
             Action::Launch(command) => self.run_command(command.clone()),
             Action::SetMark(set) => self.mark_set = *set,
