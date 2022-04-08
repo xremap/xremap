@@ -1,3 +1,8 @@
+## v0.3.2
+
+* Support `timeout_millis` to timeout a prefix key
+  [#82](https://github.com/k0kubun/xremap/pull/82)
+
 ## v0.3.1
 
 * Keep `--watch` working when multiple keyboards are used

@@ -171,6 +171,7 @@ keymap:
       MOD1-KEY_XXX:
         remap:
           MOD2-KEY_YYY: MOD3-KEY_ZZZ
+        timeout_millis: 200 # Optional. No timeout by default.
       # key press (MOD1-KEY_XXX) -> sequence (MOD2-KEY_YYY, MOD3-KEY_ZZZ)
       MOD1-KEY_XXX: [MOD2-KEY_YYY, MOD3-KEY_ZZZ]
       # execute a command
