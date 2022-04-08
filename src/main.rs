@@ -5,6 +5,7 @@ use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
 use config::{config_watcher, load_config};
+use daemonize::Daemonize;
 use device::InputDevice;
 use evdev::EventType;
 use nix::libc::ENODEV;
@@ -48,6 +49,9 @@ struct Opts {
         help = "Targets to watch [possible values: device, config]"
     )]
     watch: Vec<WatchTargets>,
+    /// Start xremap as a daemon
+    #[clap(long)]
+    daemon: bool,
     /// Generate shell completions
     ///
     /// You can use them by storing in your shells completion file or by running
@@ -75,9 +79,18 @@ fn main() -> anyhow::Result<()> {
         device: device_filter,
         ignore: ignore_filter,
         watch,
+        daemon,
         config,
         completions,
     } = Opts::parse();
+
+    if daemon {
+        let daemonize = Daemonize::new();
+        match daemonize.start() {
+            Ok(_) => println!("Success, daemonized"),
+            Err(e) => eprintln!("Error, {}", e),
+        }
+    }
 
     if let Some(shell) = completions {
         clap_complete::generate(shell, &mut Opts::into_app(), "xremap", &mut stdout());
