@@ -32,7 +32,7 @@ where
 
 // Expand ModifierState::Either to Left and Right. Not leaving Either to save some space and computation.
 // Note that we currently don't have `Both`. Does anybody need it?
-fn expand_modifiers(key_press: KeyPress) -> Vec<KeyPress> {
+pub fn expand_modifiers(key_press: KeyPress) -> Vec<KeyPress> {
     if key_press.shift == ModifierState::Either {
         expand_modifier(key_press, &Modifier::Shift)
     } else if key_press.control == ModifierState::Either {

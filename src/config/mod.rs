@@ -3,7 +3,7 @@ pub mod application;
 mod key;
 pub mod key_action;
 pub mod key_press;
-mod keymap;
+pub mod keymap;
 mod modmap;
 
 mod remap;

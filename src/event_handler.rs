@@ -3,6 +3,7 @@ use crate::config::action::Action;
 use crate::config::application::Application;
 use crate::config::key_action::KeyAction;
 use crate::config::key_press::{KeyPress, Modifier, ModifierState};
+use crate::config::keymap::expand_modifiers;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
@@ -217,7 +218,9 @@ impl EventHandler {
             Action::Remap(action) => {
                 let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
                 for (key_press, actions) in action.remap.iter() {
-                    override_remap.insert(key_press.clone(), actions.to_vec());
+                    for key_press in expand_modifiers(key_press.clone()) {
+                        override_remap.insert(key_press, actions.to_vec());
+                    }
                 }
                 self.override_remap = Some(override_remap);
                 if let Some(timeout) = action.timeout {
