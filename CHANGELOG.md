@@ -1,3 +1,8 @@
+## v0.3.3
+
+* Fix a bug in a nested remap with modifiers
+  [#91](https://github.com/k0kubun/xremap/pull/91)
+
 ## v0.3.2
 
 * Support `timeout_millis` to timeout a prefix key
