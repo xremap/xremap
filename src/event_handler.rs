@@ -20,18 +20,29 @@ use std::time::Instant;
 
 pub struct EventHandler {
     device: VirtualDevice,
-    timer: TimerFd,
+    // Recognize modifier key combinations
     shift: PressState,
     control: PressState,
     alt: PressState,
     windows: PressState,
+    // Make sure the original event is released even if remapping changes while holding the key
+    pressed_keys: HashMap<Key, Key>,
+    // Check the currently active application
     application_client: WMClient,
     application_cache: Option<String>,
+    // State machine for multi-purpose keys
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
+    // Current nested remaps
     override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
+    // Key triggered on a timeout of nested remaps
     override_timeout_key: Option<Key>,
+    // Trigger a timeout of nested remaps through select(2)
+    override_timer: TimerFd,
+    // Whether we've called a sigaction for spawing commands or not
     sigaction_set: bool,
+    // { set_mark: true }
     mark_set: bool,
+    // { escape_next_key: true }
     escape_next_key: bool,
 }
 
@@ -39,16 +50,17 @@ impl EventHandler {
     pub fn new(device: VirtualDevice, timer: TimerFd) -> EventHandler {
         EventHandler {
             device,
-            timer,
             shift: PressState::new(),
             control: PressState::new(),
             alt: PressState::new(),
             windows: PressState::new(),
+            pressed_keys: HashMap::new(),
             application_client: build_client(),
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remap: None,
             override_timeout_key: None,
+            override_timer: timer,
             sigaction_set: false,
             mark_set: false,
             escape_next_key: false,
@@ -67,6 +79,7 @@ impl EventHandler {
         } else {
             vec![(key, event.value())]
         };
+        self.maintain_pressed_keys(key, event.value(), &mut key_values);
         if !self.multi_purpose_keys.is_empty() {
             key_values = self.flush_timeout_keys(key_values);
         }
@@ -106,7 +119,7 @@ impl EventHandler {
     }
 
     fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
-        self.timer.unset()?;
+        self.override_timer.unset()?;
         self.override_remap = None;
         self.override_timeout_key = None;
         Ok(())
@@ -115,6 +128,26 @@ impl EventHandler {
     fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
         let event = InputEvent::new(EventType::KEY, key.code(), value);
         self.send_event(event)
+    }
+
+    // Repeat/Release what's originally pressed even if remapping changes while holding it
+    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut Vec<(Key, i32)>) {
+        // Not handling multi-purpose keysfor now; too complicated
+        if events.len() != 1 || value != events[0].1 {
+            return;
+        }
+
+        let event = events[0];
+        if value == PRESS {
+            self.pressed_keys.insert(key, event.0);
+        } else {
+            if let Some(original_key) = self.pressed_keys.get(&key) {
+                events[0].0 = original_key.clone();
+            }
+            if value == RELEASE {
+                self.pressed_keys.remove(&key);
+            }
+        }
     }
 
     fn dispatch_keys(&mut self, key_action: KeyAction, key: Key, value: i32) -> Vec<(Key, i32)> {
@@ -225,8 +258,8 @@ impl EventHandler {
                 self.override_remap = Some(override_remap);
                 if let Some(timeout) = action.timeout {
                     let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
-                    self.timer.unset()?;
-                    self.timer.set(expiration, TimerSetTimeFlags::empty())?;
+                    self.override_timer.unset()?;
+                    self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
                     self.override_timeout_key = Some(key.clone());
                 }
             }
