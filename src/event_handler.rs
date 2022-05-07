@@ -40,6 +40,8 @@ pub struct EventHandler {
     override_timer: TimerFd,
     // Whether we've called a sigaction for spawing commands or not
     sigaction_set: bool,
+    // { set_mode: String }
+    mode: String,
     // { set_mark: true }
     mark_set: bool,
     // { escape_next_key: true }
@@ -47,7 +49,7 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(device: VirtualDevice, timer: TimerFd) -> EventHandler {
+    pub fn new(device: VirtualDevice, timer: TimerFd, mode: &str) -> EventHandler {
         EventHandler {
             device,
             shift: PressState::new(),
@@ -62,6 +64,7 @@ impl EventHandler {
             override_timeout_key: None,
             override_timer: timer,
             sigaction_set: false,
+            mode: mode.to_string(),
             mark_set: false,
             escape_next_key: false,
         }
@@ -239,6 +242,11 @@ impl EventHandler {
                         continue;
                     }
                 }
+                if let Some(modes) = &keymap.mode {
+                    if !modes.contains(&self.mode) {
+                        continue;
+                    }
+                }
                 return Ok(Some(actions.to_vec()));
             }
         }
@@ -264,6 +272,10 @@ impl EventHandler {
                 }
             }
             Action::Launch(command) => self.run_command(command.clone()),
+            Action::SetMode(mode) => {
+                self.mode = mode.clone();
+                println!("mode: {}", mode);
+            }
             Action::SetMark(set) => self.mark_set = *set,
             Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
             Action::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,

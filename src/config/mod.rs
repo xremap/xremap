@@ -25,6 +25,8 @@ pub struct Config {
     pub modmap: Vec<Modmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
+    #[serde(default = "default_mode")]
+    pub default_mode: String,
     #[serde(skip)]
     pub modify_time: Option<SystemTime>,
 }
@@ -48,4 +50,8 @@ pub fn config_watcher(watch: bool, file: &Path) -> anyhow::Result<Option<Inotify
     } else {
         Ok(None)
     }
+}
+
+fn default_mode() -> String {
+    "default".to_string()
 }

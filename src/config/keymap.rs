@@ -1,4 +1,5 @@
 use crate::config::action::{Action, Actions};
+use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::Application;
 use crate::config::key_press::{KeyPress, Modifier, ModifierState};
 use serde::{Deserialize, Deserializer};
@@ -12,6 +13,8 @@ pub struct Keymap {
     #[serde(deserialize_with = "deserialize_remap")]
     pub remap: HashMap<KeyPress, Vec<Action>>,
     pub application: Option<Application>,
+    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
+    pub mode: Option<Vec<String>>,
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>

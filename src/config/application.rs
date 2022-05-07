@@ -10,7 +10,7 @@ pub struct Application {
     pub not: Option<Vec<String>>,
 }
 
-fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+pub fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
 where
     D: Deserializer<'de>,
 {

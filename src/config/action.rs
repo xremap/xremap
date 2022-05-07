@@ -16,6 +16,8 @@ pub enum Action {
     Remap(Remap),
     #[serde(deserialize_with = "deserialize_launch")]
     Launch(Vec<String>),
+    #[serde(deserialize_with = "deserialize_set_mode")]
+    SetMode(String),
     #[serde(deserialize_with = "deserialize_set_mark")]
     SetMark(bool),
     #[serde(deserialize_with = "deserialize_with_mark")]
@@ -46,6 +48,19 @@ where
         }
     }
     Err(de::Error::custom("not a map with a single \"launch\" key"))
+}
+
+fn deserialize_set_mode<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, String>::deserialize(deserializer)?;
+    if let Some(set) = action.remove("set_mode") {
+        if action.is_empty() {
+            return Ok(set);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"set_mode\" key"))
 }
 
 fn deserialize_set_mark<'de, D>(deserializer: D) -> Result<bool, D::Error>
