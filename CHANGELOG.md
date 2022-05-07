@@ -1,3 +1,9 @@
+## v0.4.0
+
+* `--features gnome` relies on an external GNOME Shell extension: [xremap-gnome](https://github.com/xremap/xremap-gnome)
+  * See [Installation](https://github.com/xremap/xremap-gnome#installation) if you use `--features gnome`.
+  * This allows you to use xremap with GNOME 40+. Ubuntu 22.04 uses GNOME 42 for example.
+
 ## v0.3.3
 
 * Fix a bug in a nested remap with modifiers
