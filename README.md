@@ -102,6 +102,11 @@ and run `echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | s
 If you take this path, in some environments, `--watch` may fail to recognize new devices due to temporary permission issues.
 Option 1 might be more useful in such cases.
 
+#### GNOME Wayland
+Since GNOME 41, you will need to [enable `unsafe_mode`](https://gist.github.com/mvsde/72fddb4a07d6fa88a59657c9e9253f1c) for `xremap` to work.
+
+If you do not want to enable `unsafe_mode`, you can also install [this extension](https://github.com/wilfredwee/gnome-safe-introspection) which exposes only the required information for `xremap` to work.
+
 </details>
 
 ## Configuration
