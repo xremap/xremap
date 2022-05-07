@@ -38,34 +38,43 @@ impl Client for GnomeClient {
             const actor = global.get_window_actors().find(a=>a.meta_window.has_focus()===true)
             actor && actor.get_meta_window().get_wm_class()
         ";
-        let message = connection.call_method(
+        connection.call_method(
             Some("org.gnome.Shell"),
             "/org/gnome/Shell",
             Some("org.gnome.Shell"),
             "Eval",
             &(code),
-        ).or_else(|e| {
+        ).map_err(|e| {
             eprintln!(r#"Failed to call Eval in Gnome Shell. This could be due to lack of permissions, or not running in unsafe context.
             Attempting to use SafeIntrospection instead. (https://github.com/wilfredwee/gnome-safe-introspection)
             Original error: {e:?}"#);
 
-
-            connection
+            
+        })
+        .ok()
+        .and_then(|message| {
+            if let Ok((_actor, json)) = message.body::<(bool, String)>() {
+                if let Ok(wm_class) = serde_json::from_str::<String>(&json) {
+                    return Some(wm_class);
+                }
+            }
+            return None;
+        })
+        .or_else(|| {
+            let message = connection
             .call_method(
                 Some("org.gnome.Shell"),
                 "/dev/wxwee/SafeIntrospect",
                 Some("dev.wxwee.SafeIntrospect"),
                 "GetWindows",
                 &(),
-            )
-        })
-        .map_err(|e| {
-            eprintln!("Calling SafeIntrospection failed. Please read the README to troubleshoot.");
-            e
-        })
-        .ok()?;
+            ).map_err(|e| {
+                eprintln!("Calling SafeIntrospection failed. Please read the README to troubleshoot.");
+                e
+            })
+            .ok()?;
 
-        let windows = message
+            let windows = message
             .body::<HashMap<u64, HashMap<String, Value<'_>>>>()
             .map_err(|err| {
                 eprintln!("Error deserializing body: {:?}. Message: {message:?}", err);
@@ -98,6 +107,7 @@ impl Client for GnomeClient {
                 }
             });
 
-        wm_class
+            wm_class
+        })
     }
 }
