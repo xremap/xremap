@@ -23,7 +23,7 @@ serde_with = { version = "1.11", features = ["chrono"] }
 serde_yaml = "0.8"
 swayipc = { version = "2.7.2", optional = true }
 x11_rs = { package = "x11", version = "2.19.1", features = ["xlib"], optional = true }
-zbus = { version = "1.9.2", optional = true }
+zbus = { version = "2.1.1", optional = true }
 
 [features]
 gnome = ["zbus"]
