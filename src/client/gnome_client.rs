@@ -31,21 +31,15 @@ impl Client for GnomeClient {
             None => return None,
         };
 
-        let code = "
-            const actor = global.get_window_actors().find(a=>a.meta_window.has_focus()===true)
-            actor && actor.get_meta_window().get_wm_class()
-        ";
         if let Ok(message) = connection.call_method(
             Some("org.gnome.Shell"),
-            "/org/gnome/Shell",
-            Some("org.gnome.Shell"),
-            "Eval",
-            &(code),
+            "/com/k0kubun/Xremap",
+            Some("com.k0kubun.Xremap"),
+            "WMClass",
+            &(),
         ) {
-            if let Ok((_actor, json)) = message.body::<(bool, String)>() {
-                if let Ok(wm_class) = serde_json::from_str::<String>(&json) {
-                    return Some(wm_class);
-                }
+            if let Ok(wm_class) = message.body::<String>() {
+                return Some(wm_class);
             }
         }
         None
