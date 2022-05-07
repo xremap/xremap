@@ -49,7 +49,7 @@ impl Client for GnomeClient {
             Attempting to use SafeIntrospection instead. (https://github.com/wilfredwee/gnome-safe-introspection)
             Original error: {e:?}"#);
 
-            
+            e
         })
         .ok()
         .and_then(|message| {
