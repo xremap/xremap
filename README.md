@@ -78,7 +78,8 @@ If you use `sudo` to run `xremap`, you may need to run `xhost +SI:localuser:root
 
 ### GNOME Wayland
 
-Install [the GNOME Shell extension for xremap](https://github.com/xremap/xremap-gnome) first.
+Install xremap's GNOME Shell extension from [this link](https://extensions.gnome.org/extension/5060/xremap/),
+switching OFF to ON.
 
 <details>
 <summary>If you use <code>sudo</code> to run <code>xremap</code>, also click here.</summary>
