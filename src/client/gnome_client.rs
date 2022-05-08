@@ -21,7 +21,7 @@ impl GnomeClient {
 impl Client for GnomeClient {
     fn supported(&mut self) -> bool {
         self.connect();
-        self.connection.is_some()
+        self.current_application().is_some()
     }
 
     fn current_application(&mut self) -> Option<String> {
