@@ -1,3 +1,8 @@
+## v0.4.2
+
+* `--features gnome`: Support a new protocol to talk to the GNOME Shell extension
+  * Both old and new GNOME Shell extensions work with this version
+
 ## v0.4.1
 
 * `--features gnome`: Show `supported: false` in the command output
