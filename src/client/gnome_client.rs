@@ -1,4 +1,5 @@
 use crate::client::Client;
+use serde::{Deserialize, Serialize};
 use zbus::Connection;
 
 pub struct GnomeClient {
@@ -31,7 +32,21 @@ impl Client for GnomeClient {
             None => return None,
         };
 
+        // Attempt the latest protocol
         if let Ok(message) = connection.call_method(
+            Some("org.gnome.Shell"),
+            "/com/k0kubun/Xremap",
+            Some("com.k0kubun.Xremap"),
+            "ActiveWindow",
+            &(),
+        ) {
+            if let Ok(json) = message.body::<String>() {
+                if let Ok(window) = serde_json::from_str::<ActiveWindow>(&json) {
+                    return Some(window.wm_class);
+                }
+            }
+        // Fallback to the legacy protocol
+        } else if let Ok(message) = connection.call_method(
             Some("org.gnome.Shell"),
             "/com/k0kubun/Xremap",
             Some("com.k0kubun.Xremap"),
@@ -44,4 +59,12 @@ impl Client for GnomeClient {
         }
         None
     }
+}
+
+#[derive(Serialize, Deserialize)]
+struct ActiveWindow {
+    #[serde(default)]
+    wm_class: String,
+    #[serde(default)]
+    title: String,
 }
