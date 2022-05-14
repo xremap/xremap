@@ -29,3 +29,9 @@ zbus = { version = "1.9.2", optional = true }
 gnome = ["zbus"]
 sway = ["swayipc"]
 x11 = ["x11_rs"]
+
+[package.metadata.nix]
+build = true
+app = true
+buildInputs = ["xorg.libX11.dev"]
+nativeBuildInputs = ["pkg-config"]
