@@ -62,6 +62,21 @@ sudo gpasswd -a YOUR_USER input
 echo 'KERNEL=="uinput", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules
 ```
 
+The following can be used on Arch.
+
+```bash
+lsmod | grep uinput
+```
+If this module is not loaded, add to `/etc/modules-load.d/uinput.conf`:
+```bash
+uinput
+```
+Then add udev rule.
+
+```bash
+echo 'KERNEL=="uinput", GROUP="input", MODE="0660"' | sudo tee /etc/udev/rules.d/99-input.rules
+```
+
 In other platforms, you might need to create an `input` group first
 and run `echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules` as well.
 
