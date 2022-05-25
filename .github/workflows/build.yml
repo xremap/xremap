@@ -16,7 +16,7 @@ env:
   CARGO_TERM_COLOR: always
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     strategy:
       fail-fast: false
       matrix:
@@ -37,7 +37,7 @@ jobs:
         run: cargo build --release ${{ matrix.options }}
 
   fmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -49,7 +49,7 @@ jobs:
         run: cargo fmt -- --check
 
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -61,7 +61,7 @@ jobs:
       - run: cargo test
 
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-18.04
     needs:
       - build
       - test
