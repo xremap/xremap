@@ -1,8 +1,3 @@
-## v0.4.3
-
-* Produce xremap binary releases on Ubuntu 18.04
-  [#101](https://github.com/k0kubun/xremap/pull/101)
-
 ## v0.4.2
 
 * `--features gnome`: Support a new protocol to talk to the GNOME Shell extension
