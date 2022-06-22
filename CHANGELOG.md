@@ -1,3 +1,8 @@
+## v0.4.4
+
+* Support Vim-like modal remapping by `mode`, `set_mode`, and `default_mode`
+  [#93](https://github.com/k0kubun/xremap/pull/93)
+
 ## v0.4.3
 
 * Produce xremap binary releases on Ubuntu 18.04
