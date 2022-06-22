@@ -128,6 +128,24 @@ fn test_keymap_launch() {
 }
 
 #[test]
+fn test_keymap_mode() {
+    assert_parse(indoc! {"
+    default_mode: insert
+    keymap:
+      - mode: insert
+        remap:
+          Esc: { set_mode: normal }
+      - mode: normal
+        remap:
+          i: { set_mode: insert }
+          h: Left
+          j: Down
+          k: Up
+          l: Right
+    "})
+}
+
+#[test]
 fn test_keymap_mark() {
     assert_parse(indoc! {"
     keymap:

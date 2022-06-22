@@ -100,7 +100,7 @@ fn main() -> anyhow::Result<()> {
     };
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
-    let mut handler = EventHandler::new(output_device, timer);
+    let mut handler = EventHandler::new(output_device, timer, &config.default_mode);
     let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
         Ok(input_devices) => input_devices,
         Err(e) => bail!("Failed to prepare input devices: {}", e),
