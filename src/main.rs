@@ -8,10 +8,11 @@ use config::{config_watcher, load_config};
 use device::InputDevice;
 use evdev::EventType;
 use nix::libc::ENODEV;
-use nix::sys::inotify::{AddWatchFlags, Inotify};
+use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
+use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
@@ -68,6 +69,11 @@ enum WatchTargets {
     Config,
 }
 
+enum Event {
+    ReloadConfig,
+    ReloadDevices,
+}
+
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
@@ -84,16 +90,16 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Configuration
     let config_path = config.expect("config is set, if not completions");
-
     let mut config = match config::load_config(&config_path) {
         Ok(config) => config,
         Err(e) => bail!("Failed to load config '{}': {}", config_path.display(), e),
     };
-
     let watch_devices = watch.contains(&WatchTargets::Device);
     let watch_config = watch.contains(&WatchTargets::Config);
 
+    // Event listeners
     let output_device = match output_device() {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),
@@ -109,6 +115,7 @@ fn main() -> anyhow::Result<()> {
     let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
 
+    // Main loop
     loop {
         match 'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
@@ -120,73 +127,24 @@ fn main() -> anyhow::Result<()> {
 
             for input_device in input_devices.values_mut() {
                 if readable_fds.contains(input_device.as_raw_fd()) {
-                    match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
-                        Err((Some(ENODEV), _)) => {
-                            println!("Found a removed device. Reselecting devices.");
-                            break 'event_loop Event::ReloadDevices;
-                        }
-                        Err((_, error)) => return Err(error).context("Error fetching input events"),
-                        Ok(events) => {
-                            for event in events {
-                                if event.event_type() == EventType::KEY {
-                                    handler
-                                        .on_event(event, &config)
-                                        .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
-                                } else {
-                                    handler.send_event(event)?;
-                                }
-                            }
-                        }
+                    if !handle_input_events(input_device, &mut handler, &mut config)? {
+                        println!("Found a removed device. Reselecting devices.");
+                        break 'event_loop Event::ReloadDevices;
                     }
                 }
             }
 
             if let Some(inotify) = device_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    input_devices.extend(events.into_iter().filter_map(|event| {
-                        event.name.and_then(|name| {
-                            let path = PathBuf::from("/dev/input/").join(name);
-                            let mut device = InputDevice::try_from(path).ok()?;
-                            if device.is_input_device(&device_filter, &ignore_filter) && device.grab() {
-                                device.print();
-                                Some(device.into())
-                            } else {
-                                None
-                            }
-                        })
-                    }))
+                    handle_device_changes(events, &mut input_devices, &device_filter, &ignore_filter)?;
                 }
             }
             if let Some(inotify) = config_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    for event in &events {
-                        match (event.mask, &event.name) {
-                            // Dir events
-                            (_, Some(name))
-                                if name == config_path.file_name().expect("Config path has a file name") =>
-                            {
-                                break 'event_loop Event::ReloadConfig;
-                            }
-                            // File events
-                            (mask, _) if mask.contains(AddWatchFlags::IN_MODIFY) => {
-                                break 'event_loop Event::ReloadConfig;
-                            }
-                            // Unrelated
-                            _ => (),
-                        }
+                    if !handle_config_changes(events, &mut input_devices, &device_filter, &ignore_filter, &config_path)?
+                    {
+                        break 'event_loop Event::ReloadConfig;
                     }
-                    input_devices.extend(events.into_iter().filter_map(|event| {
-                        event.name.and_then(|name| {
-                            let path = PathBuf::from("/dev/input/").join(name);
-                            let mut device = InputDevice::try_from(path).ok()?;
-                            if device.is_input_device(&device_filter, &ignore_filter) && device.grab() {
-                                device.print();
-                                Some(device.into())
-                            } else {
-                                None
-                            }
-                        })
-                    }))
                 }
             }
         } {
@@ -200,23 +158,16 @@ fn main() -> anyhow::Result<()> {
                 };
             }
             Event::ReloadConfig => match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
-                (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => {
-                    continue;
-                }
+                (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => continue,
                 _ => {
-                    println!("Reloading Config");
                     if let Ok(c) = load_config(&config_path) {
+                        println!("Reloading Config");
                         config = c;
                     }
                 }
             },
         }
     }
-}
-
-enum Event {
-    ReloadConfig,
-    ReloadDevices,
 }
 
 fn select_readable<'a>(
@@ -234,4 +185,84 @@ fn select_readable<'a>(
     }
     select(None, &mut read_fds, None, None, None)?;
     Ok(read_fds)
+}
+
+fn handle_input_events(
+    input_device: &mut InputDevice,
+    handler: &mut EventHandler,
+    config: &mut Config,
+) -> anyhow::Result<bool> {
+    match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
+        Err((Some(ENODEV), _)) => {
+            return Ok(false);
+        }
+        Err((_, error)) => return Err(error).context("Error fetching input events"),
+        Ok(events) => {
+            for event in events {
+                if event.event_type() == EventType::KEY {
+                    handler
+                        .on_event(event, &config)
+                        .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
+                } else {
+                    handler.send_event(event)?;
+                }
+            }
+            return Ok(true);
+        }
+    }
+}
+
+fn handle_device_changes(
+    events: Vec<InotifyEvent>,
+    input_devices: &mut HashMap<PathBuf, InputDevice>,
+    device_filter: &[String],
+    ignore_filter: &[String],
+) -> anyhow::Result<()> {
+    input_devices.extend(events.into_iter().filter_map(|event| {
+        event.name.and_then(|name| {
+            let path = PathBuf::from("/dev/input/").join(name);
+            let mut device = InputDevice::try_from(path).ok()?;
+            if device.is_input_device(device_filter, &ignore_filter) && device.grab() {
+                device.print();
+                Some(device.into())
+            } else {
+                None
+            }
+        })
+    }));
+    Ok(())
+}
+
+fn handle_config_changes(
+    events: Vec<InotifyEvent>,
+    input_devices: &mut HashMap<PathBuf, InputDevice>,
+    device_filter: &[String],
+    ignore_filter: &[String],
+    config_path: &PathBuf,
+) -> anyhow::Result<bool> {
+    for event in &events {
+        match (event.mask, &event.name) {
+            // Dir events
+            (_, Some(name)) if name == config_path.file_name().expect("Config path has a file name") => {
+                return Ok(false)
+            }
+            // File events
+            (mask, _) if mask.contains(AddWatchFlags::IN_MODIFY) => return Ok(false),
+            // Unrelated
+            _ => (),
+        }
+    }
+    input_devices.extend(events.into_iter().filter_map(|event| {
+        event.name.and_then(|name| {
+            let path = PathBuf::from("/dev/input/").join(name);
+            let mut device = InputDevice::try_from(path).ok()?;
+            if device.is_input_device(&device_filter, &ignore_filter) && device.grab() {
+                device.print();
+                Some(device.into())
+            } else {
+                None
+            }
+        })
+    }));
+    Ok(true)
 }
