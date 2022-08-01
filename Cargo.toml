@@ -10,7 +10,7 @@ license = "MIT"
 anyhow = "1.0.58"
 clap = { version = "3.2.8", features = ["derive"] }
 clap_complete = "3.2.3"
-derive-where = "1.0.0-rc.3"
+derive-where = "1.0.0"
 env_logger = "0.9.0"
 evdev = "0.11.4"
 indoc = "1.0"
