@@ -1,13 +1,91 @@
+use std::str::FromStr;
+
+use anyhow::anyhow;
+use regex::Regex;
 use serde::{Deserialize, Deserializer};
 
 // TODO: Use trait to allow only either `only` or `not`
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
-    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
-    pub only: Option<Vec<String>>,
-    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
-    pub not: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "deserialize_matchers")]
+    pub only: Option<Vec<ApplicationMatcher>>,
+    #[serde(default, deserialize_with = "deserialize_matchers")]
+    pub not: Option<Vec<ApplicationMatcher>>,
+}
+
+#[derive(Debug)]
+pub enum ApplicationMatcher {
+    Literal(String),
+    Regex(Regex),
+}
+
+impl ApplicationMatcher {
+    pub fn matches(&self, name: &str) -> bool {
+        match &self {
+            ApplicationMatcher::Literal(s) => s == name,
+            ApplicationMatcher::Regex(r) => r.is_match(name),
+        }
+    }
+}
+
+impl FromStr for ApplicationMatcher {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let first_char = s.chars().next();
+        match first_char {
+            None => Err(anyhow!("Empty application name")),
+            Some('/') if s.len() < 3 => Err(anyhow!("Application name regex format must be /<regex>/")),
+            Some('/') => Ok(ApplicationMatcher::Regex(Regex::new(&slash_unescape(s)?)?)),
+            Some(_) => Ok(ApplicationMatcher::Literal(s.to_owned())),
+        }
+    }
+}
+
+fn slash_unescape(s: &str) -> anyhow::Result<String> {
+    let mut result = String::with_capacity(s.len());
+    let mut escaping = false;
+    let mut finished = false;
+    for c in s.chars().skip(1) {
+        if finished {
+            return Err(anyhow!("Unexpected trailing string after closing / in application name regex"));
+        }
+        if escaping {
+            escaping = false;
+            if c != '/' {
+                result.push('\\');
+            }
+            result.push(c);
+            continue;
+        }
+        match c {
+            '/' => finished = true,
+            '\\' => escaping = true,
+            _ => result.push(c),
+        }
+    }
+    if !finished {
+        return Err(anyhow!("Missing closing / in application name regex"));
+    }
+    Ok(result)
+}
+
+fn deserialize_matchers<'de, D>(deserializer: D) -> Result<Option<Vec<ApplicationMatcher>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let v = deserialize_string_or_vec(deserializer)?;
+    match v {
+        None => Ok(None),
+        Some(strings) => {
+            let mut result: Vec<ApplicationMatcher> = vec![];
+            for s in strings {
+                result.push(ApplicationMatcher::from_str(&s).map_err(serde::de::Error::custom)?);
+            }
+            Ok(Some(result))
+        }
+    }
 }
 
 pub fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
@@ -26,4 +104,51 @@ where
         StringOrVec::String(string) => vec![string],
     };
     Ok(Some(vec))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_literal_application_name_matcher() {
+        let matcher = ApplicationMatcher::from_str(r"Minecraft").unwrap();
+        assert!(matcher.matches("Minecraft"), "Failed to match exact Minecraft");
+        assert!(!matcher.matches("Minecraft Launcher"), "Literal matcher should not be used as substring");
+    }
+
+    #[test]
+    fn test_regex_application_name_matcher() {
+        let matcher = ApplicationMatcher::from_str(r"/^Minecraft\*? \d+\.\d+(\.\d+)?$/").unwrap();
+        assert!(matcher.matches(r"Minecraft 1.19.2"), "Failed to match Minecraft 1.19.2 using regex");
+        assert!(matcher.matches(r"Minecraft* 1.19"), "Failed to match Minecraft* 1.19 using regex");
+        assert!(matcher.matches(r"Minecraft* 1.19.2"), "Failed to match Minecraft* 1.19.2 using regex");
+    }
+
+    #[test]
+    fn test_regex_unescape_application_name_matcher() {
+        let matcher = ApplicationMatcher::from_str(r"/^\/$/").unwrap();
+        assert!(matcher.matches(r"/"), "Failed to match single slash using regex");
+    }
+
+    #[test]
+    fn test_unescape_slash_correct_regex() {
+        let given = r"/^Mine\d\/craft\\/";
+        let got = slash_unescape(given).unwrap();
+        assert_eq!(r"^Mine\d/craft\\", got);
+    }
+
+    #[test]
+    fn test_unescape_slash_missing_closing_slash() {
+        let given = r"/^Minecraft\/";
+        let got = slash_unescape(given).unwrap_err();
+        assert_eq!("Missing closing / in application name regex", got.to_string());
+    }
+
+    #[test]
+    fn test_unescape_slash_excessive_string_after_closing() {
+        let given = r"/^Minecraft/i";
+        let got = slash_unescape(given).unwrap_err();
+        assert_eq!("Unexpected trailing string after closing / in application name regex", got.to_string());
+    }
 }
