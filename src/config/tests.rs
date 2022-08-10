@@ -178,6 +178,6 @@ fn test_keymap_mark() {
 fn assert_parse(yaml: &str) {
     let result: Result<Config, Error> = serde_yaml::from_str(yaml);
     if let Err(e) = result {
-        assert!(false, "{}", e)
+        panic!("{}", e)
     }
 }

@@ -15,7 +15,7 @@ use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 mod client;
 mod config;
@@ -130,11 +130,11 @@ fn main() -> anyhow::Result<()> {
             }
 
             for input_device in input_devices.values_mut() {
-                if readable_fds.contains(input_device.as_raw_fd()) {
-                    if !handle_input_events(input_device, &mut handler, &mut config)? {
-                        println!("Found a removed device. Reselecting devices.");
-                        break 'event_loop Event::ReloadDevices;
-                    }
+                if readable_fds.contains(input_device.as_raw_fd())
+                    && !handle_input_events(input_device, &mut handler, &mut config)?
+                {
+                    println!("Found a removed device. Reselecting devices.");
+                    break 'event_loop Event::ReloadDevices;
                 }
             }
 
@@ -203,21 +203,19 @@ fn handle_input_events(
     config: &mut Config,
 ) -> anyhow::Result<bool> {
     match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
-        Err((Some(ENODEV), _)) => {
-            return Ok(false);
-        }
-        Err((_, error)) => return Err(error).context("Error fetching input events"),
+        Err((Some(ENODEV), _)) => Ok(false),
+        Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
             for event in events {
                 if event.event_type() == EventType::KEY {
                     handler
-                        .on_event(event, &config)
+                        .on_event(event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
                 } else {
                     handler.send_event(event)?;
                 }
             }
-            return Ok(true);
+            Ok(true)
         }
     }
 }
@@ -233,7 +231,7 @@ fn handle_device_changes(
         event.name.and_then(|name| {
             let path = PathBuf::from("/dev/input/").join(name);
             let mut device = InputDevice::try_from(path).ok()?;
-            if device.is_input_device(device_filter, &ignore_filter, mouse) && device.grab() {
+            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
                 device.print();
                 Some(device.into())
             } else {
@@ -250,7 +248,7 @@ fn handle_config_changes(
     device_filter: &[String],
     ignore_filter: &[String],
     mouse: bool,
-    config_path: &PathBuf,
+    config_path: &Path,
 ) -> anyhow::Result<bool> {
     for event in &events {
         match (event.mask, &event.name) {
@@ -268,7 +266,7 @@ fn handle_config_changes(
         event.name.and_then(|name| {
             let path = PathBuf::from("/dev/input/").join(name);
             let mut device = InputDevice::try_from(path).ok()?;
-            if device.is_input_device(&device_filter, &ignore_filter, mouse) && device.grab() {
+            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
                 device.print();
                 Some(device.into())
             } else {

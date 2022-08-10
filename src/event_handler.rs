@@ -145,7 +145,7 @@ impl EventHandler {
             self.pressed_keys.insert(key, event.0);
         } else {
             if let Some(original_key) = self.pressed_keys.get(&key) {
-                events[0].0 = original_key.clone();
+                events[0].0 = *original_key;
             }
             if value == RELEASE {
                 self.pressed_keys.remove(&key);
@@ -268,7 +268,7 @@ impl EventHandler {
                     let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
                     self.override_timer.unset()?;
                     self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                    self.override_timeout_key = Some(key.clone());
+                    self.override_timeout_key = Some(*key);
                 }
             }
             Action::Launch(command) => self.run_command(command.clone()),
