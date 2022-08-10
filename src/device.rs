@@ -76,6 +76,7 @@ pub fn device_watcher(watch: bool) -> anyhow::Result<Option<Inotify>> {
 pub fn get_input_devices(
     device_opts: &[String],
     ignore_opts: &[String],
+    mouse: bool,
     watch: bool,
 ) -> anyhow::Result<HashMap<PathBuf, InputDevice>> {
     let mut devices: Vec<_> = InputDevice::devices()?.collect();
@@ -87,7 +88,11 @@ pub fn get_input_devices(
     println!("{}", SEPARATOR);
 
     if device_opts.is_empty() {
-        print!("Selected keyboards automatically since --device options weren't specified");
+        if mouse {
+            print!("Selected keyboards and mice automatically since --device options weren't specified");
+        } else {
+            print!("Selected keyboards automatically since --device options weren't specified");
+        }
     } else {
         print!("Selected devices matching {:?}", device_opts);
     };
@@ -103,7 +108,7 @@ pub fn get_input_devices(
         // alternative is `Vec::retain_mut` whenever that gets stabilized
         .filter_map(|mut device| {
             // filter out any not matching devices and devices that error on grab
-            (device.is_input_device(device_opts, ignore_opts) && device.grab()).then(|| device)
+            (device.is_input_device(device_opts, ignore_opts, mouse) && device.grab()).then(|| device)
         })
         .collect();
 
@@ -188,9 +193,9 @@ impl InputDevice {
 }
 
 impl InputDevice {
-    pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String]) -> bool {
+    pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String], mouse: bool) -> bool {
         (if device_filter.is_empty() {
-            self.is_keyboard()
+            self.is_keyboard() || (mouse && self.is_mouse())
         } else {
             self.matches(device_filter)
         }) && (ignore_filter.is_empty() || !self.matches(ignore_filter))
@@ -247,6 +252,12 @@ impl InputDevice {
             }
             None => false,
         }
+    }
+
+    fn is_mouse(&self) -> bool {
+        self.device
+            .supported_keys()
+            .map_or(false, |keys| keys.contains(Key::BTN_LEFT))
     }
 
     pub fn print(&self) {
