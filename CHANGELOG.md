@@ -1,3 +1,8 @@
+## v0.4.5
+
+- `application` supports a regular expression matcher, `/regex/`
+  [#138](https://github.com/k0kubun/xremap/pull/138)
+
 ## v0.4.4
 
 * Support Vim-like modal remapping by `mode`, `set_mode`, and `default_mode`
