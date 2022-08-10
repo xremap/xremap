@@ -33,6 +33,24 @@ fn test_modmap_application() {
 }
 
 #[test]
+fn test_modmap_application_regex() {
+    assert_parse(indoc! {r"
+    modmap:
+      - remap:
+          Alt_L: Ctrl_L
+        application:
+          not:
+            - /^Minecraft/
+            - /^Minecraft\//
+            - /^Minecraft\d/
+      - remap:
+          Shift_R: Win_R
+        application:
+          only: /^Miencraft\\/
+    "})
+}
+
+#[test]
 fn test_modmap_multi_purpose_key() {
     assert_parse(indoc! {"
     modmap:

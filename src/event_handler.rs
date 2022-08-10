@@ -436,10 +436,10 @@ impl EventHandler {
 
         if let Some(application) = &self.application_cache {
             if let Some(application_only) = &application_matcher.only {
-                return application_only.contains(application);
+                return application_only.iter().any(|m| m.matches(application));
             }
             if let Some(application_not) = &application_matcher.not {
-                return !application_not.contains(application);
+                return application_not.iter().all(|m| !m.matches(application));
             }
         }
         false
