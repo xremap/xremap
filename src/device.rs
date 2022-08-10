@@ -194,6 +194,9 @@ impl InputDevice {
 
 impl InputDevice {
     pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String], mouse: bool) -> bool {
+        if self.device_name() == Self::current_name() {
+            return false;
+        }
         (if device_filter.is_empty() {
             self.is_keyboard() || (mouse && self.is_mouse())
         } else {
