@@ -15,7 +15,7 @@ use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 mod client;
 mod config;
@@ -31,6 +31,9 @@ struct Opts {
     /// Ignore a device name or path
     #[clap(long, use_delimiter = true)]
     ignore: Vec<String>,
+    /// Match mice by default
+    #[clap(long)]
+    mouse: bool,
     /// Targets to watch
     ///
     /// - device: add new devices automatically
@@ -80,6 +83,7 @@ fn main() -> anyhow::Result<()> {
     let Opts {
         device: device_filter,
         ignore: ignore_filter,
+        mouse,
         watch,
         config,
         completions,
@@ -107,7 +111,7 @@ fn main() -> anyhow::Result<()> {
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
     let mut handler = EventHandler::new(output_device, timer, &config.default_mode);
-    let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
+    let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
         Ok(input_devices) => input_devices,
         Err(e) => bail!("Failed to prepare input devices: {}", e),
     };
@@ -126,23 +130,29 @@ fn main() -> anyhow::Result<()> {
             }
 
             for input_device in input_devices.values_mut() {
-                if readable_fds.contains(input_device.as_raw_fd()) {
-                    if !handle_input_events(input_device, &mut handler, &mut config)? {
-                        println!("Found a removed device. Reselecting devices.");
-                        break 'event_loop Event::ReloadDevices;
-                    }
+                if readable_fds.contains(input_device.as_raw_fd())
+                    && !handle_input_events(input_device, &mut handler, &mut config)?
+                {
+                    println!("Found a removed device. Reselecting devices.");
+                    break 'event_loop Event::ReloadDevices;
                 }
             }
 
             if let Some(inotify) = device_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    handle_device_changes(events, &mut input_devices, &device_filter, &ignore_filter)?;
+                    handle_device_changes(events, &mut input_devices, &device_filter, &ignore_filter, mouse)?;
                 }
             }
             if let Some(inotify) = config_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    if !handle_config_changes(events, &mut input_devices, &device_filter, &ignore_filter, &config_path)?
-                    {
+                    if !handle_config_changes(
+                        events,
+                        &mut input_devices,
+                        &device_filter,
+                        &ignore_filter,
+                        mouse,
+                        &config_path,
+                    )? {
                         break 'event_loop Event::ReloadConfig;
                     }
                 }
@@ -152,7 +162,7 @@ fn main() -> anyhow::Result<()> {
                 for input_device in input_devices.values_mut() {
                     input_device.ungrab();
                 }
-                input_devices = match get_input_devices(&device_filter, &ignore_filter, watch_devices) {
+                input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
                     Ok(input_devices) => input_devices,
                     Err(e) => bail!("Failed to prepare input devices: {}", e),
                 };
@@ -193,21 +203,19 @@ fn handle_input_events(
     config: &mut Config,
 ) -> anyhow::Result<bool> {
     match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
-        Err((Some(ENODEV), _)) => {
-            return Ok(false);
-        }
-        Err((_, error)) => return Err(error).context("Error fetching input events"),
+        Err((Some(ENODEV), _)) => Ok(false),
+        Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
             for event in events {
                 if event.event_type() == EventType::KEY {
                     handler
-                        .on_event(event, &config)
+                        .on_event(event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
                 } else {
                     handler.send_event(event)?;
                 }
             }
-            return Ok(true);
+            Ok(true)
         }
     }
 }
@@ -217,12 +225,13 @@ fn handle_device_changes(
     input_devices: &mut HashMap<PathBuf, InputDevice>,
     device_filter: &[String],
     ignore_filter: &[String],
+    mouse: bool,
 ) -> anyhow::Result<()> {
     input_devices.extend(events.into_iter().filter_map(|event| {
         event.name.and_then(|name| {
             let path = PathBuf::from("/dev/input/").join(name);
             let mut device = InputDevice::try_from(path).ok()?;
-            if device.is_input_device(device_filter, &ignore_filter) && device.grab() {
+            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
                 device.print();
                 Some(device.into())
             } else {
@@ -238,7 +247,8 @@ fn handle_config_changes(
     input_devices: &mut HashMap<PathBuf, InputDevice>,
     device_filter: &[String],
     ignore_filter: &[String],
-    config_path: &PathBuf,
+    mouse: bool,
+    config_path: &Path,
 ) -> anyhow::Result<bool> {
     for event in &events {
         match (event.mask, &event.name) {
@@ -256,7 +266,7 @@ fn handle_config_changes(
         event.name.and_then(|name| {
             let path = PathBuf::from("/dev/input/").join(name);
             let mut device = InputDevice::try_from(path).ok()?;
-            if device.is_input_device(&device_filter, &ignore_filter) && device.grab() {
+            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
                 device.print();
                 Some(device.into())
             } else {

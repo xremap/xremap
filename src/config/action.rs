@@ -31,10 +31,10 @@ where
     D: Deserializer<'de>,
 {
     let action = RemapActions::deserialize(deserializer)?;
-    return Ok(Remap {
+    Ok(Remap {
         remap: action.remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect(),
-        timeout: action.timeout_millis.map(|ms| Duration::from_millis(ms)),
-    });
+        timeout: action.timeout_millis.map(Duration::from_millis),
+    })
 }
 
 fn deserialize_launch<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
