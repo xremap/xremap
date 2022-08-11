@@ -1,3 +1,9 @@
+## v0.4.6
+
+- Add `--mouse` option to select mouse as well
+  [#140](https://github.com/k0kubun/xremap/pull/138)
+- The X11 binary no longer relies on libx11
+
 ## v0.4.5
 
 - `application` supports a regular expression matcher, `/regex/`
