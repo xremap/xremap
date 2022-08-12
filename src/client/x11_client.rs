@@ -1,34 +1,35 @@
 use crate::client::Client;
+use nix::libc;
 use std::env;
-use x11rb::protocol::xproto::{self};
-use x11rb::protocol::xproto::{AtomEnum, Window};
-use x11rb::{protocol::xproto::get_property, rust_connection::RustConnection};
+use x11_rs::xlib;
 
 pub struct X11Client {
-    connection: Option<RustConnection>,
+    display: Option<*mut xlib::Display>,
 }
 
 impl X11Client {
     pub fn new() -> X11Client {
-        X11Client { connection: None }
+        X11Client { display: None }
     }
 
-    fn connect(&mut self) {
-        if self.connection.is_some() {
-            return;
-        }
+    fn connect(&mut self) -> *mut xlib::Display {
+        match self.display {
+            Some(display) => display,
+            None => {
+                if let Err(env::VarError::NotPresent) = env::var("DISPLAY") {
+                    println!("$DISPLAY is not set. Defaulting to DISPLAY=:0");
+                    env::set_var("DISPLAY", ":0");
+                }
 
-        if let Err(env::VarError::NotPresent) = env::var("DISPLAY") {
-            println!("$DISPLAY is not set. Defaulting to DISPLAY=:0");
-            env::set_var("DISPLAY", ":0");
-        }
-        match x11rb::connect(None) {
-            Ok((connection, _)) => self.connection = Some(connection),
-            Err(error) => {
-                let var = env::var("DISPLAY").unwrap();
-                println!("warning: Failed to connect to X11: {error}");
-                println!("If you saw \"No protocol specified\", try running `xhost +SI:localuser:root`.");
-                println!("If not, make sure `echo $DISPLAY` outputs xremap's $DISPLAY ({var}).");
+                let display = unsafe { xlib::XOpenDisplay(std::ptr::null()) };
+                if display.is_null() {
+                    let var = env::var("DISPLAY").unwrap();
+                    println!("warning: Failed to connect to X11.");
+                    println!("If you saw \"No protocol specified\", try running `xhost +SI:localuser:root`.");
+                    println!("If not, make sure `echo $DISPLAY` outputs xremap's $DISPLAY ({}).", var);
+                }
+                self.display = Some(display);
+                display
             }
         }
     }
@@ -36,66 +37,74 @@ impl X11Client {
 
 impl Client for X11Client {
     fn supported(&mut self) -> bool {
-        self.connect();
-        return self.connection.is_some();
-        // TODO: Test XGetInputFocus and focused_window > 0?
+        let display = self.connect();
+        if display.is_null() {
+            false
+        } else {
+            let mut focused_window = 0;
+            let mut focus_state = 0;
+            unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
+            focused_window > 0
+        }
     }
 
     fn current_application(&mut self) -> Option<String> {
-        self.connect();
-        if let Some(conn) = &self.connection {
-            let mut window = get_focus_window(conn)?;
-            loop {
-                if let Some(wm_class) = get_wm_class(conn, window) {
-                    // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
-                    if &wm_class != "FocusProxy" {
-                        return Some(wm_class);
+        if !self.supported() {
+            return None;
+        }
+
+        let display = self.connect();
+        let mut focused_window = 0;
+        let mut focus_state = 0;
+        unsafe { xlib::XGetInputFocus(display, &mut focused_window, &mut focus_state) };
+
+        let mut x_class_hint = xlib::XClassHint {
+            res_name: std::ptr::null_mut(),
+            res_class: std::ptr::null_mut(),
+        };
+        let mut wm_class = String::new();
+        loop {
+            unsafe {
+                if xlib::XGetClassHint(display, focused_window, &mut x_class_hint) == 1 {
+                    if !x_class_hint.res_name.is_null() {
+                        xlib::XFree(x_class_hint.res_name as *mut std::ffi::c_void);
                     }
-                }
 
-                window = get_parent_window(conn, window)?;
-            }
-        }
-        return None;
-    }
-}
-
-fn get_focus_window(conn: &RustConnection) -> Option<Window> {
-    if let Ok(cookie) = xproto::get_input_focus(conn) {
-        if let Ok(reply) = cookie.reply() {
-            return Some(reply.focus);
-        }
-    }
-    return None;
-}
-
-fn get_parent_window(conn: &RustConnection, window: Window) -> Option<Window> {
-    if let Ok(cookie) = xproto::query_tree(conn, window) {
-        if let Ok(reply) = cookie.reply() {
-            return Some(reply.parent);
-        }
-    }
-    return None;
-}
-
-fn get_wm_class(conn: &RustConnection, window: Window) -> Option<String> {
-    if let Ok(cookie) = get_property(conn, false, window, AtomEnum::WM_CLASS, AtomEnum::STRING, 0, 1024) {
-        if let Ok(reply) = cookie.reply() {
-            if reply.value.is_empty() {
-                return None;
-            }
-
-            if let Some(delimiter) = reply.value.iter().position(|byte| *byte == '\0' as u8) {
-                let value = reply.value[(delimiter + 1)..].to_vec();
-                if let Some(end) = value.iter().position(|byte| *byte == '\0' as u8) {
-                    if end == value.len() - 1 {
-                        if let Ok(string) = String::from_utf8(value[..end].to_vec()) {
-                            return Some(string);
+                    if !x_class_hint.res_class.is_null() {
+                        // Note: into_string() seems to free `x_class_hint.res_class`. So XFree isn't needed.
+                        wm_class = std::ffi::CString::from_raw(x_class_hint.res_class as *mut libc::c_char)
+                            .into_string()
+                            .unwrap();
+                        // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
+                        if &wm_class != "FocusProxy" {
+                            break;
                         }
                     }
                 }
             }
+
+            let mut nchildren: u32 = 0;
+            let mut root: xlib::Window = 0;
+            let mut parent: xlib::Window = 0;
+            let mut children: *mut xlib::Window = &mut 0;
+            unsafe {
+                if xlib::XQueryTree(display, focused_window, &mut root, &mut parent, &mut children, &mut nchildren) == 0
+                {
+                    break;
+                }
+            }
+            if !children.is_null() {
+                unsafe {
+                    xlib::XFree(children as *mut std::ffi::c_void);
+                }
+            }
+
+            // The root client's parent is NULL. Avoid querying it to prevent SEGV on XGetClientHint.
+            if parent == 0 {
+                return None;
+            }
+            focused_window = parent;
         }
+        Some(wm_class)
     }
-    return None;
 }
