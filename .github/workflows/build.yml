@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: xremap-${{ matrix.arch }}-${{ matrix.feature }}
-          path: target/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
+          path: target/${{ matrix.arch }}-unknown-linux-musl/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
 
   fmt:
     runs-on: ubuntu-18.04
