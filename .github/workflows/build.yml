@@ -20,23 +20,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        options:
-          - ''
-          - --features x11
-          - --features gnome
-          - --features sway
+        arch: [x86_64, aarch64]
+        feature: [x11, gnome, sway]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: stable
+          profile: minimal
           override: true
+          target: ${{ matrix.arch }}-unknown-linux-musl
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ubuntu-18.04
-      - name: cargo build
-        run: cargo build --release ${{ matrix.options }}
+          key: ubuntu-18.04-${{ matrix.arch }}-${{ matrix.feature }}
+
+      - run: cargo install cross
+      - name: cross build
+        run: cross build --release --features ${{ matrix.feature }} --target=${{ matrix.arch }}-unknown-linux-musl
+
+      - name: package
+        run: zip "xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip" xremap
+        working-directory: target/${{ matrix.arch }}-unknown-linux-musl/release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: xremap-${{ matrix.arch }}-${{ matrix.feature }}
+          path: target/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
 
   fmt:
     runs-on: ubuntu-18.04
@@ -80,22 +89,21 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         with:
           key: ubuntu-18.04
+
+      # Release crate
       - name: cargo login
         run: cargo login "$CARGO_TOKEN"
         env:
           CARGO_TOKEN: ${{ secrets.CARGO_TOKEN }}
       - run: cargo publish
-      - name: Package
-        run: |
-          for feature in x11 gnome sway others; do
-            if [[ "$feature" = "others" ]]; then
-              cargo build --release
-            else
-              cargo build --release --features "$feature"
-            fi
-            (cd target/release && zip "xremap-linux-x86_64-${feature}.zip" xremap && rm xremap)
-          done
-          mkdir package && mv target/release/xremap-*.zip package/
+
+      # Release binary
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-x11,    path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-gnome,  path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-sway,   path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-x11,   path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-gnome, path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-sway,  path: package/ } }
       - name: Release
         run: |
           export VERSION=$(echo "$GITHUB_REF" | sed -e 's!refs/tags/!!')
