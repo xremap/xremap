@@ -1,3 +1,11 @@
+## v0.5.0
+
+- Switch to binary releases built by cross-rs
+  - Support Arm64
+  - All binaries no longer have dynamic-link dependencies like libc
+  - Stop supporting "others" distribution
+     - If you use none of X11, GNOME, or Sway, try X11. It might help XWayland.
+
 ## v0.4.6
 
 - Add `--mouse` option to select mouse as well
