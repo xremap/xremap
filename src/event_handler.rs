@@ -4,6 +4,7 @@ use crate::config::application::Application;
 use crate::config::key_action::{KeyAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::key_press::{KeyPress, Modifier, ModifierState};
 use crate::config::keymap::expand_modifiers;
+use crate::config::remap::Remap;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
@@ -281,19 +282,23 @@ impl EventHandler {
     fn dispatch_action(&mut self, action: &Action, key: &Key) -> Result<(), Box<dyn Error>> {
         match action {
             Action::KeyPress(key_press) => self.send_key_press(key_press)?,
-            Action::Remap(action) => {
+            Action::Remap(Remap {
+                remap,
+                timeout,
+                timeout_key,
+            }) => {
                 let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
-                for (key_press, actions) in action.remap.iter() {
+                for (key_press, actions) in remap.iter() {
                     for key_press in expand_modifiers(key_press.clone()) {
                         override_remap.insert(key_press, actions.to_vec());
                     }
                 }
                 self.override_remap = Some(override_remap);
-                if let Some(timeout) = action.timeout {
-                    let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
+                if let Some(timeout) = timeout {
+                    let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
                     self.override_timer.unset()?;
                     self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                    self.override_timeout_key = Some(*key);
+                    self.override_timeout_key = timeout_key.or_else(|| Some(*key));
                 }
             }
             Action::Launch(command) => self.run_command(command.clone()),
