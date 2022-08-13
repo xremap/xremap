@@ -1,7 +1,7 @@
 use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::application::Application;
-use crate::config::key_action::KeyAction;
+use crate::config::key_action::{KeyAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::key_press::{KeyPress, Modifier, ModifierState};
 use crate::config::keymap::expand_modifiers;
 use crate::Config;
@@ -78,7 +78,7 @@ impl EventHandler {
 
         // Apply modmap
         let mut key_values = if let Some(key_action) = self.find_modmap(config, &key) {
-            self.dispatch_keys(key_action, key, event.value())
+            self.dispatch_keys(key_action, key, event.value())?
         } else {
             vec![(key, event.value())]
         };
@@ -95,9 +95,7 @@ impl EventHandler {
                 if self.escape_next_key {
                     self.escape_next_key = false
                 } else if let Some(actions) = self.find_keymap(config, &key)? {
-                    for action in &actions {
-                        self.dispatch_action(action, &key)?;
-                    }
+                    self.dispatch_actions(&actions, &key)?;
                     continue;
                 }
             }
@@ -153,27 +151,36 @@ impl EventHandler {
         }
     }
 
-    fn dispatch_keys(&mut self, key_action: KeyAction, key: Key, value: i32) -> Vec<(Key, i32)> {
-        match key_action {
+    fn dispatch_keys(
+        &mut self,
+        key_action: KeyAction,
+        key: Key,
+        value: i32,
+    ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
+        let keys = match key_action {
             KeyAction::Key(modmap_key) => vec![(modmap_key, value)],
-            KeyAction::MultiPurposeKey(multi_purpose_key) => {
+            KeyAction::MultiPurposeKey(MultiPurposeKey {
+                held,
+                alone,
+                alone_timeout,
+            }) => {
                 if value == PRESS {
                     self.multi_purpose_keys.insert(
                         key,
                         MultiPurposeKeyState {
-                            held: multi_purpose_key.held,
-                            alone: multi_purpose_key.alone,
-                            alone_timeout_at: Some(Instant::now() + multi_purpose_key.alone_timeout),
+                            held,
+                            alone,
+                            alone_timeout_at: Some(Instant::now() + alone_timeout),
                         },
                     );
-                    return vec![]; // delay the press
+                    return Ok(vec![]); // delay the press
                 } else if value == REPEAT {
                     if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
-                        return state.repeat();
+                        return Ok(state.repeat());
                     }
                 } else if value == RELEASE {
                     if let Some(state) = self.multi_purpose_keys.remove(&key) {
-                        return state.release();
+                        return Ok(state.release());
                     }
                 } else {
                     panic!("unexpected key event value: {}", value);
@@ -181,7 +188,18 @@ impl EventHandler {
                 // fallthrough on state discrepancy
                 vec![(key, value)]
             }
-        }
+            KeyAction::PressReleaseKey(PressReleaseKey { press, release }) => {
+                if value == PRESS {
+                    self.dispatch_actions(&press, &key)?;
+                }
+                if value == RELEASE {
+                    self.dispatch_actions(&release, &key)?;
+                }
+                // While triggered by modmap, PressReleaseKey is not remapped by keymap.
+                vec![]
+            }
+        };
+        Ok(keys)
     }
 
     fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
@@ -251,6 +269,13 @@ impl EventHandler {
             }
         }
         Ok(None)
+    }
+
+    fn dispatch_actions(&mut self, actions: &Vec<Action>, key: &Key) -> Result<(), Box<dyn Error>> {
+        for action in actions {
+            self.dispatch_action(action, key)?;
+        }
+        Ok(())
     }
 
     fn dispatch_action(&mut self, action: &Action, key: &Key) -> Result<(), Box<dyn Error>> {

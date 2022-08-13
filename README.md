@@ -20,6 +20,7 @@
 * Application-specific remapping. Even if it's not supported by your application, xremap can.
 * Automatically remap newly connected devices by starting xremap with `--watch`.
 * Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
+* Trigger commands on key press/release events.
 
 ## Installation
 
@@ -153,11 +154,14 @@ modmap:
   - name: Name # Optional
     remap: # Required
       KEY_XXX: KEY_YYY # Required
-      # or
       KEY_XXX:
         held: KEY_YYY # Required
         alone: KEY_ZZZ # Required
         alone_timeout_millis: 1000 # Optional
+      # Trigger `keymap` action on key press/release events.
+      KEY_XXX:
+        press: { launch: ["xdotool", "mousemove", "0", "7200"] } # Required
+        release: { launch: ["xdotool", "mousemove", "0", "0"] } # Required
     application: # Optional
       not: [Application, ...]
       # or
@@ -180,25 +184,25 @@ before any other key is pressed. Otherwise it's considered `held`.
 keymap:
   - name: Name # Optional
     remap: # Required
-      # key press -> key press
+      # Key press -> Key press
       MOD1-KEY_XXX: MOD2-KEY_YYY
-      # sequence (MOD1-KEY_XXX, MOD2-KEY_YYY) -> key press (MOD3-KEY_ZZZ)
+      # Sequence (MOD1-KEY_XXX, MOD2-KEY_YYY) -> Key press (MOD3-KEY_ZZZ)
       MOD1-KEY_XXX:
         remap:
           MOD2-KEY_YYY: MOD3-KEY_ZZZ
         timeout_millis: 200 # Optional. No timeout by default.
-      # key press (MOD1-KEY_XXX) -> sequence (MOD2-KEY_YYY, MOD3-KEY_ZZZ)
+      # Key press (MOD1-KEY_XXX) -> Sequence (MOD2-KEY_YYY, MOD3-KEY_ZZZ)
       MOD1-KEY_XXX: [MOD2-KEY_YYY, MOD3-KEY_ZZZ]
-      # execute a command
+      # Execute a command
       MOD1-KEY_XXX:
         launch: ["bash", "-c", "echo hello > /tmp/test"]
-      # let `with_mark` also press a Shift key (useful for Emacs emulation)
+      # Let `with_mark` also press a Shift key (useful for Emacs emulation)
       MOD1-KEY_XXX: { set_mark: true } # use { set_mark: false } to disable it
-      # also press Shift only when { set_mark: true } is used before
+      # Also press Shift only when { set_mark: true } is used before
       MOD1-KEY_XXX: { with_mark: MOD2-KEY_YYY }
-      # the next key press will ignore keymap
+      # The next key press will ignore keymap
       MOD1-KEY_XXX: { escape_next_key: true }
-      # set mode to configure Vim-like modal remapping
+      # Set mode to configure Vim-like modal remapping
       MOD1-KEY_XXX: { set_mode: default }
     application: # Optional
       not: [Application, ...]

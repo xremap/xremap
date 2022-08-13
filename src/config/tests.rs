@@ -67,6 +67,17 @@ fn test_modmap_multi_purpose_key() {
 }
 
 #[test]
+fn test_modmap_press_release_key() {
+    assert_parse(indoc! {r#"
+    modmap:
+      - remap:
+          Space:
+            press: { launch: ["wmctrl", "-x", "-a", "code.Code"] }
+            release: { launch: ["wmctrl", "-x", "-a", "nocturn.Nocturn"] }
+    "#})
+}
+
+#[test]
 fn test_keymap_basic() {
     assert_parse(indoc! {"
     keymap:
