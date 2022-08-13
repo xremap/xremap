@@ -139,6 +139,7 @@ fn test_keymap_remap() {
               C-s:
                 remap:
                   x: C-z
+            timeout_key: Down
             timeout_millis: 1000
     "})
 }

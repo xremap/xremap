@@ -7,6 +7,9 @@ use serde::{Deserialize, Deserializer};
 use std::fmt::Debug;
 use std::time::Duration;
 
+use super::key::parse_key;
+use super::remap::RemapActions;
+
 // Values in `keymap.remap`
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
@@ -34,6 +37,14 @@ where
     Ok(Remap {
         remap: action.remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect(),
         timeout: action.timeout_millis.map(Duration::from_millis),
+        timeout_key: if let Some(key) = action.timeout_key {
+            match parse_key(&key) {
+                Ok(key) => Some(key),
+                Err(e) => return Err(de::Error::custom(e.to_string())),
+            }
+        } else {
+            None
+        },
     })
 }
 
@@ -117,11 +128,4 @@ impl Actions {
             Actions::Actions(actions) => actions,
         }
     }
-}
-
-// Used only for deserializing Remap with Vec<Action>
-#[derive(Debug, Deserialize)]
-pub struct RemapActions {
-    pub remap: HashMap<KeyPress, Actions>,
-    pub timeout_millis: Option<u64>,
 }
