@@ -1,3 +1,8 @@
+## v0.5.1
+
+- Support triggering `keymap` actions on key press/release events
+  [#79](https://github.com/k0kubun/xremap/pull/79)
+
 ## v0.5.0
 
 - Switch to binary releases built by cross-rs
