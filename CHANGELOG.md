@@ -1,3 +1,8 @@
+## v0.5.2
+
+- Support overriding `timeout_key` on nested remap
+  [#144](https://github.com/k0kubun/xremap/pull/144)
+
 ## v0.5.1
 
 - Support triggering `keymap` actions on key press/release events
