@@ -323,17 +323,15 @@ impl EventHandler {
     }
 
     fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
-        // Build missing or extra modifiers
+        // Build extra or missing modifiers. Note only MODIFIER_KEYS are handled
+        // because logical modifiers shouldn't make an impact outside xremap.
         let extra_modifiers: Vec<Key> = self
             .modifiers
             .iter()
-            .filter_map(|modifier| {
-                if self.contains_modifier(&key_press.modifiers, modifier) {
-                    None
-                } else {
-                    Some(modifier.clone())
-                }
+            .filter(|modifier| {
+                !self.contains_modifier(&key_press.modifiers, modifier) && MODIFIER_KEYS.contains(&modifier.code())
             })
+            .map(|modifier| modifier.clone())
             .collect();
         let missing_modifiers: Vec<Key> = key_press
             .modifiers
@@ -347,7 +345,8 @@ impl EventHandler {
                         Modifier::Control => Some(Key::KEY_LEFTCTRL),
                         Modifier::Alt => Some(Key::KEY_LEFTALT),
                         Modifier::Windows => Some(Key::KEY_LEFTMETA),
-                        Modifier::Key(key) => Some(key.clone()),
+                        Modifier::Key(key) if MODIFIER_KEYS.contains(&key.code()) => Some(key.clone()),
+                        _ => None,
                     }
                 }
             })
