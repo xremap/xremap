@@ -241,17 +241,21 @@ application:
   only: [Application, ...]
 ```
 
+The application name can be specified as a normal string to exactly match the name,
+or a regex surrounded by `/`s like `/application/`.
+
 To check the application names, you can use the following commands:
 
 #### X11
 
 ```
 $ wmctrl -x -l
-0x0280000a  0 gnome-terminal-server.Gnome-terminal  ubuntu-focal Terminal
-0x02600001  0 nocturn.Nocturn       ubuntu-focal Nocturn
+0x02800003  0 slack.Slack           ubuntu-jammy Slack | general | ruby-jp
+0x05400003  0 code.Code             ubuntu-jammy application.rs - xremap - Visual Studio Code
 ```
 
-Use the name after `.` in the third column (`WM_CLASS`), i.e. `Gnome-terminal` or `Nocturn` in the above output.
+You may use the entire string of the third column (`slack.Slack`, `code.Code`),
+or just the last segment after `.` (`Slack`, `Code`).
 
 #### GNOME Wayland
 

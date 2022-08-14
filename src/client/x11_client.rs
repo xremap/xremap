@@ -86,11 +86,13 @@ fn get_wm_class(conn: &RustConnection, window: Window) -> Option<String> {
             }
 
             if let Some(delimiter) = reply.value.iter().position(|byte| *byte == '\0' as u8) {
-                let value = reply.value[(delimiter + 1)..].to_vec();
-                if let Some(end) = value.iter().position(|byte| *byte == '\0' as u8) {
-                    if end == value.len() - 1 {
-                        if let Ok(string) = String::from_utf8(value[..end].to_vec()) {
-                            return Some(string);
+                if let Ok(prefix) = String::from_utf8(reply.value[..delimiter].to_vec()) {
+                    let name = reply.value[(delimiter + 1)..].to_vec();
+                    if let Some(end) = name.iter().position(|byte| *byte == '\0' as u8) {
+                        if end == name.len() - 1 {
+                            if let Ok(name) = String::from_utf8(name[..end].to_vec()) {
+                                return Some(format!("{prefix}.{name}"));
+                            }
                         }
                     }
                 }

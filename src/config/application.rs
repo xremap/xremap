@@ -16,15 +16,26 @@ pub struct Application {
 
 #[derive(Debug)]
 pub enum ApplicationMatcher {
+    // class.name
     Literal(String),
+    // name
+    Name(String),
+    // /regex/
     Regex(Regex),
 }
 
 impl ApplicationMatcher {
-    pub fn matches(&self, name: &str) -> bool {
+    pub fn matches(&self, app: &str) -> bool {
         match &self {
-            ApplicationMatcher::Literal(s) => s == name,
-            ApplicationMatcher::Regex(r) => r.is_match(name),
+            ApplicationMatcher::Literal(s) => s == app,
+            ApplicationMatcher::Name(s) => {
+                if let Some(pos) = app.rfind('.') {
+                    s == &app[(pos + 1)..]
+                } else {
+                    s == app
+                }
+            }
+            ApplicationMatcher::Regex(r) => r.is_match(app),
         }
     }
 }
@@ -33,12 +44,15 @@ impl FromStr for ApplicationMatcher {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let first_char = s.chars().next();
-        match first_char {
-            None => Err(anyhow!("Empty application name")),
-            Some('/') if s.len() < 3 => Err(anyhow!("Application name regex format must be /<regex>/")),
-            Some('/') => Ok(ApplicationMatcher::Regex(Regex::new(&slash_unescape(s)?)?)),
-            Some(_) => Ok(ApplicationMatcher::Literal(s.to_owned())),
+        match s.as_bytes() {
+            [b'/', ..] => Ok(ApplicationMatcher::Regex(Regex::new(&slash_unescape(s)?)?)),
+            _ => {
+                if s.find('.').is_some() {
+                    Ok(ApplicationMatcher::Literal(s.to_owned()))
+                } else {
+                    Ok(ApplicationMatcher::Name(s.to_owned()))
+                }
+            }
         }
     }
 }
