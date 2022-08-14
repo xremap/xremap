@@ -1,30 +1,23 @@
 use crate::config::key::parse_key;
 use evdev::Key;
 use serde::{Deserialize, Deserializer};
-use std::error;
+use std::error::{self, Error};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct KeyPress {
     pub key: Key,
-    pub shift: ModifierState,
-    pub control: ModifierState,
-    pub alt: ModifierState,
-    pub windows: ModifierState,
+    pub modifiers: Vec<Modifier>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum ModifierState {
-    Left,
-    Right,
-    Either,
-    None,
-}
-
 pub enum Modifier {
+    // Matches left, right, or both
     Shift,
     Control,
     Alt,
     Windows,
+    // Matches exactly this key
+    Key(Key),
 }
 
 impl<'de> Deserialize<'de> for KeyPress {
@@ -39,69 +32,41 @@ impl<'de> Deserialize<'de> for KeyPress {
 
 fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     let keys: Vec<&str> = input.split('-').collect();
-    if let Some((key, modifiers)) = keys.split_last() {
-        let mut shift = ModifierState::None;
-        let mut control = ModifierState::None;
-        let mut alt = ModifierState::None;
-        let mut windows = ModifierState::None;
-
-        for modifier in modifiers.iter() {
-            match parse_modifier(modifier) {
-                Some((Modifier::Shift, state)) => shift = state,
-                Some((Modifier::Control, state)) => control = state,
-                Some((Modifier::Alt, state)) => alt = state,
-                Some((Modifier::Windows, state)) => windows = state,
-                None => return Err(format!("unknown modifier: {}", modifier).into()),
+    if let Some((key, modifier_keys)) = keys.split_last() {
+        let mut modifiers = vec![];
+        for modifier_key in modifier_keys.iter() {
+            match parse_modifier(modifier_key) {
+                Ok(modifier) => modifiers.push(modifier),
+                Err(e) => return Err(e),
             }
         }
 
-        // TODO: invalidate modifier keys in `key`?
         Ok(KeyPress {
             key: parse_key(key)?,
-            shift,
-            control,
-            alt,
-            windows,
+            modifiers,
         })
     } else {
         Err(format!("empty key_press: {}", input).into())
     }
 }
 
-fn parse_modifier(modifier: &str) -> Option<(Modifier, ModifierState)> {
+fn parse_modifier(modifier: &str) -> Result<Modifier, Box<dyn Error>> {
     // Everything is case-insensitive
-    let mut modifier = &modifier.to_uppercase()[..];
-    let mut modifier_state = ModifierState::Either;
-    if modifier.ends_with("_L") {
-        modifier = remove_suffix(modifier);
-        modifier_state = ModifierState::Left;
-    } else if modifier.ends_with("_R") {
-        modifier = remove_suffix(modifier);
-        modifier_state = ModifierState::Right;
-    }
-
-    match modifier {
+    match &modifier.to_uppercase()[..] {
         // Shift
-        "SHIFT" => Some((Modifier::Shift, modifier_state)),
+        "SHIFT" => Ok(Modifier::Shift),
         // Control
-        "C" => Some((Modifier::Control, modifier_state)),
-        "CTRL" => Some((Modifier::Control, modifier_state)),
-        "CONTROL" => Some((Modifier::Control, modifier_state)),
+        "C" => Ok(Modifier::Control),
+        "CTRL" => Ok(Modifier::Control),
+        "CONTROL" => Ok(Modifier::Control),
         // Alt
-        "M" => Some((Modifier::Alt, modifier_state)),
-        "ALT" => Some((Modifier::Alt, modifier_state)),
+        "M" => Ok(Modifier::Alt),
+        "ALT" => Ok(Modifier::Alt),
         // Windows
-        "SUPER" => Some((Modifier::Windows, modifier_state)),
-        "WIN" => Some((Modifier::Windows, modifier_state)),
-        "WINDOWS" => Some((Modifier::Windows, modifier_state)),
+        "SUPER" => Ok(Modifier::Windows),
+        "WIN" => Ok(Modifier::Windows),
+        "WINDOWS" => Ok(Modifier::Windows),
         // else
-        _ => None,
+        key => parse_key(key).map(|key| Modifier::Key(key)),
     }
-}
-
-fn remove_suffix(string: &str) -> &str {
-    let mut chars = string.chars();
-    chars.next_back();
-    chars.next_back();
-    chars.as_str()
 }

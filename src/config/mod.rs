@@ -12,29 +12,43 @@ mod tests;
 
 extern crate serde_yaml;
 
+use evdev::Key;
 use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use serde::Deserialize;
-use std::{error, fs, path::Path, time::SystemTime};
+use std::{collections::HashMap, error, fs, path::Path, time::SystemTime};
+
+use self::keymap::{build_keymap_table, KeymapEntry};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    // Config interface
     #[serde(default = "Vec::new")]
     pub modmap: Vec<Modmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
     #[serde(default = "default_mode")]
     pub default_mode: String,
+
+    // Internals
     #[serde(skip)]
     pub modify_time: Option<SystemTime>,
+    #[serde(skip)]
+    pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
 }
 
 pub fn load_config(filename: &Path) -> Result<Config, Box<dyn error::Error>> {
     let yaml = fs::read_to_string(&filename)?;
     let mut config: Config = serde_yaml::from_str(&yaml)?;
+
+    // Timestamp for --watch=config
     config.modify_time = filename.metadata()?.modified().ok();
+
+    // Convert keymap for efficient keymap lookup
+    config.keymap_table = build_keymap_table(&config.keymap);
+
     Ok(config)
 }
 

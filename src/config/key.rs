@@ -35,9 +35,13 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         "CONTROL_L" => Key::KEY_LEFTCTRL,
         "CTRL_R" => Key::KEY_RIGHTCTRL,
         "CTRL_L" => Key::KEY_LEFTCTRL,
+        "C_R" => Key::KEY_RIGHTCTRL,
+        "C_L" => Key::KEY_LEFTCTRL,
         // Alt
         "ALT_R" => Key::KEY_RIGHTALT,
         "ALT_L" => Key::KEY_LEFTALT,
+        "M_R" => Key::KEY_RIGHTALT,
+        "M_L" => Key::KEY_LEFTALT,
         // Windows
         "SUPER_R" => Key::KEY_RIGHTMETA,
         "SUPER_L" => Key::KEY_LEFTMETA,

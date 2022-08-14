@@ -2,8 +2,8 @@ use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::application::Application;
 use crate::config::key_action::{KeyAction, MultiPurposeKey, PressReleaseKey};
-use crate::config::key_press::{KeyPress, Modifier, ModifierState};
-use crate::config::keymap::expand_modifiers;
+use crate::config::key_press::{KeyPress, Modifier};
+use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::remap::Remap;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
@@ -14,18 +14,16 @@ use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
 pub struct EventHandler {
+    // Device to emit events
     device: VirtualDevice,
-    // Recognize modifier key combinations
-    shift: PressState,
-    control: PressState,
-    alt: PressState,
-    windows: PressState,
+    // Currently pressed modifier keys
+    modifiers: HashSet<Key>,
     // Make sure the original event is released even if remapping changes while holding the key
     pressed_keys: HashMap<Key, Key>,
     // Check the currently active application
@@ -34,7 +32,7 @@ pub struct EventHandler {
     // State machine for multi-purpose keys
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     // Current nested remaps
-    override_remap: Option<HashMap<KeyPress, Vec<Action>>>,
+    override_remap: Option<HashMap<Key, Vec<OverrideEntry>>>,
     // Key triggered on a timeout of nested remaps
     override_timeout_key: Option<Key>,
     // Trigger a timeout of nested remaps through select(2)
@@ -53,10 +51,7 @@ impl EventHandler {
     pub fn new(device: VirtualDevice, timer: TimerFd, mode: &str) -> EventHandler {
         EventHandler {
             device,
-            shift: PressState::new(),
-            control: PressState::new(),
-            alt: PressState::new(),
-            windows: PressState::new(),
+            modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
             application_client: build_client(),
             application_cache: None,
@@ -91,7 +86,7 @@ impl EventHandler {
         // Apply keymap
         for (key, value) in key_values.into_iter() {
             if MODIFIER_KEYS.contains(&key.code()) {
-                self.update_modifier(key.code(), value);
+                self.update_modifier(key, value);
             } else if is_pressed(value) {
                 if self.escape_next_key {
                     self.escape_next_key = false
@@ -124,6 +119,13 @@ impl EventHandler {
         self.override_timer.unset()?;
         self.override_remap = None;
         self.override_timeout_key = None;
+        Ok(())
+    }
+
+    fn send_keys(&mut self, keys: &Vec<Key>, value: i32) -> std::io::Result<()> {
+        for key in keys {
+            self.send_key(key, value)?;
+        }
         Ok(())
     }
 
@@ -239,34 +241,36 @@ impl EventHandler {
     }
 
     fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<Action>>, Box<dyn Error>> {
-        let key_press = KeyPress {
-            key: *key,
-            shift: self.shift.to_modifier_state(),
-            control: self.control.to_modifier_state(),
-            alt: self.alt.to_modifier_state(),
-            windows: self.windows.to_modifier_state(),
-        };
         if let Some(override_remap) = &self.override_remap {
-            if let Some(actions) = override_remap.clone().get(&key_press) {
-                self.remove_override()?;
-                return Ok(Some(actions.to_vec()));
-            } else {
-                self.timeout_override()?;
+            if let Some(entries) = override_remap.get(key) {
+                for exact_match in [true, false] {
+                    for entry in entries {
+                        if !self.match_modifiers(&entry.modifiers, exact_match) {
+                            continue;
+                        }
+                        return Ok(Some(entry.actions.to_vec()));
+                    }
+                }
             }
         }
-        for keymap in &config.keymap {
-            if let Some(actions) = keymap.remap.get(&key_press) {
-                if let Some(application_matcher) = &keymap.application {
-                    if !self.match_application(application_matcher) {
+        if let Some(entries) = config.keymap_table.get(key) {
+            for exact_match in [true, false] {
+                for entry in entries {
+                    if !self.match_modifiers(&entry.modifiers, exact_match) {
                         continue;
                     }
-                }
-                if let Some(modes) = &keymap.mode {
-                    if !modes.contains(&self.mode) {
-                        continue;
+                    if let Some(application_matcher) = &entry.application {
+                        if !self.match_application(application_matcher) {
+                            continue;
+                        }
                     }
+                    if let Some(modes) = &entry.mode {
+                        if !modes.contains(&self.mode) {
+                            continue;
+                        }
+                    }
+                    return Ok(Some(entry.actions.clone()));
                 }
-                return Ok(Some(actions.to_vec()));
             }
         }
         Ok(None)
@@ -287,13 +291,7 @@ impl EventHandler {
                 timeout,
                 timeout_key,
             }) => {
-                let mut override_remap: HashMap<KeyPress, Vec<Action>> = HashMap::new();
-                for (key_press, actions) in remap.iter() {
-                    for key_press in expand_modifiers(key_press.clone()) {
-                        override_remap.insert(key_press, actions.to_vec());
-                    }
-                }
-                self.override_remap = Some(override_remap);
+                self.override_remap = Some(build_override_table(remap));
                 if let Some(timeout) = timeout {
                     let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
                     self.override_timer.unset()?;
@@ -314,121 +312,61 @@ impl EventHandler {
     }
 
     fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
-        let next_shift = self.build_state(Modifier::Shift, key_press.shift.clone());
-        let next_control = self.build_state(Modifier::Control, key_press.control.clone());
-        let next_alt = self.build_state(Modifier::Alt, key_press.alt.clone());
-        let next_windows = self.build_state(Modifier::Windows, key_press.windows.clone());
+        // Build missing or extra modifiers
+        let extra_modifiers: Vec<Key> = self
+            .modifiers
+            .iter()
+            .filter_map(|modifier| {
+                if self.contains_modifier(&key_press.modifiers, modifier) {
+                    None
+                } else {
+                    Some(modifier.clone())
+                }
+            })
+            .collect();
+        let missing_modifiers: Vec<Key> = key_press
+            .modifiers
+            .iter()
+            .filter_map(|modifier| {
+                if self.match_modifier(modifier) {
+                    None
+                } else {
+                    match modifier {
+                        Modifier::Shift => Some(Key::KEY_LEFTSHIFT),
+                        Modifier::Control => Some(Key::KEY_LEFTCTRL),
+                        Modifier::Alt => Some(Key::KEY_LEFTALT),
+                        Modifier::Windows => Some(Key::KEY_LEFTMETA),
+                        Modifier::Key(key) => Some(key.clone()),
+                    }
+                }
+            })
+            .collect();
 
-        let prev_shift = self.send_modifier(Modifier::Shift, &next_shift)?;
-        let prev_control = self.send_modifier(Modifier::Control, &next_control)?;
-        let prev_alt = self.send_modifier(Modifier::Alt, &next_alt)?;
-        let prev_windows = self.send_modifier(Modifier::Windows, &next_windows)?;
+        // Emulate the modifiers of KeyPress
+        self.send_keys(&extra_modifiers, RELEASE)?;
+        self.send_keys(&missing_modifiers, PRESS)?;
 
+        // Press the main key
         self.send_key(&key_press.key, PRESS)?;
         self.send_key(&key_press.key, RELEASE)?;
 
-        self.send_modifier(Modifier::Windows, &prev_windows)?;
-        self.send_modifier(Modifier::Alt, &prev_alt)?;
-        self.send_modifier(Modifier::Control, &prev_control)?;
-        self.send_modifier(Modifier::Shift, &prev_shift)?;
+        // Resurrect the original modifiers
+        self.send_keys(&missing_modifiers, RELEASE)?;
+        self.send_keys(&extra_modifiers, PRESS)?;
+
         Ok(())
     }
 
-    fn send_modifier(&mut self, modifier: Modifier, desired: &PressState) -> Result<PressState, Box<dyn Error>> {
-        let mut current = match modifier {
-            Modifier::Shift => &self.shift,
-            Modifier::Control => &self.control,
-            Modifier::Alt => &self.alt,
-            Modifier::Windows => &self.windows,
-        }
-        .clone();
-        let original = current.clone();
-        let left_key = match modifier {
-            Modifier::Shift => &SHIFT_KEYS[0],
-            Modifier::Control => &CONTROL_KEYS[0],
-            Modifier::Alt => &ALT_KEYS[0],
-            Modifier::Windows => &WINDOWS_KEYS[0],
-        };
-        let right_key = match modifier {
-            Modifier::Shift => &SHIFT_KEYS[1],
-            Modifier::Control => &CONTROL_KEYS[1],
-            Modifier::Alt => &ALT_KEYS[1],
-            Modifier::Windows => &WINDOWS_KEYS[1],
-        };
-
-        if !current.left && desired.left {
-            self.send_key(left_key, PRESS)?;
-            current.left = true;
-        } else if current.left && !desired.left {
-            self.send_key(left_key, RELEASE)?;
-            current.left = false;
-        }
-
-        if !current.right && desired.right {
-            self.send_key(right_key, PRESS)?;
-            current.right = true;
-        } else if current.right && !desired.right {
-            self.send_key(right_key, RELEASE)?;
-            current.right = false;
-        }
-
-        match modifier {
-            Modifier::Shift => self.shift = current,
-            Modifier::Control => self.control = current,
-            Modifier::Alt => self.alt = current,
-            Modifier::Windows => self.windows = current,
-        };
-        Ok(original)
-    }
-
-    fn build_state(&self, modifier: Modifier, modifier_state: ModifierState) -> PressState {
-        let press_state = match modifier {
-            Modifier::Shift => &self.shift,
-            Modifier::Control => &self.control,
-            Modifier::Alt => &self.alt,
-            Modifier::Windows => &self.windows,
-        };
-
-        match modifier_state {
-            ModifierState::Either => {
-                // Choose a PressState closest to the current PressState
-                if press_state.left || press_state.right {
-                    press_state.clone() // no change is necessary
-                } else {
-                    // Just press left
-                    PressState {
-                        left: true,
-                        right: false,
-                    }
-                }
-            }
-            ModifierState::Left => PressState {
-                left: true,
-                right: false,
-            },
-            ModifierState::Right => PressState {
-                left: false,
-                right: true,
-            },
-            ModifierState::None => PressState {
-                left: false,
-                right: false,
-            },
-        }
-    }
-
     fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
-        let mut shift = key_press.shift.clone();
-        if self.mark_set && shift == ModifierState::None {
-            // We don't leave Either in expand_modifiers(), so just using Left here.
-            shift = ModifierState::Left;
-        }
-        KeyPress {
-            key: key_press.key,
-            shift,
-            control: key_press.control.clone(),
-            alt: key_press.alt.clone(),
-            windows: key_press.windows.clone(),
+        if self.mark_set && !self.match_modifier(&Modifier::Shift) {
+            let mut modifiers = key_press.modifiers.clone();
+            modifiers.push(Modifier::Shift);
+            KeyPress {
+                key: key_press.key,
+                modifiers,
+            }
+        } else {
+            key_press.clone()
         }
     }
 
@@ -455,6 +393,49 @@ impl EventHandler {
         }
     }
 
+    fn contains_modifier(&self, modifiers: &Vec<Modifier>, key: &Key) -> bool {
+        for modifier in modifiers {
+            if match modifier {
+                Modifier::Shift => key == &Key::KEY_LEFTSHIFT || key == &Key::KEY_RIGHTSHIFT,
+                Modifier::Control => key == &Key::KEY_LEFTCTRL || key == &Key::KEY_RIGHTCTRL,
+                Modifier::Alt => key == &Key::KEY_LEFTALT || key == &Key::KEY_RIGHTALT,
+                Modifier::Windows => key == &Key::KEY_LEFTMETA || key == &Key::KEY_RIGHTMETA,
+                Modifier::Key(modifier_key) => key == modifier_key,
+            } {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn match_modifiers(&self, modifiers: &Vec<Modifier>, exact_match: bool) -> bool {
+        if exact_match && self.modifiers.len() > modifiers.len() {
+            return false;
+        }
+        for modifier in modifiers {
+            if !self.match_modifier(modifier) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    fn match_modifier(&self, modifier: &Modifier) -> bool {
+        match modifier {
+            Modifier::Shift => {
+                self.modifiers.contains(&Key::KEY_LEFTSHIFT) || self.modifiers.contains(&Key::KEY_RIGHTSHIFT)
+            }
+            Modifier::Control => {
+                self.modifiers.contains(&Key::KEY_LEFTCTRL) || self.modifiers.contains(&Key::KEY_RIGHTCTRL)
+            }
+            Modifier::Alt => self.modifiers.contains(&Key::KEY_LEFTALT) || self.modifiers.contains(&Key::KEY_RIGHTALT),
+            Modifier::Windows => {
+                self.modifiers.contains(&Key::KEY_LEFTMETA) || self.modifiers.contains(&Key::KEY_RIGHTMETA)
+            }
+            Modifier::Key(key) => self.modifiers.contains(key),
+        }
+    }
+
     fn match_application(&mut self, application_matcher: &Application) -> bool {
         // Lazily fill the wm_class cache
         if self.application_cache.is_none() {
@@ -475,25 +456,11 @@ impl EventHandler {
         false
     }
 
-    fn update_modifier(&mut self, code: u16, value: i32) {
-        if code == Key::KEY_LEFTSHIFT.code() {
-            self.shift.left = is_pressed(value)
-        } else if code == Key::KEY_RIGHTSHIFT.code() {
-            self.shift.right = is_pressed(value)
-        } else if code == Key::KEY_LEFTCTRL.code() {
-            self.control.left = is_pressed(value)
-        } else if code == Key::KEY_RIGHTCTRL.code() {
-            self.control.right = is_pressed(value)
-        } else if code == Key::KEY_LEFTALT.code() {
-            self.alt.left = is_pressed(value)
-        } else if code == Key::KEY_RIGHTALT.code() {
-            self.alt.right = is_pressed(value)
-        } else if code == Key::KEY_LEFTMETA.code() {
-            self.windows.left = is_pressed(value)
-        } else if code == Key::KEY_RIGHTMETA.code() {
-            self.windows.right = is_pressed(value)
-        } else {
-            panic!("unexpected key {:?} at update_modifier", Key::new(code));
+    fn update_modifier(&mut self, key: Key, value: i32) {
+        if value == PRESS {
+            self.modifiers.insert(key);
+        } else if value == RELEASE {
+            self.modifiers.remove(&key);
         }
     }
 }
@@ -533,31 +500,6 @@ lazy_static! {
 }
 
 //---
-
-#[derive(Clone)]
-struct PressState {
-    left: bool,
-    right: bool,
-}
-
-impl PressState {
-    fn new() -> PressState {
-        PressState {
-            left: false,
-            right: false,
-        }
-    }
-
-    fn to_modifier_state(&self) -> ModifierState {
-        if self.left {
-            ModifierState::Left
-        } else if self.right {
-            ModifierState::Right
-        } else {
-            ModifierState::None
-        }
-    }
-}
 
 fn is_pressed(value: i32) -> bool {
     value == PRESS || value == REPEAT
