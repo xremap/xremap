@@ -1,3 +1,8 @@
+## v0.7.1
+
+- Keep extra modifiers when a remapped combination is pressed
+  [#102](https://github.com/k0kubun/xremap/issues/102)
+
 ## v0.7.0
 
 - Introduce `virtual_modifiers` [#147](https://github.com/k0kubun/xremap/pull/147)
