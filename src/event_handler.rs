@@ -323,7 +323,7 @@ impl EventHandler {
     }
 
     fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
-        // Build extra or missing modifiers. Note only MODIFIER_KEYS are handled
+        // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because logical modifiers shouldn't make an impact outside xremap.
         let extra_modifiers: Vec<Key> = self
             .modifiers
