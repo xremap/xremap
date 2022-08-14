@@ -16,10 +16,13 @@ use evdev::Key;
 use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::{collections::HashMap, error, fs, path::Path, time::SystemTime};
 
-use self::keymap::{build_keymap_table, KeymapEntry};
+use self::{
+    key::parse_key,
+    keymap::{build_keymap_table, KeymapEntry},
+};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,6 +34,8 @@ pub struct Config {
     pub keymap: Vec<Keymap>,
     #[serde(default = "default_mode")]
     pub default_mode: String,
+    #[serde(deserialize_with = "deserialize_virtual_modifiers", default = "Vec::new")]
+    pub virtual_modifiers: Vec<Key>,
 
     // Internals
     #[serde(skip)]
@@ -68,4 +73,16 @@ pub fn config_watcher(watch: bool, file: &Path) -> anyhow::Result<Option<Inotify
 
 fn default_mode() -> String {
     "default".to_string()
+}
+
+fn deserialize_virtual_modifiers<'de, D>(deserializer: D) -> Result<Vec<Key>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let key_strs = Vec::<String>::deserialize(deserializer)?;
+    let mut keys: Vec<Key> = vec![];
+    for key_str in key_strs {
+        keys.push(parse_key(&key_str).map_err(serde::de::Error::custom)?);
+    }
+    return Ok(keys);
 }

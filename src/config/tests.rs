@@ -67,6 +67,14 @@ fn test_modmap_multi_purpose_key() {
 }
 
 #[test]
+fn test_virtual_modifiers() {
+    assert_parse(indoc! {"
+    virtual_modifiers:
+      - CapsLock
+    "})
+}
+
+#[test]
 fn test_modmap_press_release_key() {
     assert_parse(indoc! {r#"
     modmap:

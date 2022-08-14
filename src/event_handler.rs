@@ -1,7 +1,7 @@
 use crate::client::{build_client, WMClient};
 use crate::config::action::Action;
 use crate::config::application::Application;
-use crate::config::key_action::{KeyAction, ModifierKey, MultiPurposeKey, PressReleaseKey};
+use crate::config::key_action::{KeyAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::remap::Remap;
@@ -85,7 +85,10 @@ impl EventHandler {
 
         // Apply keymap
         for (key, value) in key_values.into_iter() {
-            if MODIFIER_KEYS.contains(&key.code()) {
+            if config.virtual_modifiers.contains(&key) {
+                self.update_modifier(key, value);
+                continue;
+            } else if MODIFIER_KEYS.contains(&key.code()) {
                 self.update_modifier(key, value);
             } else if is_pressed(value) {
                 if self.escape_next_key {
@@ -162,17 +165,6 @@ impl EventHandler {
     ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
         let keys = match key_action {
             KeyAction::Key(modmap_key) => vec![(modmap_key, value)],
-            KeyAction::ModifierKey(ModifierKey { modifier }) => {
-                if modifier {
-                    if value == PRESS {
-                        self.modifiers.insert(key);
-                    } else if value == RELEASE {
-                        self.modifiers.remove(&key);
-                    }
-                }
-                // Process this key only in xremap
-                vec![]
-            }
             KeyAction::MultiPurposeKey(MultiPurposeKey {
                 held,
                 alone,

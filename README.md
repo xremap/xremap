@@ -21,6 +21,7 @@
 * Automatically remap newly connected devices by starting xremap with `--watch`.
 * Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
 * Trigger commands on key press/release events.
+* Use a non-modifier key as a virtual modifier key.
 
 ## Installation
 
@@ -155,9 +156,6 @@ modmap:
     remap: # Required
       # Replace a key with another
       KEY_XXX: KEY_YYY # Required
-      # Make it a logical modifier key
-      KEY_XXX:
-        modifier: true # Required
       # Dispatch different keys depending on whether you hold it or press it alone
       KEY_XXX:
         held: KEY_YYY # Required
@@ -231,7 +229,7 @@ You can use multiple prefixes like `C-M-Shift-a`.
 You may also suffix them with `_L` or `_R` (case-insensitive) so that
 remapping is triggered only on a left or right modifier, e.g. `Ctrl_L-a`.
 
-If you set `modifier: true` in `modmap`, you can use it in the `MOD1-` part too.
+If you use `virtual_modifiers` explained below, you can use it in the `MOD1-` part too.
 
 ### application
 
@@ -277,6 +275,21 @@ swaymsg -t get_tree
 ```
 
 Locate `app_id` in the output.
+
+### virtual\_modifiers
+
+You can declare keys that should act like a modifier.
+
+```
+virtual_modifiers:
+  - CapsLock
+keymap:
+  - remap:
+      CapsLock-i: Up
+      CapsLock-j: Left
+      CapsLock-k: Down
+      CapsLock-l: Right
+```
 
 ## License
 
