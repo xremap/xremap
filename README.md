@@ -153,7 +153,12 @@ is supported only in `modmap` since `keymap` handles modifier keys differently.
 modmap:
   - name: Name # Optional
     remap: # Required
+      # Replace a key with another
       KEY_XXX: KEY_YYY # Required
+      # Make it a logical modifier key
+      KEY_XXX:
+        modifier: true # Required
+      # Dispatch different keys depending on whether you hold it or press it alone
       KEY_XXX:
         held: KEY_YYY # Required
         alone: KEY_ZZZ # Required
@@ -225,6 +230,8 @@ For the `MOD1-` part, the following prefixes can be used (also case-insensitive)
 You can use multiple prefixes like `C-M-Shift-a`.
 You may also suffix them with `_L` or `_R` (case-insensitive) so that
 remapping is triggered only on a left or right modifier, e.g. `Ctrl_L-a`.
+
+If you set `modifier: true` in `modmap`, you can use it in the `MOD1-` part too.
 
 ### application
 
