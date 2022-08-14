@@ -12,14 +12,8 @@ use super::action::{Action, Actions};
 pub enum KeyAction {
     #[serde(deserialize_with = "deserialize_key")]
     Key(Key),
-    ModifierKey(ModifierKey),
     MultiPurposeKey(MultiPurposeKey),
     PressReleaseKey(PressReleaseKey),
-}
-
-#[derive(Clone, Debug, Deserialize)]
-pub struct ModifierKey {
-    pub modifier: bool,
 }
 
 #[serde_as]
