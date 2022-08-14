@@ -5,7 +5,7 @@ use regex::Regex;
 use serde::{Deserialize, Deserializer};
 
 // TODO: Use trait to allow only either `only` or `not`
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
     #[serde(default, deserialize_with = "deserialize_matchers")]
@@ -14,7 +14,7 @@ pub struct Application {
     pub not: Option<Vec<ApplicationMatcher>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum ApplicationMatcher {
     // class.name
     Literal(String),

@@ -1,10 +1,14 @@
 use crate::config::action::{Action, Actions};
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::Application;
-use crate::config::key_press::{KeyPress, Modifier, ModifierState};
+use crate::config::key_press::KeyPress;
+use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
+use super::key_press::Modifier;
+
+// Config interface
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Keymap {
@@ -24,59 +28,65 @@ where
     let remap = HashMap::<KeyPress, Actions>::deserialize(deserializer)?;
     Ok(remap
         .into_iter()
-        .flat_map(|(key_press, actions)| {
-            expand_modifiers(key_press)
-                .into_iter()
-                .map(|k| (k, actions.clone().into_vec()))
-                .collect::<Vec<(KeyPress, Vec<Action>)>>()
-        })
+        .map(|(key_press, actions)| (key_press, actions.into_vec()))
         .collect())
 }
 
-// Expand ModifierState::Either to Left and Right. Not leaving Either to save some space and computation.
-// Note that we currently don't have `Both`. Does anybody need it?
-pub fn expand_modifiers(key_press: KeyPress) -> Vec<KeyPress> {
-    if key_press.shift == ModifierState::Either {
-        expand_modifier(key_press, &Modifier::Shift)
-    } else if key_press.control == ModifierState::Either {
-        expand_modifier(key_press, &Modifier::Control)
-    } else if key_press.alt == ModifierState::Either {
-        expand_modifier(key_press, &Modifier::Alt)
-    } else if key_press.windows == ModifierState::Either {
-        expand_modifier(key_press, &Modifier::Windows)
-    } else {
-        vec![key_press]
-    }
+// Internals for efficient keymap lookup
+#[derive(Clone, Debug)]
+pub struct KeymapEntry {
+    pub actions: Vec<Action>,
+    pub modifiers: Vec<Modifier>,
+    pub application: Option<Application>,
+    pub mode: Option<Vec<String>>,
 }
 
-fn expand_modifier(key_press: KeyPress, modifier: &Modifier) -> Vec<KeyPress> {
-    vec![
-        change_modifier(key_press.clone(), modifier, ModifierState::Left),
-        change_modifier(key_press, modifier, ModifierState::Right),
-    ]
-    .into_iter()
-    .flat_map(expand_modifiers)
-    .collect()
+// Convert an array of keymaps to a single hashmap whose key is a triggering key.
+//
+// For each key, Vec<KeymapEntry> is scanned once, matching the exact modifiers,
+// and then it's scanned again, allowing extra modifiers.
+//
+// First matching KeymapEntry wins at each iteration.
+pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry>> {
+    let mut table: HashMap<Key, Vec<KeymapEntry>> = HashMap::new();
+    for keymap in keymaps {
+        for (key_press, actions) in keymap.remap.iter() {
+            let mut entries: Vec<KeymapEntry> = match table.get(&key_press.key) {
+                Some(entries) => entries.to_vec(),
+                None => vec![],
+            };
+            entries.push(KeymapEntry {
+                actions: actions.to_vec(),
+                modifiers: key_press.modifiers.clone(),
+                application: keymap.application.clone(),
+                mode: keymap.mode.clone(),
+            });
+            table.insert(key_press.key, entries);
+        }
+    }
+    return table;
 }
 
-fn change_modifier(key_press: KeyPress, modifier: &Modifier, state: ModifierState) -> KeyPress {
-    let mut shift = key_press.shift.clone();
-    let mut control = key_press.control.clone();
-    let mut alt = key_press.alt.clone();
-    let mut windows = key_press.windows.clone();
+// Subset of KeymapEntry for override_remap
+#[derive(Clone)]
+pub struct OverrideEntry {
+    pub actions: Vec<Action>,
+    pub modifiers: Vec<Modifier>,
+}
 
-    match modifier {
-        Modifier::Shift => shift = state,
-        Modifier::Control => control = state,
-        Modifier::Alt => alt = state,
-        Modifier::Windows => windows = state,
+// This is executed on runtime unlike build_keymap_table, but hopefully not called so often.
+pub fn build_override_table(remap: &HashMap<KeyPress, Vec<Action>>) -> HashMap<Key, Vec<OverrideEntry>> {
+    let mut table: HashMap<Key, Vec<OverrideEntry>> = HashMap::new();
+    for (key_press, actions) in remap.iter() {
+        let mut entries: Vec<OverrideEntry> = match table.get(&key_press.key) {
+            Some(entries) => entries.to_vec(),
+            None => vec![],
+        };
+        entries.push(OverrideEntry {
+            actions: actions.to_vec(),
+            modifiers: key_press.modifiers.clone(),
+        });
+        table.insert(key_press.key, entries);
     }
-
-    KeyPress {
-        key: key_press.key,
-        shift,
-        control,
-        alt,
-        windows,
-    }
+    return table;
 }
