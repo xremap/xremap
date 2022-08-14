@@ -1,3 +1,7 @@
+## v0.6.2
+
+- Avoid emitting logical modifiers when a key combination is pressed
+
 ## v0.6.1
 
 - Support logical modifier keys by `modifier: true` in `modmap`
