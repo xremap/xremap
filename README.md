@@ -280,7 +280,7 @@ Locate `app_id` in the output.
 
 You can declare keys that should act like a modifier.
 
-```
+```yml
 virtual_modifiers:
   - CapsLock
 keymap:
