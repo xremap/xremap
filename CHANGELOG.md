@@ -1,3 +1,8 @@
+## v0.7.0
+
+- Introduce `virtual_modifiers` [#147](https://github.com/k0kubun/xremap/pull/147)
+- Obsolete the `modifier: true` feature of v0.6.1 in favor of `virtual_modifiers`
+
 ## v0.6.2
 
 - Avoid emitting logical modifiers when a key combination is pressed
