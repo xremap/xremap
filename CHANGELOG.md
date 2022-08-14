@@ -1,3 +1,9 @@
+## v0.6.0
+
+- Rewrite the modifier key match logic
+  - Match remaps even if extra modifiers are held [#102](https://github.com/k0kubun/xremap/issues/102)
+  - Even faster than the previous version
+
 ## v0.5.3
 
 - Match an `application` matcher against a full `WM_CLASS` in X11
