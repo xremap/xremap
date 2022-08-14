@@ -1,3 +1,10 @@
+## v0.5.3
+
+- Match an `application` matcher against a full `WM_CLASS` in X11
+  when the matcher contains `.`.
+  - If you don't specify `.`, it's backward-compatible.
+  - If you already use v0.4.5's `/regex/`, however, you might need to tweak the regex.
+
 ## v0.5.2
 
 - Support overriding `timeout_key` on nested remap
