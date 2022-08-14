@@ -1,3 +1,8 @@
+## v0.6.1
+
+- Support logical modifier keys by `modifier: true` in `modmap`
+  [#146](https://github.com/k0kubun/xremap/pull/146)
+
 ## v0.6.0
 
 - Rewrite the modifier key match logic
