@@ -248,10 +248,11 @@ impl EventHandler {
             if let Some(entries) = override_remap.get(key) {
                 for exact_match in [true, false] {
                     for entry in entries {
-                        if !self.match_modifiers(&entry.modifiers, exact_match) {
+                        let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
+                        if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
                             continue;
                         }
-                        return Ok(Some(entry.actions.to_vec()));
+                        return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
                     }
                 }
             }
@@ -259,7 +260,8 @@ impl EventHandler {
         if let Some(entries) = config.keymap_table.get(key) {
             for exact_match in [true, false] {
                 for entry in entries {
-                    if !self.match_modifiers(&entry.modifiers, exact_match) {
+                    let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
+                    if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
                         continue;
                     }
                     if let Some(application_matcher) = &entry.application {
@@ -272,7 +274,7 @@ impl EventHandler {
                             continue;
                         }
                     }
-                    return Ok(Some(entry.actions.clone()));
+                    return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
                 }
             }
         }
@@ -310,6 +312,16 @@ impl EventHandler {
             Action::SetMark(set) => self.mark_set = *set,
             Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
             Action::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
+            Action::PressModifier(keys) => {
+                for key in keys {
+                    self.modifiers.insert(*key);
+                }
+            }
+            Action::ReleaseModifier(keys) => {
+                for key in keys {
+                    self.modifiers.remove(key);
+                }
+            }
         }
         Ok(())
     }
@@ -317,32 +329,9 @@ impl EventHandler {
     fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because logical modifiers shouldn't make an impact outside xremap.
-        let extra_modifiers: Vec<Key> = self
-            .modifiers
-            .iter()
-            .filter(|modifier| {
-                !self.contains_modifier(&key_press.modifiers, modifier) && MODIFIER_KEYS.contains(&modifier.code())
-            })
-            .map(|modifier| modifier.clone())
-            .collect();
-        let missing_modifiers: Vec<Key> = key_press
-            .modifiers
-            .iter()
-            .filter_map(|modifier| {
-                if self.match_modifier(modifier) {
-                    None
-                } else {
-                    match modifier {
-                        Modifier::Shift => Some(Key::KEY_LEFTSHIFT),
-                        Modifier::Control => Some(Key::KEY_LEFTCTRL),
-                        Modifier::Alt => Some(Key::KEY_LEFTALT),
-                        Modifier::Windows => Some(Key::KEY_LEFTMETA),
-                        Modifier::Key(key) if MODIFIER_KEYS.contains(&key.code()) => Some(key.clone()),
-                        _ => None,
-                    }
-                }
-            })
-            .collect();
+        let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
+        extra_modifiers.retain(|key| MODIFIER_KEYS.contains(&key.code()));
+        missing_modifiers.retain(|key| MODIFIER_KEYS.contains(&key.code()));
 
         // Emulate the modifiers of KeyPress
         self.send_keys(&extra_modifiers, RELEASE)?;
@@ -395,31 +384,31 @@ impl EventHandler {
         }
     }
 
-    fn contains_modifier(&self, modifiers: &Vec<Modifier>, key: &Key) -> bool {
-        for modifier in modifiers {
-            if match modifier {
-                Modifier::Shift => key == &Key::KEY_LEFTSHIFT || key == &Key::KEY_RIGHTSHIFT,
-                Modifier::Control => key == &Key::KEY_LEFTCTRL || key == &Key::KEY_RIGHTCTRL,
-                Modifier::Alt => key == &Key::KEY_LEFTALT || key == &Key::KEY_RIGHTALT,
-                Modifier::Windows => key == &Key::KEY_LEFTMETA || key == &Key::KEY_RIGHTMETA,
-                Modifier::Key(modifier_key) => key == modifier_key,
-            } {
-                return true;
-            }
-        }
-        false
-    }
-
-    fn match_modifiers(&self, modifiers: &Vec<Modifier>, exact_match: bool) -> bool {
-        if exact_match && self.modifiers.len() > modifiers.len() {
-            return false;
-        }
-        for modifier in modifiers {
-            if !self.match_modifier(modifier) {
-                return false;
-            }
-        }
-        return true;
+    // Return (extra_modifiers, missing_modifiers)
+    fn diff_modifiers(&self, modifiers: &Vec<Modifier>) -> (Vec<Key>, Vec<Key>) {
+        let extra_modifiers: Vec<Key> = self
+            .modifiers
+            .iter()
+            .filter(|modifier| !contains_modifier(modifiers, modifier))
+            .map(|modifier| modifier.clone())
+            .collect();
+        let missing_modifiers: Vec<Key> = modifiers
+            .iter()
+            .filter_map(|modifier| {
+                if self.match_modifier(modifier) {
+                    None
+                } else {
+                    match modifier {
+                        Modifier::Shift => Some(Key::KEY_LEFTSHIFT),
+                        Modifier::Control => Some(Key::KEY_LEFTCTRL),
+                        Modifier::Alt => Some(Key::KEY_LEFTALT),
+                        Modifier::Windows => Some(Key::KEY_LEFTMETA),
+                        Modifier::Key(key) => Some(*key),
+                    }
+                }
+            })
+            .collect();
+        return (extra_modifiers, missing_modifiers);
     }
 
     fn match_modifier(&self, modifier: &Modifier) -> bool {
@@ -465,6 +454,35 @@ impl EventHandler {
             self.modifiers.remove(&key);
         }
     }
+}
+
+fn with_extra_modifiers(actions: &Vec<Action>, extra_modifiers: &Vec<Key>) -> Vec<Action> {
+    let mut result: Vec<Action> = vec![];
+    if extra_modifiers.len() > 0 {
+        // Virtually release extra modifiers so that they won't be physically released on KeyPress
+        result.push(Action::ReleaseModifier(extra_modifiers.clone()));
+    }
+    result.extend(actions.clone());
+    if extra_modifiers.len() > 0 {
+        // Resurrect the modifier status
+        result.push(Action::PressModifier(extra_modifiers.clone()));
+    }
+    return result;
+}
+
+fn contains_modifier(modifiers: &Vec<Modifier>, key: &Key) -> bool {
+    for modifier in modifiers {
+        if match modifier {
+            Modifier::Shift => key == &Key::KEY_LEFTSHIFT || key == &Key::KEY_RIGHTSHIFT,
+            Modifier::Control => key == &Key::KEY_LEFTCTRL || key == &Key::KEY_RIGHTCTRL,
+            Modifier::Alt => key == &Key::KEY_LEFTALT || key == &Key::KEY_RIGHTALT,
+            Modifier::Windows => key == &Key::KEY_LEFTMETA || key == &Key::KEY_RIGHTMETA,
+            Modifier::Key(modifier_key) => key == modifier_key,
+        } {
+            return true;
+        }
+    }
+    false
 }
 
 lazy_static! {

@@ -2,6 +2,7 @@ use crate::config::key_press::KeyPress;
 use std::collections::HashMap;
 
 use crate::config::remap::Remap;
+use evdev::Key;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::fmt::Debug;
@@ -14,6 +15,7 @@ use super::remap::RemapActions;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Action {
+    // Config interface
     KeyPress(KeyPress),
     #[serde(deserialize_with = "deserialize_remap")]
     Remap(Remap),
@@ -27,6 +29,12 @@ pub enum Action {
     WithMark(KeyPress),
     #[serde(deserialize_with = "deserialize_escape_next_key")]
     EscapeNextKey(bool),
+
+    // Internals
+    #[serde(skip)]
+    PressModifier(Vec<Key>),
+    #[serde(skip)]
+    ReleaseModifier(Vec<Key>),
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<Remap, D::Error>
