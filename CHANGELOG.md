@@ -1,3 +1,7 @@
+## v0.7.2
+
+- Fix a corner-case bug in the v0.7.1 feature
+
 ## v0.7.1
 
 - Keep extra modifiers when a remapped combination is pressed
