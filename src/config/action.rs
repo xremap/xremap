@@ -32,9 +32,7 @@ pub enum Action {
 
     // Internals
     #[serde(skip)]
-    PressModifier(Vec<Key>),
-    #[serde(skip)]
-    ReleaseModifier(Vec<Key>),
+    SetExtraModifiers(Vec<Key>),
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<Remap, D::Error>

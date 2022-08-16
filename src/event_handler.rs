@@ -24,6 +24,8 @@ pub struct EventHandler {
     device: VirtualDevice,
     // Currently pressed modifier keys
     modifiers: HashSet<Key>,
+    // Modifiers that are currently pressed but not in the source KeyPress
+    extra_modifiers: HashSet<Key>,
     // Make sure the original event is released even if remapping changes while holding the key
     pressed_keys: HashMap<Key, Key>,
     // Check the currently active application
@@ -52,6 +54,7 @@ impl EventHandler {
         EventHandler {
             device,
             modifiers: HashSet::new(),
+            extra_modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
             application_client: build_client(),
             application_cache: None,
@@ -88,7 +91,7 @@ impl EventHandler {
             if config.virtual_modifiers.contains(&key) {
                 self.update_modifier(key, value);
                 continue;
-            } else if MODIFIER_KEYS.contains(&key.code()) {
+            } else if MODIFIER_KEYS.contains(&key) {
                 self.update_modifier(key, value);
             } else if is_pressed(value) {
                 if self.escape_next_key {
@@ -312,14 +315,10 @@ impl EventHandler {
             Action::SetMark(set) => self.mark_set = *set,
             Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
             Action::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
-            Action::PressModifier(keys) => {
+            Action::SetExtraModifiers(keys) => {
+                self.extra_modifiers.clear();
                 for key in keys {
-                    self.modifiers.insert(*key);
-                }
-            }
-            Action::ReleaseModifier(keys) => {
-                for key in keys {
-                    self.modifiers.remove(key);
+                    self.extra_modifiers.insert(*key);
                 }
             }
         }
@@ -330,8 +329,8 @@ impl EventHandler {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because logical modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
-        extra_modifiers.retain(|key| MODIFIER_KEYS.contains(&key.code()));
-        missing_modifiers.retain(|key| MODIFIER_KEYS.contains(&key.code()));
+        extra_modifiers.retain(|key| MODIFIER_KEYS.contains(&key) && !self.extra_modifiers.contains(&key));
+        missing_modifiers.retain(|key| MODIFIER_KEYS.contains(&key));
 
         // Emulate the modifiers of KeyPress
         self.send_keys(&extra_modifiers, RELEASE)?;
@@ -460,12 +459,12 @@ fn with_extra_modifiers(actions: &Vec<Action>, extra_modifiers: &Vec<Key>) -> Ve
     let mut result: Vec<Action> = vec![];
     if extra_modifiers.len() > 0 {
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
-        result.push(Action::ReleaseModifier(extra_modifiers.clone()));
+        result.push(Action::SetExtraModifiers(extra_modifiers.clone()));
     }
     result.extend(actions.clone());
     if extra_modifiers.len() > 0 {
         // Resurrect the modifier status
-        result.push(Action::PressModifier(extra_modifiers.clone()));
+        result.push(Action::SetExtraModifiers(vec![]));
     }
     return result;
 }
@@ -486,36 +485,19 @@ fn contains_modifier(modifiers: &Vec<Modifier>, key: &Key) -> bool {
 }
 
 lazy_static! {
-    static ref MODIFIER_KEYS: [u16; 8] = [
+    static ref MODIFIER_KEYS: [Key; 8] = [
         // Shift
-        Key::KEY_LEFTSHIFT.code(),
-        Key::KEY_RIGHTSHIFT.code(),
+        Key::KEY_LEFTSHIFT,
+        Key::KEY_RIGHTSHIFT,
         // Control
-        Key::KEY_LEFTCTRL.code(),
-        Key::KEY_RIGHTCTRL.code(),
+        Key::KEY_LEFTCTRL,
+        Key::KEY_RIGHTCTRL,
         // Alt
-        Key::KEY_LEFTALT.code(),
-        Key::KEY_RIGHTALT.code(),
+        Key::KEY_LEFTALT,
+        Key::KEY_RIGHTALT,
         // Windows
-        Key::KEY_LEFTMETA.code(),
-        Key::KEY_RIGHTMETA.code(),
-    ];
-
-    static ref SHIFT_KEYS: [Key; 2] = [
-        Key::new(Key::KEY_LEFTSHIFT.code()),
-        Key::new(Key::KEY_RIGHTSHIFT.code()),
-    ];
-    static ref CONTROL_KEYS: [Key; 2] = [
-        Key::new(Key::KEY_LEFTCTRL.code()),
-        Key::new(Key::KEY_RIGHTCTRL.code()),
-    ];
-    static ref ALT_KEYS: [Key; 2] = [
-        Key::new(Key::KEY_LEFTALT.code()),
-        Key::new(Key::KEY_RIGHTALT.code()),
-    ];
-    static ref WINDOWS_KEYS: [Key; 2] = [
-        Key::new(Key::KEY_LEFTMETA.code()),
-        Key::new(Key::KEY_RIGHTMETA.code()),
+        Key::KEY_LEFTMETA,
+        Key::KEY_RIGHTMETA,
     ];
 }
 
