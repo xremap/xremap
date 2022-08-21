@@ -161,7 +161,7 @@ modmap:
         held: KEY_YYY # Required
         alone: KEY_ZZZ # Required
         alone_timeout_millis: 1000 # Optional
-      # Trigger `keymap` action on key press/release events.
+      # Hook `keymap` action on key press/release events.
       KEY_XXX:
         press: { launch: ["xdotool", "mousemove", "0", "7200"] } # Required
         release: { launch: ["xdotool", "mousemove", "0", "0"] } # Required

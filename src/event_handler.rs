@@ -198,14 +198,16 @@ impl EventHandler {
                 vec![(key, value)]
             }
             KeyAction::PressReleaseKey(PressReleaseKey { press, release }) => {
+                // Just hook actions, and then emit the original event. We might want to
+                // support reordering the key event and dispatched actions later.
                 if value == PRESS {
                     self.dispatch_actions(&press, &key)?;
                 }
                 if value == RELEASE {
                     self.dispatch_actions(&release, &key)?;
                 }
-                // While triggered by modmap, PressReleaseKey is not remapped by keymap.
-                vec![]
+                // Dispatch the original key as well
+                vec![(key, value)]
             }
         };
         Ok(keys)
