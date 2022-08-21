@@ -1,3 +1,7 @@
+## v0.7.3
+
+- Dispatch the original key as well on v0.5.1's `press`/`release` modmap
+
 ## v0.7.2
 
 - Fix a corner-case bug in the v0.7.1 feature
