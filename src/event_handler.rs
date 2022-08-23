@@ -250,7 +250,8 @@ impl EventHandler {
 
     fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<Action>>, Box<dyn Error>> {
         if let Some(override_remap) = &self.override_remap {
-            if let Some(entries) = override_remap.get(key) {
+            if let Some(entries) = override_remap.clone().get(key) {
+                self.remove_override()?;
                 for exact_match in [true, false] {
                     for entry in entries {
                         let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
@@ -261,6 +262,8 @@ impl EventHandler {
                     }
                 }
             }
+        } else {
+            self.timeout_override()?;
         }
         if let Some(entries) = config.keymap_table.get(key) {
             for exact_match in [true, false] {
