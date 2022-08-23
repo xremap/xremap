@@ -1,3 +1,8 @@
+## v0.7.4
+
+- Fix nested remap implementation that has been broken since v0.6.0
+  [#149](https://github.com/k0kubun/xremap/issues/149)
+
 ## v0.7.3
 
 - Dispatch the original key as well on v0.5.1's `press`/`release` modmap
