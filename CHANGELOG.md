@@ -1,3 +1,8 @@
+## v0.7.5
+
+- Fix a regression to recognize JetBrains IDE on `application` since v0.5.3
+  [#151](https://github.com/k0kubun/xremap/issues/151)
+
 ## v0.7.4
 
 - Fix nested remap implementation that has been broken since v0.6.0
