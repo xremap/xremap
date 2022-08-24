@@ -48,7 +48,7 @@ impl Client for X11Client {
             loop {
                 if let Some(wm_class) = get_wm_class(conn, window) {
                     // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
-                    if &wm_class != "FocusProxy" {
+                    if &wm_class != "Focus-Proxy-Window.FocusProxy" {
                         return Some(wm_class);
                     }
                 }
