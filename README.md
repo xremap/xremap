@@ -265,7 +265,7 @@ or just the last segment after `.` (`Slack`, `Code`).
 #### GNOME Wayland
 
 ```
-busctl --user call org.gnome.Shell /org/gnome/Shell org.gnome.Shell Eval s 'global.get_window_actors().map(a => a.get_meta_window().get_wm_class());'
+busctl --user call org.gnome.Shell /com/k0kubun/Xremap com.k0kubun.Xremap WMClass
 ```
 
 #### Sway
