@@ -43,6 +43,10 @@ You may also need to install `libx11-dev` to run the `xremap` binary for X11.
 
 If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
 
+### NixOS
+
+If you are using NixOS, xremap can be installed and configured through a [flake](https://github.com/xremap/nix-flake/).
+
 ## Usage
 
 Write [a config file](#Configuration) directly, or generate it with
