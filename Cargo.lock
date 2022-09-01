@@ -858,9 +858,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "swayipc"
-version = "3.0.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40cc7e2bba9f31e7c46b119d9c542496806b9114676d8f46aa5c9c950ececaec"
+checksum = "ab1dcff328b223d85d7ca767b2e4aadbc13dad550d36b4c6b929b9ad4d26ee9a"
 dependencies = [
  "serde",
  "serde_json",
