@@ -270,13 +270,15 @@ dependencies = [
 
 [[package]]
 name = "evdev"
-version = "0.11.4"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21eef104bd659ef808f1f84bed9a924e1aebcdd066845b377cd3b52cc497bb9f"
+checksum = "e78122445d7c3ce840f1a4f31eb7cee198b9004d03bfc161762d9b4a959d757c"
 dependencies = [
  "bitvec",
+ "cfg-if",
  "libc",
  "nix 0.23.1",
+ "thiserror",
 ]
 
 [[package]]
@@ -747,18 +749,18 @@ checksum = "ea6a9290e3c9cf0f18145ef7ffa62d68ee0bf5fcd651017e586dc7fd5da448c2"
 
 [[package]]
 name = "serde"
-version = "1.0.141"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7af873f2c95b99fcb0bd0fe622a43e29514658873c8ceba88c4cb88833a22500"
+checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.141"
+version = "1.0.144"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75743a150d003dd863b51dc809bcad0d73f2102c53632f1e954e738192a3413f"
+checksum = "94ed3a816fb1d101812f83e789f888322c34e291f894f19590dc310963e87a00"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -858,9 +860,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "swayipc"
-version = "3.0.0"
+version = "3.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40cc7e2bba9f31e7c46b119d9c542496806b9114676d8f46aa5c9c950ececaec"
+checksum = "ab1dcff328b223d85d7ca767b2e4aadbc13dad550d36b4c6b929b9ad4d26ee9a"
 dependencies = [
  "serde",
  "serde_json",
