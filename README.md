@@ -67,7 +67,7 @@ In Ubuntu, this can be configured by running the following commands and rebootin
 
 ```bash
 sudo gpasswd -a YOUR_USER input
-echo 'KERNEL=="uinput", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules
+echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
 ```
 
 #### Arch Linux
