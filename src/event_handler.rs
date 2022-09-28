@@ -34,10 +34,11 @@ impl MappableEvent {
 
     pub fn from(raw: InputEvent) -> Option<Self> {
         match raw.kind() {
-            InputEventKind::Key(key) => {
-                Some(Self { key, value: raw.value(), raw })
-            },
-            
+            InputEventKind::Key(key) => Some(Self {
+                key,
+                value: raw.value(),
+                raw,
+            }),
             // Scrollwheel events are treated as if they were SCROLLUP/SCROLLDOWN keypresses,
             // but we emit the original event if it doesn't get remapped.
             InputEventKind::RelAxis(RelativeAxisType::REL_WHEEL) => {
@@ -46,11 +47,11 @@ impl MappableEvent {
                     -1 => Key::KEY_SCROLLDOWN,
                     other => {
                         debug!("Unknown scroll value: {}", other);
-                        return None
+                        return None;
                     }
                 };
                 Some(Self { key, value: PRESS, raw })
-            },
+            }
             _ => None,
         }
     }
@@ -205,7 +206,7 @@ impl EventHandler {
     fn dispatch_keys(
         &mut self,
         key_action: KeyAction,
-        event: MappableEvent
+        event: MappableEvent,
     ) -> Result<Vec<MappableEvent>, Box<dyn Error>> {
         let keys = match key_action {
             KeyAction::Key(modmap_key) => vec![MappableEvent::new(modmap_key, event.value)],
@@ -586,10 +587,16 @@ impl MultiPurposeKeyState {
         if let Some(alone_timeout_at) = &self.alone_timeout_at {
             if Instant::now() < *alone_timeout_at {
                 // dispatch the delayed press and this release
-                vec![MappableEvent::new(self.alone, PRESS), MappableEvent::new(self.alone, RELEASE)]
+                vec![
+                    MappableEvent::new(self.alone, PRESS),
+                    MappableEvent::new(self.alone, RELEASE),
+                ]
             } else {
                 // too late. dispatch the held key
-                vec![MappableEvent::new(self.held, PRESS), MappableEvent::new(self.held, RELEASE)]
+                vec![
+                    MappableEvent::new(self.held, PRESS),
+                    MappableEvent::new(self.held, RELEASE),
+                ]
             }
         } else {
             vec![MappableEvent::new(self.held, RELEASE)]
