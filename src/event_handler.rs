@@ -23,21 +23,25 @@ use std::time::Instant;
 pub struct MappableEvent {
     key: Key,
     value: i32,
-    underlying: Option<InputEvent>,
+    raw: InputEvent,
 }
 
 impl MappableEvent {
     pub fn new(key: Key, value: i32) -> Self {
-        Self { key, value, underlying: None }
+        let raw = InputEvent::new(EventType::KEY, key.code(), value);
+        Self { key, value, raw }
     }
 
-    pub fn from(event: InputEvent) -> Option<Self> {
-        match event.kind() {
+    pub fn from(raw: InputEvent) -> Option<Self> {
+        match raw.kind() {
             InputEventKind::Key(key) => {
-                Some(Self { key, value: event.value(), underlying: Some(event) })
+                Some(Self { key, value: raw.value(), raw })
             },
+            
+            // Scrollwheel events are treated as if they were SCROLLUP/SCROLLDOWN keypresses,
+            // but we emit the original event if it doesn't get remapped.
             InputEventKind::RelAxis(RelativeAxisType::REL_WHEEL) => {
-                let key = match event.value() {
+                let key = match raw.value() {
                     1 => Key::KEY_SCROLLUP,
                     -1 => Key::KEY_SCROLLDOWN,
                     other => {
@@ -45,16 +49,10 @@ impl MappableEvent {
                         return None
                     }
                 };
-                Some(Self { key, value: PRESS, underlying: Some(event) })
+                Some(Self { key, value: PRESS, raw })
             },
             _ => None,
         }
-    }
-
-    pub fn input_event(&self) -> InputEvent {
-        self.underlying.unwrap_or_else(||
-            InputEvent::new(EventType::KEY, self.key.code(), self.value)
-        )
     }
 }
 
@@ -146,7 +144,7 @@ impl EventHandler {
                     continue;
                 }
             }
-            self.send_event(event.input_event())?;
+            self.send_event(event.raw)?;
         }
         Ok(())
     }
