@@ -6,7 +6,6 @@ use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
 use config::{config_watcher, load_config};
 use device::InputDevice;
-use evdev::EventType;
 use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
 use nix::sys::select::select;
@@ -207,13 +206,9 @@ fn handle_input_events(
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
             for event in events {
-                if event.event_type() == EventType::KEY {
-                    handler
-                        .on_event(event, config)
-                        .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
-                } else {
-                    handler.send_event(event)?;
-                }
+                handler
+                    .on_event(event, config)
+                    .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
             }
             Ok(true)
         }

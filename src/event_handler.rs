@@ -7,7 +7,7 @@ use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::remap::Remap;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
-use evdev::{EventType, InputEvent, Key};
+use evdev::{EventType, InputEvent, InputEventKind, Key, RelativeAxisType};
 use lazy_static::lazy_static;
 use log::{debug, error};
 use nix::sys::signal;
@@ -18,6 +18,45 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::process::{Command, Stdio};
 use std::time::Instant;
+
+#[derive(Debug, Clone, Copy)]
+pub struct MappableEvent {
+    key: Key,
+    value: i32,
+    underlying: Option<InputEvent>,
+}
+
+impl MappableEvent {
+    pub fn new(key: Key, value: i32) -> Self {
+        Self { key, value, underlying: None }
+    }
+
+    pub fn from(event: InputEvent) -> Option<Self> {
+        match event.kind() {
+            InputEventKind::Key(key) => {
+                Some(Self { key, value: event.value(), underlying: Some(event) })
+            },
+            InputEventKind::RelAxis(RelativeAxisType::REL_WHEEL) => {
+                let key = match event.value() {
+                    1 => Key::KEY_SCROLLUP,
+                    -1 => Key::KEY_SCROLLDOWN,
+                    other => {
+                        debug!("Unknown scroll value: {}", other);
+                        return None
+                    }
+                };
+                Some(Self { key, value: PRESS, underlying: Some(event) })
+            },
+            _ => None,
+        }
+    }
+
+    pub fn input_event(&self) -> InputEvent {
+        self.underlying.unwrap_or_else(||
+            InputEvent::new(EventType::KEY, self.key.code(), self.value)
+        )
+    }
+}
 
 pub struct EventHandler {
     // Device to emit events
@@ -69,39 +108,45 @@ impl EventHandler {
         }
     }
 
-    // Handle EventType::KEY
     pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+        if let Some(mappable) = MappableEvent::from(event) {
+            self.on_mappable_event(mappable, config)
+        } else {
+            Ok(self.send_event(event)?)
+        }
+    }
+
+    fn on_mappable_event(&mut self, event: MappableEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.application_cache = None; // expire cache
-        let key = Key::new(event.code());
-        debug!("=> {}: {:?}", event.value(), &key);
+        debug!("=> {}: {:?}", event.value, &event.key);
 
         // Apply modmap
-        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key) {
-            self.dispatch_keys(key_action, key, event.value())?
+        let mut events = if let Some(key_action) = self.find_modmap(config, &event.key) {
+            self.dispatch_keys(key_action, event)?
         } else {
-            vec![(key, event.value())]
+            vec![event]
         };
-        self.maintain_pressed_keys(key, event.value(), &mut key_values);
+        self.maintain_pressed_keys(event.key, event.value, &mut events);
         if !self.multi_purpose_keys.is_empty() {
-            key_values = self.flush_timeout_keys(key_values);
+            events = self.flush_timeout_keys(events);
         }
 
         // Apply keymap
-        for (key, value) in key_values.into_iter() {
-            if config.virtual_modifiers.contains(&key) {
-                self.update_modifier(key, value);
+        for event in events.into_iter() {
+            if config.virtual_modifiers.contains(&event.key) {
+                self.update_modifier(event);
                 continue;
-            } else if MODIFIER_KEYS.contains(&key) {
-                self.update_modifier(key, value);
-            } else if is_pressed(value) {
+            } else if MODIFIER_KEYS.contains(&event.key) {
+                self.update_modifier(event);
+            } else if is_pressed(event.value) {
                 if self.escape_next_key {
                     self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, &key)? {
-                    self.dispatch_actions(&actions, &key)?;
+                } else if let Some(actions) = self.find_keymap(config, &event.key)? {
+                    self.dispatch_actions(&actions, &event.key)?;
                     continue;
                 }
             }
-            self.send_key(&key, value)?;
+            self.send_event(event.input_event())?;
         }
         Ok(())
     }
@@ -136,23 +181,22 @@ impl EventHandler {
     }
 
     fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
-        let event = InputEvent::new(EventType::KEY, key.code(), value);
-        self.send_event(event)
+        self.send_event(InputEvent::new(EventType::KEY, key.code(), value))
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
-    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut Vec<(Key, i32)>) {
+    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut Vec<MappableEvent>) {
         // Not handling multi-purpose keysfor now; too complicated
-        if events.len() != 1 || value != events[0].1 {
+        if events.len() != 1 || value != events[0].value {
             return;
         }
 
         let event = events[0];
-        if value == PRESS {
-            self.pressed_keys.insert(key, event.0);
+        if event.value == PRESS {
+            self.pressed_keys.insert(key, event.key);
         } else {
             if let Some(original_key) = self.pressed_keys.get(&key) {
-                events[0].0 = *original_key;
+                events[0].key = *original_key;
             }
             if value == RELEASE {
                 self.pressed_keys.remove(&key);
@@ -163,19 +207,18 @@ impl EventHandler {
     fn dispatch_keys(
         &mut self,
         key_action: KeyAction,
-        key: Key,
-        value: i32,
-    ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
+        event: MappableEvent
+    ) -> Result<Vec<MappableEvent>, Box<dyn Error>> {
         let keys = match key_action {
-            KeyAction::Key(modmap_key) => vec![(modmap_key, value)],
+            KeyAction::Key(modmap_key) => vec![MappableEvent::new(modmap_key, event.value)],
             KeyAction::MultiPurposeKey(MultiPurposeKey {
                 held,
                 alone,
                 alone_timeout,
             }) => {
-                if value == PRESS {
+                if event.value == PRESS {
                     self.multi_purpose_keys.insert(
-                        key,
+                        event.key,
                         MultiPurposeKeyState {
                             held,
                             alone,
@@ -183,54 +226,54 @@ impl EventHandler {
                         },
                     );
                     return Ok(vec![]); // delay the press
-                } else if value == REPEAT {
-                    if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
+                } else if event.value == REPEAT {
+                    if let Some(state) = self.multi_purpose_keys.get_mut(&event.key) {
                         return Ok(state.repeat());
                     }
-                } else if value == RELEASE {
-                    if let Some(state) = self.multi_purpose_keys.remove(&key) {
+                } else if event.value == RELEASE {
+                    if let Some(state) = self.multi_purpose_keys.remove(&event.key) {
                         return Ok(state.release());
                     }
                 } else {
-                    panic!("unexpected key event value: {}", value);
+                    panic!("unexpected key event value: {}", event.value);
                 }
                 // fallthrough on state discrepancy
-                vec![(key, value)]
+                vec![event]
             }
             KeyAction::PressReleaseKey(PressReleaseKey { press, release }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
-                if value == PRESS {
-                    self.dispatch_actions(&press, &key)?;
+                if event.value == PRESS {
+                    self.dispatch_actions(&press, &event.key)?;
                 }
-                if value == RELEASE {
-                    self.dispatch_actions(&release, &key)?;
+                if event.value == RELEASE {
+                    self.dispatch_actions(&release, &event.key)?;
                 }
                 // Dispatch the original key as well
-                vec![(key, value)]
+                vec![event]
             }
         };
         Ok(keys)
     }
 
-    fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
+    fn flush_timeout_keys(&mut self, events: Vec<MappableEvent>) -> Vec<MappableEvent> {
         let mut flush = false;
-        for (_, value) in key_values.iter() {
-            if *value == PRESS {
+        for event in events.iter() {
+            if event.value == PRESS {
                 flush = true;
                 break;
             }
         }
 
         if flush {
-            let mut flushed: Vec<(Key, i32)> = vec![];
+            let mut flushed: Vec<MappableEvent> = vec![];
             for (_, state) in self.multi_purpose_keys.iter_mut() {
                 flushed.extend(state.force_held());
             }
-            flushed.extend(key_values);
+            flushed.extend(events);
             flushed
         } else {
-            key_values
+            events
         }
     }
 
@@ -451,11 +494,11 @@ impl EventHandler {
         false
     }
 
-    fn update_modifier(&mut self, key: Key, value: i32) {
-        if value == PRESS {
-            self.modifiers.insert(key);
-        } else if value == RELEASE {
-            self.modifiers.remove(&key);
+    fn update_modifier(&mut self, event: MappableEvent) {
+        if event.value == PRESS {
+            self.modifiers.insert(event.key);
+        } else if event.value == RELEASE {
+            self.modifiers.remove(&event.key);
         }
     }
 }
@@ -528,37 +571,37 @@ struct MultiPurposeKeyState {
 }
 
 impl MultiPurposeKeyState {
-    fn repeat(&mut self) -> Vec<(Key, i32)> {
+    fn repeat(&mut self) -> Vec<MappableEvent> {
         if let Some(alone_timeout_at) = &self.alone_timeout_at {
             if Instant::now() < *alone_timeout_at {
                 vec![] // still delay the press
             } else {
                 self.alone_timeout_at = None; // timeout
-                vec![(self.held, PRESS)]
+                vec![MappableEvent::new(self.held, PRESS)]
             }
         } else {
-            vec![(self.held, REPEAT)]
+            vec![MappableEvent::new(self.held, REPEAT)]
         }
     }
 
-    fn release(&self) -> Vec<(Key, i32)> {
+    fn release(&self) -> Vec<MappableEvent> {
         if let Some(alone_timeout_at) = &self.alone_timeout_at {
             if Instant::now() < *alone_timeout_at {
                 // dispatch the delayed press and this release
-                vec![(self.alone, PRESS), (self.alone, RELEASE)]
+                vec![MappableEvent::new(self.alone, PRESS), MappableEvent::new(self.alone, RELEASE)]
             } else {
                 // too late. dispatch the held key
-                vec![(self.held, PRESS), (self.held, RELEASE)]
+                vec![MappableEvent::new(self.held, PRESS), MappableEvent::new(self.held, RELEASE)]
             }
         } else {
-            vec![(self.held, RELEASE)]
+            vec![MappableEvent::new(self.held, RELEASE)]
         }
     }
 
-    fn force_held(&mut self) -> Vec<(Key, i32)> {
+    fn force_held(&mut self) -> Vec<MappableEvent> {
         if self.alone_timeout_at.is_some() {
             self.alone_timeout_at = None;
-            vec![(self.held, PRESS)]
+            vec![MappableEvent::new(self.held, PRESS)]
         } else {
             vec![]
         }
