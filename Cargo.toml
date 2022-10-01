@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 anyhow = "1.0.65"
-clap = { version = "3.2.21", features = ["derive"] }
+clap = { version = "3.2.22", features = ["derive"] }
 clap_complete = "3.2.5"
 derive-where = "1.0.0"
 env_logger = "0.9.0"
