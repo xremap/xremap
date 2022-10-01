@@ -138,7 +138,7 @@ dependencies = [
  "atty",
  "bitflags",
  "clap_derive",
- "clap_lex",
+ "clap_lex 0.2.3",
  "indexmap",
  "once_cell",
  "strsim",
@@ -147,12 +147,22 @@ dependencies = [
 ]
 
 [[package]]
-name = "clap_complete"
-version = "3.2.5"
+name = "clap"
+version = "4.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f7a2e0a962c45ce25afce14220bc24f9dade0a1787f185cecf96bfba7847cd8"
+checksum = "0a1af219c3e254a8b4649d6ddaef886b2015089f35f2ac5e1db31410c0566ab8"
 dependencies = [
- "clap",
+ "bitflags",
+ "clap_lex 0.3.0",
+]
+
+[[package]]
+name = "clap_complete"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11cba7abac9b56dfe2f035098cdb3a43946f276e6db83b72c4e692343f9aab9a"
+dependencies = [
+ "clap 4.0.7",
 ]
 
 [[package]]
@@ -173,6 +183,15 @@ name = "clap_lex"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87eba3c8c7f42ef17f6c659fc7416d0f4758cd3e58861ee63c5fa4a4dde649e4"
+dependencies = [
+ "os_str_bytes",
+]
+
+[[package]]
+name = "clap_lex"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d4198f73e42b4936b35b5bb248d81d2b595ecb170da0bac7655c54eedfa8da8"
 dependencies = [
  "os_str_bytes",
 ]
@@ -1160,7 +1179,7 @@ name = "xremap"
 version = "0.7.5"
 dependencies = [
  "anyhow",
- "clap",
+ "clap 3.2.21",
  "clap_complete",
  "derive-where",
  "env_logger",
