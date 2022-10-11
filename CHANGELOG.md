@@ -1,3 +1,9 @@
+## v0.7.6
+
+- Add `keypress_delay_ms` to workaround [#179](https://github.com/k0kubun/xremap/issues/179)
+  - This feature might be removed in the future once the root cause of [#179](https://github.com/k0kubun/xremap/issues/179)
+    is found and fixed.
+
 ## v0.7.5
 
 - Fix a regression to recognize JetBrains IDE on `application` since v0.5.3
