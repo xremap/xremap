@@ -295,6 +295,12 @@ keymap:
       CapsLock-l: Right
 ```
 
+### keypress_delay_ms
+
+Some applications have trouble understanding synthesized key events, especially on
+Wayland. `keypress_delay_ms` can be used to workaround the issue.
+See [#179](https://github.com/k0kubun/xremap/issues/179) for the detail.
+
 ## License
 
 `xremap` is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).

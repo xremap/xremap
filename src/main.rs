@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 mod client;
 mod config;
@@ -110,7 +111,8 @@ fn main() -> anyhow::Result<()> {
     };
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
-    let mut handler = EventHandler::new(output_device, timer, &config.default_mode);
+    let delay = Duration::from_millis(config.keypress_delay_ms);
+    let mut handler = EventHandler::new(output_device, timer, &config.default_mode, delay);
     let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
         Ok(input_devices) => input_devices,
         Err(e) => bail!("Failed to prepare input devices: {}", e),

@@ -36,6 +36,8 @@ pub struct Config {
     pub default_mode: String,
     #[serde(deserialize_with = "deserialize_virtual_modifiers", default = "Vec::new")]
     pub virtual_modifiers: Vec<Key>,
+    #[serde(default)]
+    pub keypress_delay_ms: u64,
 
     // Internals
     #[serde(skip)]
