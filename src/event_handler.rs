@@ -17,7 +17,8 @@ use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::process::{Command, Stdio};
-use std::time::Instant;
+use std::thread;
+use std::time::{Duration, Instant};
 
 pub struct EventHandler {
     // Device to emit events
@@ -47,10 +48,11 @@ pub struct EventHandler {
     mark_set: bool,
     // { escape_next_key: true }
     escape_next_key: bool,
+    keypress_delay: Duration,
 }
 
 impl EventHandler {
-    pub fn new(device: VirtualDevice, timer: TimerFd, mode: &str) -> EventHandler {
+    pub fn new(device: VirtualDevice, timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
         EventHandler {
             device,
             modifiers: HashSet::new(),
@@ -66,6 +68,7 @@ impl EventHandler {
             mode: mode.to_string(),
             mark_set: false,
             escape_next_key: false,
+            keypress_delay,
         }
     }
 
@@ -344,6 +347,8 @@ impl EventHandler {
         // Press the main key
         self.send_key(&key_press.key, PRESS)?;
         self.send_key(&key_press.key, RELEASE)?;
+
+        thread::sleep(self.keypress_delay);
 
         // Resurrect the original modifiers
         self.send_keys(&missing_modifiers, RELEASE)?;
