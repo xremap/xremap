@@ -4,7 +4,7 @@ extern crate nix;
 use anyhow::bail;
 use derive_where::derive_where;
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
-use evdev::{AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType};
+use evdev::{AbsInfo, AbsoluteAxisType, AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType, UinputAbsSetup};
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 use std::error::Error;
@@ -37,13 +37,22 @@ static MOUSE_BTNS: [&str; 20] = [
     "BTN_TASK",
 ];
 
+static TABLET_BTNS: [&str; 5] = [
+    "BTN_TOOL_PEN",
+    "BTN_TOUCH",
+    "BTN_STYLUS",
+    "BTN_STYLUS2",
+    "BTN_TOOL_MOUSE"
+];
+
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
 pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
         let name = format!("{:?}", key);
-        if name.starts_with("KEY_") || MOUSE_BTNS.contains(&&*name) {
+        let heap_name = name.as_str();
+        if name.starts_with("KEY_") || MOUSE_BTNS.contains(&heap_name) || TABLET_BTNS.contains(&heap_name) {
             keys.insert(key);
         }
     }
@@ -55,10 +64,24 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     relative_axes.insert(RelativeAxisType::REL_WHEEL);
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
+    let info = AbsInfo::new(0, 0, 25000, 0, 0, 200);
+    let tilt_info = AbsInfo::new(0, 0, 60, 0, 0, 57);
+    let press_info = AbsInfo::new(0, 0, 8191, 0, 0, 0);
+    let x = UinputAbsSetup::new(AbsoluteAxisType::ABS_X, info);
+    let x_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_X, tilt_info);
+    let y = UinputAbsSetup::new(AbsoluteAxisType::ABS_Y, info);
+    let y_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_Y, tilt_info);
+    let pressure = UinputAbsSetup::new(AbsoluteAxisType::ABS_PRESSURE, press_info);
+
     let device = VirtualDeviceBuilder::new()?
         .name(&InputDevice::current_name())
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
+        .with_absolute_axis(&x)?
+        .with_absolute_axis(&y)?
+        .with_absolute_axis(&x_tilt)?
+        .with_absolute_axis(&y_tilt)?
+        .with_absolute_axis(&pressure)?
         .build()?;
     Ok(device)
 }

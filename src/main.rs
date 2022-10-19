@@ -6,7 +6,7 @@ use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
 use config::{config_watcher, load_config};
 use device::InputDevice;
-use evdev::EventType;
+use evdev::{EventType, InputEvent};
 use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
 use nix::sys::select::select;
@@ -208,15 +208,18 @@ fn handle_input_events(
         Err((Some(ENODEV), _)) => Ok(false),
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
+            let mut vec: Vec<InputEvent> = Vec::new();
             for event in events {
                 if event.event_type() == EventType::KEY {
                     handler
                         .on_event(event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
                 } else {
-                    handler.send_event(event)?;
+                    vec.push(event);
                 }
             }
+
+            handler.send_events(vec)?;
             Ok(true)
         }
     }

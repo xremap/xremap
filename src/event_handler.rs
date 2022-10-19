@@ -109,6 +109,12 @@ impl EventHandler {
         Ok(())
     }
 
+    // Certain events should be grouped like absolute input from tablets
+    pub(crate) fn send_events(&mut self, p0: Vec<InputEvent>) -> std::io::Result<()> {
+        debug!("forwarding bulk: {:?}", p0);
+        self.device.emit(&*p0)
+    }
+
     pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
