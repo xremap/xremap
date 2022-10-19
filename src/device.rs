@@ -1,18 +1,21 @@
 extern crate evdev;
 extern crate nix;
 
-use anyhow::bail;
-use derive_where::derive_where;
-use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
-use evdev::{AbsInfo, AbsoluteAxisType, AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType, UinputAbsSetup};
-use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
+use std::{io, process};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::PathBuf;
-use std::{io, process};
+
+use anyhow::bail;
+use derive_where::derive_where;
+use evdev::{
+    AbsInfo, AbsoluteAxisType, AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType, UinputAbsSetup,
+};
+use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
+use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 
 static MOUSE_BTNS: [&str; 20] = [
     "BTN_MISC",
@@ -42,7 +45,7 @@ static TABLET_BTNS: [&str; 5] = [
     "BTN_TOUCH",
     "BTN_STYLUS",
     "BTN_STYLUS2",
-    "BTN_TOOL_MOUSE"
+    "BTN_TOOL_MOUSE",
 ];
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
