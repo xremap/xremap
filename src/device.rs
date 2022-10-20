@@ -12,9 +12,7 @@ use std::{io, process};
 use anyhow::bail;
 use derive_where::derive_where;
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
-use evdev::{
-    AbsoluteAxisType, AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType, UinputAbsSetup,
-};
+use evdev::{AbsoluteAxisType, AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType, UinputAbsSetup};
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 
 use crate::config::absconfig::AbsConfig;
