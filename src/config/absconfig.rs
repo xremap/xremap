@@ -1,7 +1,4 @@
-use evdev::raw_stream::enumerate;
-use evdev::{AbsoluteAxisType, EnumerateDevices};
-use nix::libc::{abs, input_absinfo};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize};
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
