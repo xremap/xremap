@@ -70,9 +70,9 @@ pub fn output_device(abs_config: &AbsConfig) -> Result<VirtualDevice, Box<dyn Er
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
     let x = UinputAbsSetup::new(AbsoluteAxisType::ABS_X, abs_config.x.into_evdev_abs_info());
-    let x_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_X, abs_config.x_tilt.into_evdev_abs_info());
+    let x_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_X, abs_config.tilt_x.into_evdev_abs_info());
     let y = UinputAbsSetup::new(AbsoluteAxisType::ABS_Y, abs_config.y.into_evdev_abs_info());
-    let y_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_Y, abs_config.y_tilt.into_evdev_abs_info());
+    let y_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_Y, abs_config.tilt_y.into_evdev_abs_info());
     let pressure = UinputAbsSetup::new(AbsoluteAxisType::ABS_PRESSURE, abs_config.pressure.into_evdev_abs_info());
 
     let device = VirtualDeviceBuilder::new()?

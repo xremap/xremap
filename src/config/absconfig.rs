@@ -11,9 +11,9 @@ pub struct AbsConfig {
     #[serde(default = "default_abs_info")]
     pub y: AbsInfo,
     #[serde(default = "default_abs_info")]
-    pub x_tilt: AbsInfo,
+    pub tilt_x: AbsInfo,
     #[serde(default = "default_abs_info")]
-    pub y_tilt: AbsInfo,
+    pub tilt_y: AbsInfo,
     #[serde(default = "default_abs_info")]
     pub pressure: AbsInfo,
 }
@@ -23,8 +23,8 @@ impl AbsConfig {
         AbsConfig {
             x: default_abs_info(),
             y: default_abs_info(),
-            x_tilt: default_abs_info(),
-            y_tilt: default_abs_info(),
+            tilt_x: default_abs_info(),
+            tilt_y: default_abs_info(),
             pressure: default_abs_info(),
         }
     }
