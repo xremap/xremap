@@ -265,7 +265,7 @@ impl EventHandler {
                     }
                 }
             }
-        } else {
+            // An override remap is set but not used. Flush the pending key.
             self.timeout_override()?;
         }
         if let Some(entries) = config.keymap_table.get(key) {
