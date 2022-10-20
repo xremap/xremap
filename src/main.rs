@@ -1,22 +1,25 @@
-use crate::config::Config;
-use crate::device::{device_watcher, get_input_devices, output_device};
-use crate::event_handler::EventHandler;
-use anyhow::{anyhow, bail, Context};
-use clap::{AppSettings, ArgEnum, IntoApp, Parser};
-use clap_complete::Shell;
-use config::{config_watcher, load_config};
-use device::InputDevice;
-use evdev::{EventType, InputEvent};
-use nix::libc::ENODEV;
-use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
-use nix::sys::select::select;
-use nix::sys::select::FdSet;
-use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+
+use anyhow::{anyhow, bail, Context};
+use clap::{AppSettings, ArgEnum, IntoApp, Parser};
+use clap_complete::Shell;
+use evdev::{EventType, InputEvent};
+use nix::libc::ENODEV;
+use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
+use nix::sys::select::FdSet;
+use nix::sys::select::select;
+use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
+
+use config::{config_watcher, load_config};
+use device::InputDevice;
+
+use crate::config::Config;
+use crate::device::{device_watcher, get_input_devices, output_device};
+use crate::event_handler::EventHandler;
 
 mod client;
 mod config;
@@ -211,6 +214,10 @@ fn handle_input_events(
             let mut vec: Vec<InputEvent> = Vec::new();
             for event in events {
                 if event.event_type() == EventType::KEY {
+                    if !vec.is_empty() {
+                        handler.send_events(vec.clone())?;
+                        vec.clear();
+                    }
                     handler
                         .on_event(event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
@@ -218,8 +225,9 @@ fn handle_input_events(
                     vec.push(event);
                 }
             }
-
-            handler.send_events(vec)?;
+            if !vec.is_empty() {
+                handler.send_events(vec)?;
+            }
             Ok(true)
         }
     }
