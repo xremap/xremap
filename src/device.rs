@@ -1,21 +1,23 @@
 extern crate evdev;
 extern crate nix;
 
+use std::{io, process};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::PathBuf;
-use std::{io, process};
 
 use anyhow::bail;
 use derive_where::derive_where;
-use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use evdev::{
     AbsInfo, AbsoluteAxisType, AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType, UinputAbsSetup,
 };
+use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
+
+use crate::config::absconfig::AbsConfig;
 
 static MOUSE_BTNS: [&str; 20] = [
     "BTN_MISC",
@@ -49,7 +51,7 @@ static TABLET_BTNS: [&str; 5] = [
 ];
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
-pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
+pub fn output_device(abs_config: &AbsConfig) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
@@ -67,14 +69,11 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     relative_axes.insert(RelativeAxisType::REL_WHEEL);
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
-    let info = AbsInfo::new(0, 0, 25000, 0, 0, 200);
-    let tilt_info = AbsInfo::new(0, 0, 60, 0, 0, 57);
-    let press_info = AbsInfo::new(0, 0, 8191, 0, 0, 0);
-    let x = UinputAbsSetup::new(AbsoluteAxisType::ABS_X, info);
-    let x_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_X, tilt_info);
-    let y = UinputAbsSetup::new(AbsoluteAxisType::ABS_Y, info);
-    let y_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_Y, tilt_info);
-    let pressure = UinputAbsSetup::new(AbsoluteAxisType::ABS_PRESSURE, press_info);
+    let x = UinputAbsSetup::new(AbsoluteAxisType::ABS_X, abs_config.x.into_evdev_abs_info());
+    let x_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_X, abs_config.x_tilt.into_evdev_abs_info());
+    let y = UinputAbsSetup::new(AbsoluteAxisType::ABS_Y, abs_config.y.into_evdev_abs_info());
+    let y_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_Y, abs_config.y_tilt.into_evdev_abs_info());
+    let pressure = UinputAbsSetup::new(AbsoluteAxisType::ABS_PRESSURE, abs_config.pressure.into_evdev_abs_info());
 
     let device = VirtualDeviceBuilder::new()?
         .name(&InputDevice::current_name())

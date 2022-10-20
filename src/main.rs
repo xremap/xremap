@@ -108,7 +108,7 @@ fn main() -> anyhow::Result<()> {
     let watch_config = watch.contains(&WatchTargets::Config);
 
     // Event listeners
-    let output_device = match output_device() {
+    let output_device = match output_device(&config.absolute) {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),
     };
