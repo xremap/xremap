@@ -1,5 +1,5 @@
-use evdev::{AbsoluteAxisType, EnumerateDevices};
 use evdev::raw_stream::enumerate;
+use evdev::{AbsoluteAxisType, EnumerateDevices};
 use nix::libc::{abs, input_absinfo};
 use serde::{Deserialize, Deserializer};
 

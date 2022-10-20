@@ -1,20 +1,20 @@
 extern crate evdev;
 extern crate nix;
 
-use std::{io, process};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::PathBuf;
+use std::{io, process};
 
 use anyhow::bail;
 use derive_where::derive_where;
+use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use evdev::{
     AbsInfo, AbsoluteAxisType, AttributeSet, Device, FetchEventsSynced, Key, RelativeAxisType, UinputAbsSetup,
 };
-use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 
 use crate::config::absconfig::AbsConfig;

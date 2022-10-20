@@ -10,8 +10,8 @@ use clap_complete::Shell;
 use evdev::{EventType, InputEvent};
 use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
-use nix::sys::select::FdSet;
 use nix::sys::select::select;
+use nix::sys::select::FdSet;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 
 use config::{config_watcher, load_config};
