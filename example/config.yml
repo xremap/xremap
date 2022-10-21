@@ -179,7 +179,6 @@ keymap:
       Super-d: M-d
       Super-i: M-i
       Super-w: M-w
-      Super-w: M-w
       Super-t: M-t
       Super-c: M-c
       Super-v: M-v
@@ -213,35 +212,3 @@ keymap:
       Super-7: C-7
       Super-8: C-8
       Super-9: C-9
-
-# Absolute config section for tablet devices or touchscreens.
-# Missing fields default to 0,
-# so you don't have to set them if the desired value is 0
-absolute:
-
-  # Below is an example config for a GAOMON S620.
-  # x and y decide what area of your tablet is mapped
-  x:
-    value: 0
-    min: 0
-    max: 33020
-    fuzz: 0
-    flat: 0
-    resolution: 200
-  y:
-    min: 0
-    max: 20320
-    resolution: 200
-
-  # pressure, x_tilt and y_tilt are pen properties.
-  pressure:
-    min: 0
-    max: 8191
-  tilt_x:
-    min: -60
-    max: 60
-    resolution: 57
-  tilt_y:
-    min: -60
-    max: 60
-    resolution: 57
