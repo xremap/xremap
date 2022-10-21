@@ -18,7 +18,7 @@ use config::{config_watcher, load_config};
 use device::InputDevice;
 
 use crate::config::Config;
-use crate::device::{device_watcher, get_input_devices, output_device};
+use crate::device::{device_watcher, get_input_devices, output_device, tablet_device};
 use crate::event_handler::EventHandler;
 
 mod client;
@@ -108,14 +108,18 @@ fn main() -> anyhow::Result<()> {
     let watch_config = watch.contains(&WatchTargets::Config);
 
     // Event listeners
-    let output_device = match output_device(&config.absolute) {
+    let output_device = match output_device() {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),
+    };
+    let tablet_device = match tablet_device(&config.absolute) {
+        Ok(output_device) => output_device,
+        Err(e) => bail!("Failed to prepare a tablet device: {}", e),
     };
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut handler = EventHandler::new(output_device, timer, &config.default_mode, delay);
+    let mut handler = EventHandler::new(output_device, tablet_device, timer, &config.default_mode, delay);
     let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
         Ok(input_devices) => input_devices,
         Err(e) => bail!("Failed to prepare input devices: {}", e),
@@ -215,18 +219,20 @@ fn handle_input_events(
             for event in events {
                 if event.event_type() == EventType::KEY {
                     if !vec.is_empty() {
-                        handler.send_events(vec.clone())?;
+                        handler.send_bulk_events(true, vec.clone())?;
                         vec.clear();
                     }
                     handler
                         .on_event(event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
-                } else {
+                } else if event.event_type() == EventType::ABSOLUTE {
                     vec.push(event);
+                } else {
+                    handler.send_event(event)?;
                 }
             }
             if !vec.is_empty() {
-                handler.send_events(vec)?;
+                handler.send_bulk_events(true, vec)?;
             }
             Ok(true)
         }

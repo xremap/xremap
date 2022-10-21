@@ -49,7 +49,7 @@ static TABLET_BTNS: [&str; 5] = [
 ];
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
-pub fn output_device(abs_config: &AbsConfig) -> Result<VirtualDevice, Box<dyn Error>> {
+pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
@@ -67,6 +67,25 @@ pub fn output_device(abs_config: &AbsConfig) -> Result<VirtualDevice, Box<dyn Er
     relative_axes.insert(RelativeAxisType::REL_WHEEL);
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
+    let device = VirtualDeviceBuilder::new()?
+        .name(&InputDevice::current_name())
+        .with_keys(&keys)?
+        .with_relative_axes(&relative_axes)?
+        .build()?;
+    Ok(device)
+}
+
+pub fn tablet_device(abs_config: &AbsConfig) -> Result<VirtualDevice, Box<dyn Error>> {
+    let mut keys: AttributeSet<Key> = AttributeSet::new();
+    for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
+        let key = Key::new(code);
+        let name = format!("{:?}", key);
+        let heap_name = name.as_str();
+        if TABLET_BTNS.contains(&heap_name) {
+            keys.insert(key);
+        }
+    }
+
     let x = UinputAbsSetup::new(AbsoluteAxisType::ABS_X, abs_config.x.into_evdev_abs_info());
     let x_tilt = UinputAbsSetup::new(AbsoluteAxisType::ABS_TILT_X, abs_config.tilt_x.into_evdev_abs_info());
     let y = UinputAbsSetup::new(AbsoluteAxisType::ABS_Y, abs_config.y.into_evdev_abs_info());
@@ -74,9 +93,8 @@ pub fn output_device(abs_config: &AbsConfig) -> Result<VirtualDevice, Box<dyn Er
     let pressure = UinputAbsSetup::new(AbsoluteAxisType::ABS_PRESSURE, abs_config.pressure.into_evdev_abs_info());
 
     let device = VirtualDeviceBuilder::new()?
-        .name(&InputDevice::current_name())
+        .name(&InputDevice::current_name_tablet())
         .with_keys(&keys)?
-        .with_relative_axes(&relative_axes)?
         .with_absolute_axis(&x)?
         .with_absolute_axis(&y)?
         .with_absolute_axis(&x_tilt)?
@@ -217,7 +235,7 @@ impl InputDevice {
 
 impl InputDevice {
     pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String], mouse: bool) -> bool {
-        if self.device_name() == Self::current_name() {
+        if self.device_name() == Self::current_name() || self.device_name() == Self::current_name_tablet() {
             return false;
         }
         (if device_filter.is_empty() {
@@ -237,6 +255,10 @@ impl InputDevice {
 
     fn current_name() -> String {
         format!("xremap pid={}", process::id())
+    }
+
+    fn current_name_tablet() -> String {
+        format!("xremap tablet pid={}", process::id())
     }
 
     fn matches(&self, filter: &[String]) -> bool {

@@ -23,6 +23,8 @@ use std::time::{Duration, Instant};
 pub struct EventHandler {
     // Device to emit events
     device: VirtualDevice,
+    // Device to emit tablet events
+    tablet_device: VirtualDevice,
     // Currently pressed modifier keys
     modifiers: HashSet<Key>,
     // Modifiers that are currently pressed but not in the source KeyPress
@@ -52,9 +54,16 @@ pub struct EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(device: VirtualDevice, timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
+    pub fn new(
+        device: VirtualDevice,
+        tablet_device: VirtualDevice,
+        timer: TimerFd,
+        mode: &str,
+        keypress_delay: Duration,
+    ) -> EventHandler {
         EventHandler {
             device,
+            tablet_device,
             modifiers: HashSet::new(),
             extra_modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
@@ -110,16 +119,24 @@ impl EventHandler {
     }
 
     // Certain events should be grouped like absolute input from tablets
-    pub(crate) fn send_events(&mut self, p0: Vec<InputEvent>) -> std::io::Result<()> {
+    pub(crate) fn send_bulk_events(&mut self, has_abs: bool, p0: Vec<InputEvent>) -> std::io::Result<()> {
         debug!("forwarding bulk: {:?}", p0);
-        self.device.emit(&*p0)
+        if has_abs {
+            self.tablet_device.emit(&*p0)
+        } else {
+            self.device.emit(&*p0)
+        }
     }
 
     pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
         }
-        self.device.emit(&[event])
+        if event.event_type() == EventType::ABSOLUTE {
+            self.tablet_device.emit(&[event])
+        } else {
+            self.device.emit(&[event])
+        }
     }
 
     pub fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
