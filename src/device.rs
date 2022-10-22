@@ -13,7 +13,7 @@ use anyhow::bail;
 use derive_where::derive_where;
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use evdev::{
-    AbsoluteAxisType, AttributeSet, AttributeSetRef, Device, FetchEventsSynced, Key, MiscType, PropType,
+    AbsoluteAxisType, AttributeSet, AttributeSetRef, Device, FetchEventsSynced, InputId, Key, MiscType, PropType,
     RelativeAxisType, UinputAbsSetup,
 };
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
@@ -93,13 +93,8 @@ pub fn output_device() -> Result<VirtualDevice, Box<dyn Error>> {
 
 pub fn tablet_device(abs_config: &AbsConfig) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
-    for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
-        let key = Key::new(code);
-        let name = format!("{:?}", key);
-        let heap_name = name.as_str();
-        if TABLET_BTNS.contains(&key) {
-            keys.insert(key);
-        }
+    for key in TABLET_BTNS {
+        keys.insert(key);
     }
 
     let mut props: AttributeSet<PropType> = AttributeSet::new();
