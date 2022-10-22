@@ -18,7 +18,7 @@ use config::{config_watcher, load_config};
 use device::InputDevice;
 
 use crate::config::Config;
-use crate::device::{device_watcher, get_input_devices, output_device, tablet_device};
+use crate::device::{device_watcher, get_input_devices, output_device, tablet_device, DeviceType};
 use crate::event_handler::EventHandler;
 
 mod client;
@@ -133,7 +133,7 @@ fn main() -> anyhow::Result<()> {
         match 'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
             if readable_fds.contains(timer_fd) {
-                if let Err(error) = handler.timeout_override() {
+                if let Err(error) = handler.timeout_override(DeviceType::Other) {
                     println!("Error on remap timeout: {error}")
                 }
             }
@@ -211,28 +211,68 @@ fn handle_input_events(
     handler: &mut EventHandler,
     config: &mut Config,
 ) -> anyhow::Result<bool> {
+    let is_tablet = input_device.is_tablet();
+    let device_type = DeviceType::Other;
+    if is_tablet {
+        return handle_tablet_input_events(input_device, handler, config);
+    }
     match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
         Err((Some(ENODEV), _)) => Ok(false),
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
-            let mut vec: Vec<InputEvent> = Vec::new();
             for event in events {
                 if event.event_type() == EventType::KEY {
+                    handler
+                        .on_event(device_type, event, config)
+                        .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
+                } else {
+                    handler.send_event(device_type, event)?;
+                }
+            }
+
+            Ok(true)
+        }
+    }
+}
+
+fn handle_tablet_input_events(
+    input_device: &mut InputDevice,
+    handler: &mut EventHandler,
+    config: &mut Config,
+) -> anyhow::Result<bool> {
+    let mut vec: Vec<InputEvent> = Vec::new();
+    let device_type = DeviceType::Tablet;
+    match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
+        Err((Some(ENODEV), _)) => Ok(false),
+        Err((_, error)) => Err(error).context("Error fetching input events"),
+        Ok(events) => {
+            for event in events {
+                if event.event_type() == EventType::KEY {
+                    // some pen buttons need to be sent in bulk after the msc events
+                    // or software could misinterpret them.
+                    // but remapping is still useful for potential tablet buttons/keys
+                    // if event.value() != 1 || config.absolute.remap_pen_buttons {
                     if !vec.is_empty() {
-                        handler.send_bulk_events(true, vec.clone())?;
+                        handler.send_bulk_events(device_type, vec.clone())?;
                         vec.clear();
                     }
+
                     handler
-                        .on_event(event, config)
+                        .on_event(device_type, event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
-                } else if event.event_type() == EventType::ABSOLUTE {
+                    // } else {
+                    //     vec.push(event);
+                    // }
+                } else if EventType::SYNCHRONIZATION == event.event_type() {
                     vec.push(event);
+                    handler.send_bulk_events(device_type, vec.clone())?;
+                    vec.clear();
                 } else {
-                    handler.send_event(event)?;
+                    vec.push(event);
                 }
             }
             if !vec.is_empty() {
-                handler.send_bulk_events(true, vec)?;
+                handler.send_bulk_events(device_type, vec)?;
             }
             Ok(true)
         }

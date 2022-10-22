@@ -5,6 +5,7 @@ use crate::config::key_action::{KeyAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::remap::Remap;
+use crate::device::DeviceType;
 use crate::Config;
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
@@ -82,14 +83,14 @@ impl EventHandler {
     }
 
     // Handle EventType::KEY
-    pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+    pub fn on_event(&mut self, device: DeviceType, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
-        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key) {
-            self.dispatch_keys(key_action, key, event.value())?
+        let mut key_values = if let Some((key_action, device)) = self.find_modmap(config, &key) {
+            self.dispatch_keys(device, key_action, key, event.value())?
         } else {
             vec![(key, event.value())]
         };
@@ -108,41 +109,39 @@ impl EventHandler {
             } else if is_pressed(value) {
                 if self.escape_next_key {
                     self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, &key)? {
-                    self.dispatch_actions(&actions, &key)?;
+                } else if let Some((actions, device)) = self.find_keymap(device, config, &key)? {
+                    self.dispatch_actions(device, &actions, &key)?;
                     continue;
                 }
             }
-            self.send_key(&key, value)?;
+            self.send_key(device, &key, value)?;
         }
         Ok(())
     }
 
     // Certain events should be grouped like absolute input from tablets
-    pub(crate) fn send_bulk_events(&mut self, has_abs: bool, p0: Vec<InputEvent>) -> std::io::Result<()> {
-        debug!("forwarding bulk: {:?}", p0);
-        if has_abs {
-            self.tablet_device.emit(&*p0)
-        } else {
-            self.device.emit(&*p0)
+    pub(crate) fn send_bulk_events(&mut self, device: DeviceType, events: Vec<InputEvent>) -> std::io::Result<()> {
+        debug!("forwarding bulk: {:?}", events);
+        match device {
+            DeviceType::Tablet => self.tablet_device.emit(&*events),
+            DeviceType::Other => self.device.emit(&*events),
         }
     }
 
-    pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
+    pub fn send_event(&mut self, device: DeviceType, event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
         }
-        if event.event_type() == EventType::ABSOLUTE {
-            self.tablet_device.emit(&[event])
-        } else {
-            self.device.emit(&[event])
+        match device {
+            DeviceType::Tablet => self.tablet_device.emit(&[event]),
+            DeviceType::Other => self.device.emit(&[event]),
         }
     }
 
-    pub fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn timeout_override(&mut self, device: DeviceType) -> Result<(), Box<dyn Error>> {
         if let Some(key) = self.override_timeout_key {
-            self.send_key(&key, PRESS)?;
-            self.send_key(&key, RELEASE)?;
+            self.send_key(device, &key, PRESS)?;
+            self.send_key(device, &key, RELEASE)?;
         }
         self.remove_override()
     }
@@ -154,16 +153,16 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_keys(&mut self, keys: &Vec<Key>, value: i32) -> std::io::Result<()> {
+    fn send_keys(&mut self, device: DeviceType, keys: &Vec<Key>, value: i32) -> std::io::Result<()> {
         for key in keys {
-            self.send_key(key, value)?;
+            self.send_key(device, key, value)?;
         }
         Ok(())
     }
 
-    fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
+    fn send_key(&mut self, device: DeviceType, key: &Key, value: i32) -> std::io::Result<()> {
         let event = InputEvent::new(EventType::KEY, key.code(), value);
-        self.send_event(event)
+        self.send_event(device, event)
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
@@ -188,6 +187,7 @@ impl EventHandler {
 
     fn dispatch_keys(
         &mut self,
+        device: DeviceType,
         key_action: KeyAction,
         key: Key,
         value: i32,
@@ -227,10 +227,10 @@ impl EventHandler {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
                 if value == PRESS {
-                    self.dispatch_actions(&press, &key)?;
+                    self.dispatch_actions(device, &press, &key)?;
                 }
                 if value == RELEASE {
-                    self.dispatch_actions(&release, &key)?;
+                    self.dispatch_actions(device, &release, &key)?;
                 }
                 // Dispatch the original key as well
                 vec![(key, value)]
@@ -260,7 +260,7 @@ impl EventHandler {
         }
     }
 
-    fn find_modmap(&mut self, config: &Config, key: &Key) -> Option<KeyAction> {
+    fn find_modmap(&mut self, config: &Config, key: &Key) -> Option<(KeyAction, DeviceType)> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(application_matcher) = &modmap.application {
@@ -268,13 +268,18 @@ impl EventHandler {
                         continue;
                     }
                 }
-                return Some(key_action.clone());
+                return Some((key_action.clone(), *modmap.targets.get(key).unwrap_or(&DeviceType::Other)));
             }
         }
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<Action>>, Box<dyn Error>> {
+    fn find_keymap(
+        &mut self,
+        device: DeviceType,
+        config: &Config,
+        key: &Key,
+    ) -> Result<Option<(Vec<Action>, DeviceType)>, Box<dyn Error>> {
         if let Some(override_remap) = &self.override_remap {
             if let Some(entries) = override_remap.clone().get(key) {
                 self.remove_override()?;
@@ -284,12 +289,12 @@ impl EventHandler {
                         if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
                             continue;
                         }
-                        return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
+                        return Ok(Some((with_extra_modifiers(&entry.actions, &extra_modifiers), DeviceType::Other)));
                     }
                 }
             }
         } else {
-            self.timeout_override()?;
+            self.timeout_override(device)?;
         }
         if let Some(entries) = config.keymap_table.get(key) {
             for exact_match in [true, false] {
@@ -308,23 +313,27 @@ impl EventHandler {
                             continue;
                         }
                     }
-                    return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
+
+                    return Ok(Some((
+                        with_extra_modifiers(&entry.actions, &extra_modifiers),
+                        entry.targets.unwrap_or(DeviceType::Other),
+                    )));
                 }
             }
         }
         Ok(None)
     }
 
-    fn dispatch_actions(&mut self, actions: &Vec<Action>, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_actions(&mut self, device: DeviceType, actions: &Vec<Action>, key: &Key) -> Result<(), Box<dyn Error>> {
         for action in actions {
-            self.dispatch_action(action, key)?;
+            self.dispatch_action(device, action, key)?;
         }
         Ok(())
     }
 
-    fn dispatch_action(&mut self, action: &Action, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_action(&mut self, device: DeviceType, action: &Action, key: &Key) -> Result<(), Box<dyn Error>> {
         match action {
-            Action::KeyPress(key_press) => self.send_key_press(key_press)?,
+            Action::KeyPress(key_press) => self.send_key_press(device, key_press)?,
             Action::Remap(Remap {
                 remap,
                 timeout,
@@ -344,7 +353,7 @@ impl EventHandler {
                 println!("mode: {}", mode);
             }
             Action::SetMark(set) => self.mark_set = *set,
-            Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
+            Action::WithMark(key_press) => self.send_key_press(device, &self.with_mark(key_press))?,
             Action::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             Action::SetExtraModifiers(keys) => {
                 self.extra_modifiers.clear();
@@ -356,7 +365,7 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
+    fn send_key_press(&mut self, device: DeviceType, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because logical modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
@@ -364,18 +373,18 @@ impl EventHandler {
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(&key));
 
         // Emulate the modifiers of KeyPress
-        self.send_keys(&extra_modifiers, RELEASE)?;
-        self.send_keys(&missing_modifiers, PRESS)?;
+        self.send_keys(device, &extra_modifiers, RELEASE)?;
+        self.send_keys(device, &missing_modifiers, PRESS)?;
 
         // Press the main key
-        self.send_key(&key_press.key, PRESS)?;
-        self.send_key(&key_press.key, RELEASE)?;
+        self.send_key(device, &key_press.key, PRESS)?;
+        self.send_key(device, &key_press.key, RELEASE)?;
 
         thread::sleep(self.keypress_delay);
 
         // Resurrect the original modifiers
-        self.send_keys(&missing_modifiers, RELEASE)?;
-        self.send_keys(&extra_modifiers, PRESS)?;
+        self.send_keys(device, &missing_modifiers, RELEASE)?;
+        self.send_keys(device, &extra_modifiers, PRESS)?;
 
         Ok(())
     }
