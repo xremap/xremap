@@ -105,14 +105,9 @@ fn main() -> anyhow::Result<()> {
     let watch_config = watch.contains(&WatchTargets::Config);
 
     // Event listeners
-    let output_device = match output_device() {
-        Ok(output_device) => output_device,
-        Err(e) => bail!("Failed to prepare an output device: {}", e),
-    };
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut handler = EventHandler::new(output_device, timer, &config.default_mode, delay);
     let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
         Ok(input_devices) => input_devices,
         Err(e) => bail!("Failed to prepare input devices: {}", e),
@@ -120,6 +115,11 @@ fn main() -> anyhow::Result<()> {
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
+    let output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type)) {
+        Ok(output_device) => output_device,
+        Err(e) => bail!("Failed to prepare an output device: {}", e),
+    };
+    let mut handler = EventHandler::new(output_device, timer, &config.default_mode, delay);
 
     // Main loop
     loop {
