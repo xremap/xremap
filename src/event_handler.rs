@@ -1,7 +1,7 @@
 use crate::client::{build_client, WMClient};
-use crate::config::action::Action;
+use crate::config::keymap_action::KeymapAction;
 use crate::config::application::Application;
-use crate::config::key_action::{KeyAction, MultiPurposeKey, PressReleaseKey};
+use crate::config::modmap_action::{ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::remap::Remap;
@@ -172,13 +172,13 @@ impl EventHandler {
 
     fn dispatch_keys(
         &mut self,
-        key_action: KeyAction,
+        key_action: ModmapAction,
         key: Key,
         value: i32,
     ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
         let keys = match key_action {
-            KeyAction::Key(modmap_key) => vec![(modmap_key, value)],
-            KeyAction::MultiPurposeKey(MultiPurposeKey {
+            ModmapAction::Key(modmap_key) => vec![(modmap_key, value)],
+            ModmapAction::MultiPurposeKey(MultiPurposeKey {
                 held,
                 alone,
                 alone_timeout,
@@ -207,7 +207,7 @@ impl EventHandler {
                 // fallthrough on state discrepancy
                 vec![(key, value)]
             }
-            KeyAction::PressReleaseKey(PressReleaseKey { press, release }) => {
+            ModmapAction::PressReleaseKey(PressReleaseKey { press, release }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
                 if value == PRESS {
@@ -244,7 +244,7 @@ impl EventHandler {
         }
     }
 
-    fn find_modmap(&mut self, config: &Config, key: &Key) -> Option<KeyAction> {
+    fn find_modmap(&mut self, config: &Config, key: &Key) -> Option<ModmapAction> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(application_matcher) = &modmap.application {
@@ -258,7 +258,7 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<Action>>, Box<dyn Error>> {
+    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<KeymapAction>>, Box<dyn Error>> {
         if let Some(override_remap) = &self.override_remap {
             if let Some(entries) = override_remap.clone().get(key) {
                 self.remove_override()?;
@@ -299,17 +299,17 @@ impl EventHandler {
         Ok(None)
     }
 
-    fn dispatch_actions(&mut self, actions: &Vec<Action>, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_actions(&mut self, actions: &Vec<KeymapAction>, key: &Key) -> Result<(), Box<dyn Error>> {
         for action in actions {
             self.dispatch_action(action, key)?;
         }
         Ok(())
     }
 
-    fn dispatch_action(&mut self, action: &Action, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_action(&mut self, action: &KeymapAction, key: &Key) -> Result<(), Box<dyn Error>> {
         match action {
-            Action::KeyPress(key_press) => self.send_key_press(key_press)?,
-            Action::Remap(Remap {
+            KeymapAction::KeyPress(key_press) => self.send_key_press(key_press)?,
+            KeymapAction::Remap(Remap {
                 remap,
                 timeout,
                 timeout_key,
@@ -322,15 +322,15 @@ impl EventHandler {
                     self.override_timeout_key = timeout_key.or_else(|| Some(*key));
                 }
             }
-            Action::Launch(command) => self.run_command(command.clone()),
-            Action::SetMode(mode) => {
+            KeymapAction::Launch(command) => self.run_command(command.clone()),
+            KeymapAction::SetMode(mode) => {
                 self.mode = mode.clone();
                 println!("mode: {}", mode);
             }
-            Action::SetMark(set) => self.mark_set = *set,
-            Action::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
-            Action::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
-            Action::SetExtraModifiers(keys) => {
+            KeymapAction::SetMark(set) => self.mark_set = *set,
+            KeymapAction::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
+            KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
+            KeymapAction::SetExtraModifiers(keys) => {
                 self.extra_modifiers.clear();
                 for key in keys {
                     self.extra_modifiers.insert(*key);
@@ -472,16 +472,16 @@ impl EventHandler {
     }
 }
 
-fn with_extra_modifiers(actions: &Vec<Action>, extra_modifiers: &Vec<Key>) -> Vec<Action> {
-    let mut result: Vec<Action> = vec![];
+fn with_extra_modifiers(actions: &Vec<KeymapAction>, extra_modifiers: &Vec<Key>) -> Vec<KeymapAction> {
+    let mut result: Vec<KeymapAction> = vec![];
     if extra_modifiers.len() > 0 {
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
-        result.push(Action::SetExtraModifiers(extra_modifiers.clone()));
+        result.push(KeymapAction::SetExtraModifiers(extra_modifiers.clone()));
     }
     result.extend(actions.clone());
     if extra_modifiers.len() > 0 {
         // Resurrect the modifier status
-        result.push(Action::SetExtraModifiers(vec![]));
+        result.push(KeymapAction::SetExtraModifiers(vec![]));
     }
     return result;
 }

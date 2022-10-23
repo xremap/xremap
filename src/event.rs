@@ -1,6 +1,6 @@
 use evdev::{Key, InputEvent, EventType};
 
-// Input and output of EventHandler
+// Input to EventHandler
 #[derive(Debug)]
 pub enum Event {
     KeyEvent(KeyEvent),

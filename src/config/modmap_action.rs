@@ -4,12 +4,12 @@ use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, DurationMilliSeconds};
 use std::time::Duration;
 
-use super::action::{Action, Actions};
+use super::keymap_action::{KeymapAction, Actions};
 
 // Values in `modmap.remap`
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub enum KeyAction {
+pub enum ModmapAction {
     #[serde(deserialize_with = "deserialize_key")]
     Key(Key),
     MultiPurposeKey(MultiPurposeKey),
@@ -31,12 +31,12 @@ pub struct MultiPurposeKey {
 #[derive(Clone, Debug, Deserialize)]
 pub struct PressReleaseKey {
     #[serde(deserialize_with = "deserialize_actions")]
-    pub press: Vec<Action>,
+    pub press: Vec<KeymapAction>,
     #[serde(deserialize_with = "deserialize_actions")]
-    pub release: Vec<Action>,
+    pub release: Vec<KeymapAction>,
 }
 
-pub fn deserialize_actions<'de, D>(deserializer: D) -> Result<Vec<Action>, D::Error>
+pub fn deserialize_actions<'de, D>(deserializer: D) -> Result<Vec<KeymapAction>, D::Error>
 where
     D: Deserializer<'de>,
 {
