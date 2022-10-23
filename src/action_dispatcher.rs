@@ -15,6 +15,13 @@ impl ActionDispatcher {
         }
     }
 
+    pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
+        if event.event_type() == EventType::KEY {
+            debug!("{}: {:?}", event.value(), Key::new(event.code()))
+        }
+        self.device.emit(&[event])
+    }
+
     pub fn on_action(&mut self, action: Action) -> anyhow::Result<()> {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
@@ -25,12 +32,5 @@ impl ActionDispatcher {
     fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
         let event = InputEvent::new_now(EventType::KEY, event.code(), event.value());
         self.send_event(event)
-    }
-
-    pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
-        if event.event_type() == EventType::KEY {
-            debug!("{}: {:?}", event.value(), Key::new(event.code()))
-        }
-        self.device.emit(&[event])
     }
 }

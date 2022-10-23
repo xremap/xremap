@@ -1,10 +1,12 @@
 use evdev::{Key, InputEvent, EventType};
 
-// Input to EventHandler
+// Input to EventHandler. This should only contain things that are easily testable.
 #[derive(Debug)]
 pub enum Event {
-    // InputEvent::Key sent from evdev
+    // InputEvent (EventType::KEY) sent from evdev
     KeyEvent(KeyEvent),
+    // Timer for nested override reached its timeout
+    OverrideTimeout,
 }
 
 #[derive(Debug)]

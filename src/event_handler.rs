@@ -76,12 +76,14 @@ impl EventHandler {
 
     pub fn on_event(&mut self, event: &Event, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
         match event {
-            Event::KeyEvent(key_event) => self.on_key_event(key_event, config)
-        }
+            Event::KeyEvent(key_event) => self.on_key_event(key_event, config),
+            Event::OverrideTimeout => self.timeout_override(),
+        }?;
+        Ok(self.actions.drain(..).collect())
     }
 
     // Handle EventType::KEY
-    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
+    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
@@ -114,10 +116,10 @@ impl EventHandler {
             }
             self.send_key(&key, value);
         }
-        Ok(self.actions.drain(..).collect())
+        Ok(())
     }
 
-    pub fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
+    fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(key) = self.override_timeout_key {
             self.send_key(&key, PRESS);
             self.send_key(&key, RELEASE);
