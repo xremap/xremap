@@ -6,6 +6,7 @@ use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::remap::Remap;
 use crate::Config;
+use crate::event::{Event, KeyEvent};
 use evdev::uinput::VirtualDevice;
 use evdev::{EventType, InputEvent, Key};
 use lazy_static::lazy_static;
@@ -72,8 +73,14 @@ impl EventHandler {
         }
     }
 
+    pub fn on_event(&mut self, event: &Event, config: &Config) -> Result<(), Box<dyn Error>> {
+        match event {
+            Event::KeyEvent(key_event) => self.on_key_event(key_event, config)
+        }
+    }
+
     // Handle EventType::KEY
-    pub fn on_event(&mut self, event: InputEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<(), Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);

@@ -6,7 +6,7 @@ use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
 use config::{config_watcher, load_config};
 use device::InputDevice;
-use evdev::EventType;
+use event::Event;
 use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
 use nix::sys::select::select;
@@ -21,6 +21,7 @@ use std::time::Duration;
 mod client;
 mod config;
 mod device;
+mod event;
 mod event_handler;
 
 #[derive(Parser, Debug)]
@@ -48,7 +49,7 @@ struct Opts {
         default_missing_value = "device",
         verbatim_doc_comment,
         hide_possible_values = true,
-        // Separating the help like this is necessary due to 
+        // Separating the help like this is necessary due to
         // https://github.com/clap-rs/clap/issues/3312
         help = "Targets to watch [possible values: device, config]"
     )]
@@ -73,7 +74,8 @@ enum WatchTargets {
     Config,
 }
 
-enum Event {
+// TODO: Unify this with Event
+enum ReloadEvent {
     ReloadConfig,
     ReloadDevices,
 }
@@ -132,11 +134,13 @@ fn main() -> anyhow::Result<()> {
             }
 
             for input_device in input_devices.values_mut() {
-                if readable_fds.contains(input_device.as_raw_fd())
-                    && !handle_input_events(input_device, &mut handler, &mut config)?
-                {
+                if !readable_fds.contains(input_device.as_raw_fd()) {
+                    continue;
+                }
+
+                if !handle_input_events(input_device, &mut handler, &mut config)? {
                     println!("Found a removed device. Reselecting devices.");
-                    break 'event_loop Event::ReloadDevices;
+                    break 'event_loop ReloadEvent::ReloadDevices;
                 }
             }
 
@@ -155,12 +159,12 @@ fn main() -> anyhow::Result<()> {
                         mouse,
                         &config_path,
                     )? {
-                        break 'event_loop Event::ReloadConfig;
+                        break 'event_loop ReloadEvent::ReloadConfig;
                     }
                 }
             }
         } {
-            Event::ReloadDevices => {
+            ReloadEvent::ReloadDevices => {
                 for input_device in input_devices.values_mut() {
                     input_device.ungrab();
                 }
@@ -169,7 +173,7 @@ fn main() -> anyhow::Result<()> {
                     Err(e) => bail!("Failed to prepare input devices: {}", e),
                 };
             }
-            Event::ReloadConfig => match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
+            ReloadEvent::ReloadConfig => match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
                 (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => continue,
                 _ => {
                     if let Ok(c) = load_config(&config_path) {
@@ -209,9 +213,9 @@ fn handle_input_events(
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
             for event in events {
-                if event.event_type() == EventType::KEY {
+                if let Some(event) = Event::new(event) {
                     handler
-                        .on_event(event, config)
+                        .on_event(&event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
                 } else {
                     handler.send_event(event)?;
