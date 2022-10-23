@@ -18,7 +18,6 @@ use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::process::{Command, Stdio};
-use std::thread;
 use std::time::{Duration, Instant};
 
 pub struct EventHandler {
@@ -74,6 +73,7 @@ impl EventHandler {
         }
     }
 
+    // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_event(&mut self, event: &Event, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
         match event {
             Event::KeyEvent(key_event) => self.on_key_event(key_event, config),
@@ -143,7 +143,11 @@ impl EventHandler {
     fn send_key(&mut self, key: &Key, value: i32) {
         //let event = InputEvent::new(EventType::KEY, key.code(), value);
         let event = KeyEvent::new(key.code(), value);
-        self.actions.push(Action::KeyEvent(event));
+        self.send_action(Action::KeyEvent(event));
+    }
+
+    fn send_action(&mut self, action: Action) {
+        self.actions.push(action);
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
@@ -351,7 +355,7 @@ impl EventHandler {
         self.send_key(&key_press.key, PRESS);
         self.send_key(&key_press.key, RELEASE);
 
-        thread::sleep(self.keypress_delay);
+        self.send_action(Action::Delay(self.keypress_delay));
 
         // Resurrect the original modifiers
         self.send_keys(&missing_modifiers, RELEASE);

@@ -1,3 +1,5 @@
+use std::thread;
+
 use evdev::{InputEvent, EventType, Key, uinput::VirtualDevice};
 use log::debug;
 
@@ -15,6 +17,7 @@ impl ActionDispatcher {
         }
     }
 
+    // TODO: This should be merged to on_action
     pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
@@ -22,9 +25,11 @@ impl ActionDispatcher {
         self.device.emit(&[event])
     }
 
+    // Execute Actions created by EventHandler.
     pub fn on_action(&mut self, action: Action) -> anyhow::Result<()> {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
+            Action::Delay(duration) => thread::sleep(duration),
         }
         Ok(())
     }
