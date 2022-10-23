@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
+use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
@@ -18,6 +19,8 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+mod action;
+mod action_dispatcher;
 mod client;
 mod config;
 mod device;
@@ -117,11 +120,12 @@ fn main() -> anyhow::Result<()> {
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
+    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
     let output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type)) {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),
     };
-    let mut handler = EventHandler::new(output_device, timer, &config.default_mode, delay);
+    let mut dispatcher = ActionDispatcher::new(output_device);
 
     // Main loop
     loop {
@@ -138,7 +142,7 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
 
-                if !handle_input_events(input_device, &mut handler, &mut config)? {
+                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &mut config)? {
                     println!("Found a removed device. Reselecting devices.");
                     break 'event_loop ReloadEvent::ReloadDevices;
                 }
@@ -206,6 +210,7 @@ fn select_readable<'a>(
 fn handle_input_events(
     input_device: &mut InputDevice,
     handler: &mut EventHandler,
+    dispatcher: &mut ActionDispatcher,
     config: &mut Config,
 ) -> anyhow::Result<bool> {
     match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
@@ -214,11 +219,14 @@ fn handle_input_events(
         Ok(events) => {
             for event in events {
                 if let Some(event) = Event::new(event) {
-                    handler
+                    let actions = handler
                         .on_event(&event, config)
                         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
+                    for action in actions {
+                        dispatcher.on_action(action)?;
+                    }
                 } else {
-                    handler.send_event(event)?;
+                    dispatcher.send_event(event)?;
                 }
             }
             Ok(true)

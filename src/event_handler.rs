@@ -1,3 +1,4 @@
+use crate::action::Action;
 use crate::client::{build_client, WMClient};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::application::Application;
@@ -7,8 +8,7 @@ use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::remap::Remap;
 use crate::Config;
 use crate::event::{Event, KeyEvent};
-use evdev::uinput::VirtualDevice;
-use evdev::{EventType, InputEvent, Key};
+use evdev::Key;
 use lazy_static::lazy_static;
 use log::{debug, error};
 use nix::sys::signal;
@@ -22,8 +22,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 pub struct EventHandler {
-    // Device to emit events
-    device: VirtualDevice,
     // Currently pressed modifier keys
     modifiers: HashSet<Key>,
     // Modifiers that are currently pressed but not in the source KeyPress
@@ -49,13 +47,15 @@ pub struct EventHandler {
     mark_set: bool,
     // { escape_next_key: true }
     escape_next_key: bool,
+    // keypress_delay_ms
     keypress_delay: Duration,
+    // Buffered actions to be dispatched. TODO: Just return actions from each function instead of using this.
+    actions: Vec<Action>,
 }
 
 impl EventHandler {
-    pub fn new(device: VirtualDevice, timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
+    pub fn new(timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
         EventHandler {
-            device,
             modifiers: HashSet::new(),
             extra_modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
@@ -70,17 +70,18 @@ impl EventHandler {
             mark_set: false,
             escape_next_key: false,
             keypress_delay,
+            actions: vec![],
         }
     }
 
-    pub fn on_event(&mut self, event: &Event, config: &Config) -> Result<(), Box<dyn Error>> {
+    pub fn on_event(&mut self, event: &Event, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
         match event {
             Event::KeyEvent(key_event) => self.on_key_event(key_event, config)
         }
     }
 
     // Handle EventType::KEY
-    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
@@ -111,22 +112,15 @@ impl EventHandler {
                     continue;
                 }
             }
-            self.send_key(&key, value)?;
+            self.send_key(&key, value);
         }
-        Ok(())
-    }
-
-    pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
-        if event.event_type() == EventType::KEY {
-            debug!("{}: {:?}", event.value(), Key::new(event.code()))
-        }
-        self.device.emit(&[event])
+        Ok(self.actions.drain(..).collect())
     }
 
     pub fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(key) = self.override_timeout_key {
-            self.send_key(&key, PRESS)?;
-            self.send_key(&key, RELEASE)?;
+            self.send_key(&key, PRESS);
+            self.send_key(&key, RELEASE);
         }
         self.remove_override()
     }
@@ -138,16 +132,16 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_keys(&mut self, keys: &Vec<Key>, value: i32) -> std::io::Result<()> {
+    fn send_keys(&mut self, keys: &Vec<Key>, value: i32) {
         for key in keys {
-            self.send_key(key, value)?;
+            self.send_key(key, value);
         }
-        Ok(())
     }
 
-    fn send_key(&mut self, key: &Key, value: i32) -> std::io::Result<()> {
-        let event = InputEvent::new(EventType::KEY, key.code(), value);
-        self.send_event(event)
+    fn send_key(&mut self, key: &Key, value: i32) {
+        //let event = InputEvent::new(EventType::KEY, key.code(), value);
+        let event = KeyEvent::new(key.code(), value);
+        self.actions.push(Action::KeyEvent(event));
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
@@ -308,7 +302,7 @@ impl EventHandler {
 
     fn dispatch_action(&mut self, action: &KeymapAction, key: &Key) -> Result<(), Box<dyn Error>> {
         match action {
-            KeymapAction::KeyPress(key_press) => self.send_key_press(key_press)?,
+            KeymapAction::KeyPress(key_press) => self.send_key_press(key_press),
             KeymapAction::Remap(Remap {
                 remap,
                 timeout,
@@ -328,7 +322,7 @@ impl EventHandler {
                 println!("mode: {}", mode);
             }
             KeymapAction::SetMark(set) => self.mark_set = *set,
-            KeymapAction::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press))?,
+            KeymapAction::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press)),
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             KeymapAction::SetExtraModifiers(keys) => {
                 self.extra_modifiers.clear();
@@ -340,7 +334,7 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_press(&mut self, key_press: &KeyPress) -> Result<(), Box<dyn Error>> {
+    fn send_key_press(&mut self, key_press: &KeyPress) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because logical modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
@@ -348,20 +342,18 @@ impl EventHandler {
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(&key));
 
         // Emulate the modifiers of KeyPress
-        self.send_keys(&extra_modifiers, RELEASE)?;
-        self.send_keys(&missing_modifiers, PRESS)?;
+        self.send_keys(&extra_modifiers, RELEASE);
+        self.send_keys(&missing_modifiers, PRESS);
 
         // Press the main key
-        self.send_key(&key_press.key, PRESS)?;
-        self.send_key(&key_press.key, RELEASE)?;
+        self.send_key(&key_press.key, PRESS);
+        self.send_key(&key_press.key, RELEASE);
 
         thread::sleep(self.keypress_delay);
 
         // Resurrect the original modifiers
-        self.send_keys(&missing_modifiers, RELEASE)?;
-        self.send_keys(&extra_modifiers, PRESS)?;
-
-        Ok(())
+        self.send_keys(&missing_modifiers, RELEASE);
+        self.send_keys(&extra_modifiers, PRESS);
     }
 
     fn with_mark(&self, key_press: &KeyPress) -> KeyPress {

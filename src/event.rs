@@ -3,6 +3,7 @@ use evdev::{Key, InputEvent, EventType};
 // Input to EventHandler
 #[derive(Debug)]
 pub enum Event {
+    // InputEvent::Key sent from evdev
     KeyEvent(KeyEvent),
 }
 
@@ -23,11 +24,7 @@ impl Event {
     // Convert evdev's raw InputEvent to xremap's internal Event
     pub fn new(event: InputEvent) -> Option<Event> {
         let event = match event.event_type() {
-            EventType::KEY => {
-                let key = Key::new(event.code());
-                let value = KeyValue::new(event.value())?;
-                Event::KeyEvent(KeyEvent { key, value })
-            },
+            EventType::KEY => Event::KeyEvent(KeyEvent::new(event.code(), event.value())),
             _ => return None,
         };
         Some(event)
@@ -35,6 +32,12 @@ impl Event {
 }
 
 impl KeyEvent {
+    pub fn new(code: u16, value: i32) -> KeyEvent {
+        let key = Key::new(code);
+        let value = KeyValue::new(value).unwrap();
+        KeyEvent { key, value }
+    }
+
     pub fn code(&self) -> u16 {
         self.key.code()
     }
