@@ -321,8 +321,6 @@ Some applications have trouble understanding synthesized key events, especially 
 Wayland. `keypress_delay_ms` can be used to workaround the issue.
 See [#179](https://github.com/k0kubun/xremap/issues/179) for the detail.
 
-key overrides
-
 ## License
 
 `xremap` is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
