@@ -25,49 +25,6 @@ modmap:
       KatakanaHiragana: Alt_L
 
 keymap:
-  - name: Global
-    remap:
-      # Underscore without Shift
-      RO: Shift-RO
-
-      # SKK hack for Chrome
-      C-j: C-m
-
-  - name: Default (Nocturn, etc.)
-    application:
-      not: [Google-chrome, Slack, Gnome-terminal, jetbrains-idea]
-    remap:
-      # Emacs basic
-      C-b: left
-      C-f: right
-      C-p: up
-      C-n: down
-
-      # Emacs word
-      Super-b: C-left
-      Super-f: C-right
-
-      # Emacs lines
-      C-a: home # TODO: Alt-C-a
-      C-e: end # TODO: Alt-C-e
-      C-k: [Shift-end, backspace] # TODO: Alt-C-k
-
-      # Alt -> Ctrl
-      Super-a: C-a
-      Super-z: C-z
-      Super-x: C-x
-      Super-c: C-c
-      Super-v: C-v
-      Super-w: C-w
-      Super-t: C-t
-      Super-l: C-l
-
-      # actually these are vim insert mode bindings, but compatible with shell
-      C-w: [C-Shift-left, delete]
-
-      C-d: delete
-      Super-d: C-delete
-
   - name: IDEA (modified from Default)
     application:
       only: jetbrains-idea
@@ -112,57 +69,12 @@ keymap:
       # workaround
       C-c: Esc
 
-  - name: Chrome, Slack (modified from Default)
-    application:
-      only: [Google-chrome, Slack]
-    remap:
-      # Emacs basic
-      C-b: left
-      C-f: right
-      C-p: up
-      C-n: down
-
-      # Emacs word
-      Super-b: C-left
-      Super-f: C-right
-
-      # Emacs lines
-      C-a: home
-      C-e: end
-      C-k: [Shift-end, backspace]
-
-      # Alt -> Ctrl
-      Super-a: C-a
-      Super-z: C-z
-      Super-x: C-x
-      Super-c: C-c
-      Super-v: C-v
-      Super-w: C-w
-      Super-t: C-t
-      Super-l: C-l
-
-      # actually these are vim insert mode bindings, but compatible with shell
-      C-w: [C-Shift-left, delete]
-
-      # Tabs
-      Super-o: C-Shift-tab
-      Super-p: C-tab
-
-      C-d: delete
-      Super-d: C-delete
-
-  - name: Tab changes + Alt-Enter simulation
-    application:
-      not: [Gnome-terminal, Nocturn]
-    remap:
-      Super-o: C-Shift-tab
-      Super-p: C-tab
-      Super-Enter: M-Enter
-
   - name: Google Search
     application:
       only: Google-chrome
     remap:
+      Super-o: C-Shift-tab
+      Super-p: C-tab
       Super-s: C-f
 
   - name: Terminal
@@ -198,6 +110,8 @@ keymap:
     application:
       only: Slack
     remap:
+      Super-o: C-Shift-tab
+      Super-p: C-tab
       Super-n: C-k
       Super-k: M-up
       Super-j: M-down
@@ -213,3 +127,49 @@ keymap:
       Super-7: C-7
       Super-8: C-8
       Super-9: C-9
+
+  - name: Default -- some of these are overridden by the above definitions
+    application:
+      not: [Google-chrome, Slack, Gnome-terminal, jetbrains-idea]
+    remap:
+      # Emacs basic
+      C-b: left
+      C-f: right
+      C-p: up
+      C-n: down
+
+      # Emacs word
+      Super-b: C-left
+      Super-f: C-right
+
+      # Emacs lines
+      C-a: home # TODO: Alt-C-a
+      C-e: end # TODO: Alt-C-e
+      C-k: [Shift-end, backspace] # TODO: Alt-C-k
+
+      # Alt -> Ctrl
+      Super-a: C-a
+      Super-z: C-z
+      Super-x: C-x
+      Super-c: C-c
+      Super-v: C-v
+      Super-w: C-w
+      Super-t: C-t
+      Super-l: C-l
+
+      # Tab changes + Alt-Enter simulation
+      Super-o: C-Shift-tab
+      Super-p: C-tab
+      Super-Enter: M-Enter
+
+      # actually these are vim insert mode bindings, but compatible with shell
+      C-w: [C-Shift-left, delete]
+
+      C-d: delete
+      Super-d: C-delete
+
+      # Underscore without Shift
+      RO: Shift-RO
+
+      # SKK hack for Chrome
+      C-j: C-m

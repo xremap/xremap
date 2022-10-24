@@ -280,6 +280,26 @@ swaymsg -t get_tree
 
 Locate `app_id` in the output.
 
+#### application-specific key overrides
+
+Sometimes you want to define a generic key map that is available in all applications, but give specific keys in that map their own definition in specific applications. You can do this by putting the generic map at the bottom of the config, after any specific overrides, as follows.
+
+```yml
+# Emacs-style word-forward and word-back
+keymap:
+  - name: override to make libreoffice-writer go to end of word but before final space like emacs
+    application:
+      only: libreoffice-writter
+    remap:
+      Alt-f: [right, C-right, left]
+  - name: generic for all apps
+    remap:
+      Alt-f: C-right
+      Alt-b: C-left
+```
+
+Note how Alt-f and Alt-b work in all apps, but the definition of Alt-f is slightly different in LibreOffice Writer. When that app is active, the first definition overrides the second definition; but for any other app, only the second definition is found. This is because xremap uses the first matching definition that it finds.
+
 ### virtual\_modifiers
 
 You can declare keys that should act like a modifier.
