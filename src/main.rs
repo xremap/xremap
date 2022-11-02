@@ -27,6 +27,8 @@ mod config;
 mod device;
 mod event;
 mod event_handler;
+#[cfg(test)]
+mod tests;
 
 #[derive(Parser, Debug)]
 #[clap(version, global_setting(AppSettings::DeriveDisplayOrder))]

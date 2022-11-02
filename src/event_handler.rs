@@ -136,7 +136,7 @@ impl EventHandler {
 
     fn send_key(&mut self, key: &Key, value: i32) {
         //let event = InputEvent::new(EventType::KEY, key.code(), value);
-        let event = KeyEvent::new(key.code(), value);
+        let event = KeyEvent::new_with(key.code(), value);
         self.send_action(Action::KeyEvent(event));
     }
 

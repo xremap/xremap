@@ -26,7 +26,7 @@ impl Event {
     // Convert evdev's raw InputEvent to xremap's internal Event
     pub fn new(event: InputEvent) -> Option<Event> {
         let event = match event.event_type() {
-            EventType::KEY => Event::KeyEvent(KeyEvent::new(event.code(), event.value())),
+            EventType::KEY => Event::KeyEvent(KeyEvent::new_with(event.code(), event.value())),
             _ => return None,
         };
         Some(event)
@@ -34,10 +34,16 @@ impl Event {
 }
 
 impl KeyEvent {
-    pub fn new(code: u16, value: i32) -> KeyEvent {
+    // Constructor with newer interface
+    pub fn new(key: Key, value: KeyValue) -> KeyEvent {
+        KeyEvent { key, value }
+    }
+
+    // Constructor with legacy interface
+    pub fn new_with(code: u16, value: i32) -> KeyEvent {
         let key = Key::new(code);
         let value = KeyValue::new(value).unwrap();
-        KeyEvent { key, value }
+        KeyEvent::new(key, value)
     }
 
     pub fn code(&self) -> u16 {
