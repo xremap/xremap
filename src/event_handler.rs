@@ -311,6 +311,7 @@ impl EventHandler {
                 self.override_remap = Some(build_override_table(remap));
                 if let Some(timeout) = timeout {
                     let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
+                    // TODO: Consider handling the timer in ActionDispatcher
                     self.override_timer.unset()?;
                     self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
                     self.override_timeout_key = timeout_key.or_else(|| Some(*key));

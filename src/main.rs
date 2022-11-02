@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
+use action::Action;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
@@ -222,7 +223,7 @@ fn handle_input_events(
                 if let Some(event) = Event::new(event) {
                     handle_event(handler, dispatcher, config, event)?;
                 } else {
-                    dispatcher.send_event(event)?;
+                    dispatcher.on_action(Action::InputEvent(event))?;
                 }
             }
             Ok(true)

@@ -24,18 +24,11 @@ impl ActionDispatcher {
         }
     }
 
-    // TODO: This should be merged to on_action
-    pub fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
-        if event.event_type() == EventType::KEY {
-            debug!("{}: {:?}", event.value(), Key::new(event.code()))
-        }
-        self.device.emit(&[event])
-    }
-
-    // Execute Actions created by EventHandler.
+    // Execute Actions created by EventHandler. This should be the only public method of ActionDispatcher.
     pub fn on_action(&mut self, action: Action) -> anyhow::Result<()> {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
+            Action::InputEvent(event) => self.send_event(event)?,
             Action::Command(command) => self.run_command(command),
             Action::Delay(duration) => thread::sleep(duration),
         }
@@ -45,6 +38,13 @@ impl ActionDispatcher {
     fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
         let event = InputEvent::new_now(EventType::KEY, event.code(), event.value());
         self.send_event(event)
+    }
+
+    fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
+        if event.event_type() == EventType::KEY {
+            debug!("{}: {:?}", event.value(), Key::new(event.code()))
+        }
+        self.device.emit(&[event])
     }
 
     fn run_command(&mut self, command: Vec<String>) {
