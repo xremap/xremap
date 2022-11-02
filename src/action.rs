@@ -6,6 +6,8 @@ use crate::event::KeyEvent;
 pub enum Action {
     // InputEvent (EventType::KEY) sent to evdev
     KeyEvent(KeyEvent),
+    // Run a command
+    Command(Vec<String>),
     // keypress_delay_ms
     Delay(Duration),
 }

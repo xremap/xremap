@@ -10,14 +10,11 @@ use crate::Config;
 use crate::event::{Event, KeyEvent};
 use evdev::Key;
 use lazy_static::lazy_static;
-use log::{debug, error};
-use nix::sys::signal;
-use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
+use log::debug;
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 pub struct EventHandler {
@@ -38,8 +35,6 @@ pub struct EventHandler {
     override_timeout_key: Option<Key>,
     // Trigger a timeout of nested remaps through select(2)
     override_timer: TimerFd,
-    // Whether we've called a sigaction for spawing commands or not
-    sigaction_set: bool,
     // { set_mode: String }
     mode: String,
     // { set_mark: true }
@@ -64,7 +59,6 @@ impl EventHandler {
             override_remap: None,
             override_timeout_key: None,
             override_timer: timer,
-            sigaction_set: false,
             mode: mode.to_string(),
             mark_set: false,
             escape_next_key: false,
@@ -376,26 +370,7 @@ impl EventHandler {
     }
 
     fn run_command(&mut self, command: Vec<String>) {
-        if !self.sigaction_set {
-            // Avoid defunct processes
-            let sig_action = SigAction::new(SigHandler::SigDfl, SaFlags::SA_NOCLDWAIT, SigSet::empty());
-            unsafe {
-                sigaction(signal::SIGCHLD, &sig_action).expect("Failed to register SIGCHLD handler");
-            }
-            self.sigaction_set = true;
-        }
-
-        debug!("Running command: {:?}", command);
-        match Command::new(&command[0])
-            .args(&command[1..])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-        {
-            Ok(child) => debug!("Process spawned: {:?}, pid {}", command, child.id()),
-            Err(e) => error!("Error running command: {:?}", e),
-        }
+        self.send_action(Action::Command(command));
     }
 
     // Return (extra_modifiers, missing_modifiers)
