@@ -1,16 +1,16 @@
 use evdev::Key;
 use serde::Deserialize;
 
-use crate::config::action::Action;
 use crate::config::key_press::KeyPress;
+use crate::config::keymap_action::KeymapAction;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use super::action::Actions;
+use super::keymap_action::Actions;
 
 #[derive(Clone, Debug)]
 pub struct Remap {
-    pub remap: HashMap<KeyPress, Vec<Action>>,
+    pub remap: HashMap<KeyPress, Vec<KeymapAction>>,
     pub timeout: Option<Duration>,
     pub timeout_key: Option<Key>,
 }

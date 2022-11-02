@@ -1,7 +1,7 @@
-use crate::config::action::{Action, Actions};
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::Application;
 use crate::config::key_press::KeyPress;
+use crate::config::keymap_action::{Actions, KeymapAction};
 use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -15,13 +15,13 @@ pub struct Keymap {
     #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
-    pub remap: HashMap<KeyPress, Vec<Action>>,
+    pub remap: HashMap<KeyPress, Vec<KeymapAction>>,
     pub application: Option<Application>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
 }
 
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<Action>>, D::Error>
+fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<KeymapAction>>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -35,7 +35,7 @@ where
 // Internals for efficient keymap lookup
 #[derive(Clone, Debug)]
 pub struct KeymapEntry {
-    pub actions: Vec<Action>,
+    pub actions: Vec<KeymapAction>,
     pub modifiers: Vec<Modifier>,
     pub application: Option<Application>,
     pub mode: Option<Vec<String>>,
@@ -70,12 +70,12 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
 // Subset of KeymapEntry for override_remap
 #[derive(Clone)]
 pub struct OverrideEntry {
-    pub actions: Vec<Action>,
+    pub actions: Vec<KeymapAction>,
     pub modifiers: Vec<Modifier>,
 }
 
 // This is executed on runtime unlike build_keymap_table, but hopefully not called so often.
-pub fn build_override_table(remap: &HashMap<KeyPress, Vec<Action>>) -> HashMap<Key, Vec<OverrideEntry>> {
+pub fn build_override_table(remap: &HashMap<KeyPress, Vec<KeymapAction>>) -> HashMap<Key, Vec<OverrideEntry>> {
     let mut table: HashMap<Key, Vec<OverrideEntry>> = HashMap::new();
     for (key_press, actions) in remap.iter() {
         let mut entries: Vec<OverrideEntry> = match table.get(&key_press.key) {

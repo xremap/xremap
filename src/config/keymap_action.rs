@@ -14,7 +14,7 @@ use super::remap::RemapActions;
 // Values in `keymap.remap`
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub enum Action {
+pub enum KeymapAction {
     // Config interface
     KeyPress(KeyPress),
     #[serde(deserialize_with = "deserialize_remap")]
@@ -123,12 +123,12 @@ where
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Actions {
-    Action(Action),
-    Actions(Vec<Action>),
+    Action(KeymapAction),
+    Actions(Vec<KeymapAction>),
 }
 
 impl Actions {
-    pub fn into_vec(self) -> Vec<Action> {
+    pub fn into_vec(self) -> Vec<KeymapAction> {
         match self {
             Actions::Action(action) => vec![action],
             Actions::Actions(actions) => actions,

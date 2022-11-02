@@ -1,10 +1,10 @@
-pub mod action;
 pub mod application;
 mod key;
-pub mod key_action;
 pub mod key_press;
 pub mod keymap;
+pub mod keymap_action;
 mod modmap;
+pub mod modmap_action;
 
 pub mod remap;
 #[cfg(test)]
