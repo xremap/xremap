@@ -18,8 +18,14 @@ fn test_basic_modmap() {
           - remap:
               a: b
         "},
-        vec![Event::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press))],
-        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press))],
+        vec![
+            Event::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+        ],
     )
 }
 
