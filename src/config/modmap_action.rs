@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, DurationMilliSeconds};
 use std::time::Duration;
 
-use super::keymap_action::{KeymapAction, Actions};
+use super::keymap_action::{Actions, KeymapAction};
 
 // Values in `modmap.remap`
 #[derive(Clone, Debug, Deserialize)]

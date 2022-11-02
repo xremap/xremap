@@ -1,7 +1,7 @@
-use crate::config::keymap_action::{KeymapAction, Actions};
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::Application;
 use crate::config::key_press::KeyPress;
+use crate::config::keymap_action::{Actions, KeymapAction};
 use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;

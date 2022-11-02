@@ -1,13 +1,13 @@
 use crate::action::Action;
 use crate::client::{build_client, WMClient};
-use crate::config::keymap_action::KeymapAction;
 use crate::config::application::Application;
-use crate::config::modmap_action::{ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
+use crate::config::keymap_action::KeymapAction;
+use crate::config::modmap_action::{ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
-use crate::Config;
 use crate::event::{Event, KeyEvent};
+use crate::Config;
 use evdev::Key;
 use lazy_static::lazy_static;
 use log::debug;

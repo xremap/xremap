@@ -1,23 +1,25 @@
 use evdev::Key;
 use indoc::indoc;
-use nix::sys::timerfd::{TimerFd, ClockId, TimerFlags};
+use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::time::Duration;
 
-use crate::{event_handler::EventHandler, event::{Event, KeyEvent, KeyValue}, action::Action, config::Config};
+use crate::{
+    action::Action,
+    config::Config,
+    event::{Event, KeyEvent, KeyValue},
+    event_handler::EventHandler,
+};
 
 #[test]
 fn test_basic_modmap() {
-    assert_actions(indoc! {"
+    assert_actions(
+        indoc! {"
         modmap:
           - remap:
               a: b
         "},
-        vec![
-            Event::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-        ],
-        vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-        ],
+        vec![Event::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press))],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press))],
     )
 }
 

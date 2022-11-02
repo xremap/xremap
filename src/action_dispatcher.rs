@@ -1,10 +1,10 @@
 use std::thread;
 
-use evdev::{InputEvent, EventType, Key, uinput::VirtualDevice};
+use evdev::{uinput::VirtualDevice, EventType, InputEvent, Key};
 use log::debug;
 use log::error;
-use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
 use nix::sys::signal;
+use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
 use std::process::{Command, Stdio};
 
 use crate::{action::Action, event::KeyEvent};

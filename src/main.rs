@@ -180,15 +180,17 @@ fn main() -> anyhow::Result<()> {
                     Err(e) => bail!("Failed to prepare input devices: {}", e),
                 };
             }
-            ReloadEvent::ReloadConfig => match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
-                (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => continue,
-                _ => {
-                    if let Ok(c) = load_config(&config_path) {
-                        println!("Reloading Config");
-                        config = c;
+            ReloadEvent::ReloadConfig => {
+                match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
+                    (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => continue,
+                    _ => {
+                        if let Ok(c) = load_config(&config_path) {
+                            println!("Reloading Config");
+                            config = c;
+                        }
                     }
                 }
-            },
+            }
         }
     }
 }
@@ -240,7 +242,8 @@ fn handle_event(
     config: &mut Config,
     event: Event,
 ) -> anyhow::Result<()> {
-    let actions = handler.on_event(&event, config)
+    let actions = handler
+        .on_event(&event, config)
         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
     for action in actions {
         dispatcher.on_action(action)?;

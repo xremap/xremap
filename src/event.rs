@@ -1,4 +1,4 @@
-use evdev::{Key, InputEvent, EventType};
+use evdev::{EventType, InputEvent, Key};
 
 // Input to EventHandler. This should only contain things that are easily testable.
 #[derive(Debug)]

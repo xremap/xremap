@@ -1,8 +1,8 @@
 use evdev::Key;
 use serde::Deserialize;
 
-use crate::config::keymap_action::KeymapAction;
 use crate::config::key_press::KeyPress;
+use crate::config::keymap_action::KeymapAction;
 use std::collections::HashMap;
 use std::time::Duration;
 
