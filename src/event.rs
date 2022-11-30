@@ -5,6 +5,8 @@ use evdev::{EventType, InputEvent, Key};
 pub enum Event {
     // InputEvent (EventType::KEY) sent from evdev
     KeyEvent(KeyEvent),
+    // InputEvent (EventType::Relative) sent from evdev
+    RelativeEvent(RelativeEvent),
     // Timer for nested override reached its timeout
     OverrideTimeout,
 }
@@ -16,17 +18,23 @@ pub struct KeyEvent {
 }
 
 #[derive(Debug)]
+pub struct RelativeEvent {
+    pub code: u16,
+    pub value: i32,
+}
+
+#[derive(Debug)]
 pub enum KeyValue {
     Press,
     Release,
     Repeat,
 }
-
 impl Event {
     // Convert evdev's raw InputEvent to xremap's internal Event
     pub fn new(event: InputEvent) -> Option<Event> {
         let event = match event.event_type() {
             EventType::KEY => Event::KeyEvent(KeyEvent::new_with(event.code(), event.value())),
+            EventType::RELATIVE => Event::RelativeEvent(RelativeEvent::new_with(event.code(), event.value())),
             _ => return None,
         };
         Some(event)
@@ -52,6 +60,13 @@ impl KeyEvent {
 
     pub fn value(&self) -> i32 {
         self.value.value()
+    }
+}
+
+//constructor for relative events.
+impl RelativeEvent {
+    pub fn new_with(code: u16, value: i32) -> RelativeEvent {
+        RelativeEvent { code, value }
     }
 }
 

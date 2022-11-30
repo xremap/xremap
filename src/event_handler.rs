@@ -6,7 +6,7 @@ use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_action::{ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
-use crate::event::{Event, KeyEvent};
+use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::Config;
 use evdev::Key;
 use lazy_static::lazy_static;
@@ -75,14 +75,18 @@ impl EventHandler {
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_event(&mut self, event: &Event, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
         match event {
-            Event::KeyEvent(key_event) => self.on_key_event(key_event, config),
-            Event::OverrideTimeout => self.timeout_override(),
-        }?;
+            Event::KeyEvent(key_event) => {
+                self.on_key_event(key_event, config)?;
+                ()
+            }
+            Event::RelativeEvent(relative_event) => self.on_relative_event(relative_event, config)?,
+            Event::OverrideTimeout => self.timeout_override()?,
+        };
         Ok(self.actions.drain(..).collect())
     }
 
     // Handle EventType::KEY
-    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
@@ -98,6 +102,7 @@ impl EventHandler {
             key_values = self.flush_timeout_keys(key_values);
         }
 
+        let mut send_original_relative_event = false;
         // Apply keymap
         for (key, value) in key_values.into_iter() {
             if config.virtual_modifiers.contains(&key) {
@@ -113,8 +118,96 @@ impl EventHandler {
                     continue;
                 }
             }
+            //checking if there's a "fake" key version of a relative event, (scancodes equal to and over 59974 are only "fake" custom events)
+            //and also if it's the same "key" and value as the one that came in.
+            if key.code() >= 59974 && (key.code(), value) == (event.code(), event.value()) {
+                //if it is, setting send_original_relative_event to true to later tell on_relative_event to send the original event.
+                send_original_relative_event = true;
+                continue;
+            }
             self.send_key(&key, value);
         }
+
+        //Using the Ok() to send a boolean to on_relative_event, which will be used to decide whether to send the original relative event.
+        //(True = send the original relative event, false = don't send it.)
+        Ok(send_original_relative_event)
+    }
+
+    //Handle EventType::RELATIVE
+    fn on_relative_event(&mut self, event: &RelativeEvent, config: &Config) -> Result<(), Box<dyn Error>> {
+        //Because a "full" RELATIVE event is only one event,
+        //it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
+        //The solution used here is to send two events for each relative event :
+        //one for the press "event" and one for the "unpress" event.
+        //This const is a value used to offset RELATIVE events' code
+        //so that they correspond to the custom equivalents created in config::key::parse_key
+        const CUSTOMEVENT_OFFSETTER: u16 = 59974;
+
+        //These consts are used because 'RELEASE'/'PRESS' are better than '0'/'1' at indicating a button release/press.
+        const RELEASE: i32 = 0;
+        const PRESS: i32 = 1;
+
+        //All relative events (except maybe those i haven't found information about (REL_DIAL, REL_MISC and REL_RESERVED))
+        //can have either a positive value or a negative value.
+        //A negative value is associated with a different action than the positive value.
+        //Specifically, negative values are associated with the opposite of the action that would emit a positive value.
+        //For example, a positive value for a scroll event (REL_WHEEL) comes from an upscroll, while a negative value comes from a downscroll.
+        let key = match event.value {
+            //Positive and negative values can be really high because the events are relative,
+            //so their values are variable, meaning we have to match with all positive/negative values.
+            //Not sure if there is any relative event with a fixed value.
+            1..=i32::MAX => (event.code * 2) + CUSTOMEVENT_OFFSETTER,
+            //While some events may appear to have a fixed value,
+            //events like scrolling will have higher values with more "agressive" scrolling.
+
+            // *2 to create a "gap" between events (since multiplying by two means that all resulting values will be even, the odd numbers between will be missing),
+            // +1 if the event has a negative value to "fill" the gap (since adding one shifts the parity from even to odd),
+            //and adding 59974 so that the total as a keycode corresponds to one of the "custom" scancodes that are created in config::key::parse_key
+            i32::MIN..=-1 => (event.code * 2) + 1 + CUSTOMEVENT_OFFSETTER,
+
+            0 => {
+                println!("This event has a value of zero : {:?}", event);
+                //A value of zero would be unexpected for a relative event,
+                //since changing something by zero is kinda useless.
+                //Just in case it can actually happen (and also because match arms need the same output type),
+                //we'll just act like the value of the event was a positive.
+                (event.code * 2) + 59974
+            }
+        };
+
+        //Sending a "fake" KEY event press to on_key_event.
+        match self.on_key_event(&KeyEvent::new_with(key, PRESS), config)? {
+            //the boolean value is from a variable at the end of on_key_event from event_handler,
+            //used to indicate whether the event got through unchanged.
+            true => {
+                //Sending the original RELATIVE event if the "press" version of the "fake" KEY event got through on_key_event unchanged.
+                let action = RelativeEvent::new_with(event.code, event.value);
+                if event.code <= 2 {
+                    //If it's a mouse movement event (event.code <= 2),
+                    //it is sent as a MouseMouvementEvent instead of a RelativeEvent.
+
+                    //Mouse movement events are sent all at once, which requires seperating them from the rest.
+
+                    //Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
+                    //which the OS handles differently from two unseparated mouse movement events.
+                    //For example, a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
+                    //will move the mouse cursor by a different amount than a REL_X followed by a REL_Y followed by a SYNCHRONIZATION.
+
+                    //¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
+                    //²Mouse movement along the X (horizontal) axis.
+                    //³Mouse movement along the Y (vertical) axis.
+                    self.send_action(Action::MouseMovementEvent(action));
+                } else {
+                    //Otherwise, the event is directly sent as a relative event, to be dispatched like other events.
+                    self.send_action(Action::RelativeEvent(action));
+                }
+            }
+            false => {}
+        }
+
+        //Sending the "unpressed" version of the "fake" KEY event.
+        self.on_key_event(&KeyEvent::new_with(key, RELEASE), config)?;
+
         Ok(())
     }
 

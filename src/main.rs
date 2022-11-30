@@ -136,7 +136,7 @@ fn main() -> anyhow::Result<()> {
         match 'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
             if readable_fds.contains(timer_fd) {
-                if let Err(error) = handle_event(&mut handler, &mut dispatcher, &mut config, Event::OverrideTimeout) {
+                if let Err(error) = handle_event(&mut handler, &mut config, Event::OverrideTimeout) {
                     println!("Error on remap timeout: {error}")
                 }
             }
@@ -224,32 +224,33 @@ fn handle_input_events(
         Err((Some(ENODEV), _)) => Ok(false),
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
+            //A vector used to collect all actions
+            let mut action_list: Vec<Action> = Vec::new();
             for event in events {
                 if let Some(event) = Event::new(event) {
-                    handle_event(handler, dispatcher, config, event)?;
+                    //Running the event through modmap and keymap
+                    let handled_events = handle_event(handler, config, event)?;
+                    //and appending the resulting vector of actions to action_list
+                    action_list.extend(handled_events);
                 } else {
-                    dispatcher.on_action(Action::InputEvent(event))?;
+                    action_list.push(Action::InputEvent(event));
                 }
             }
+            //Only calling on_action once per call of fetch_events,
+            //Primarily to be able to send all mouse movements events at once, without synchronization events in between.
+            dispatcher.on_action(action_list)?;
             Ok(true)
         }
     }
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
-fn handle_event(
-    handler: &mut EventHandler,
-    dispatcher: &mut ActionDispatcher,
-    config: &mut Config,
-    event: Event,
-) -> anyhow::Result<()> {
+fn handle_event(handler: &mut EventHandler, config: &mut Config, event: Event) -> anyhow::Result<Vec<Action>> {
     let actions = handler
         .on_event(&event, config)
         .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
-    for action in actions {
-        dispatcher.on_action(action)?;
-    }
-    Ok(())
+
+    Ok(actions)
 }
 
 fn handle_device_changes(

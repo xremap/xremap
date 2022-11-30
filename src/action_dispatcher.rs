@@ -8,6 +8,7 @@ use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
 use std::process::{exit, Command, Stdio};
 
+use crate::event::RelativeEvent;
 use crate::{action::Action, event::KeyEvent};
 
 pub struct ActionDispatcher {
@@ -26,12 +27,42 @@ impl ActionDispatcher {
     }
 
     // Execute Actions created by EventHandler. This should be the only public method of ActionDispatcher.
-    pub fn on_action(&mut self, action: Action) -> anyhow::Result<()> {
-        match action {
-            Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
-            Action::InputEvent(event) => self.send_event(event)?,
-            Action::Command(command) => self.run_command(command),
-            Action::Delay(duration) => thread::sleep(duration),
+    pub fn on_action(&mut self, actions: Vec<Action>) -> anyhow::Result<()> {
+        //vector to collect all mouse movement events
+        let mut mouse_movement_actions: Vec<InputEvent> = Vec::new();
+        for action in actions {
+            match action {
+                Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
+                Action::RelativeEvent(relative_event) => self.on_relative_event(relative_event)?,
+                Action::MouseMovementEvent(mouse_movement_event) => {
+                    //collecting mouse movement events, to send them all in a single batch.
+                    mouse_movement_actions.push(InputEvent::new_now(
+                        EventType::RELATIVE,
+                        mouse_movement_event.code,
+                        mouse_movement_event.value,
+                    ));
+                }
+
+                Action::InputEvent(event) => self.send_event(event)?,
+                Action::Command(command) => self.run_command(command),
+                Action::Delay(duration) => thread::sleep(duration),
+            }
+        }
+
+        if mouse_movement_actions.len() != 0 {
+            //Sending all mouse movement events at once, unseparated by synchronization events.
+            self.send_mousemovement_event_batch(mouse_movement_actions)?;
+
+            //Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
+            //which the OS handles differently from two unseparated mouse movement events.
+            //For example,
+            //a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
+            //will move the mouse cursor by a different amount than
+            //a REL_X event followed by a REL_Y event followed by a SYNCHRONIZATION event.
+
+            //¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
+            //²Mouse movement along the X (horizontal) axis.
+            //³Mouse movement along the Y (vertical) axis.
         }
         Ok(())
     }
@@ -39,6 +70,16 @@ impl ActionDispatcher {
     fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
         let event = InputEvent::new_now(EventType::KEY, event.code(), event.value());
         self.send_event(event)
+    }
+
+    fn on_relative_event(&mut self, event: RelativeEvent) -> std::io::Result<()> {
+        let event = InputEvent::new_now(EventType::RELATIVE, event.code, event.value);
+        self.send_event(event)
+    }
+
+    //a function that takes mouse movement events to send in a single batch, unseparated by synchronization events.
+    pub fn send_mousemovement_event_batch(&mut self, eventbatch: Vec<InputEvent>) -> std::io::Result<()> {
+        self.device.emit(&eventbatch)
     }
 
     fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
