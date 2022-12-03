@@ -343,8 +343,8 @@ impl EventHandler {
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(&key));
 
         // Emulate the modifiers of KeyPress
-        self.send_keys(&extra_modifiers, RELEASE);
         self.send_keys(&missing_modifiers, PRESS);
+        self.send_keys(&extra_modifiers, RELEASE);
 
         // Press the main key
         self.send_key(&key_press.key, PRESS);
@@ -353,8 +353,8 @@ impl EventHandler {
         self.send_action(Action::Delay(self.keypress_delay));
 
         // Resurrect the original modifiers
-        self.send_keys(&missing_modifiers, RELEASE);
         self.send_keys(&extra_modifiers, PRESS);
+        self.send_keys(&missing_modifiers, RELEASE);
     }
 
     fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
