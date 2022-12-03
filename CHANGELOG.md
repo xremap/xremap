@@ -1,3 +1,7 @@
+## v0.7.9
+
+- Press keymap modifiers before releasing modifiers not in keymap [#208](https://github.com/k0kubun/xremap/issues/208)
+
 ## v0.7.8
 
 - Fix libinput disable-while-typing support [#152](https://github.com/k0kubun/xremap/issues/152)
