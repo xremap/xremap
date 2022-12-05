@@ -31,6 +31,8 @@ pub struct EventHandler {
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     // Current nested remaps
     override_remap: Option<HashMap<Key, Vec<OverrideEntry>>>,
+    // Whether to use exact match for override remaps
+    override_remap_exact_match: bool,
     // Key triggered on a timeout of nested remaps
     override_timeout_key: Option<Key>,
     // Trigger a timeout of nested remaps through select(2)
@@ -57,6 +59,7 @@ impl EventHandler {
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remap: None,
+            override_remap_exact_match: false,
             override_timeout_key: None,
             override_timer: timer,
             mode: mode.to_string(),
@@ -256,14 +259,12 @@ impl EventHandler {
         if let Some(override_remap) = &self.override_remap {
             if let Some(entries) = override_remap.clone().get(key) {
                 self.remove_override()?;
-                for exact_match in [true, false] {
-                    for entry in entries {
-                        let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
-                        if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
-                            continue;
-                        }
-                        return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
+                for entry in entries {
+                    let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
+                    if (self.override_remap_exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
+                        continue;
                     }
+                    return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
                 }
             }
             // An override remap is set but not used. Flush the pending key.
@@ -272,6 +273,9 @@ impl EventHandler {
         if let Some(entries) = config.keymap_table.get(key) {
             for exact_match in [true, false] {
                 for entry in entries {
+                    if entry.exact_match && !exact_match {
+                        continue;
+                    }
                     let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
                     if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
                         continue;
@@ -286,6 +290,7 @@ impl EventHandler {
                             continue;
                         }
                     }
+                    self.override_remap_exact_match = entry.exact_match;
                     return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
                 }
             }

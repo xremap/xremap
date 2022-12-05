@@ -19,6 +19,8 @@ pub struct Keymap {
     pub application: Option<Application>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
+    #[serde(default)]
+    pub exact_match: bool,
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<KeymapAction>>, D::Error>
@@ -39,6 +41,7 @@ pub struct KeymapEntry {
     pub modifiers: Vec<Modifier>,
     pub application: Option<Application>,
     pub mode: Option<Vec<String>>,
+    pub exact_match: bool,
 }
 
 // Convert an array of keymaps to a single hashmap whose key is a triggering key.
@@ -60,6 +63,7 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
                 modifiers: key_press.modifiers.clone(),
                 application: keymap.application.clone(),
                 mode: keymap.mode.clone(),
+                exact_match: keymap.exact_match,
             });
             table.insert(key_press.key, entries);
         }
