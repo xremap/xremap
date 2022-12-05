@@ -259,12 +259,17 @@ impl EventHandler {
         if let Some(override_remap) = &self.override_remap {
             if let Some(entries) = override_remap.clone().get(key) {
                 self.remove_override()?;
-                for entry in entries {
-                    let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
-                    if (self.override_remap_exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
+                for exact_match in [true, false] {
+                    if self.override_remap_exact_match && !exact_match {
                         continue;
                     }
-                    return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
+                    for entry in entries {
+                        let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
+                        if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
+                            continue;
+                        }
+                        return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
+                    }
                 }
             }
             // An override remap is set but not used. Flush the pending key.
