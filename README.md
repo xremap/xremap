@@ -157,6 +157,7 @@ is supported only in `modmap` since `keymap` handles modifier keys differently.
 ```yml
 modmap:
   - name: Name # Optional
+    exact_match: false # Optional, defaults to false
     remap: # Required
       # Replace a key with another
       KEY_XXX: KEY_YYY # Required
@@ -234,6 +235,12 @@ You may also suffix them with `_L` or `_R` (case-insensitive) so that
 remapping is triggered only on a left or right modifier, e.g. `Ctrl_L-a`.
 
 If you use `virtual_modifiers` explained below, you can use it in the `MOD1-` part too.
+
+`exact_match` defines whether to use exact match when matching key presses. For
+example, given a mapping of `C-n: down` and `exact_match: false` (default), and
+you pressed <kbd>C-Shift-n</kbd>, it will automatically be remapped to
+<kbd>Shift-down</kbd>, without you having to define a mapping for
+<kbd>C-Shift-n</kbd>, which you would have to do if you use `exact_match: true`.
 
 ### application
 

@@ -58,6 +58,145 @@ fn test_interleave_modifiers() {
     )
 }
 
+#[test]
+fn test_exact_match_true() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - exact_match: true
+            remap:
+              M-f: C-right
+        "},
+        vec![
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+        ],
+    )
+}
+
+#[test]
+fn test_exact_match_false() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - exact_match: false
+            remap:
+              M-f: C-right
+        "},
+        vec![
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHT, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_exact_match_default() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              M-f: C-right
+        "},
+        vec![
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHT, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_exact_match_true_nested() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - exact_match: true
+            remap:
+              C-x:
+                remap:
+                  h: C-a
+        "},
+        vec![
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+        ],
+    )
+}
+
+#[test]
+fn test_exact_match_false_nested() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - exact_match: false
+            remap:
+              C-x:
+                remap:
+                  h: C-a
+        "},
+        vec![
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    )
+}
+
 fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
     let mut config: Config = serde_yaml::from_str(config_yaml).unwrap();
