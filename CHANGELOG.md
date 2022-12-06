@@ -1,3 +1,7 @@
+## v0.7.10
+
+- Introduce `keymap`-level `exact_match` option [#209](https://github.com/k0kubun/xremap/issues/209)
+
 ## v0.7.9
 
 - Press keymap modifiers before releasing modifiers not in keymap [#208](https://github.com/k0kubun/xremap/issues/208)
