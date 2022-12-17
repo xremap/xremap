@@ -1,3 +1,7 @@
+## v0.7.11
+
+- Reconnect to X11 when an existing connection stops working [#212](https://github.com/k0kubun/xremap/issues/212)
+
 ## v0.7.10
 
 - Introduce `keymap`-level `exact_match` option [#209](https://github.com/k0kubun/xremap/issues/209)
