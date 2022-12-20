@@ -77,11 +77,17 @@ impl ActionDispatcher {
                                 debug!("Process started: {:?}, pid {}", command, child.id());
                                 exit(0);
                             },
-                            Err(e) => error!("Error running command: {:?}", e),
+                            Err(e) => {
+                                error!("Error running command: {:?}", e);
+                                exit(1);
+                            },
                         }
                     },
                     Ok(Fork::Parent(_)) => exit(0),
-                    Err(e) => error!("Error spawning process: {:?}", e),
+                    Err(e) => {
+                        error!("Error spawning process: {:?}", e);
+                        exit(1);
+                    },
                 }
             },
             // Parent should simply continue.
