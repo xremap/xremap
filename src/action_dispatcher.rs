@@ -1,12 +1,12 @@
 use std::thread;
 
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, Key};
-use fork::{fork, Fork, setsid};
+use fork::{fork, setsid, Fork};
 use log::debug;
 use log::error;
 use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
-use std::process::{Command, Stdio, exit};
+use std::process::{exit, Command, Stdio};
 
 use crate::{action::Action, event::KeyEvent};
 
@@ -76,20 +76,20 @@ impl ActionDispatcher {
                             Ok(child) => {
                                 debug!("Process started: {:?}, pid {}", command, child.id());
                                 exit(0);
-                            },
+                            }
                             Err(e) => {
                                 error!("Error running command: {:?}", e);
                                 exit(1);
-                            },
+                            }
                         }
-                    },
+                    }
                     Ok(Fork::Parent(_)) => exit(0),
                     Err(e) => {
                         error!("Error spawning process: {:?}", e);
                         exit(1);
-                    },
+                    }
                 }
-            },
+            }
             // Parent should simply continue.
             Ok(Fork::Parent(_)) => (),
             Err(e) => error!("Error spawning process: {:?}", e),
