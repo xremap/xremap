@@ -1,11 +1,12 @@
 use std::thread;
 
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, Key};
+use fork::{fork, Fork, setsid};
 use log::debug;
 use log::error;
 use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
-use std::process::{Command, Stdio};
+use std::process::{Command, Stdio, exit};
 
 use crate::{action::Action, event::KeyEvent};
 
@@ -58,15 +59,34 @@ impl ActionDispatcher {
         }
 
         debug!("Running command: {:?}", command);
-        match Command::new(&command[0])
-            .args(&command[1..])
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .spawn()
-        {
-            Ok(child) => debug!("Process spawned: {:?}, pid {}", command, child.id()),
-            Err(e) => error!("Error running command: {:?}", e),
+        match fork() {
+            Ok(Fork::Child) => {
+                // Child process should fork again, and the parent should exit 0, while the child
+                // should spawn the user command then exit as well.
+                match fork() {
+                    Ok(Fork::Child) => {
+                        setsid().expect("Failed to setsid.");
+                        match Command::new(&command[0])
+                            .args(&command[1..])
+                            .stdin(Stdio::null())
+                            .stdout(Stdio::null())
+                            .stderr(Stdio::null())
+                            .spawn()
+                        {
+                            Ok(child) => {
+                                debug!("Process started: {:?}, pid {}", command, child.id());
+                                exit(0);
+                            },
+                            Err(e) => error!("Error running command: {:?}", e),
+                        }
+                    },
+                    Ok(Fork::Parent(_)) => exit(0),
+                    Err(e) => error!("Error spawning process: {:?}", e),
+                }
+            },
+            // Parent should simply continue.
+            Ok(Fork::Parent(_)) => (),
+            Err(e) => error!("Error spawning process: {:?}", e),
         }
     }
 }
