@@ -1,3 +1,7 @@
+## v0.7.12
+
+- Double-fork a `launch`ed process to avoid stopping it when xremap exits [#214](https://github.com/k0kubun/xremap/issues/214)
+
 ## v0.7.11
 
 - Reconnect to X11 when an existing connection stops working [#212](https://github.com/k0kubun/xremap/issues/212)
