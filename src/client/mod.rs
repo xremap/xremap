@@ -55,6 +55,13 @@ pub fn build_client() -> WMClient {
     WMClient::new("Sway", Box::new(sway_client::SwayClient::new()))
 }
 
+#[cfg(feature = "hypr")]
+mod hypr_client;
+#[cfg(feature = "hypr")]
+pub fn build_client() -> WMClient {
+    WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()))
+}
+
 #[cfg(feature = "x11")]
 mod x11_client;
 #[cfg(feature = "x11")]
@@ -62,9 +69,9 @@ pub fn build_client() -> WMClient {
     WMClient::new("X11", Box::new(x11_client::X11Client::new()))
 }
 
-#[cfg(not(any(feature = "gnome", feature = "sway", feature = "x11")))]
+#[cfg(not(any(feature = "gnome", feature = "sway", feature = "x11", feature = "hypr")))]
 mod null_client;
-#[cfg(not(any(feature = "gnome", feature = "sway", feature = "x11")))]
+#[cfg(not(any(feature = "gnome", feature = "sway", feature = "x11", feature = "hypr")))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))
 }
