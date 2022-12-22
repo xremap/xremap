@@ -1,5 +1,5 @@
 use crate::action::Action;
-use crate::client::{build_client, WMClient};
+use crate::client::WMClient;
 use crate::config::application::Application;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
@@ -30,9 +30,7 @@ pub struct EventHandler {
     // State machine for multi-purpose keys
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     // Current nested remaps
-    override_remap: Option<HashMap<Key, Vec<OverrideEntry>>>,
-    // Whether to use exact match for override remaps
-    override_remap_exact_match: bool,
+    override_remaps: Vec<HashMap<Key, Vec<OverrideEntry>>>,
     // Key triggered on a timeout of nested remaps
     override_timeout_key: Option<Key>,
     // Trigger a timeout of nested remaps through select(2)
@@ -49,17 +47,21 @@ pub struct EventHandler {
     actions: Vec<Action>,
 }
 
+struct TaggedAction {
+    action: KeymapAction,
+    exact_match: bool,
+}
+
 impl EventHandler {
-    pub fn new(timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
+    pub fn new(timer: TimerFd, mode: &str, keypress_delay: Duration, application_client: WMClient) -> EventHandler {
         EventHandler {
             modifiers: HashSet::new(),
             extra_modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
-            application_client: build_client(),
+            application_client,
             application_cache: None,
             multi_purpose_keys: HashMap::new(),
-            override_remap: None,
-            override_remap_exact_match: false,
+            override_remaps: vec![],
             override_timeout_key: None,
             override_timer: timer,
             mode: mode.to_string(),
@@ -126,7 +128,7 @@ impl EventHandler {
 
     fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
         self.override_timer.unset()?;
-        self.override_remap = None;
+        self.override_remaps.clear();
         self.override_timeout_key = None;
         Ok(())
     }
@@ -207,11 +209,17 @@ impl EventHandler {
             ModmapAction::PressReleaseKey(PressReleaseKey { press, release }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
-                if value == PRESS {
-                    self.dispatch_actions(&press, &key)?;
-                }
-                if value == RELEASE {
-                    self.dispatch_actions(&release, &key)?;
+                if value == PRESS || value == RELEASE {
+                    self.dispatch_actions(
+                        &(if value == PRESS { press } else { release })
+                            .into_iter()
+                            .map(|action| TaggedAction {
+                                action,
+                                exact_match: false,
+                            })
+                            .collect(),
+                        &key,
+                    )?;
                 }
                 // Dispatch the original key as well
                 vec![(key, value)]
@@ -255,28 +263,50 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<KeymapAction>>, Box<dyn Error>> {
-        if let Some(override_remap) = &self.override_remap {
-            if let Some(entries) = override_remap.clone().get(key) {
+    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+        if !self.override_remaps.is_empty() {
+            let entries: Vec<OverrideEntry> = self
+                .override_remaps
+                .iter()
+                .flat_map(|map| map.get(key).cloned().unwrap_or_default())
+                .collect();
+
+            if !entries.is_empty() {
                 self.remove_override()?;
+
                 for exact_match in [true, false] {
-                    if self.override_remap_exact_match && !exact_match {
-                        continue;
-                    }
-                    for entry in entries {
+                    let mut remaps = vec![];
+                    for entry in &entries {
+                        if entry.exact_match && !exact_match {
+                            continue;
+                        }
                         let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
                         if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
                             continue;
                         }
-                        return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
+
+                        let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
+                        let is_remap = is_remap(&entry.actions);
+
+                        // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
+                        if remaps.is_empty() && !is_remap {
+                            return Ok(Some(actions));
+                        } else if is_remap {
+                            remaps.extend(actions);
+                        }
+                    }
+                    if !remaps.is_empty() {
+                        return Ok(Some(remaps));
                     }
                 }
             }
             // An override remap is set but not used. Flush the pending key.
             self.timeout_override()?;
         }
+
         if let Some(entries) = config.keymap_table.get(key) {
             for exact_match in [true, false] {
+                let mut remaps = vec![];
                 for entry in entries {
                     if entry.exact_match && !exact_match {
                         continue;
@@ -295,36 +325,54 @@ impl EventHandler {
                             continue;
                         }
                     }
-                    self.override_remap_exact_match = entry.exact_match;
-                    return Ok(Some(with_extra_modifiers(&entry.actions, &extra_modifiers)));
+
+                    let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
+                    let is_remap = is_remap(&entry.actions);
+
+                    // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
+                    if remaps.is_empty() && !is_remap {
+                        return Ok(Some(actions));
+                    } else if is_remap {
+                        remaps.extend(actions)
+                    }
+                }
+                if !remaps.is_empty() {
+                    return Ok(Some(remaps));
                 }
             }
         }
         Ok(None)
     }
 
-    fn dispatch_actions(&mut self, actions: &Vec<KeymapAction>, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_actions(&mut self, actions: &Vec<TaggedAction>, key: &Key) -> Result<(), Box<dyn Error>> {
         for action in actions {
             self.dispatch_action(action, key)?;
         }
         Ok(())
     }
 
-    fn dispatch_action(&mut self, action: &KeymapAction, key: &Key) -> Result<(), Box<dyn Error>> {
-        match action {
+    fn dispatch_action(&mut self, action: &TaggedAction, key: &Key) -> Result<(), Box<dyn Error>> {
+        match &action.action {
             KeymapAction::KeyPress(key_press) => self.send_key_press(key_press),
             KeymapAction::Remap(Remap {
                 remap,
                 timeout,
                 timeout_key,
             }) => {
-                self.override_remap = Some(build_override_table(remap));
-                if let Some(timeout) = timeout {
-                    let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
-                    // TODO: Consider handling the timer in ActionDispatcher
-                    self.override_timer.unset()?;
-                    self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                    self.override_timeout_key = timeout_key.or_else(|| Some(*key));
+                let set_timeout = self.override_remaps.is_empty();
+                self.override_remaps
+                    .push(build_override_table(remap, action.exact_match));
+
+                // Set timeout only if this is the first of multiple eligible remaps,
+                // so the behaviour is consistent with how current normal keymap override works
+                if set_timeout {
+                    if let Some(timeout) = timeout {
+                        let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
+                        // TODO: Consider handling the timer in ActionDispatcher
+                        self.override_timer.unset()?;
+                        self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
+                        self.override_timeout_key = timeout_key.or_else(|| Some(*key));
+                    }
                 }
             }
             KeymapAction::Launch(command) => self.run_command(command.clone()),
@@ -456,16 +504,36 @@ impl EventHandler {
     }
 }
 
-fn with_extra_modifiers(actions: &Vec<KeymapAction>, extra_modifiers: &Vec<Key>) -> Vec<KeymapAction> {
-    let mut result: Vec<KeymapAction> = vec![];
+fn is_remap(actions: &Vec<KeymapAction>) -> bool {
+    actions.iter().all(|x| match x {
+        KeymapAction::Remap(..) => true,
+        _ => false,
+    })
+}
+
+fn with_extra_modifiers(
+    actions: &Vec<KeymapAction>,
+    extra_modifiers: &Vec<Key>,
+    exact_match: bool,
+) -> Vec<TaggedAction> {
+    let mut result: Vec<TaggedAction> = vec![];
     if extra_modifiers.len() > 0 {
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
-        result.push(KeymapAction::SetExtraModifiers(extra_modifiers.clone()));
+        result.push(TaggedAction {
+            action: KeymapAction::SetExtraModifiers(extra_modifiers.clone()),
+            exact_match,
+        });
     }
-    result.extend(actions.clone());
+    result.extend(actions.iter().map(|action| TaggedAction {
+        action: action.clone(),
+        exact_match,
+    }));
     if extra_modifiers.len() > 0 {
         // Resurrect the modifier status
-        result.push(KeymapAction::SetExtraModifiers(vec![]));
+        result.push(TaggedAction {
+            action: KeymapAction::SetExtraModifiers(vec![]),
+            exact_match,
+        });
     }
     return result;
 }
