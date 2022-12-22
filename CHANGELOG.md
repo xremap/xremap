@@ -1,3 +1,7 @@
+## v0.7.13
+
+- Support hyperland [#216](https://github.com/k0kubun/xremap/issues/216)
+
 ## v0.7.12
 
 - Double-fork a `launch`ed process to avoid stopping it when xremap exits [#214](https://github.com/k0kubun/xremap/issues/214)
