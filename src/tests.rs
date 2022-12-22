@@ -311,7 +311,6 @@ fn test_merge_remaps() {
     )
 }
 
-
 #[test]
 fn test_merge_remaps_with_override() {
     let config = indoc! {"
