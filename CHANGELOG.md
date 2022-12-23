@@ -1,3 +1,7 @@
+## v0.7.14
+
+- Fix overrides with multi-key sequences [#217](https://github.com/k0kubun/xremap/issues/217)
+
 ## v0.7.13
 
 - Support hyperland [#216](https://github.com/k0kubun/xremap/issues/216)
