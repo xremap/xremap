@@ -6,6 +6,7 @@ use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
+use client::build_client;
 use config::{config_watcher, load_config};
 use device::InputDevice;
 use event::Event;
@@ -123,7 +124,7 @@ fn main() -> anyhow::Result<()> {
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
+    let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client());
     let output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type)) {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),

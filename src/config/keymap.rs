@@ -76,10 +76,14 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
 pub struct OverrideEntry {
     pub actions: Vec<KeymapAction>,
     pub modifiers: Vec<Modifier>,
+    pub exact_match: bool,
 }
 
 // This is executed on runtime unlike build_keymap_table, but hopefully not called so often.
-pub fn build_override_table(remap: &HashMap<KeyPress, Vec<KeymapAction>>) -> HashMap<Key, Vec<OverrideEntry>> {
+pub fn build_override_table(
+    remap: &HashMap<KeyPress, Vec<KeymapAction>>,
+    exact_match: bool,
+) -> HashMap<Key, Vec<OverrideEntry>> {
     let mut table: HashMap<Key, Vec<OverrideEntry>> = HashMap::new();
     for (key_press, actions) in remap.iter() {
         let mut entries: Vec<OverrideEntry> = match table.get(&key_press.key) {
@@ -89,6 +93,7 @@ pub fn build_override_table(remap: &HashMap<KeyPress, Vec<KeymapAction>>) -> Has
         entries.push(OverrideEntry {
             actions: actions.to_vec(),
             modifiers: key_press.modifiers.clone(),
+            exact_match,
         });
         table.insert(key_press.key, entries);
     }

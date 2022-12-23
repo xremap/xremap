@@ -1,4 +1,4 @@
-trait Client {
+pub trait Client {
     fn supported(&mut self) -> bool;
     fn current_application(&mut self) -> Option<String>;
 }
@@ -11,7 +11,7 @@ pub struct WMClient {
 }
 
 impl WMClient {
-    fn new(name: &str, client: Box<dyn Client>) -> WMClient {
+    pub fn new(name: &str, client: Box<dyn Client>) -> WMClient {
         WMClient {
             name: name.to_string(),
             client,
