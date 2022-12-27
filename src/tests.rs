@@ -53,19 +53,19 @@ fn test_basic_modmap() {
 /* Table to see which scancodes/custom key events correspond to which relative events
     Original RELATIVE event | scancode | Custom keyname if                              | Info
                             |          | positive value (+)     | negative value (-)    |
-    REL_X                   |    0     | BTN_XRIGHTCURSOR       | BTN_XLEFTCURSOR       | Cursor right and left
-    REL_Y                   |    1     | BTN_XDOWNCURSOR        | BTN_XUPCURSOR         | Cursor down and up
-    REL_Z                   |    2     | BTN_XREL_Z_AXIS_1      | BTN_XREL_Z_AXIS_2     | Cursor... forward and backwards?
-    REL_RX                  |    3     | BTN_XREL_RX_AXIS_1     | BTN_XREL_RX_AXIS_2    | Horizontally rotative cursor movement?
-    REL_RY                  |    4     | BTN_XREL_RY_AXIS_1     | BTN_XREL_RY_AXIS_2    | Vertical rotative cursor movement?
-    REL_RZ                  |    5     | BTN_XREL_RZ_AXIS_1     | BTN_XREL_RZ_AXIS_2    | "Whatever the third dimensional axis is called" rotative cursor movement?
-    REL_HWHEEL              |    6     | BTN_XRIGHTSCROLL       | BTN_XLEFTSCROLL       | Rightscroll and leftscroll
-    REL_DIAL                |    7     | BTN_XREL_DIAL_1        | BTN_XREL_DIAL_2       | ???
-    REL_WHEEL               |    8     | BTN_XUPSCROLL          | BTN_XDOWNSCROLL       | Upscroll and downscroll
-    REL_MISC                |    9     | BTN_XREL_MISC_1        | BTN_XREL_MISC_2       | Something?
-    REL_RESERVED            |    10    | BTN_XREL_RESERVED_1    | BTN_XREL_RESERVED_2   | Something?
-    REL_WHEEL_HI_RES        |    11    | BTN_XHIRES_UPSCROLL    | BTN_XHIRES_DOWNSCROLL | High resolution downscroll and upscroll, sent just after their non-high resolution version
-    REL_HWHEEL_HI_RES       |    12    | BTN_XHIRES_RIGHTSCROLL | BTN_XHIRES_LEFTSCROLL | High resolution rightcroll and leftscroll, sent just after their non-high resolution version
+    REL_X                   |    0     | XRIGHTCURSOR       | XLEFTCURSOR       | Cursor right and left
+    REL_Y                   |    1     | XDOWNCURSOR        | XUPCURSOR         | Cursor down and up
+    REL_Z                   |    2     | XREL_Z_AXIS_1      | XREL_Z_AXIS_2     | Cursor... forward and backwards?
+    REL_RX                  |    3     | XREL_RX_AXIS_1     | XREL_RX_AXIS_2    | Horizontally rotative cursor movement?
+    REL_RY                  |    4     | XREL_RY_AXIS_1     | XREL_RY_AXIS_2    | Vertical rotative cursor movement?
+    REL_RZ                  |    5     | XREL_RZ_AXIS_1     | XREL_RZ_AXIS_2    | "Whatever the third dimensional axis is called" rotative cursor movement?
+    REL_HWHEEL              |    6     | XRIGHTSCROLL       | XLEFTSCROLL       | Rightscroll and leftscroll
+    REL_DIAL                |    7     | XREL_DIAL_1        | XREL_DIAL_2       | ???
+    REL_WHEEL               |    8     | XUPSCROLL          | XDOWNSCROLL       | Upscroll and downscroll
+    REL_MISC                |    9     | XREL_MISC_1        | XREL_MISC_2       | Something?
+    REL_RESERVED            |    10    | XREL_RESERVED_1    | XREL_RESERVED_2   | Something?
+    REL_WHEEL_HI_RES        |    11    | XHIRES_UPSCROLL    | XHIRES_DOWNSCROLL | High resolution downscroll and upscroll, sent just after their non-high resolution version
+    REL_HWHEEL_HI_RES       |    12    | XHIRES_RIGHTSCROLL | XHIRES_LEFTSCROLL | High resolution rightcroll and leftscroll, sent just after their non-high resolution version
 */
 
 const _POSITIVE: i32 = 1;
@@ -91,7 +91,7 @@ fn test_relative_events() {
         indoc! {"
         modmap:
           - remap:
-              BTN_XRIGHTCURSOR: b
+              XRIGHTCURSOR: b
         "},
         vec![Event::RelativeEvent(RelativeEvent::new_with(_REL_X, _POSITIVE))],
         vec![
@@ -102,8 +102,17 @@ fn test_relative_events() {
 }
 
 #[test]
-#[ignore]
-// The OS interprets a REL_X¹ event combined with a REL_Y event² differently if they are separated by synchronization event.
+fn verify_disguised_relative_events() {
+    use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
+    //verifies that the event offsetter used to "disguise" relative events into key event
+    //is a bigger number than the biggest one a scancode had at the time of writing this (26 december 2022)
+    assert!(0x2e7 < DISGUISED_EVENT_OFFSETTER);
+    //and that it's not big enough that one of the "disguised" events's scancode would overflow.
+    //(the largest of those events is equal to DISGUISED_EVENT_OFFSETTER + 25)
+    assert!(DISGUISED_EVENT_OFFSETTER <= u16::MAX - 25)
+}
+
+// The OS interprets a REL_X event¹ combined with a REL_Y event² differently if they are separated by synchronization event.
 // This test and test_cursor_behavior_2 are meant to be run to demonstrate that fact.
 
 //¹Mouse movement along the X (horizontal) axis.
@@ -140,6 +149,8 @@ fn test_relative_events() {
 //   would cause the difference between test_cursor_behavior_1 and test_cursor_behavior_2 to become less noticeable.
 //   Conversely, a higher time interval would make the difference more noticeable.
 //
+#[test]
+#[ignore]
 fn test_cursor_behavior_1() {
     use crate::device::InputDevice;
     use crate::device::{get_input_devices, output_device};
@@ -171,13 +182,13 @@ fn test_cursor_behavior_1() {
 
         //Creating a time interval between mouse movement events to simulate a mouse with a frequency of ~200 Hz.
         //The smaller the time interval, the smaller the difference between test_cursor_behavior_1 and test_cursor_behavior_2.
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::thread::sleep(Duration::from_millis(5));
     }
 }
 
 #[test]
 #[ignore]
-// The OS interprets a REL_X¹ event combined with a REL_Y event² differently if they are separated by synchronization event.
+// The OS interprets a REL_X event combined with a REL_Y event differently if they are separated by synchronization event.
 // This test and test_cursor_behavior_1 are meant to be run to demonstrate that fact.
 // Please refer to the comment above test_cursor_behavior_1 for information on how to run these tests.
 fn test_cursor_behavior_2() {
@@ -207,7 +218,7 @@ fn test_cursor_behavior_2() {
 
         //Creating a time interval between mouse movement events to simulate a mouse with a frequency of ~200 Hz.
         //The smaller the time interval, the smaller the difference between test_cursor_behavior_1 and test_cursor_behavior_2.
-        std::thread::sleep(std::time::Duration::from_millis(5));
+        std::thread::sleep(Duration::from_millis(5));
     }
 }
 

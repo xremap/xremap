@@ -1,3 +1,4 @@
+use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
 use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
@@ -48,46 +49,61 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         "WIN_R" => Key::KEY_RIGHTMETA,
         "WIN_L" => Key::KEY_LEFTMETA,
 
-        //Entirely custom scancodes
+        //Custom aliases used in config files to represent scancodes for disguised relative events.
+        //Relative events are disguised into key events with those scancodes,
+        //and are then sent through modmap and keymap.
+        //
+        //These custom aliases are used in config files, like other aliases.
+        //The difference here is that since these scancodes don't map to any existing name,
+        //(on purpose, to avoid conflating disguised events and actual key events)
+        //we need to define them using scancodes instead of existing names.
+        //
+        //The DISGUISED_EVENT_OFFSETTER const is used here to make it easy to change the scancodes should it ever be necessary.
+        //Because configs use name and custom aliases, changing their assigned value doesn't change how to write configs;
+        //In other words, a config that works when DISGUISED_EVENT_OFFSETTER == 59974
+        //will work exactly the same way if DISGUISED_EVENT_OFFSETTER == 46221
+        //
+        //DISGUISED_EVENT_OFFSETTER is also used in tests.rs::verify_disguised_relative_events(),
+        //to prevent its modification to a number too low or too big.
         //
         //Cursor movement
-        "BTN_XRIGHTCURSOR" => evdev::Key(59974), //Cursor right
-        "BTN_XLEFTCURSOR" => evdev::Key(59975),  //Cursor left
-        "BTN_XDOWNCURSOR" => evdev::Key(59976),  //Cursor down
-        "BTN_XUPCURSOR" => evdev::Key(59977),    //Cursor up
+        "XRIGHTCURSOR" => Key(DISGUISED_EVENT_OFFSETTER), //Cursor right
+        "XLEFTCURSOR" => Key(DISGUISED_EVENT_OFFSETTER + 1), //Cursor left
+        "XDOWNCURSOR" => Key(DISGUISED_EVENT_OFFSETTER + 2), //Cursor down
+        "XUPCURSOR" => Key(DISGUISED_EVENT_OFFSETTER + 3), //Cursor up
         //Cursor... forward and backwards?
-        "BTN_XREL_Z_AXIS_1" => evdev::Key(59978),
-        "BTN_XREL_Z_AXIS_2" => evdev::Key(59979),
+        "XREL_Z_AXIS_1" => Key(DISGUISED_EVENT_OFFSETTER + 4),
+        "XREL_Z_AXIS_2" => Key(DISGUISED_EVENT_OFFSETTER + 5),
         //
         //Rotative cursor movement?
-        "BTN_XREL_RX_AXIS_1" => evdev::Key(59980), //horizontal
-        "BTN_XREL_RX_AXIS_2" => evdev::Key(59981),
-        "BTN_XREL_RY_AXIS_1" => evdev::Key(59982), //vertical
-        "BTN_XREL_RY_AXIS_2" => evdev::Key(59983),
-        "BTN_XREL_RZ_AXIS_1" => evdev::Key(59984), //Whatever the third dimensional axis is called
-        "BTN_XREL_RZ_AXIS_2" => evdev::Key(59985),
+        "XREL_RX_AXIS_1" => Key(DISGUISED_EVENT_OFFSETTER + 6), //horizontal
+        "XREL_RX_AXIS_2" => Key(DISGUISED_EVENT_OFFSETTER + 7),
+        "XREL_RY_AXIS_1" => Key(DISGUISED_EVENT_OFFSETTER + 8), //vertical
+        "XREL_RY_AXIS_2" => Key(DISGUISED_EVENT_OFFSETTER + 9),
+        "XREL_RZ_AXIS_1" => Key(DISGUISED_EVENT_OFFSETTER + 10), //Whatever the third dimensional axis is called
+        "XREL_RZ_AXIS_2" => Key(DISGUISED_EVENT_OFFSETTER + 11),
         //
-        "BTN_XRIGHTSCROLL" => evdev::Key(59986), //Rightscroll
-        "BTN_XLEFTSCROLL" => evdev::Key(59987),  //Leftscroll
+        "XRIGHTSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 12), //Rightscroll
+        "XLEFTSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 13),  //Leftscroll
         //
         //???
-        "BTN_XREL_DIAL_1" => evdev::Key(59988),
-        "BTN_XREL_DIAL_2" => evdev::Key(59989),
+        "XREL_DIAL_1" => Key(DISGUISED_EVENT_OFFSETTER + 14),
+        "XREL_DIAL_2" => Key(DISGUISED_EVENT_OFFSETTER + 15),
         //
-        "BTN_XUPSCROLL" => evdev::Key(59990),   //Upscroll
-        "BTN_XDOWNSCROLL" => evdev::Key(59991), //Downscroll
+        "XUPSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 16), //Upscroll
+        "XDOWNSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 17), //Downscroll
         //
         //Something?
-        "BTN_XREL_MISC_1" => evdev::Key(59992),
-        "BTN_XREL_MISC_2" => evdev::Key(59993),
-        "BTN_XREL_RESERVED_1" => evdev::Key(59994),
-        "BTN_XREL_RESERVED_2" => evdev::Key(59995),
+        "XREL_MISC_1" => Key(DISGUISED_EVENT_OFFSETTER + 18),
+        "XREL_MISC_2" => Key(DISGUISED_EVENT_OFFSETTER + 19),
+        "XREL_RESERVED_1" => Key(DISGUISED_EVENT_OFFSETTER + 20),
+        "XREL_RESERVED_2" => Key(DISGUISED_EVENT_OFFSETTER + 21),
         //
         //High resolution version of scroll events, sent just after their non-high resolution version.
-        "BTN_XHIRES_UPSCROLL" => evdev::Key(59996),
-        "BTN_XHIRES_DOWNSCROLL" => evdev::Key(59997),
-        "BTN_XHIRES_RIGHTSCROLL" => evdev::Key(59998),
-        "BTN_XHIRES_LEFTSCROLL" => evdev::Key(59999),
+        "XHIRES_UPSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 22),
+        "XHIRES_DOWNSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 23),
+        "XHIRES_RIGHTSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 24),
+        "XHIRES_LEFTSCROLL" => Key(DISGUISED_EVENT_OFFSETTER + 25),
         /* Original Relative events and their values for quick reference.
             REL_X = 0x00,
             REL_Y = 0x01,

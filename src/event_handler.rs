@@ -17,6 +17,12 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::time::{Duration, Instant};
 
+//This const is a value used to offset RELATIVE events' scancodes
+//so that they correspond to the custom aliases created in config::key::parse_key.
+//This offset also prevents resulting scancodes from corresponding to non-Xremap scancodes,
+//to prevent conflating disguised relative events with other events.
+pub const DISGUISED_EVENT_OFFSETTER: u16 = 59974;
+
 pub struct EventHandler {
     // Currently pressed modifier keys
     modifiers: HashSet<Key>,
@@ -118,9 +124,10 @@ impl EventHandler {
                     continue;
                 }
             }
-            //checking if there's a "fake" key version of a relative event, (scancodes equal to and over 59974 are only "fake" custom events)
+            //checking if there's a "disguised" key version of a relative event,
+            //(scancodes equal to and over DISGUISED_EVENT_OFFSETTER are only "disguised" custom events)
             //and also if it's the same "key" and value as the one that came in.
-            if key.code() >= 59974 && (key.code(), value) == (event.code(), event.value()) {
+            if key.code() >= DISGUISED_EVENT_OFFSETTER && (key.code(), value) == (event.code(), event.value()) {
                 //if it is, setting send_original_relative_event to true to later tell on_relative_event to send the original event.
                 send_original_relative_event = true;
                 continue;
@@ -139,9 +146,6 @@ impl EventHandler {
         //it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
         //The solution used here is to send two events for each relative event :
         //one for the press "event" and one for the "unpress" event.
-        //This const is a value used to offset RELATIVE events' code
-        //so that they correspond to the custom equivalents created in config::key::parse_key
-        const CUSTOMEVENT_OFFSETTER: u16 = 59974;
 
         //These consts are used because 'RELEASE'/'PRESS' are better than '0'/'1' at indicating a button release/press.
         const RELEASE: i32 = 0;
@@ -156,14 +160,16 @@ impl EventHandler {
             //Positive and negative values can be really high because the events are relative,
             //so their values are variable, meaning we have to match with all positive/negative values.
             //Not sure if there is any relative event with a fixed value.
-            1..=i32::MAX => (event.code * 2) + CUSTOMEVENT_OFFSETTER,
+            1..=i32::MAX => (event.code * 2) + DISGUISED_EVENT_OFFSETTER,
             //While some events may appear to have a fixed value,
             //events like scrolling will have higher values with more "agressive" scrolling.
 
             // *2 to create a "gap" between events (since multiplying by two means that all resulting values will be even, the odd numbers between will be missing),
             // +1 if the event has a negative value to "fill" the gap (since adding one shifts the parity from even to odd),
-            //and adding 59974 so that the total as a keycode corresponds to one of the "custom" scancodes that are created in config::key::parse_key
-            i32::MIN..=-1 => (event.code * 2) + 1 + CUSTOMEVENT_OFFSETTER,
+            //and adding DISGUISED_EVENT_OFFSETTER,
+            //so that the total as a keycode corresponds to one of the custom aliases that
+            //are created in config::key::parse_key specifically for these "disguised" relative events.
+            i32::MIN..=-1 => (event.code * 2) + 1 + DISGUISED_EVENT_OFFSETTER,
 
             0 => {
                 println!("This event has a value of zero : {:?}", event);
@@ -171,11 +177,11 @@ impl EventHandler {
                 //since changing something by zero is kinda useless.
                 //Just in case it can actually happen (and also because match arms need the same output type),
                 //we'll just act like the value of the event was a positive.
-                (event.code * 2) + 59974
+                (event.code * 2) + DISGUISED_EVENT_OFFSETTER
             }
         };
 
-        //Sending a "fake" KEY event press to on_key_event.
+        //Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
         match self.on_key_event(&KeyEvent::new_with(key, PRESS), config)? {
             //the boolean value is from a variable at the end of on_key_event from event_handler,
             //used to indicate whether the event got through unchanged.

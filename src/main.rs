@@ -9,7 +9,7 @@ use clap_complete::Shell;
 use client::build_client;
 use config::{config_watcher, load_config};
 use device::InputDevice;
-use event::Event;
+use event::{Event, RelativeEvent};
 use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
 use nix::sys::select::select;
@@ -224,21 +224,35 @@ fn handle_input_events(
         Err((Some(ENODEV), _)) => Ok(false),
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
-            //A vector used to collect all actions
-            let mut action_list: Vec<Action> = Vec::new();
+            //A vector used to collect all mouse movement events
+            let mut mousemovements: Vec<RelativeEvent> = Vec::new();
+
             for event in events {
                 if let Some(event) = Event::new(event) {
                     //Running the event through modmap and keymap
                     let handled_events = handle_event(handler, config, event)?;
-                    //and appending the resulting vector of actions to action_list
-                    action_list.extend(handled_events);
+                    //and checking if the resulting events are mouse movements
+                    for action in handled_events {
+                        match action {
+                            //if an event is a mouse movement, adding it to a vector.
+                            Action::MouseMovementEvent(mouse_movement) => {
+                                mousemovements.push(mouse_movement);
+                            }
+                            //Otherwise, sending the event like usual.
+                            _ => {
+                                dispatcher.on_action(action)?;
+                            }
+                        }
+                    }
                 } else {
-                    action_list.push(Action::InputEvent(event));
+                    dispatcher.on_action(Action::InputEvent(event))?;
                 }
             }
-            //Only calling on_action once per call of fetch_events,
-            //Primarily to be able to send all mouse movements events at once, without synchronization events in between.
-            dispatcher.on_action(action_list)?;
+            //Sending all mouse movements wrapped as one action
+            if mousemovements.len() > 0 {
+                dispatcher.on_action(Action::MouseMouvementEventCollection(mousemovements))?;
+            }
+
             Ok(true)
         }
     }

@@ -13,6 +13,8 @@ pub enum Action {
     RelativeEvent(RelativeEvent),
     // InputEvent (EventType::RELATIVE, ONLY mouse movement events) sent to evdev
     MouseMovementEvent(RelativeEvent),
+    // InputEvent (EventType::RELATIVE) a collection of mouse movement events sent to evdev
+    MouseMouvementEventCollection(Vec<RelativeEvent>),
     // InputEvent of any event types. It's discouraged to use this for testing because
     // we don't have full control over timeval and it's not pattern-matching friendly.
     InputEvent(InputEvent),
