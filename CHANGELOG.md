@@ -1,10 +1,14 @@
+## v0.7.15
+
+- Handle a None application name on Hyperland [#220](https://github.com/k0kubun/xremap/issues/220)
+
 ## v0.7.14
 
 - Fix overrides with multi-key sequences [#217](https://github.com/k0kubun/xremap/issues/217)
 
 ## v0.7.13
 
-- Support hyperland [#216](https://github.com/k0kubun/xremap/issues/216)
+- Support Hyperland [#216](https://github.com/k0kubun/xremap/issues/216)
 
 ## v0.7.12
 
