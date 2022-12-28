@@ -19,8 +19,8 @@ impl Client for HyprlandClient {
             let s = serde_json::to_string(&win).ok()?;
             let v: Value = serde_json::from_str(&s).ok()?;
             let app = v["class"].as_str();
-            if app.is_some() {
-                return Some(String::from(app.unwrap()));
+            if let Some(app) = app {
+                return Some(String::from(app));
             }
         }
         None
