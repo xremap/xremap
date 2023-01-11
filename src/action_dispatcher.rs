@@ -31,23 +31,20 @@ impl ActionDispatcher {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
             Action::RelativeEvent(relative_event) => self.on_relative_event(relative_event)?,
-            Action::MouseMovementEvent(_) => {
-                //This should not be reachable, since mouse movement events should collected
-            }
-            Action::MouseMouvementEventCollection(mouse_movement_events) => {
-                //Sending all mouse movement events at once, unseparated by synchronization events.
+            Action::MouseMovementEventCollection(mouse_movement_events) => {
+                // Sending all mouse movement events at once, unseparated by synchronization events.
                 self.send_mousemovement_event_batch(mouse_movement_events)?;
 
-                //Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
-                //which the OS handles differently from two unseparated mouse movement events.
-                //For example,
-                //a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
-                //will move the mouse cursor by a different amount than
-                //a REL_X event followed by a REL_Y event followed by a SYNCHRONIZATION event.
+                // Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
+                // which the OS handles differently from two unseparated mouse movement events.
+                // For example,
+                // a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
+                // will move the mouse cursor by a different amount than
+                // a REL_X event followed by a REL_Y event followed by a SYNCHRONIZATION event.
 
-                //¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
-                //²Mouse movement along the X (horizontal) axis.
-                //³Mouse movement along the Y (vertical) axis.
+                // ¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
+                // ²Mouse movement along the X (horizontal) axis.
+                // ³Mouse movement along the Y (vertical) axis.
             }
 
             Action::InputEvent(event) => self.send_event(event)?,
@@ -67,7 +64,7 @@ impl ActionDispatcher {
         self.send_event(event)
     }
 
-    //a function that takes mouse movement events to send in a single batch, unseparated by synchronization events.
+    // a function that takes mouse movement events to send in a single batch, unseparated by synchronization events.
     fn send_mousemovement_event_batch(&mut self, eventbatch: Vec<RelativeEvent>) -> std::io::Result<()> {
         let mut mousemovementbatch: Vec<InputEvent> = Vec::new();
         for mouse_movement in eventbatch {

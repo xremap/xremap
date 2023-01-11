@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
-use action::Action;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
@@ -9,7 +8,7 @@ use clap_complete::Shell;
 use client::build_client;
 use config::{config_watcher, load_config};
 use device::InputDevice;
-use event::{Event, RelativeEvent};
+use event::Event;
 use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
 use nix::sys::select::select;
@@ -57,7 +56,7 @@ struct Opts {
         verbatim_doc_comment,
         hide_possible_values = true,
         // Separating the help like this is necessary due to
-        // https://github.com/clap-rs/clap/issues/3312
+        // https:// github.com/clap-rs/clap/issues/3312
         help = "Targets to watch [possible values: device, config]"
     )]
     watch: Vec<WatchTargets>,
@@ -136,7 +135,9 @@ fn main() -> anyhow::Result<()> {
         match 'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
             if readable_fds.contains(timer_fd) {
-                if let Err(error) = handle_event(&mut handler, &mut config, Event::OverrideTimeout) {
+                if let Err(error) =
+                    handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::OverrideTimeout])
+                {
                     println!("Error on remap timeout: {error}")
                 }
             }
@@ -224,34 +225,12 @@ fn handle_input_events(
         Err((Some(ENODEV), _)) => Ok(false),
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
-            //A vector used to collect all mouse movement events
-            let mut mousemovements: Vec<RelativeEvent> = Vec::new();
-
+            let mut input_events: Vec<Event> = Vec::new();
             for event in events {
-                if let Some(event) = Event::new(event) {
-                    //Running the event through modmap and keymap
-                    let handled_events = handle_event(handler, config, event)?;
-                    //and checking if the resulting events are mouse movements
-                    for action in handled_events {
-                        match action {
-                            //if an event is a mouse movement, adding it to a vector.
-                            Action::MouseMovementEvent(mouse_movement) => {
-                                mousemovements.push(mouse_movement);
-                            }
-                            //Otherwise, sending the event like usual.
-                            _ => {
-                                dispatcher.on_action(action)?;
-                            }
-                        }
-                    }
-                } else {
-                    dispatcher.on_action(Action::InputEvent(event))?;
-                }
+                let event = Event::new(event);
+                input_events.push(event);
             }
-            //Sending all mouse movements wrapped as one action
-            if mousemovements.len() > 0 {
-                dispatcher.on_action(Action::MouseMouvementEventCollection(mousemovements))?;
-            }
+            handle_events(handler, dispatcher, config, input_events)?;
 
             Ok(true)
         }
@@ -259,12 +238,19 @@ fn handle_input_events(
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
-fn handle_event(handler: &mut EventHandler, config: &mut Config, event: Event) -> anyhow::Result<Vec<Action>> {
+fn handle_events(
+    handler: &mut EventHandler,
+    dispatcher: &mut ActionDispatcher,
+    config: &mut Config,
+    events: Vec<Event>,
+) -> anyhow::Result<()> {
     let actions = handler
-        .on_event(&event, config)
-        .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
-
-    Ok(actions)
+        .on_events(&events, config)
+        .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
+    for action in actions {
+        dispatcher.on_action(action)?;
+    }
+    Ok(())
 }
 
 fn handle_device_changes(

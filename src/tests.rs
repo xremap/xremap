@@ -104,19 +104,41 @@ fn test_relative_events() {
 #[test]
 fn verify_disguised_relative_events() {
     use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
-    //verifies that the event offsetter used to "disguise" relative events into key event
-    //is a bigger number than the biggest one a scancode had at the time of writing this (26 december 2022)
+    // Verifies that the event offsetter used to "disguise" relative events into key event
+    // is a bigger number than the biggest one a scancode had at the time of writing this (26 december 2022)
     assert!(0x2e7 < DISGUISED_EVENT_OFFSETTER);
-    //and that it's not big enough that one of the "disguised" events's scancode would overflow.
-    //(the largest of those events is equal to DISGUISED_EVENT_OFFSETTER + 25)
+    // and that it's not big enough that one of the "disguised" events's scancode would overflow.
+    // (the largest of those events is equal to DISGUISED_EVENT_OFFSETTER + 25)
     assert!(DISGUISED_EVENT_OFFSETTER <= u16::MAX - 25)
 }
 
+#[test]
+fn test_mouse_movement_event_accumulation() {
+    // Tests that mouse movement events correctly get collected to be sent as one MouseMovementEventCollection,
+    // which is necessary to avoid separating mouse movement events with synchronization events,
+    // because such a separation would cause a bug with cursor movement.
+
+    // Please refer to test_cursor_behavior_1 and test_cursor_behavior_2 for more information on said bug.
+    assert_actions(
+        indoc! {""},
+        vec![
+            Event::RelativeEvent(RelativeEvent::new_with(_REL_X, _POSITIVE)),
+            Event::RelativeEvent(RelativeEvent::new_with(_REL_Y, _POSITIVE)),
+        ],
+        vec![Action::MouseMovementEventCollection(vec![
+            RelativeEvent::new_with(_REL_X, _POSITIVE),
+            RelativeEvent::new_with(_REL_Y, _POSITIVE),
+        ])],
+    )
+}
+
+#[test]
+#[ignore]
 // The OS interprets a REL_X event¹ combined with a REL_Y event² differently if they are separated by synchronization event.
 // This test and test_cursor_behavior_2 are meant to be run to demonstrate that fact.
 
-//¹Mouse movement along the X (horizontal) axis.
-//²Mouse movement along the Y (vertical) axis.
+// ¹Mouse movement along the X (horizontal) axis.
+// ²Mouse movement along the Y (vertical) axis.
 
 // The only difference between test_cursor_behavior_1 and test_cursor_behavior_2 is that
 // test_cursor_behavior_1 adds a synchronization event between REL_X and REL_Y events that would not normally be there.
@@ -124,7 +146,7 @@ fn verify_disguised_relative_events() {
 
 // Here's how to proceed :
 // 1 - Move your mouse cursor to the bottom left of your screen.
-// 2 - either run this test with sudo privileges or while your environnment is properly set up (https://github.com/k0kubun/xremap#running-xremap-without-sudo),
+// 2 - either run this test with sudo privileges or while your environnment is properly set up (https:// github.com/k0kubun/xremap#running-xremap-without-sudo),
 //     so that your keyboard and/or mouse may be captured.
 
 // 3 - Press any button (don't move the mouse).
@@ -135,7 +157,7 @@ fn verify_disguised_relative_events() {
 
 //
 // Notes :
-// - Because emitting an event automatcially adds a synchronization event afterwards (see https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/uinput.rs#L167),
+// - Because emitting an event automatcially adds a synchronization event afterwards (see https:// github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/uinput.rs#L167),
 //   Mouse movement events should be batched together when emitted,
 //   to avoid separating them with a synchronization event.
 //
@@ -149,12 +171,10 @@ fn verify_disguised_relative_events() {
 //   would cause the difference between test_cursor_behavior_1 and test_cursor_behavior_2 to become less noticeable.
 //   Conversely, a higher time interval would make the difference more noticeable.
 //
-#[test]
-#[ignore]
 fn test_cursor_behavior_1() {
     use crate::device::InputDevice;
     use crate::device::{get_input_devices, output_device};
-    //Setup to be able to send events
+    // Setup to be able to send events
     let mut input_devices = match get_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {}", e),
@@ -167,21 +187,21 @@ fn test_cursor_behavior_1() {
         let _unused = input_device.fetch_events().unwrap();
     }
 
-    //Looping 400 times amplifies the difference between test_cursor_behavior_1 and test_cursor_behavior_2 to visible levels.
+    // Looping 400 times amplifies the difference between test_cursor_behavior_1 and test_cursor_behavior_2 to visible levels.
     for _ in 0..400 {
         output_device
             .emit(&[
                 InputEvent::new_now(EventType::RELATIVE, _REL_X, _POSITIVE),
                 //
-                //This line is the only difference between test_cursor_behavior_1 and test_cursor_behavior_2.
+                // This line is the only difference between test_cursor_behavior_1 and test_cursor_behavior_2.
                 InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
                 //
                 InputEvent::new_now(EventType::RELATIVE, _REL_Y, _NEGATIVE),
             ])
             .unwrap();
 
-        //Creating a time interval between mouse movement events to simulate a mouse with a frequency of ~200 Hz.
-        //The smaller the time interval, the smaller the difference between test_cursor_behavior_1 and test_cursor_behavior_2.
+        // Creating a time interval between mouse movement events to simulate a mouse with a frequency of ~200 Hz.
+        // The smaller the time interval, the smaller the difference between test_cursor_behavior_1 and test_cursor_behavior_2.
         std::thread::sleep(Duration::from_millis(5));
     }
 }
@@ -194,7 +214,7 @@ fn test_cursor_behavior_1() {
 fn test_cursor_behavior_2() {
     use crate::device::InputDevice;
     use crate::device::{get_input_devices, output_device};
-    //Setup to be able to send events
+    // Setup to be able to send events
     let mut input_devices = match get_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {}", e),
@@ -207,7 +227,7 @@ fn test_cursor_behavior_2() {
         let _unused = input_device.fetch_events().unwrap();
     }
 
-    //Looping 400 times amplifies the difference between test_cursor_behavior_1 and test_cursor_behavior_2 to visible levels.
+    // Looping 400 times amplifies the difference between test_cursor_behavior_1 and test_cursor_behavior_2 to visible levels.
     for _ in 0..400 {
         output_device
             .emit(&[
@@ -216,8 +236,8 @@ fn test_cursor_behavior_2() {
             ])
             .unwrap();
 
-        //Creating a time interval between mouse movement events to simulate a mouse with a frequency of ~200 Hz.
-        //The smaller the time interval, the smaller the difference between test_cursor_behavior_1 and test_cursor_behavior_2.
+        // Creating a time interval between mouse movement events to simulate a mouse with a frequency of ~200 Hz.
+        // The smaller the time interval, the smaller the difference between test_cursor_behavior_1 and test_cursor_behavior_2.
         std::thread::sleep(Duration::from_millis(5));
     }
 }
@@ -563,8 +583,8 @@ fn assert_actions_with_current_application(
         WMClient::new("static", Box::new(StaticClient { current_application })),
     );
     let mut actual: Vec<Action> = vec![];
-    for event in &events {
-        actual.append(&mut event_handler.on_event(event, &config).unwrap());
-    }
+
+    actual.append(&mut event_handler.on_events(&events, &config).unwrap());
+
     assert_eq!(format!("{:?}", actions), format!("{:?}", actual));
 }
