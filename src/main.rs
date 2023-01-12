@@ -56,7 +56,7 @@ struct Opts {
         verbatim_doc_comment,
         hide_possible_values = true,
         // Separating the help like this is necessary due to
-        // https:// github.com/clap-rs/clap/issues/3312
+        // https://github.com/clap-rs/clap/issues/3312
         help = "Targets to watch [possible values: device, config]"
     )]
     watch: Vec<WatchTargets>,
