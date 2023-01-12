@@ -1,3 +1,9 @@
+## v0.8.0
+
+- Support scrollwheel / RELATIVE events
+  [#180](https://github.com/k0kubun/xremap/issues/180)
+  [#187](https://github.com/k0kubun/xremap/issues/187)
+
 ## v0.7.15
 
 - Handle a None application name on Hyperland [#220](https://github.com/k0kubun/xremap/issues/220)
