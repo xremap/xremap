@@ -1,7 +1,6 @@
 use crate::config::Config;
 use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
-use action::Action;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
@@ -136,7 +135,9 @@ fn main() -> anyhow::Result<()> {
         match 'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
             if readable_fds.contains(timer_fd) {
-                if let Err(error) = handle_event(&mut handler, &mut dispatcher, &mut config, Event::OverrideTimeout) {
+                if let Err(error) =
+                    handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::OverrideTimeout])
+                {
                     println!("Error on remap timeout: {error}")
                 }
             }
@@ -224,28 +225,28 @@ fn handle_input_events(
         Err((Some(ENODEV), _)) => Ok(false),
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => {
+            let mut input_events: Vec<Event> = Vec::new();
             for event in events {
-                if let Some(event) = Event::new(event) {
-                    handle_event(handler, dispatcher, config, event)?;
-                } else {
-                    dispatcher.on_action(Action::InputEvent(event))?;
-                }
+                let event = Event::new(event);
+                input_events.push(event);
             }
+            handle_events(handler, dispatcher, config, input_events)?;
+
             Ok(true)
         }
     }
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
-fn handle_event(
+fn handle_events(
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
     config: &mut Config,
-    event: Event,
+    events: Vec<Event>,
 ) -> anyhow::Result<()> {
     let actions = handler
-        .on_event(&event, config)
-        .map_err(|e| anyhow!("Failed handling {event:?}:\n  {e:?}"))?;
+        .on_events(&events, config)
+        .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
     for action in actions {
         dispatcher.on_action(action)?;
     }
