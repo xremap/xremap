@@ -232,7 +232,7 @@ fn handle_input_events(
         Ok(events) => {
             let mut input_events: Vec<Event> = Vec::new();
             for event in events {
-                let event = Event::new(event);
+                let event = Event::new(event, input_device);
                 input_events.push(event);
             }
             handle_events(handler, dispatcher, config, input_events)?;

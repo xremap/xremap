@@ -1,5 +1,7 @@
 use evdev::{EventType, InputEvent, Key};
 
+use crate::device::InputDevice;
+
 // Input to EventHandler. This should only contain things that are easily testable.
 #[derive(Debug)]
 pub enum Event {
@@ -17,6 +19,7 @@ pub enum Event {
 pub struct KeyEvent {
     key: Key,
     value: KeyValue,
+    device: &InputDevice
 }
 
 #[derive(Debug)]
@@ -33,9 +36,9 @@ pub enum KeyValue {
 }
 impl Event {
     // Convert evdev's raw InputEvent to xremap's internal Event
-    pub fn new(event: InputEvent) -> Event {
+    pub fn new(event: InputEvent, device: &InputDevice) -> Event {
         let event = match event.event_type() {
-            EventType::KEY => Event::KeyEvent(KeyEvent::new_with(event.code(), event.value())),
+            EventType::KEY => Event::KeyEvent(KeyEvent::new_with(event.code(), event.value(), device)),
             EventType::RELATIVE => Event::RelativeEvent(RelativeEvent::new_with(event.code(), event.value())),
             _ => Event::OtherEvents(event),
         };
