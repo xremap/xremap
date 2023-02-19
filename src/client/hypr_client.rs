@@ -1,6 +1,5 @@
 use crate::client::Client;
-use hyprland::data::blocking::get_active_window;
-use serde_json::Value;
+use hyprland::{data::Client as HyprClient, prelude::*};
 pub struct HyprlandClient;
 
 impl HyprlandClient {
@@ -15,12 +14,9 @@ impl Client for HyprlandClient {
     }
 
     fn current_application(&mut self) -> Option<String> {
-        if let Ok(win) = get_active_window() {
-            let s = serde_json::to_string(&win).ok()?;
-            let v: Value = serde_json::from_str(&s).ok()?;
-            let app = v["class"].as_str();
-            if let Some(app) = app {
-                return Some(String::from(app));
+        if let Ok(win_opt) = HyprClient::get_active() {
+            if let Some(win) = win_opt {
+                return Some(win.class);
             }
         }
         None
