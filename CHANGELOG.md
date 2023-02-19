@@ -1,3 +1,7 @@
+## v0.8.1
+
+- Update Hyperland-rs from 0.2.4 to 0.3.0 [#247](https://github.com/k0kubun/xremap/issues/247)
+
 ## v0.8.0
 
 - Support scrollwheel / RELATIVE events
