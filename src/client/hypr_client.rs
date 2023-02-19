@@ -16,7 +16,7 @@ impl Client for HyprlandClient {
     fn current_application(&mut self) -> Option<String> {
         if let Ok(win_opt) = HyprClient::get_active() {
             if let Some(win) = win_opt {
-                return Some(String::from(win.class.as_str()));
+                return Some(win.class);
             }
         }
         None
