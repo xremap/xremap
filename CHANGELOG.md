@@ -1,3 +1,7 @@
+## v0.8.2
+
+- Remove `REL_WHEEL` and `REL_HWHEEL` as a workaround for Arch Linux with systemd-253-1
+
 ## v0.8.1
 
 - Update Hyperland-rs from 0.2.4 to 0.3.0 [#247](https://github.com/k0kubun/xremap/issues/247)
