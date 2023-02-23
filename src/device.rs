@@ -51,8 +51,6 @@ pub fn output_device(bus_type: Option<BusType>) -> Result<VirtualDevice, Box<dyn
     let mut relative_axes: AttributeSet<RelativeAxisType> = AttributeSet::new();
     relative_axes.insert(RelativeAxisType::REL_X);
     relative_axes.insert(RelativeAxisType::REL_Y);
-    relative_axes.insert(RelativeAxisType::REL_HWHEEL);
-    relative_axes.insert(RelativeAxisType::REL_WHEEL);
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
     let device = VirtualDeviceBuilder::new()?
