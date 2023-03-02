@@ -257,9 +257,9 @@ dependencies = [
 
 [[package]]
 name = "derive-where"
-version = "1.0.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c13f480ba804fb9ebbbcdeb942be88eedcbe051fdcf375804f8ee837126dc1db"
+checksum = "8676a29295a9edf33f1e7becd9803787853401c75e960a128712f987dd0c2139"
 dependencies = [
  "proc-macro2",
  "quote",
