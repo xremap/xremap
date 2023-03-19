@@ -1,5 +1,5 @@
 use std::env::temp_dir;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 
@@ -7,9 +7,24 @@ use crate::client::Client;
 use zbus::{dbus_interface, fdo, Connection};
 
 const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
+const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
 
 pub struct KdeClient {
     active_window: Arc<Mutex<ActiveWindow>>,
+}
+
+struct KwinScriptTempFile(PathBuf);
+
+impl KwinScriptTempFile {
+    fn new() -> Self {
+        Self(temp_dir().join("xremap-kwin-script.js"))
+    }
+}
+
+impl Drop for KwinScriptTempFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 trait KWinScripting {
@@ -26,7 +41,7 @@ impl KWinScripting for Connection {
             Some("org.kde.kwin.Scripting"),
             "loadScript",
             // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
-            &(path.to_str().ok_or(ConnectionError::TempPathNotValidUtf8)?, "xremap"),
+            &(path.to_str().ok_or(ConnectionError::TempPathNotValidUtf8)?, KWIN_SCRIPT_PLUGIN_NAME),
         )
         .map_err(|_| ConnectionError::LoadScriptCall)?
         .body::<u32>()
@@ -46,12 +61,23 @@ impl KWinScripting for Connection {
             "Scripting/",
             Some("org.kde.kwin.Scripting"),
             "isScriptLoaded",
-            &("xremap"),
+            &KWIN_SCRIPT_PLUGIN_NAME,
         )
         .map_err(|_| ConnectionError::IsScriptLoadedCall)?
         .body::<bool>()
         .map_err(|_| ConnectionError::InvalidIsScriptLoadedResult)
     }
+}
+
+fn load_kwin_script() -> Result<(), ConnectionError> {
+    let dbus = Connection::new_session().map_err(|_| ConnectionError::ClientSession)?;
+    if !dbus.is_script_loaded()? {
+        let temp_file_path = KwinScriptTempFile::new();
+        std::fs::write(&temp_file_path.0, KWIN_SCRIPT).map_err(|_| ConnectionError::WriteScriptToTempFile)?;
+        let script_obj_path = dbus.load_script(&temp_file_path.0)?;
+        dbus.start_script(&script_obj_path)?;
+    }
+    Ok(())
 }
 
 impl KdeClient {
@@ -64,20 +90,8 @@ impl KdeClient {
         KdeClient { active_window }
     }
 
-    fn load_kwin_script() -> Result<(), ConnectionError> {
-        let dbus = Connection::new_session().map_err(|_| ConnectionError::ClientSession)?;
-        if !dbus.is_script_loaded()? {
-            let temp_file_path = temp_dir().join("xremap-kwin-script.js");
-            std::fs::write(&temp_file_path, KWIN_SCRIPT).map_err(|_| ConnectionError::WriteScriptToTempFile)?;
-            let script_obj_path = dbus.load_script(&temp_file_path)?;
-            dbus.start_script(&script_obj_path)?;
-        }
-
-        Ok(())
-    }
-
     fn connect(&mut self) -> Result<(), ConnectionError> {
-        Self::load_kwin_script()?;
+        load_kwin_script()?;
 
         let active_window = Arc::clone(&self.active_window);
         let (tx, rx) = channel();
