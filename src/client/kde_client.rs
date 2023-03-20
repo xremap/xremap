@@ -37,7 +37,7 @@ impl KWinScripting for Connection {
     fn load_script(&self, path: &Path) -> Result<String, ConnectionError> {
         self.call_method(
             Some("org.kde.KWin"),
-            "Scripting/",
+            "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "loadScript",
             // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
@@ -46,7 +46,7 @@ impl KWinScripting for Connection {
         .map_err(|_| ConnectionError::LoadScriptCall)?
         .body::<u32>()
         .map_err(|_| ConnectionError::InvalidLoadScriptResult)
-        .map(|obj_path| format!("{obj_path}/"))
+        .map(|obj_path| format!("/{obj_path}"))
     }
 
     fn start_script(&self, script_obj_path: &str) -> Result<(), ConnectionError> {
@@ -58,7 +58,7 @@ impl KWinScripting for Connection {
     fn is_script_loaded(&self) -> Result<bool, ConnectionError> {
         self.call_method(
             Some("org.kde.KWin"),
-            "Scripting/",
+            "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "isScriptLoaded",
             &KWIN_SCRIPT_PLUGIN_NAME,
