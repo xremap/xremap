@@ -286,12 +286,14 @@ busctl --user call org.gnome.Shell /com/k0kubun/Xremap com.k0kubun.Xremap WMClas
 ```
 #### KDE-Plasma Wayland
 
-Xremap prints the active window to the system-logs: (Can be opened with `journalctl -f`)  
-However it will only start printing, once a mapping has been triggered that uses an application filter. 
+Xremap prints the active window to the console. 
+However, it will only start printing, once a mapping has been triggered that uses an application filter. 
 So you have to create a mapping with a filter using a dummy application name and trigger it.
 Then each time you switch to a new window xremap will print its caption, class, and name in the following style:
 `active window: caption: '<caption>', class: '<class>', name: '<name>'`
-You want to use the class for the filter.
+You want to use the class for the filter.  
+
+If you use a systemd-daemon to manage xremap, the prints will be visible in the system-logs (Can be opened with `journalctl -f`)
 
 #### Sway
 
