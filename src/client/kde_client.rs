@@ -1,3 +1,4 @@
+use log::{info, warn};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
@@ -130,7 +131,7 @@ impl Client for KdeClient {
     fn supported(&mut self) -> bool {
         let conn_res = self.connect();
         if let Err(err) = &conn_res {
-            println!("Could not connect to kwin-script. Error: {err:?}");
+            warn!("Could not connect to kwin-script. Error: {err:?}");
         }
         conn_res.is_ok()
     }
@@ -171,6 +172,8 @@ struct ActiveWindowInterface {
 #[dbus_interface(name = "com.k0kubun.Xremap")]
 impl ActiveWindowInterface {
     fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
+        // I want to log this on info level, since it is the only way to know what the resource class of applications is.
+        info!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
         let mut aw = self.active_window.lock().unwrap();
         aw.title = caption;
         aw.res_class = res_class;
