@@ -131,7 +131,7 @@ impl KdeClient {
                     .request_name("com.k0kubun.Xremap", fdo::RequestNameFlags::ReplaceExisting.into())
                     .map_err(|_| ConnectionError::RequestName)?;
                 let mut object_server = zbus::ObjectServer::new(&connection);
-                let mut awi = ActiveWindowInterface { active_window };
+                let awi = ActiveWindowInterface { active_window };
                 object_server
                     .at(&"/com/k0kubun/Xremap".try_into().unwrap(), awi)
                     .map_err(|_| ConnectionError::ServeObjServer)?;
