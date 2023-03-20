@@ -1,4 +1,4 @@
-use log::{info, warn};
+use log::{debug, info, warn};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
@@ -30,6 +30,7 @@ impl Drop for KwinScriptTempFile {
 
 trait KWinScripting {
     fn load_script(&self, path: &Path) -> Result<String, ConnectionError>;
+    fn unload_script(&self) -> Result<bool, ConnectionError>;
     fn start_script(&self, script_obj_path: &str) -> Result<(), ConnectionError>;
     fn is_script_loaded(&self) -> Result<bool, ConnectionError>;
 }
@@ -48,6 +49,20 @@ impl KWinScripting for Connection {
         .body::<i32>()
         .map_err(|_| ConnectionError::InvalidLoadScriptResult)
         .map(|obj_path| format!("/{obj_path}"))
+    }
+
+    fn unload_script(&self) -> Result<bool, ConnectionError> {
+        self.call_method(
+            Some("org.kde.KWin"),
+            "/Scripting",
+            Some("org.kde.kwin.Scripting"),
+            "unloadScript",
+            // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
+            &KWIN_SCRIPT_PLUGIN_NAME,
+        )
+        .map_err(|_| ConnectionError::UnloadScriptCall)?
+        .body::<bool>()
+        .map_err(|_| ConnectionError::InvalidUnloadScriptResult)
     }
 
     fn start_script(&self, script_obj_path: &str) -> Result<(), ConnectionError> {
@@ -73,10 +88,22 @@ impl KWinScripting for Connection {
 fn load_kwin_script() -> Result<(), ConnectionError> {
     let dbus = Connection::new_session().map_err(|_| ConnectionError::ClientSession)?;
     if !dbus.is_script_loaded()? {
-        let temp_file_path = KwinScriptTempFile::new();
-        std::fs::write(&temp_file_path.0, KWIN_SCRIPT).map_err(|_| ConnectionError::WriteScriptToTempFile)?;
-        let script_obj_path = dbus.load_script(&temp_file_path.0)?;
-        dbus.start_script(&script_obj_path)?;
+        let init_script = || {
+            let temp_file_path = KwinScriptTempFile::new();
+            std::fs::write(&temp_file_path.0, KWIN_SCRIPT).map_err(|_| ConnectionError::WriteScriptToTempFile)?;
+            let script_obj_path = dbus.load_script(&temp_file_path.0)?;
+            dbus.start_script(&script_obj_path)?;
+            Ok(())
+        };
+        if let Err(err) = init_script() {
+            debug!("Trying to unload kwin-script plugin ('{KWIN_SCRIPT_PLUGIN_NAME}').");
+            match dbus.unload_script() {
+                Err(err) => debug!("Error unloading plugin ('{err:?}'). It may still be loaded and could cause future runs of xremap to fail."),
+                Ok(unloaded) if unloaded => debug!("Successfully unloaded plugin."),
+                Ok(_) => debug!("Plugin was not loaded in the first place."),
+            }
+            return Err(err);
+        }
     }
     Ok(())
 }
@@ -147,9 +174,15 @@ enum ConnectionError {
     TempPathNotValidUtf8,
     WriteScriptToTempFile,
     ClientSession,
+
     LoadScriptCall,
     InvalidLoadScriptResult,
+
+    UnloadScriptCall,
+    InvalidUnloadScriptResult,
+
     StartScriptCall,
+
     IsScriptLoadedCall,
     InvalidIsScriptLoadedResult,
 
