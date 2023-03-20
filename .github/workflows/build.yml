@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
-        feature: [x11, gnome, sway, hypr]
+        feature: [x11, gnome, kde, sway, hypr]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -101,10 +101,12 @@ jobs:
       # Release binary
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-x11,    path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-gnome,  path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-kde,    path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-sway,   path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-hypr,   path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-x11,   path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-gnome, path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-kde,   path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-sway,  path: package/ } }
       - name: Release
         run: |
