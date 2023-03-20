@@ -44,7 +44,7 @@ impl KWinScripting for Connection {
             &(path.to_str().ok_or(ConnectionError::TempPathNotValidUtf8)?, KWIN_SCRIPT_PLUGIN_NAME),
         )
         .map_err(|_| ConnectionError::LoadScriptCall)?
-        .body::<u32>()
+        .body::<i32>()
         .map_err(|_| ConnectionError::InvalidLoadScriptResult)
         .map(|obj_path| format!("/{obj_path}"))
     }
