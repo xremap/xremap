@@ -1,4 +1,4 @@
-use log::{debug, info, warn};
+use log::{debug, warn};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
@@ -205,8 +205,8 @@ struct ActiveWindowInterface {
 #[dbus_interface(name = "com.k0kubun.Xremap")]
 impl ActiveWindowInterface {
     fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
-        // I want to log this on info level, since it is the only way to know what the resource class of applications is.
-        info!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
+        // I want to always print this, since it is the only way to know what the resource class of applications is.
+        println!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
         let mut aw = self.active_window.lock().unwrap();
         aw.title = caption;
         aw.res_class = res_class;
