@@ -48,6 +48,13 @@ pub fn build_client() -> WMClient {
     WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()))
 }
 
+#[cfg(feature = "kde")]
+mod kde_client;
+#[cfg(feature = "kde")]
+pub fn build_client() -> WMClient {
+    WMClient::new("KDE", Box::new(kde_client::KdeClient::new()))
+}
+
 #[cfg(feature = "sway")]
 mod sway_client;
 #[cfg(feature = "sway")]
@@ -69,9 +76,21 @@ pub fn build_client() -> WMClient {
     WMClient::new("X11", Box::new(x11_client::X11Client::new()))
 }
 
-#[cfg(not(any(feature = "gnome", feature = "sway", feature = "x11", feature = "hypr")))]
+#[cfg(not(any(
+    feature = "gnome",
+    feature = "sway",
+    feature = "x11",
+    feature = "hypr",
+    feature = "kde"
+)))]
 mod null_client;
-#[cfg(not(any(feature = "gnome", feature = "sway", feature = "x11", feature = "hypr")))]
+#[cfg(not(any(
+    feature = "gnome",
+    feature = "sway",
+    feature = "x11",
+    feature = "hypr",
+    feature = "kde"
+)))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))
 }
