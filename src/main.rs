@@ -290,7 +290,7 @@ fn handle_config_changes(
     for event in &events {
         match (event.mask, &event.name) {
             // Dir events
-            (_, Some(name)) if config_paths.iter().any(|config_path| name == config_path.file_name().expect("Config path has a file name")) => {
+            (_, Some(name)) if config_paths.iter().any(|p| name == p.file_name().expect("Config path has a file name")) => {
                 return Ok(false)
             }
             // File events
