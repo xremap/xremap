@@ -1,6 +1,6 @@
 use std::thread;
 
-use evdev::{uinput::VirtualDevice, EventType, InputEvent, Key};
+use evdev::{uinput::VirtualDevice, EventType, InputEvent};
 use fork::{fork, setsid, Fork};
 use log::debug;
 use log::error;
@@ -79,7 +79,7 @@ impl ActionDispatcher {
 
     fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
-            debug!("{}: {:?}", event.value(), Key::new(event.code()))
+            debug!("{:?}", event)
         }
         self.device.emit(&[event])
     }
