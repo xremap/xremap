@@ -56,6 +56,7 @@ pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::E
         let c: Config = serde_yaml::from_str(&yaml)?;
         config.modmap.extend(c.modmap);
         config.keymap.extend(c.keymap);
+        config.virtual_modifiers.extend(c.virtual_modifiers);
     }
 
     // Timestamp for --watch=config
