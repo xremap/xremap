@@ -111,7 +111,15 @@ fn main() -> anyhow::Result<()> {
 
     let mut config = match config::load_configs(&config_paths) {
         Ok(config) => config,
-        Err(e) => bail!("Failed to load config '{}': {}", config_paths.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join("', '"), e),
+        Err(e) => bail!(
+            "Failed to load config '{}': {}",
+            config_paths
+                .iter()
+                .map(|p| p.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("', '"),
+            e
+        ),
     };
     let watch_devices = watch.contains(&WatchTargets::Device);
     let watch_config = watch.contains(&WatchTargets::Config);
@@ -187,7 +195,14 @@ fn main() -> anyhow::Result<()> {
                 };
             }
             ReloadEvent::ReloadConfig => {
-                match (config.modify_time, config_paths.iter().map(|p| p.metadata().ok()?.modified().ok()).flatten().max()) {
+                match (
+                    config.modify_time,
+                    config_paths
+                        .iter()
+                        .map(|p| p.metadata().ok()?.modified().ok())
+                        .flatten()
+                        .max(),
+                ) {
                     (Some(last_mtime), Some(current_mtim)) if last_mtime == current_mtim => continue,
                     _ => {
                         if let Ok(c) = load_configs(&config_paths) {
@@ -290,7 +305,11 @@ fn handle_config_changes(
     for event in &events {
         match (event.mask, &event.name) {
             // Dir events
-            (_, Some(name)) if config_paths.iter().any(|p| name == p.file_name().expect("Config path has a file name")) => {
+            (_, Some(name))
+                if config_paths
+                    .iter()
+                    .any(|p| name == p.file_name().expect("Config path has a file name")) =>
+            {
                 return Ok(false)
             }
             // File events
