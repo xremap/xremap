@@ -521,6 +521,7 @@ impl EventHandler {
 
         // Press the main key
         self.send_key(&key_press.key, PRESS);
+        self.send_action(Action::Delay(self.keypress_delay));
         self.send_key(&key_press.key, RELEASE);
 
         self.send_action(Action::Delay(self.keypress_delay));
