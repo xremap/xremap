@@ -1,3 +1,7 @@
+## v0.8.4
+
+- Support loading multiple configs [#269](https://github.com/k0kubun/xremap/issues/269)
+
 ## v0.8.3
 
 - Support KDE Wayland [#264](https://github.com/k0kubun/xremap/issues/264)
