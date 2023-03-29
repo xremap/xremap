@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail, Context};
 use clap::{AppSettings, ArgEnum, IntoApp, Parser};
 use clap_complete::Shell;
 use client::build_client;
-use config::{config_watcher, load_config};
+use config::{config_watcher, load_configs};
 use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
@@ -17,7 +17,7 @@ use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 
 mod action;
@@ -45,7 +45,7 @@ struct Opts {
     /// Targets to watch
     ///
     /// - device: add new devices automatically
-    /// - config: reload the config automatically
+    /// - config: reload the configs automatically
     #[clap(
         long,
         arg_enum,
@@ -67,9 +67,9 @@ struct Opts {
     /// - in fish: xremap --completions fish | source
     #[clap(long, arg_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
     completions: Option<Shell>,
-    /// Config file
-    #[clap(required_unless_present = "completions")]
-    config: Option<PathBuf>,
+    /// Config file(s)
+    #[clap(required_unless_present = "completions", multiple_values = true)]
+    configs: Vec<PathBuf>,
 }
 
 #[derive(ArgEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -94,7 +94,7 @@ fn main() -> anyhow::Result<()> {
         ignore: ignore_filter,
         mouse,
         watch,
-        config,
+        configs,
         completions,
     } = Opts::parse();
 
@@ -104,10 +104,22 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Configuration
-    let config_path = config.expect("config is set, if not completions");
-    let mut config = match config::load_config(&config_path) {
+    let config_paths = match configs[..] {
+        [] => panic!("config is set, if not completions"),
+        _ => configs,
+    };
+
+    let mut config = match config::load_configs(&config_paths) {
         Ok(config) => config,
-        Err(e) => bail!("Failed to load config '{}': {}", config_path.display(), e),
+        Err(e) => bail!(
+            "Failed to load config '{}': {}",
+            config_paths
+                .iter()
+                .map(|p| p.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("', '"),
+            e
+        ),
     };
     let watch_devices = watch.contains(&WatchTargets::Device);
     let watch_config = watch.contains(&WatchTargets::Config);
@@ -121,7 +133,7 @@ fn main() -> anyhow::Result<()> {
         Err(e) => bail!("Failed to prepare input devices: {}", e),
     };
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
-    let config_watcher = config_watcher(watch_config, &config_path).context("Setting up config watcher")?;
+    let config_watcher = config_watcher(watch_config, &config_paths).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
     let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client());
     let output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type)) {
@@ -166,7 +178,7 @@ fn main() -> anyhow::Result<()> {
                         &device_filter,
                         &ignore_filter,
                         mouse,
-                        &config_path,
+                        &config_paths,
                     )? {
                         break 'event_loop ReloadEvent::ReloadConfig;
                     }
@@ -183,10 +195,17 @@ fn main() -> anyhow::Result<()> {
                 };
             }
             ReloadEvent::ReloadConfig => {
-                match (config.modify_time, config_path.metadata().and_then(|m| m.modified())) {
-                    (Some(last_mtime), Ok(current_mtim)) if last_mtime == current_mtim => continue,
+                match (
+                    config.modify_time,
+                    config_paths
+                        .iter()
+                        .map(|p| p.metadata().ok()?.modified().ok())
+                        .flatten()
+                        .max(),
+                ) {
+                    (Some(last_mtime), Some(current_mtim)) if last_mtime == current_mtim => continue,
                     _ => {
-                        if let Ok(c) = load_config(&config_path) {
+                        if let Ok(c) = load_configs(&config_paths) {
                             println!("Reloading Config");
                             config = c;
                         }
@@ -281,12 +300,16 @@ fn handle_config_changes(
     device_filter: &[String],
     ignore_filter: &[String],
     mouse: bool,
-    config_path: &Path,
+    config_paths: &Vec<PathBuf>,
 ) -> anyhow::Result<bool> {
     for event in &events {
         match (event.mask, &event.name) {
             // Dir events
-            (_, Some(name)) if name == config_path.file_name().expect("Config path has a file name") => {
+            (_, Some(name))
+                if config_paths
+                    .iter()
+                    .any(|p| name == p.file_name().expect("Config path has a file name")) =>
+            {
                 return Ok(false)
             }
             // File events

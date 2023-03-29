@@ -17,7 +17,7 @@ use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use serde::{Deserialize, Deserializer};
-use std::{collections::HashMap, error, fs, path::Path, time::SystemTime};
+use std::{collections::HashMap, error, fs, path::PathBuf, time::SystemTime};
 
 use self::{
     key::parse_key,
@@ -46,12 +46,21 @@ pub struct Config {
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
 }
 
-pub fn load_config(filename: &Path) -> Result<Config, Box<dyn error::Error>> {
-    let yaml = fs::read_to_string(&filename)?;
+pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::Error>> {
+    // Assumes filenames is non-empty
+    let yaml = fs::read_to_string(&filenames[0])?;
     let mut config: Config = serde_yaml::from_str(&yaml)?;
 
+    for filename in &filenames[1..] {
+        let yaml = fs::read_to_string(&filename)?;
+        let c: Config = serde_yaml::from_str(&yaml)?;
+        config.modmap.extend(c.modmap);
+        config.keymap.extend(c.keymap);
+        config.virtual_modifiers.extend(c.virtual_modifiers);
+    }
+
     // Timestamp for --watch=config
-    config.modify_time = filename.metadata()?.modified().ok();
+    config.modify_time = filenames.last().and_then(|path| path.metadata().ok()?.modified().ok());
 
     // Convert keymap for efficient keymap lookup
     config.keymap_table = build_keymap_table(&config.keymap);
@@ -59,14 +68,16 @@ pub fn load_config(filename: &Path) -> Result<Config, Box<dyn error::Error>> {
     Ok(config)
 }
 
-pub fn config_watcher(watch: bool, file: &Path) -> anyhow::Result<Option<Inotify>> {
+pub fn config_watcher(watch: bool, files: &Vec<PathBuf>) -> anyhow::Result<Option<Inotify>> {
     if watch {
         let inotify = Inotify::init(InitFlags::IN_NONBLOCK)?;
-        inotify.add_watch(
-            file.parent().expect("config file has a parent directory"),
-            AddWatchFlags::IN_CREATE | AddWatchFlags::IN_MOVED_TO,
-        )?;
-        inotify.add_watch(file, AddWatchFlags::IN_MODIFY)?;
+        for file in files {
+            inotify.add_watch(
+                file.parent().expect("config file has a parent directory"),
+                AddWatchFlags::IN_CREATE | AddWatchFlags::IN_MOVED_TO,
+            )?;
+            inotify.add_watch(file, AddWatchFlags::IN_MODIFY)?;
+        }
         Ok(Some(inotify))
     } else {
         Ok(None)
