@@ -1,3 +1,7 @@
+## v0.8.5
+
+- Update Hyperland-rs from 0.3.0 to 0.3.1 [#275](https://github.com/k0kubun/xremap/issues/275)
+
 ## v0.8.4
 
 - Support loading multiple configs [#269](https://github.com/k0kubun/xremap/issues/269)
