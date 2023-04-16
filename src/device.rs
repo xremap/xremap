@@ -133,7 +133,7 @@ pub fn get_input_devices(
     Ok(devices.into_iter().map(From::from).collect())
 }
 
-#[derive_where(PartialEq, PartialOrd, Ord)]
+#[derive_where(PartialEq, PartialOrd, Ord, Debug)]
 pub struct InputDevice {
     path: PathBuf,
     #[derive_where(skip)]

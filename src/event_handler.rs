@@ -6,6 +6,7 @@ use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
+use crate::device::InputDevice;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::Config;
 use evdev::Key;
@@ -85,15 +86,15 @@ impl EventHandler {
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
             match event {
-                Event::KeyEvent(key_event) => {
+                Event::KeyEvent(device, key_event) => {
                     self.on_key_event(key_event, config)?;
                     ()
                 }
-                Event::RelativeEvent(relative_event) => {
+                Event::RelativeEvent(device, relative_event) => {
                     self.on_relative_event(relative_event, &mut mouse_movement_collection, config)?
                 }
 
-                Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
+                Event::OtherEvents(device, event) => self.send_action(Action::InputEvent(*event)),
                 Event::OverrideTimeout => self.timeout_override()?,
             };
         }
@@ -132,7 +133,7 @@ impl EventHandler {
             } else if is_pressed(value) {
                 if self.escape_next_key {
                     self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, &key)? {
+                } else if let Some(actions) = self.find_keymap(config, event)? {
                     self.dispatch_actions(&actions, &key)?;
                     continue;
                 }
@@ -379,12 +380,12 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+    fn find_keymap(&mut self, config: &Config, event: &KeyEvent) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
                 .iter()
-                .flat_map(|map| map.get(key).cloned().unwrap_or_default())
+                .flat_map(|map| map.get(&event.key).cloned().unwrap_or_default())
                 .collect();
 
             if !entries.is_empty() {
@@ -420,7 +421,7 @@ impl EventHandler {
             self.timeout_override()?;
         }
 
-        if let Some(entries) = config.keymap_table.get(key) {
+        if let Some(entries) = config.keymap_table.get(&event.key) {
             for exact_match in [true, false] {
                 let mut remaps = vec![];
                 for entry in entries {
