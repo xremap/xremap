@@ -42,6 +42,7 @@ pub struct KeymapEntry {
     pub actions: Vec<KeymapAction>,
     pub modifiers: Vec<Modifier>,
     pub application: Option<Application>,
+    pub device: Option<Device>,
     pub mode: Option<Vec<String>>,
     pub exact_match: bool,
 }
@@ -64,6 +65,7 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
                 actions: actions.to_vec(),
                 modifiers: key_press.modifiers.clone(),
                 application: keymap.application.clone(),
+                device: keymap.device.clone(),
                 mode: keymap.mode.clone(),
                 exact_match: keymap.exact_match,
             });
