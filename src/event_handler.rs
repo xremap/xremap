@@ -94,7 +94,7 @@ impl EventHandler {
                     self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
                 }
 
-                Event::OtherEvents(device, event) => self.send_action(Action::InputEvent(*event)),
+                Event::OtherEvents(_device, event) => self.send_action(Action::InputEvent(*event)),
                 Event::OverrideTimeout => self.timeout_override()?,
             };
         }
@@ -625,11 +625,11 @@ impl EventHandler {
     }
 
     fn match_device(&self, device_matcher: &config::device::Device, device: &InputDevice) -> bool {
-        if let Some(device_only) = &self.device_matcher.only {
-            return device_only.iter().any(|m| m.matches(device));
+        if let Some(device_only) = &device_matcher.only {
+            return device_only.iter().any(|m| device.matches(m));
         }
-        if let Some(device_not) = &self.device_matcher.not {
-            return device_not.iter().all(|m| !m.matches(device));
+        if let Some(device_not) = &device_matcher.not {
+            return device_not.iter().all(|m| device.matches(m));
         }
         true
     }
