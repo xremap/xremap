@@ -631,7 +631,7 @@ impl EventHandler {
         if let Some(device_not) = &device_matcher.not {
             return device_not.iter().all(|m| device.matches(m));
         }
-        true
+        false
     }
 
     fn update_modifier(&mut self, key: Key, value: i32) {
