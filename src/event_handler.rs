@@ -629,7 +629,7 @@ impl EventHandler {
             return device_only.iter().any(|m| device.matches(m));
         }
         if let Some(device_not) = &device_matcher.not {
-            return device_not.iter().all(|m| device.matches(m));
+            return device_not.iter().all(|m| !device.matches(m));
         }
         false
     }
