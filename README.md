@@ -281,8 +281,9 @@ or just the last segment after `.` (`Slack`, `Code`).
 
 #### GNOME Wayland
 
+Use the following command or check windows' WMClass by pressing Alt+F2 and running `lg` command in [LookingGlass](https://wiki.gnome.org/Projects/GnomeShell/LookingGlass):
 ```
-busctl --user call org.gnome.Shell /com/k0kubun/Xremap com.k0kubun.Xremap WMClass
+busctl --user call org.gnome.Shell /com/k0kubun/Xremap com.k0kubun.Xremap WMClasses
 ```
 #### KDE-Plasma Wayland
 
