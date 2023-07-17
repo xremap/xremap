@@ -89,6 +89,26 @@ Then add udev rule.
 echo 'KERNEL=="uinput", GROUP="input", MODE="0660"' | sudo tee /etc/udev/rules.d/99-input.rules
 ```
 
+#### Debian
+Make sure `uinput` is loaded same as in Arch:
+```
+lsmod | grep uinput
+```
+If it shows up empty:
+```bash
+echo uinput | sudo tee /etc/modules-load.d/uinput.conf
+```
+Add your user to the `input` group and add the same udev rule as in Ubuntu:
+```bash
+sudo gpasswd -a YOUR_USER input
+echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
+```
+Reboot the machine afterwards or try:
+```bash
+sudo modprobe uinput
+sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
 #### Other platforms
 
 In other platforms, you might need to create an `input` group first
