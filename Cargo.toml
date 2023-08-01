@@ -7,7 +7,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.71"
+anyhow = "1.0.72"
 clap = { version = "3.2.25", features = ["derive"] }
 clap_complete = "3.2.5"
 derive-where = "1.2.1"
