@@ -16,7 +16,7 @@ evdev = "0.12.1"
 fork = "0.1"
 indoc = "2.0"
 lazy_static = "1.4.0"
-log = "0.4.17"
+log = "0.4.19"
 nix = "0.26.2"
 regex = "1.8.4"
 serde = { version = "1.0", features = ["derive"] }
