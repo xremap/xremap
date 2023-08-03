@@ -1,3 +1,8 @@
+## v0.8.6
+
+- Update clap from v3 to v4
+  - `--help` no longer has colors
+
 ## v0.8.5
 
 - Update Hyperland-rs from 0.3.0 to 0.3.1 [#275](https://github.com/k0kubun/xremap/issues/275)
