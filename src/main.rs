@@ -3,7 +3,7 @@ use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
-use clap::{AppSettings, ArgEnum, IntoApp, Parser};
+use clap::{ValueEnum, Parser, CommandFactory};
 use clap_complete::Shell;
 use client::build_client;
 use config::{config_watcher, load_configs};
@@ -31,13 +31,13 @@ mod event_handler;
 mod tests;
 
 #[derive(Parser, Debug)]
-#[clap(version, global_setting(AppSettings::DeriveDisplayOrder))]
-struct Opts {
+#[clap(version)]
+struct Args {
     /// Include a device name or path
-    #[clap(long, use_delimiter = true)]
+    #[clap(long, use_value_delimiter = true)]
     device: Vec<String>,
     /// Ignore a device name or path
-    #[clap(long, use_delimiter = true)]
+    #[clap(long, use_value_delimiter = true)]
     ignore: Vec<String>,
     /// Match mice by default
     #[clap(long)]
@@ -48,9 +48,9 @@ struct Opts {
     /// - config: reload the configs automatically
     #[clap(
         long,
-        arg_enum,
-        min_values = 0,
-        use_delimiter = true,
+        value_enum,
+        num_args = 0..,
+        use_value_delimiter = true,
         require_equals = true,
         default_missing_value = "device",
         verbatim_doc_comment,
@@ -65,14 +65,14 @@ struct Opts {
     /// You can use them by storing in your shells completion file or by running
     /// - in bash: eval "$(xremap --completions bash)"
     /// - in fish: xremap --completions fish | source
-    #[clap(long, arg_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
+    #[clap(long, value_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
     completions: Option<Shell>,
     /// Config file(s)
-    #[clap(required_unless_present = "completions", multiple_values = true)]
+    #[clap(required_unless_present = "completions", num_args = 1..)]
     configs: Vec<PathBuf>,
 }
 
-#[derive(ArgEnum, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 enum WatchTargets {
     /// Device to add new devices automatically
     Device,
@@ -89,17 +89,17 @@ enum ReloadEvent {
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
-    let Opts {
+    let Args {
         device: device_filter,
         ignore: ignore_filter,
         mouse,
         watch,
         configs,
         completions,
-    } = Opts::parse();
+    } = Args::parse();
 
     if let Some(shell) = completions {
-        clap_complete::generate(shell, &mut Opts::into_app(), "xremap", &mut stdout());
+        clap_complete::generate(shell, &mut Args::command(), "xremap", &mut stdout());
         return Ok(());
     }
 
