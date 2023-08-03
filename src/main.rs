@@ -3,7 +3,7 @@ use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
-use clap::{ValueEnum, Parser, CommandFactory};
+use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
 use client::build_client;
 use config::{config_watcher, load_configs};
