@@ -43,22 +43,8 @@ struct Args {
     #[clap(long)]
     mouse: bool,
     /// Targets to watch
-    ///
-    /// - device: add new devices automatically
-    /// - config: reload the configs automatically
-    #[clap(
-        long,
-        value_enum,
-        num_args = 0..,
-        use_value_delimiter = true,
-        require_equals = true,
-        default_missing_value = "device",
-        verbatim_doc_comment,
-        hide_possible_values = true,
-        // Separating the help like this is necessary due to
-        // https://github.com/clap-rs/clap/issues/3312
-        help = "Targets to watch [possible values: device, config]"
-    )]
+    #[clap(long, value_enum, num_args = 0.., use_value_delimiter = true, require_equals = true,
+           default_missing_value = "device", verbatim_doc_comment)]
     watch: Vec<WatchTargets>,
     /// Generate shell completions
     ///
@@ -74,9 +60,9 @@ struct Args {
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 enum WatchTargets {
-    /// Device to add new devices automatically
+    /// add new devices automatically
     Device,
-    /// Config to reload the config automatically
+    /// reload the config automatically
     Config,
 }
 
