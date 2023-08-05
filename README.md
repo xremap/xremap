@@ -86,8 +86,10 @@ uinput
 Then add udev rule.
 
 ```bash
-echo 'KERNEL=="uinput", GROUP="input", MODE="0660"' | sudo tee /etc/udev/rules.d/99-input.rules
+echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-input.rules
 ```
+
+Then reboot the machine.
 
 #### Debian
 Make sure `uinput` is loaded same as in Arch:
