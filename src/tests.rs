@@ -29,13 +29,8 @@ impl Client for StaticClient {
     }
 }
 
-use crate::device::get_input_devices;
 fn get_input_device<'a> () -> InputDevice {
-    let mut input_devices = match get_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
-        Ok(input_devices) => input_devices,
-        Err(e) => panic!("Failed to prepare input devices: {}", e),
-    };
-    input_devices.remove(&PathBuf::from("/dev/input/event25")).unwrap()
+    // return mock??
 }
 
 #[test]
