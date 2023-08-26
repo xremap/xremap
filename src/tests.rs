@@ -3,6 +3,7 @@ use evdev::InputEvent;
 use evdev::Key;
 use indoc::indoc;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::client::{Client, WMClient};
@@ -34,7 +35,7 @@ fn get_input_device<'a> () -> InputDevice {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {}", e),
     };
-    input_devices.values().next()
+    input_devices.remove(&PathBuf::from("/dev/input/event25")).unwrap()
 }
 
 #[test]
