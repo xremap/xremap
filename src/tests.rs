@@ -262,6 +262,7 @@ fn test_interleave_modifiers() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHT, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     )
@@ -312,6 +313,7 @@ fn test_exact_match_false() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHT, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     )
@@ -339,6 +341,7 @@ fn test_exact_match_default() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHT, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     )
@@ -401,6 +404,7 @@ fn test_exact_match_false_nested() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     )
@@ -430,6 +434,7 @@ fn test_application_override() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     );
@@ -442,6 +447,7 @@ fn test_application_override() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
@@ -479,6 +485,7 @@ fn test_merge_remaps() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     );
@@ -499,6 +506,7 @@ fn test_merge_remaps() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_W, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_W, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
@@ -537,6 +545,7 @@ fn test_merge_remaps_with_override() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     );
@@ -557,6 +566,7 @@ fn test_merge_remaps_with_override() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],

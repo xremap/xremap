@@ -527,6 +527,7 @@ impl EventHandler {
 
         // Resurrect the original modifiers
         self.send_keys(&extra_modifiers, PRESS);
+        self.send_action(Action::Delay(self.keypress_delay));
         self.send_keys(&missing_modifiers, RELEASE);
     }
 
