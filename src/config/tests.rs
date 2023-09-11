@@ -65,7 +65,21 @@ fn test_modmap_multi_purpose_key() {
             alone_timeout_millis: 500
     "})
 }
-
+#[test]
+fn test_modmap_multi_purpose_key_multi_key() {
+    assert_parse(indoc! {"
+    modmap:
+      - remap:
+          Space:
+            held: [Shift_L]
+            alone: [Shift_L,A]
+      - remap:
+          Muhenkan:
+            held: [Alt_L,Shift_L]
+            alone: [Muhenkan]
+            alone_timeout_millis: 500
+    "})
+}
 #[test]
 fn test_virtual_modifiers() {
     assert_parse(indoc! {"
