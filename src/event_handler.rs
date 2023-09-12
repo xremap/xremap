@@ -4,7 +4,7 @@ use crate::config::application::Application;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
-use crate::config::modmap_action::{ModmapAction, MultiPurposeKey, PressReleaseKey};
+use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::Config;
@@ -13,6 +13,7 @@ use lazy_static::lazy_static;
 use log::debug;
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::time::{Duration, Instant};
@@ -700,8 +701,8 @@ static REPEAT: i32 = 2;
 
 #[derive(Debug)]
 struct MultiPurposeKeyState {
-    held: Key,
-    alone: Key,
+    held: Keys,
+    alone: Keys,
     // Some if the first press is still delayed, None if already considered held.
     alone_timeout_at: Option<Instant>,
 }
@@ -713,10 +714,14 @@ impl MultiPurposeKeyState {
                 vec![] // still delay the press
             } else {
                 self.alone_timeout_at = None; // timeout
-                vec![(self.held, PRESS)]
+                let mut keys = self.held.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                keys.into_iter().map(|key| (key, PRESS)).collect()
             }
         } else {
-            vec![(self.held, REPEAT)]
+            let mut keys = self.held.clone().into_vec();
+            keys.sort_by(modifiers_first);
+            keys.into_iter().map(|key| (key, REPEAT)).collect()
         }
     }
 
@@ -724,22 +729,64 @@ impl MultiPurposeKeyState {
         if let Some(alone_timeout_at) = &self.alone_timeout_at {
             if Instant::now() < *alone_timeout_at {
                 // dispatch the delayed press and this release
-                vec![(self.alone, PRESS), (self.alone, RELEASE)]
+                let mut release_keys = self.alone.clone().into_vec();
+                release_keys.sort_by(modifiers_last);
+                let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
+
+                let mut keys = self.alone.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
+                keys.extend(release_keys);
+                keys
             } else {
-                // too late. dispatch the held key
-                vec![(self.held, PRESS), (self.held, RELEASE)]
+                // dispatch the delayed press and this release
+                let mut release_keys = self.held.clone().into_vec();
+                release_keys.sort_by(modifiers_last);
+                let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
+
+                let mut keys = self.held.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
+                keys.extend(release_keys);
+                keys
             }
         } else {
-            vec![(self.held, RELEASE)]
+            let mut release_keys = self.held.clone().into_vec();
+            release_keys.sort_by(modifiers_last);
+            release_keys.into_iter().map(|key| (key, RELEASE)).collect()
         }
     }
 
     fn force_held(&mut self) -> Vec<(Key, i32)> {
         if self.alone_timeout_at.is_some() {
             self.alone_timeout_at = None;
-            vec![(self.held, PRESS)]
+            let mut keys = self.held.clone().into_vec();
+            keys.sort_by(modifiers_last);
+            keys.into_iter().map(|key| (key, PRESS)).collect()
         } else {
             vec![]
         }
     }
+}
+
+/// Orders modifier keys ahead of non-modifier keys.
+/// Unfortunately the underlying type doesn't allow direct
+/// comparison, but that's ok for our purposes.
+fn modifiers_first(a: &Key, b: &Key) -> Ordering {
+    if MODIFIER_KEYS.contains(a) {
+        if MODIFIER_KEYS.contains(b) {
+            Ordering::Equal
+        } else {
+            Ordering::Less
+        }
+    } else if MODIFIER_KEYS.contains(b) {
+        Ordering::Greater
+    } else {
+        // Neither are modifiers
+        Ordering::Equal
+    }
+}
+
+fn modifiers_last(a: &Key, b: &Key) -> Ordering {
+    modifiers_first(a, b).reverse()
 }
