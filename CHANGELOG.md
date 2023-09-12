@@ -1,3 +1,7 @@
+## v0.8.7
+
+- Support multi-key `held`/`alone` in `modmap` [#339](https://github.com/k0kubun/xremap/issues/339)
+
 ## v0.8.6
 
 - Update clap from v3 to v4
