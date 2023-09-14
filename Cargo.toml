@@ -4,6 +4,7 @@ version = "0.8.7"
 edition = "2021"
 description = "Dynamic key remapp for X and Wayland"
 license = "MIT"
+repository = "https://github.com/k0kubun/xremap"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
