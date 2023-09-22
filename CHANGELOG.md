@@ -1,3 +1,7 @@
+## v0.8.8
+
+- Let `keypress_delay_ms` delay key releases as well [#341](https://github.com/k0kubun/xremap/issues/341)
+
 ## v0.8.7
 
 - Support multi-key `held`/`alone` in `modmap` [#339](https://github.com/k0kubun/xremap/issues/339)
