@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
-        feature: [x11, gnome, kde, sway, hypr]
+        feature: [x11, gnome, kde, sway, hypr, wlroots]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
