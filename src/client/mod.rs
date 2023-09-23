@@ -76,6 +76,13 @@ pub fn build_client() -> WMClient {
     WMClient::new("X11", Box::new(x11_client::X11Client::new()))
 }
 
+#[cfg(feature = "wlroots")]
+mod wlroots_client;
+#[cfg(feature = "wlroots")]
+pub fn build_client() -> WMClient {
+    WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()))
+}
+
 #[cfg(not(any(
     feature = "gnome",
     feature = "sway",
@@ -89,7 +96,8 @@ mod null_client;
     feature = "sway",
     feature = "x11",
     feature = "hypr",
-    feature = "kde"
+    feature = "kde",
+    feature = "wlroots"
 )))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))
