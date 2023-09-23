@@ -1,3 +1,8 @@
+## v0.8.9
+
+- Introduce `wlroots` support [#345](https://github.com/k0kubun/xremap/issues/345)
+  - `sway` and `hypr` users are encourated to switch to this
+
 ## v0.8.8
 
 - Let `keypress_delay_ms` delay key releases as well [#341](https://github.com/k0kubun/xremap/issues/341)

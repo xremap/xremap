@@ -31,12 +31,11 @@ If it doesn't work, please [install Rust](https://doc.rust-lang.org/cargo/gettin
 and run one of the following commands:
 
 ```bash
-cargo install xremap --features x11   # X11
-cargo install xremap --features gnome # GNOME Wayland
-cargo install xremap --features kde   # KDE-Plasma Wayland
-cargo install xremap --features sway  # Sway
-cargo install xremap --features hypr  # Hyprland
-cargo install xremap                  # Others
+cargo install xremap --features x11     # X11
+cargo install xremap --features gnome   # GNOME Wayland
+cargo install xremap --features kde     # KDE-Plasma Wayland
+cargo install xremap --features wlroots # Sway, Hyprland, etc.
+cargo install xremap                    # Others
 ```
 
 You may also need to install `libx11-dev` to run the `xremap` binary for X11.
