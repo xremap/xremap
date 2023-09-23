@@ -98,16 +98,23 @@ jobs:
           CARGO_TOKEN: ${{ secrets.CARGO_TOKEN }}
       - run: cargo publish
 
+      # Fetch x86_64 binary
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-x11,     path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-gnome,   path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-kde,     path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-sway,    path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-hypr,    path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-wlroots, path: package/ } }
+
+      # Fetch aarch64 binary
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-x11,     path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-gnome,   path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-kde,     path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-sway,    path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-hypr,    path: package/ } }
+      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-wlroots, path: package/ } }
+
       # Release binary
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-x11,    path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-gnome,  path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-kde,    path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-sway,   path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-hypr,   path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-x11,   path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-gnome, path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-kde,   path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-sway,  path: package/ } }
       - name: Release
         run: |
           export VERSION=$(echo "$GITHUB_REF" | sed -e 's!refs/tags/!!')
