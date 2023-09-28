@@ -1,7 +1,9 @@
 extern crate evdev;
 extern crate nix;
 
+use super::args::Args;
 use anyhow::bail;
+use clap::Parser;
 use derive_where::derive_where;
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, Key, RelativeAxisType};
@@ -187,7 +189,7 @@ impl InputDevice {
         self.device.fetch_events()
     }
 
-    fn device_name(&self) -> &str {
+    pub fn device_name(&self) -> &str {
         self.device.name().unwrap_or("<Unnamed device>")
     }
 
@@ -209,7 +211,7 @@ impl InputDevice {
     }
 
     // We can't know the device path from evdev::enumerate(). So we re-implement it.
-    fn devices() -> io::Result<impl Iterator<Item = InputDevice>> {
+    pub fn devices() -> io::Result<impl Iterator<Item = InputDevice>> {
         Ok(read_dir("/dev/input")?.filter_map(|entry| {
             // Allow "Permission denied" when opening the current process's own device.
             InputDevice::try_from(entry.ok()?.path()).ok()
@@ -217,7 +219,15 @@ impl InputDevice {
     }
 
     fn current_name() -> String {
-        format!("xremap pid={}", process::id())
+        let Args {
+            uniqueId: unique_id, ..
+        } = Args::parse();
+
+        if let Some(id) = unique_id.as_ref().filter(|s| !s.is_empty()) {
+            return format!("xremap uniq={}", id.to_string());
+        }
+
+        return format!("xremap pid={}", process::id());
     }
 
     fn matches(&self, filter: &[String]) -> bool {
