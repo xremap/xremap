@@ -1,7 +1,7 @@
 extern crate evdev;
 extern crate nix;
 
-use super::args::Args;
+use crate::Args;
 use anyhow::bail;
 use clap::Parser;
 use derive_where::derive_where;
@@ -219,9 +219,7 @@ impl InputDevice {
     }
 
     fn current_name() -> String {
-        let Args {
-            uniqueId: unique_id, ..
-        } = Args::parse();
+        let Args { unique_id, .. } = Args::parse();
 
         if let Some(id) = unique_id.as_ref().filter(|s| !s.is_empty()) {
             return format!("xremap uniq={}", id.to_string());

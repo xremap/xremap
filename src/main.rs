@@ -3,8 +3,8 @@ use crate::device::{device_watcher, get_input_devices, output_device};
 use crate::event_handler::EventHandler;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
-use args::Args;
-use clap::{CommandFactory, Parser};
+use clap::{CommandFactory, Parser, ValueEnum};
+use clap_complete::Shell;
 use client::build_client;
 use config::{config_watcher, load_configs};
 use device::InputDevice;
@@ -19,11 +19,9 @@ use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
 use std::time::Duration;
-use watch_targets::WatchTargets;
 
 mod action;
 mod action_dispatcher;
-mod args;
 mod client;
 mod config;
 mod device;
@@ -31,7 +29,44 @@ mod event;
 mod event_handler;
 #[cfg(test)]
 mod tests;
-mod watch_targets;
+
+#[derive(Parser, Debug)]
+#[clap(version)]
+pub struct Args {
+    /// Include a device name or path
+    #[clap(long, use_value_delimiter = true)]
+    device: Vec<String>,
+    /// Ignore a device name or path
+    #[clap(long, use_value_delimiter = true)]
+    ignore: Vec<String>,
+    /// Match mice by default
+    #[clap(long)]
+    mouse: bool,
+    /// Targets to watch
+    #[clap(long, value_enum, num_args = 0.., use_value_delimiter = true, require_equals = true,
+           default_missing_value = "device", verbatim_doc_comment)]
+    watch: Vec<WatchTargets>,
+    /// Generate shell completions
+    ///
+    /// You can use them by storing in your shells completion file or by running
+    /// - in bash: eval "$(xremap --completions bash)"
+    /// - in fish: xremap --completions fish | source
+    #[clap(long, value_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
+    completions: Option<Shell>,
+    /// Config file(s)
+    #[clap(required_unless_present = "completions", num_args = 1..)]
+    configs: Vec<PathBuf>,
+    #[clap(long, value_parser = validate_unique_id)]
+    unique_id: Option<String>,
+}
+
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum WatchTargets {
+    /// add new devices automatically
+    Device,
+    /// reload the config automatically
+    Config,
+}
 
 // TODO: Unify this with Event
 enum ReloadEvent {
@@ -285,4 +320,27 @@ fn handle_config_changes(
         })
     }));
     Ok(true)
+}
+
+fn validate_unique_id(unique_id: &str) -> Result<String, String> {
+    let input_device_name_length_max = 64 - 1 - "xremap uniq=".len();
+
+    if format!("xremap uniq={}", unique_id).len() > input_device_name_length_max {
+        return Err(format!("unique-id must be {} characters or less", input_device_name_length_max));
+    }
+
+    if is_device_id_unique(unique_id).unwrap() == false {
+        return Err(format!("the value {} is already in use", unique_id));
+    }
+
+    return Ok(unique_id.to_string());
+}
+
+fn is_device_id_unique(id: &str) -> Result<bool, std::io::Error> {
+    let device_name = format!("xremap uniq={}", id);
+    let devices: Vec<_> = InputDevice::devices()?.collect();
+    let id_already_in_use = devices
+        .iter()
+        .any(|device| return device.device_name().contains(&device_name));
+    return Ok(id_already_in_use == false);
 }
