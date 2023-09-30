@@ -1,4 +1,4 @@
-# <img src='.github/xremap.png' style='height: 32px; margin-top: 8px; margin-bottom: -4px;'> :keyboard:
+# <img src='.github/xremap.png' style='height: 32px; margin-top: 8px; margin-bottom: -4px;' alt='Xremap'> :keyboard:
 
 ![crates.io](https://img.shields.io/crates/v/xremap) [![GitHub Actions](https://github.com/k0kubun/xremap/actions/workflows/build.yml/badge.svg)](https://github.com/k0kubun/xremap/actions/workflows/build.yml)
 
