@@ -1,4 +1,6 @@
-# 𝑋𝑟𝑒𝑚𝑎𝑝 :keyboard: [![cargo](https://github.com/k0kubun/xremap/actions/workflows/build.yml/badge.svg)](https://github.com/k0kubun/xremap/actions/workflows/build.yml)
+# <img src='.github/xremap.png' style='height: 32px; margin-top: 8px; margin-bottom: -4px;'> :keyboard:
+
+![crates.io](https://img.shields.io/crates/v/xremap) [![GitHub Actions](https://github.com/k0kubun/xremap/actions/workflows/build.yml/badge.svg)](https://github.com/k0kubun/xremap/actions/workflows/build.yml)
 
 `xremap` is a key remapper for Linux. Unlike `xmodmap`, it supports app-specific remapping and Wayland.
 
