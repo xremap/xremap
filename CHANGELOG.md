@@ -1,3 +1,8 @@
+## v0.8.11
+
+- Use `xremap` instead of `xremap pid=$pid` as the device name if it doesn't conflict
+  - If there's already an `xremap` device, it uses `xremap pid=$pid` as before
+
 ## v0.8.10
 
 - Add `REL_WHEEL` and `REL_HWHEEL` to relative axes if `--mouse` is given
