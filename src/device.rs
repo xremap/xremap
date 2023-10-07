@@ -38,7 +38,7 @@ static MOUSE_BTNS: [&str; 20] = [
 ];
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
-pub fn output_device(bus_type: Option<BusType>) -> Result<VirtualDevice, Box<dyn Error>> {
+pub fn output_device(bus_type: Option<BusType>, mouse: bool) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
@@ -51,6 +51,10 @@ pub fn output_device(bus_type: Option<BusType>) -> Result<VirtualDevice, Box<dyn
     let mut relative_axes: AttributeSet<RelativeAxisType> = AttributeSet::new();
     relative_axes.insert(RelativeAxisType::REL_X);
     relative_axes.insert(RelativeAxisType::REL_Y);
+    if mouse {
+        relative_axes.insert(RelativeAxisType::REL_HWHEEL);
+        relative_axes.insert(RelativeAxisType::REL_WHEEL);
+    }
     relative_axes.insert(RelativeAxisType::REL_MISC);
 
     let device = VirtualDeviceBuilder::new()?
