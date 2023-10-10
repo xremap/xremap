@@ -37,6 +37,8 @@ static MOUSE_BTNS: [&str; 20] = [
     "BTN_TASK",
 ];
 
+static mut DEVICE_NAME: Option<String> = None;
+
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
 pub fn output_device(bus_type: Option<BusType>, mouse: bool) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
@@ -220,8 +222,28 @@ impl InputDevice {
         }))
     }
 
-    fn current_name() -> String {
-        format!("xremap pid={}", process::id())
+    fn current_name() -> &'static str {
+        if unsafe { DEVICE_NAME.is_none() } {
+            let device_name = if Self::has_device_name("xremap") {
+                format!("xremap pid={}", process::id())
+            } else {
+                "xremap".to_string()
+            };
+            unsafe {
+                DEVICE_NAME = Some(device_name);
+            }
+        }
+        unsafe { DEVICE_NAME.as_ref() }.unwrap()
+    }
+
+    fn has_device_name(device_name: &str) -> bool {
+        let devices: Vec<_> = match Self::devices() {
+            Ok(devices) => devices.collect(),
+            Err(_) => return true, // fallback to the safe side
+        };
+        devices
+            .iter()
+            .any(|device| return device.device_name().contains(device_name))
     }
 
     fn matches(&self, filter: &[String]) -> bool {
