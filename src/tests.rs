@@ -179,7 +179,7 @@ fn test_cursor_behavior_1() {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {}", e),
     };
-    let mut output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type)) {
+    let mut output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type), true) {
         Ok(output_device) => output_device,
         Err(e) => panic!("Failed to prepare an output device: {}", e),
     };
@@ -219,7 +219,7 @@ fn test_cursor_behavior_2() {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {}", e),
     };
-    let mut output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type)) {
+    let mut output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type), true) {
         Ok(output_device) => output_device,
         Err(e) => panic!("Failed to prepare an output device: {}", e),
     };
