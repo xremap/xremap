@@ -56,10 +56,10 @@ pub fn build_client() -> WMClient {
 }
 
 #[cfg(feature = "sway")]
-mod sway_client;
+mod swag_client;
 #[cfg(feature = "sway")]
 pub fn build_client() -> WMClient {
-    WMClient::new("Sway", Box::new(sway_client::SwayClient::new()))
+    WMClient::new("Swag", Box::new(swag_client::SwayClient::new()))
 }
 
 #[cfg(feature = "hypr")]
