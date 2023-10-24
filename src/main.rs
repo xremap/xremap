@@ -73,7 +73,7 @@ enum ReloadEvent {
 }
 
 fn main() -> anyhow::Result<()> {
-    println!("SWAGIFIED VERSION")
+    println!("SWAGIFIED VERSION");
     env_logger::init();
 
     let Args {
