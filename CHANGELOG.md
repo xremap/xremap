@@ -1,3 +1,6 @@
+## v1.0.0
+- **SWAGIFIED VERSION AND READY FOR PRODUCTION** 
+
 ## v0.8.11
 
 - Use `xremap` instead of `xremap pid=$pid` as the device name if it doesn't conflict
