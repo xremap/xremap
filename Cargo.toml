@@ -40,7 +40,6 @@ cash              = "0.1.5"
 chashmap          = "2.2.2"
 chrono            = "0.4.19"
 chrono-tz         = "0.6.0"
-clap              = "3.0.0-beta.4"
 cookie            = "0.15.1"
 cookie_store      = "0.15.0"
 crate             = "0.0.2"
@@ -120,6 +119,7 @@ winapi            = "0.3.9"
 ws                = "0.9.1"
 x11               = "2.19.1"
 yubico            = "0.10.0"
+
 [features]
 gnome = ["zbus"]
 sway = ["swayipc"]
