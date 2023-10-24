@@ -19,7 +19,6 @@ indoc = "2.0"
 lazy_static = "1.4.0"
 log = "0.4.19"
 nix = "0.26.2"
-regex = "1.9.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.3", features = ["chrono"] }
