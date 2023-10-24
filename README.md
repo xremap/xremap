@@ -2,7 +2,7 @@
 
 ![crates.io](https://img.shields.io/crates/v/xremap) [![GitHub Actions](https://github.com/k0kubun/xremap/actions/workflows/build.yml/badge.svg)](https://github.com/k0kubun/xremap/actions/workflows/build.yml)
 
-`xremap` is a key remapper for Linux. Unlike `xmodmap`, it supports app-specific remapping and Wayland.
+`xremap` **SWAG EDITON** is a key remapper for Linux. Unlike `xmodmap`, it supports app-specific remapping and Wayland.
 
 ## Concept
 
