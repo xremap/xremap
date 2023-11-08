@@ -1,6 +1,8 @@
 # Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/example/config.py#L62-L125
 keymap:
   - name: Emacs
+    application:
+      not: [Emacs]
     remap:
       # Cursor
       C-b: { with_mark: left }
@@ -32,6 +34,8 @@ keymap:
       M-d: [C-delete, { set_mark: false }]
       # Kill line
       C-k: [Shift-end, C-x, { set_mark: false }]
+      # Kill word backward
+      Alt-backspace: [C-backspace, {set_mark: false}]
       # Undo
       C-slash: [C-z, { set_mark: false }]
       C-Shift-ro: C-z
