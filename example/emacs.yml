@@ -44,7 +44,7 @@ keymap:
       # Mark
       C-space: { set_mark: true }
       # Search
-      C-s: F3
+      C-s: C-f
       C-r: Shift-F3
       M-Shift-5: C-h
       # Cancel
