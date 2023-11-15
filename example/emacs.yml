@@ -36,6 +36,8 @@ keymap:
       C-k: [Shift-end, C-x, { set_mark: false }]
       # Kill word backward
       Alt-backspace: [C-backspace, {set_mark: false}]
+      # set mark next word continuously.
+      C-M-space: [C-Shift-right, {set_mark: true}]
       # Undo
       C-slash: [C-z, { set_mark: false }]
       C-Shift-ro: C-z
