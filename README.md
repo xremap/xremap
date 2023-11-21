@@ -54,11 +54,14 @@ If you are using NixOS, xremap can be installed and configured through a [flake]
 
 Write [a config file](#Configuration) directly, or generate it with
 [xremap-ruby](https://github.com/xremap/xremap-ruby) or [xremap-python](https://github.com/xremap/xremap-python).
-Then run:
+
+Then start the `xremap` daemon by runing:
 
 ```
 sudo xremap config.yml
 ```
+
+(You will need to leave it running for your mappings to take effect.)
 
 <details>
 <summary>If you want to run xremap without sudo, click here.</summary>
