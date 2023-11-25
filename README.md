@@ -55,7 +55,7 @@ If you are using NixOS, xremap can be installed and configured through a [flake]
 Write [a config file](#Configuration) directly, or generate it with
 [xremap-ruby](https://github.com/xremap/xremap-ruby) or [xremap-python](https://github.com/xremap/xremap-python).
 
-Then start the `xremap` daemon by runing:
+Then start the `xremap` daemon by running:
 
 ```
 sudo xremap config.yml
