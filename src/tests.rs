@@ -29,7 +29,7 @@ impl Client for StaticClient {
 }
 
 fn get_input_device_info<'a>() -> InputDeviceInfo {
-    InputDeviceInfo::new("hi", "/dev/input/hi")
+    InputDeviceInfo::new("Some Device", "/dev/input/event0")
 }
 
 #[test]
@@ -455,6 +455,55 @@ fn test_application_override() {
         Some(String::from("firefox")),
         vec![Event::KeyEvent(
             get_input_device_info(),
+            KeyEvent::new(Key::KEY_A, KeyValue::Press),
+        )],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_device_override() {
+    let config = indoc! {"
+        keymap:
+
+          - name: event1
+            device:
+              only: [event1]
+            remap:
+              a: C-c
+
+          - name: event0
+            remap:
+              a: C-b
+    "};
+
+    assert_actions(
+        config,
+        vec![Event::KeyEvent(
+            InputDeviceInfo::new("Some Device", "/dev/input/event0"),
+            KeyEvent::new(Key::KEY_A, KeyValue::Press),
+        )],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    );
+
+    assert_actions(
+        config,
+        vec![Event::KeyEvent(
+            InputDeviceInfo::new("Some Device", "/dev/input/event1"),
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
         vec![
