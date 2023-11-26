@@ -1,6 +1,6 @@
 use evdev::{EventType, InputEvent, Key};
 
-use crate::device::{InputDevice, InputDeviceInfo};
+use crate::device::InputDeviceInfo;
 
 // Input to EventHandler. This should only contain things that are easily testable.
 #[derive(Debug)]
@@ -10,7 +10,7 @@ pub enum Event<'a> {
     // InputEvent (EventType::Relative) sent from evdev
     RelativeEvent(InputDeviceInfo<'a>, RelativeEvent),
     // Any other InputEvent type sent from evdev
-    OtherEvents(InputDeviceInfo<'a>, InputEvent),
+    OtherEvents(InputEvent),
     // Timer for nested override reached its timeout
     OverrideTimeout,
 }
@@ -35,14 +35,11 @@ pub enum KeyValue {
 }
 impl<'a> Event<'a> {
     // Convert evdev's raw InputEvent to xremap's internal Event
-    pub fn new(device: &InputDevice, event: InputEvent) -> Event {
-        let device_info = device.to_info();
+    pub fn new(device: InputDeviceInfo, event: InputEvent) -> Event {
         let event = match event.event_type() {
-            EventType::KEY => Event::KeyEvent(device_info, KeyEvent::new_with(event.code(), event.value())),
-            EventType::RELATIVE => {
-                Event::RelativeEvent(device_info, RelativeEvent::new_with(event.code(), event.value()))
-            }
-            _ => Event::OtherEvents(device_info, event),
+            EventType::KEY => Event::KeyEvent(device, KeyEvent::new_with(event.code(), event.value())),
+            EventType::RELATIVE => Event::RelativeEvent(device, RelativeEvent::new_with(event.code(), event.value())),
+            _ => Event::OtherEvents(event),
         };
         event
     }

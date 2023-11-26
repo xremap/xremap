@@ -94,7 +94,7 @@ impl EventHandler {
                     self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
                 }
 
-                Event::OtherEvents(_device, event) => self.send_action(Action::InputEvent(*event)),
+                Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
                 Event::OverrideTimeout => self.timeout_override()?,
             };
         }
