@@ -200,6 +200,38 @@ impl InputDevice {
     pub fn bus_type(&self) -> BusType {
         self.device.input_id().bus_type()
     }
+
+    pub fn to_device_descriptor(&self) -> InputDeviceDescriptor {
+        InputDeviceDescriptor {
+            name: self.device_name().to_string(),
+            path: self.path.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct InputDeviceDescriptor {
+    name: String,
+    path: PathBuf,
+}
+
+impl InputDeviceDescriptor {
+    pub fn matches(&self, filter: &String) -> bool {
+        let filter = filter.as_str();
+        // Check exact matches for explicit selection
+        if self.path.as_os_str() == filter || self.name == filter {
+            return true;
+        }
+        // eventXX shorthand for /dev/input/eventXX
+        if filter.starts_with("event") && self.path.file_name().expect("every device path has a file name") == filter {
+            return true;
+        }
+        // Allow partial matches for device names
+        if self.name.contains(filter) {
+            return true;
+        }
+        return false;
+    }
 }
 
 impl InputDevice {
@@ -247,22 +279,7 @@ impl InputDevice {
     }
 
     pub fn matches(&self, filter: &String) -> bool {
-        let filter = filter.as_str();
-        // Check exact matches for explicit selection
-        if self.path.as_os_str() == filter || self.device_name() == filter {
-            return true;
-        }
-        // eventXX shorthand for /dev/input/eventXX
-        if filter.starts_with("event")
-            && self.path.file_name().expect("every device path has a file name") == filter
-        {
-            return true;
-        }
-        // Allow partial matches for device names
-        if self.device_name().contains(filter) {
-            return true;
-        }
-        return false;
+        self.to_device_descriptor().matches(filter)
     }
 
     fn matches_any(&self, filter: &[String]) -> bool {
@@ -270,7 +287,7 @@ impl InputDevice {
         if self.device_name() == Self::current_name() {
             return false;
         }
-        return filter.iter().any(|f| self.matches(f))
+        return filter.iter().any(|f| self.matches(f));
     }
 
     fn is_keyboard(&self) -> bool {
@@ -279,7 +296,7 @@ impl InputDevice {
             Some(keys) => {
                 keys.contains(Key::KEY_SPACE)
                 && keys.contains(Key::KEY_A)
-                && keys.contains(Key::KEY_Z)
+                    && keys.contains(Key::KEY_Z)
                 // BTN_MOUSE
                 && !keys.contains(Key::BTN_LEFT)
             }
