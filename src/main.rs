@@ -227,7 +227,6 @@ fn handle_input_events(
     config: &mut Config,
 ) -> anyhow::Result<bool> {
     let mut device_exists = true;
-    // TODO: avoid double collect?
     let events = match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
         Err((Some(ENODEV), _)) => {
             device_exists = false;

@@ -28,7 +28,7 @@ impl Client for StaticClient {
     }
 }
 
-fn get_input_device_info<'a>() -> InputDeviceInfo {
+fn get_input_device_info() -> InputDeviceInfo {
     InputDeviceInfo::new("Some Device", "/dev/input/event0")
 }
 

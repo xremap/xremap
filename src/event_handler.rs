@@ -133,7 +133,7 @@ impl EventHandler {
             } else if is_pressed(value) {
                 if self.escape_next_key {
                     self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, event, device)? {
+                } else if let Some(actions) = self.find_keymap(config, &key, device)? {
                     self.dispatch_actions(&actions, &key)?;
                     continue;
                 }
@@ -386,12 +386,12 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, event: &KeyEvent, device: &InputDeviceInfo) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+    fn find_keymap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
                 .iter()
-                .flat_map(|map| map.get(&event.key).cloned().unwrap_or_default())
+                .flat_map(|map| map.get(key).cloned().unwrap_or_default())
                 .collect();
 
             if !entries.is_empty() {
@@ -427,7 +427,7 @@ impl EventHandler {
             self.timeout_override()?;
         }
 
-        if let Some(entries) = config.keymap_table.get(&event.key) {
+        if let Some(entries) = config.keymap_table.get(key) {
             for exact_match in [true, false] {
                 let mut remaps = vec![];
                 for entry in entries {
@@ -641,7 +641,6 @@ impl EventHandler {
             self.modifiers.remove(&key);
         }
     }
-
 }
 
 fn is_remap(actions: &Vec<KeymapAction>) -> bool {

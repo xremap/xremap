@@ -133,7 +133,7 @@ pub fn get_input_devices(
     Ok(devices.into_iter().map(From::from).collect())
 }
 
-#[derive_where(PartialEq, PartialOrd, Ord, Debug)]
+#[derive_where(PartialEq, PartialOrd, Ord)]
 pub struct InputDevice {
     path: PathBuf,
     #[derive_where(skip)]
@@ -302,7 +302,7 @@ impl InputDevice {
             Some(keys) => {
                 keys.contains(Key::KEY_SPACE)
                 && keys.contains(Key::KEY_A)
-                    && keys.contains(Key::KEY_Z)
+                && keys.contains(Key::KEY_Z)
                 // BTN_MOUSE
                 && !keys.contains(Key::BTN_LEFT)
             }

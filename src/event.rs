@@ -33,9 +33,9 @@ pub enum KeyValue {
     Release,
     Repeat,
 }
-impl<'a> Event {
+impl Event {
     // Convert evdev's raw InputEvent to xremap's internal Event
-    pub fn new(device: &'a InputDevice, event: InputEvent) -> Event {
+    pub fn new(device: &InputDevice, event: InputEvent) -> Event {
         let device_info = device.to_info();
         let event = match event.event_type() {
             EventType::KEY => Event::KeyEvent(device_info, KeyEvent::new_with(event.code(), event.value())),
