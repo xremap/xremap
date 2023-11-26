@@ -81,20 +81,20 @@ impl EventHandler {
     }
 
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
-    pub fn on_events(&mut self, events: &Vec<Event>, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
+    pub fn on_events(&mut self, events: &Vec<Event>, config: &Config, device: &InputDevice) -> Result<Vec<Action>, Box<dyn Error>> {
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
             match event {
-                Event::KeyEvent(device, key_event) => {
+                Event::KeyEvent(key_event) => {
                     self.on_key_event(key_event, config, device)?;
                     ()
                 }
-                Event::RelativeEvent(device, relative_event) => {
+                Event::RelativeEvent(relative_event) => {
                     self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
                 }
 
-                Event::OtherEvents(_device, event) => self.send_action(Action::InputEvent(*event)),
+                Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
                 Event::OverrideTimeout => self.timeout_override()?,
             };
         }

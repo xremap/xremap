@@ -133,11 +133,12 @@ fn main() -> anyhow::Result<()> {
         match 'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
             if readable_fds.contains(timer_fd) {
-                if let Err(error) =
-                    handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::OverrideTimeout])
-                {
-                    println!("Error on remap timeout: {error}")
-                }
+                // TODO
+                // if let Err(error) =
+                //     handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::OverrideTimeout])
+                // {
+                //     println!("Error on remap timeout: {error}")
+                // }
             }
 
             for input_device in input_devices.values_mut() {
@@ -236,8 +237,8 @@ fn handle_input_events(
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => Ok(events.collect())
     }?;
-    let input_events = events.iter().map(|e| Event::new(input_device, *e)).collect();
-    handle_events(handler, dispatcher, config, input_events)?;
+    let input_events = events.iter().map(|e| Event::new(*e)).collect();
+    handle_events(handler, dispatcher, config, input_events, input_device)?;
     Ok(device_exists)
 }
 
@@ -247,9 +248,10 @@ fn handle_events(
     dispatcher: &mut ActionDispatcher,
     config: &mut Config,
     events: Vec<Event>,
+    device: &InputDevice
 ) -> anyhow::Result<()> {
     let actions = handler
-        .on_events(&events, config)
+        .on_events(&events, config, device)
         .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
     for action in actions {
         dispatcher.on_action(action)?;
