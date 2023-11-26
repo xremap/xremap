@@ -216,6 +216,12 @@ pub struct InputDeviceDescriptor {
 }
 
 impl InputDeviceDescriptor {
+    pub fn new(name: &str, path: &str) -> Self {
+        Self {
+            name: String::from(name),
+            path: PathBuf::from(path),
+        }
+    }
     pub fn matches(&self, filter: &String) -> bool {
         let filter = filter.as_str();
         // Check exact matches for explicit selection

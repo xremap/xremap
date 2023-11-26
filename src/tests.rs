@@ -3,11 +3,10 @@ use evdev::InputEvent;
 use evdev::Key;
 use indoc::indoc;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
-use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::client::{Client, WMClient};
-use crate::device::InputDevice;
+use crate::device::InputDeviceDescriptor;
 use crate::{
     action::Action,
     config::{keymap::build_keymap_table, Config},
@@ -29,13 +28,12 @@ impl Client for StaticClient {
     }
 }
 
-fn get_input_device<'a> () -> InputDevice {
-    // return mock??
+fn get_input_device<'a> () -> InputDeviceDescriptor {
+    InputDeviceDescriptor::new("hi", "/dev/input/hi")
 }
 
 #[test]
 fn test_basic_modmap() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         modmap:
@@ -43,10 +41,10 @@ fn test_basic_modmap() {
               a: b
         "},
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_B, KeyValue::Release)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
@@ -94,14 +92,13 @@ const _REL_HWHEEL_HI_RES: u16 = 12;
 
 #[test]
 fn test_relative_events() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         modmap:
           - remap:
               XRIGHTCURSOR: b
         "},
-        vec![Event::RelativeEvent(&input_device, RelativeEvent::new_with(_REL_X, _POSITIVE))],
+        vec![Event::RelativeEvent(get_input_device(), RelativeEvent::new_with(_REL_X, _POSITIVE))],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
@@ -127,12 +124,11 @@ fn test_mouse_movement_event_accumulation() {
     // because such a separation would cause a bug with cursor movement.
 
     // Please refer to test_cursor_behavior_1 and test_cursor_behavior_2 for more information on said bug.
-    let input_device = get_input_device();
     assert_actions(
         indoc! {""},
         vec![
-            Event::RelativeEvent(&input_device, RelativeEvent::new_with(_REL_X, _POSITIVE)),
-            Event::RelativeEvent(&input_device, RelativeEvent::new_with(_REL_Y, _POSITIVE)),
+            Event::RelativeEvent(get_input_device(), RelativeEvent::new_with(_REL_X, _POSITIVE)),
+            Event::RelativeEvent(get_input_device(), RelativeEvent::new_with(_REL_Y, _POSITIVE)),
         ],
         vec![Action::MouseMovementEventCollection(vec![
             RelativeEvent::new_with(_REL_X, _POSITIVE),
@@ -253,7 +249,6 @@ fn test_cursor_behavior_2() {
 
 #[test]
 fn test_interleave_modifiers() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         keymap:
@@ -261,8 +256,8 @@ fn test_interleave_modifiers() {
               M-f: C-right
         "},
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_F, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
@@ -280,7 +275,6 @@ fn test_interleave_modifiers() {
 
 #[test]
 fn test_exact_match_true() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         keymap:
@@ -289,9 +283,9 @@ fn test_exact_match_true() {
               M-f: C-right
         "},
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_F, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
@@ -303,7 +297,6 @@ fn test_exact_match_true() {
 
 #[test]
 fn test_exact_match_false() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         keymap:
@@ -312,9 +305,9 @@ fn test_exact_match_false() {
               M-f: C-right
         "},
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_F, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
@@ -333,7 +326,6 @@ fn test_exact_match_false() {
 
 #[test]
 fn test_exact_match_default() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         keymap:
@@ -341,9 +333,9 @@ fn test_exact_match_default() {
               M-f: C-right
         "},
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_F, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_F, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
@@ -362,7 +354,6 @@ fn test_exact_match_default() {
 
 #[test]
 fn test_exact_match_true_nested() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         keymap:
@@ -373,12 +364,12 @@ fn test_exact_match_true_nested() {
                   h: C-a
         "},
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_H, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -392,7 +383,6 @@ fn test_exact_match_true_nested() {
 
 #[test]
 fn test_exact_match_false_nested() {
-    let input_device = get_input_device();
     assert_actions(
         indoc! {"
         keymap:
@@ -403,12 +393,12 @@ fn test_exact_match_false_nested() {
                   h: C-a
         "},
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_H, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -441,10 +431,9 @@ fn test_application_override() {
               a: C-b
     "};
 
-    let input_device = get_input_device();
     assert_actions(
         config,
-        vec![Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_A, KeyValue::Press))],
+        vec![Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_A, KeyValue::Press))],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
@@ -458,7 +447,7 @@ fn test_application_override() {
     assert_actions_with_current_application(
         config,
         Some(String::from("firefox")),
-        vec![Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_A, KeyValue::Press))],
+        vec![Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_A, KeyValue::Press))],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
@@ -484,15 +473,14 @@ fn test_merge_remaps() {
                   k: C-w
     "};
 
-    let input_device = get_input_device();
     assert_actions(
         config,
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_H, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -510,11 +498,11 @@ fn test_merge_remaps() {
     assert_actions(
         config,
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_K, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -545,15 +533,14 @@ fn test_merge_remaps_with_override() {
                   c: C-q
     "};
 
-    let input_device = get_input_device();
     assert_actions(
         config,
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_H, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -571,11 +558,11 @@ fn test_merge_remaps_with_override() {
     assert_actions(
         config,
         vec![
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Press)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Event::KeyEvent(&input_device, KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::KeyEvent(get_input_device(), KeyEvent::new(Key::KEY_C, KeyValue::Press)),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
