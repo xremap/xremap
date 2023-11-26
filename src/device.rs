@@ -133,6 +133,31 @@ pub fn get_input_devices(
     Ok(devices.into_iter().map(From::from).collect())
 }
 
+#[derive(Debug)]
+pub struct InputDeviceInfo<'a> {
+    pub name: &'a str,
+    pub path: &'a Path,
+}
+
+impl<'a> InputDeviceInfo<'a> {
+    pub fn matches(&self, filter: &String) -> bool {
+        let filter = filter.as_str();
+        // Check exact matches for explicit selection
+        if self.path.as_os_str() == filter || self.name == filter {
+            return true;
+        }
+        // eventXX shorthand for /dev/input/eventXX
+        if filter.starts_with("event") && self.path.file_name().expect("every device path has a file name") == filter {
+            return true;
+        }
+        // Allow partial matches for device names
+        if self.name.contains(filter) {
+            return true;
+        }
+        return false;
+    }
+}
+
 #[derive_where(PartialEq, PartialOrd, Ord)]
 pub struct InputDevice {
     path: PathBuf,
@@ -206,31 +231,6 @@ impl InputDevice {
             name: self.device_name(),
             path: &self.path,
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct InputDeviceInfo<'a> {
-    pub name: &'a str,
-    pub path: &'a Path,
-}
-
-impl<'a> InputDeviceInfo<'a> {
-    pub fn matches(&self, filter: &String) -> bool {
-        let filter = filter.as_str();
-        // Check exact matches for explicit selection
-        if self.path.as_os_str() == filter || self.name == filter {
-            return true;
-        }
-        // eventXX shorthand for /dev/input/eventXX
-        if filter.starts_with("event") && self.path.file_name().expect("every device path has a file name") == filter {
-            return true;
-        }
-        // Allow partial matches for device names
-        if self.name.contains(filter) {
-            return true;
-        }
-        return false;
     }
 }
 
