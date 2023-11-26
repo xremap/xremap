@@ -8,7 +8,7 @@ use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressRel
 use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
-use crate::{Config, config};
+use crate::{config, Config};
 use evdev::Key;
 use lazy_static::lazy_static;
 use log::debug;
@@ -106,7 +106,12 @@ impl EventHandler {
     }
 
     // Handle EventType::KEY
-    fn on_key_event(&mut self, event: &KeyEvent, config: &Config, device: &InputDeviceInfo) -> Result<bool, Box<dyn Error>> {
+    fn on_key_event(
+        &mut self,
+        event: &KeyEvent,
+        config: &Config,
+        device: &InputDeviceInfo,
+    ) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
@@ -160,7 +165,7 @@ impl EventHandler {
         event: &RelativeEvent,
         mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
-        device: &InputDeviceInfo
+        device: &InputDeviceInfo,
     ) -> Result<(), Box<dyn Error>> {
         // Because a "full" RELATIVE event is only one event,
         // it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
@@ -386,7 +391,12 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+    fn find_keymap(
+        &mut self,
+        config: &Config,
+        key: &Key,
+        device: &InputDeviceInfo,
+    ) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps

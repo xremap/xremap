@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use crate::config::application::deserialize_string_or_vec;
+use serde::Deserialize;
 
 // TODO: Use trait to allow only either `only` or `not`
 #[derive(Clone, Debug, Deserialize)]

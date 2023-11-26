@@ -231,9 +231,9 @@ fn handle_input_events(
         Err((Some(ENODEV), _)) => {
             device_exists = false;
             Ok(Vec::new())
-        },
+        }
         Err((_, error)) => Err(error).context("Error fetching input events"),
-        Ok(events) => Ok(events.collect())
+        Ok(events) => Ok(events.collect()),
     }?;
     let input_events = events.iter().map(|e| Event::new(input_device, *e)).collect();
     handle_events(handler, dispatcher, config, input_events)?;
