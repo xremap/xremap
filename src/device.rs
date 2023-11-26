@@ -201,8 +201,8 @@ impl InputDevice {
         self.device.input_id().bus_type()
     }
 
-    pub fn to_device_descriptor(&self) -> InputDeviceDescriptor {
-        InputDeviceDescriptor {
+    pub fn to_info(&self) -> InputDeviceInfo {
+        InputDeviceInfo {
             name: self.device_name().to_string(),
             path: self.path.clone(),
         }
@@ -210,12 +210,12 @@ impl InputDevice {
 }
 
 #[derive(Debug)]
-pub struct InputDeviceDescriptor {
+pub struct InputDeviceInfo {
     name: String,
     path: PathBuf,
 }
 
-impl InputDeviceDescriptor {
+impl InputDeviceInfo {
     pub fn new(name: &str, path: &str) -> Self {
         Self {
             name: String::from(name),
@@ -285,7 +285,7 @@ impl InputDevice {
     }
 
     pub fn matches(&self, filter: &String) -> bool {
-        self.to_device_descriptor().matches(filter)
+        self.to_info().matches(filter)
     }
 
     fn matches_any(&self, filter: &[String]) -> bool {

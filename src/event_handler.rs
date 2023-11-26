@@ -6,7 +6,7 @@ use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
-use crate::device::InputDeviceDescriptor;
+use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::{Config, config};
 use evdev::Key;
@@ -106,7 +106,7 @@ impl EventHandler {
     }
 
     // Handle EventType::KEY
-    fn on_key_event(&mut self, event: &KeyEvent, config: &Config, device: &InputDeviceDescriptor) -> Result<bool, Box<dyn Error>> {
+    fn on_key_event(&mut self, event: &KeyEvent, config: &Config, device: &InputDeviceInfo) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
@@ -160,7 +160,7 @@ impl EventHandler {
         event: &RelativeEvent,
         mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
-        device: &InputDeviceDescriptor
+        device: &InputDeviceInfo
     ) -> Result<(), Box<dyn Error>> {
         // Because a "full" RELATIVE event is only one event,
         // it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
@@ -367,7 +367,7 @@ impl EventHandler {
         }
     }
 
-    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceDescriptor) -> Option<ModmapAction> {
+    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(application_matcher) = &modmap.application {
@@ -386,7 +386,7 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, event: &KeyEvent, device: &InputDeviceDescriptor) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+    fn find_keymap(&mut self, config: &Config, event: &KeyEvent, device: &InputDeviceInfo) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
@@ -624,7 +624,7 @@ impl EventHandler {
         false
     }
 
-    fn match_device(&self, device_matcher: &config::device::Device, device: &InputDeviceDescriptor) -> bool {
+    fn match_device(&self, device_matcher: &config::device::Device, device: &InputDeviceInfo) -> bool {
         if let Some(device_only) = &device_matcher.only {
             return device_only.iter().any(|m| device.matches(m));
         }
