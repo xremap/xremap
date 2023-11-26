@@ -3,6 +3,7 @@ use evdev::InputEvent;
 use evdev::Key;
 use indoc::indoc;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
+use std::path::Path;
 use std::time::Duration;
 
 use crate::client::{Client, WMClient};
@@ -28,8 +29,11 @@ impl Client for StaticClient {
     }
 }
 
-fn get_input_device_info() -> InputDeviceInfo {
-    InputDeviceInfo::new("Some Device", "/dev/input/event0")
+fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
+    InputDeviceInfo {
+        name: "Some Device",
+        path: &Path::new("/dev/input/event0"),
+    }
 }
 
 #[test]
@@ -487,7 +491,10 @@ fn test_device_override() {
     assert_actions(
         config,
         vec![Event::KeyEvent(
-            InputDeviceInfo::new("Some Device", "/dev/input/event0"),
+            InputDeviceInfo {
+                name: "Some Device",
+                path: &Path::new("/dev/input/event0"),
+            },
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
         vec![
@@ -503,7 +510,10 @@ fn test_device_override() {
     assert_actions(
         config,
         vec![Event::KeyEvent(
-            InputDeviceInfo::new("Some Device", "/dev/input/event1"),
+            InputDeviceInfo {
+                name: "Other Device",
+                path: &Path::new("/dev/input/event1"),
+            },
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
         vec![

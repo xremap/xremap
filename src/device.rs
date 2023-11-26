@@ -11,7 +11,7 @@ use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{io, process};
 
 static MOUSE_BTNS: [&str; 20] = [
@@ -203,25 +203,19 @@ impl InputDevice {
 
     pub fn to_info(&self) -> InputDeviceInfo {
         InputDeviceInfo {
-            name: self.device_name().to_string(),
-            path: self.path.clone(),
+            name: self.device_name(),
+            path: &self.path,
         }
     }
 }
 
 #[derive(Debug)]
-pub struct InputDeviceInfo {
-    name: String,
-    path: PathBuf,
+pub struct InputDeviceInfo<'a> {
+    pub name: &'a str,
+    pub path: &'a Path,
 }
 
-impl InputDeviceInfo {
-    pub fn new(name: &str, path: &str) -> Self {
-        Self {
-            name: String::from(name),
-            path: PathBuf::from(path),
-        }
-    }
+impl<'a> InputDeviceInfo<'a> {
     pub fn matches(&self, filter: &String) -> bool {
         let filter = filter.as_str();
         // Check exact matches for explicit selection
