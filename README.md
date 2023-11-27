@@ -359,6 +359,8 @@ Much like [`application`](#application), you may specify `{keymap,modmap}.device
 - the device name
 - a substring of the device name
 
+To determine the names and paths of your devices, examine `xremap`'s log output at startup.
+
 ```yml
 device:
   not: '/dev/input/event0'
