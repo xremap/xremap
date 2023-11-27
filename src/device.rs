@@ -278,16 +278,12 @@ impl InputDevice {
             .any(|device| return device.device_name().contains(device_name))
     }
 
-    pub fn matches(&self, filter: &String) -> bool {
-        self.to_info().matches(filter)
-    }
-
     fn matches_any(&self, filter: &[String]) -> bool {
         // Force unmatch its own device
         if self.device_name() == Self::current_name() {
             return false;
         }
-        return filter.iter().any(|f| self.matches(f));
+        return filter.iter().any(|f| self.to_info().matches(f));
     }
 
     fn is_keyboard(&self) -> bool {
