@@ -11,7 +11,7 @@ use std::error::Error;
 use std::fs::read_dir;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{io, process};
 
 static MOUSE_BTNS: [&str; 20] = [
@@ -133,6 +133,31 @@ pub fn get_input_devices(
     Ok(devices.into_iter().map(From::from).collect())
 }
 
+#[derive(Debug)]
+pub struct InputDeviceInfo<'a> {
+    pub name: &'a str,
+    pub path: &'a Path,
+}
+
+impl<'a> InputDeviceInfo<'a> {
+    pub fn matches(&self, filter: &String) -> bool {
+        let filter = filter.as_str();
+        // Check exact matches for explicit selection
+        if self.path.as_os_str() == filter || self.name == filter {
+            return true;
+        }
+        // eventXX shorthand for /dev/input/eventXX
+        if filter.starts_with("event") && self.path.file_name().expect("every device path has a file name") == filter {
+            return true;
+        }
+        // Allow partial matches for device names
+        if self.name.contains(filter) {
+            return true;
+        }
+        return false;
+    }
+}
+
 #[derive_where(PartialEq, PartialOrd, Ord)]
 pub struct InputDevice {
     path: PathBuf,
@@ -200,6 +225,13 @@ impl InputDevice {
     pub fn bus_type(&self) -> BusType {
         self.device.input_id().bus_type()
     }
+
+    pub fn to_info(&self) -> InputDeviceInfo {
+        InputDeviceInfo {
+            name: self.device_name(),
+            path: &self.path,
+        }
+    }
 }
 
 impl InputDevice {
@@ -210,8 +242,8 @@ impl InputDevice {
         (if device_filter.is_empty() {
             self.is_keyboard() || (mouse && self.is_mouse())
         } else {
-            self.matches(device_filter)
-        }) && (ignore_filter.is_empty() || !self.matches(ignore_filter))
+            self.matches_any(device_filter)
+        }) && (ignore_filter.is_empty() || !self.matches_any(ignore_filter))
     }
 
     // We can't know the device path from evdev::enumerate(). So we re-implement it.
@@ -246,31 +278,12 @@ impl InputDevice {
             .any(|device| return device.device_name().contains(device_name))
     }
 
-    fn matches(&self, filter: &[String]) -> bool {
+    fn matches_any(&self, filter: &[String]) -> bool {
         // Force unmatch its own device
         if self.device_name() == Self::current_name() {
             return false;
         }
-
-        for device_opt in filter {
-            let device_opt = device_opt.as_str();
-
-            // Check exact matches for explicit selection
-            if self.path.as_os_str() == device_opt || self.device_name() == device_opt {
-                return true;
-            }
-            // eventXX shorthand for /dev/input/eventXX
-            if device_opt.starts_with("event")
-                && self.path.file_name().expect("every device path has a file name") == device_opt
-            {
-                return true;
-            }
-            // Allow partial matches for device names
-            if self.device_name().contains(device_opt) {
-                return true;
-            }
-        }
-        false
+        return filter.iter().any(|f| self.to_info().matches(f));
     }
 
     fn is_keyboard(&self) -> bool {

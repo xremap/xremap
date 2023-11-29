@@ -5,6 +5,8 @@ use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
+use super::device::Device;
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Modmap {
@@ -13,6 +15,7 @@ pub struct Modmap {
     #[serde(deserialize_with = "deserialize_remap")]
     pub remap: HashMap<Key, ModmapAction>,
     pub application: Option<Application>,
+    pub device: Option<Device>,
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<Key, ModmapAction>, D::Error>

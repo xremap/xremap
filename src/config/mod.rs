@@ -1,4 +1,5 @@
 pub mod application;
+pub mod device;
 mod key;
 pub mod key_press;
 pub mod keymap;

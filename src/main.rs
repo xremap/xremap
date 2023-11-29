@@ -226,20 +226,18 @@ fn handle_input_events(
     dispatcher: &mut ActionDispatcher,
     config: &mut Config,
 ) -> anyhow::Result<bool> {
-    match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
-        Err((Some(ENODEV), _)) => Ok(false),
-        Err((_, error)) => Err(error).context("Error fetching input events"),
-        Ok(events) => {
-            let mut input_events: Vec<Event> = Vec::new();
-            for event in events {
-                let event = Event::new(event);
-                input_events.push(event);
-            }
-            handle_events(handler, dispatcher, config, input_events)?;
-
-            Ok(true)
+    let mut device_exists = true;
+    let events = match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
+        Err((Some(ENODEV), _)) => {
+            device_exists = false;
+            Ok(Vec::new())
         }
-    }
+        Err((_, error)) => Err(error).context("Error fetching input events"),
+        Ok(events) => Ok(events.collect()),
+    }?;
+    let input_events = events.iter().map(|e| Event::new(input_device.to_info(), *e)).collect();
+    handle_events(handler, dispatcher, config, input_events)?;
+    Ok(device_exists)
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher

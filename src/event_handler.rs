@@ -6,8 +6,9 @@ use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
+use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
-use crate::Config;
+use crate::{config, Config};
 use evdev::Key;
 use lazy_static::lazy_static;
 use log::debug;
@@ -85,12 +86,12 @@ impl EventHandler {
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
             match event {
-                Event::KeyEvent(key_event) => {
-                    self.on_key_event(key_event, config)?;
+                Event::KeyEvent(device, key_event) => {
+                    self.on_key_event(key_event, config, device)?;
                     ()
                 }
-                Event::RelativeEvent(relative_event) => {
-                    self.on_relative_event(relative_event, &mut mouse_movement_collection, config)?
+                Event::RelativeEvent(device, relative_event) => {
+                    self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
                 }
 
                 Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
@@ -105,13 +106,18 @@ impl EventHandler {
     }
 
     // Handle EventType::KEY
-    fn on_key_event(&mut self, event: &KeyEvent, config: &Config) -> Result<bool, Box<dyn Error>> {
+    fn on_key_event(
+        &mut self,
+        event: &KeyEvent,
+        config: &Config,
+        device: &InputDeviceInfo,
+    ) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
 
         // Apply modmap
-        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key) {
+        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, device) {
             self.dispatch_keys(key_action, key, event.value())?
         } else {
             vec![(key, event.value())]
@@ -132,7 +138,7 @@ impl EventHandler {
             } else if is_pressed(value) {
                 if self.escape_next_key {
                     self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, &key)? {
+                } else if let Some(actions) = self.find_keymap(config, &key, device)? {
                     self.dispatch_actions(&actions, &key)?;
                     continue;
                 }
@@ -159,6 +165,7 @@ impl EventHandler {
         event: &RelativeEvent,
         mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
+        device: &InputDeviceInfo,
     ) -> Result<(), Box<dyn Error>> {
         // Because a "full" RELATIVE event is only one event,
         // it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
@@ -200,7 +207,7 @@ impl EventHandler {
         };
 
         // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-        match self.on_key_event(&KeyEvent::new_with(key, PRESS), config)? {
+        match self.on_key_event(&KeyEvent::new_with(key, PRESS), config, &device)? {
             // the boolean value is from a variable at the end of on_key_event from event_handler,
             // used to indicate whether the event got through unchanged.
             true => {
@@ -229,7 +236,7 @@ impl EventHandler {
         }
 
         // Sending the "unpressed" version of the "fake" KEY event.
-        self.on_key_event(&KeyEvent::new_with(key, RELEASE), config)?;
+        self.on_key_event(&KeyEvent::new_with(key, RELEASE), config, &device)?;
 
         Ok(())
     }
@@ -365,11 +372,16 @@ impl EventHandler {
         }
     }
 
-    fn find_modmap(&mut self, config: &Config, key: &Key) -> Option<ModmapAction> {
+    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(application_matcher) = &modmap.application {
                     if !self.match_application(application_matcher) {
+                        continue;
+                    }
+                }
+                if let Some(device_matcher) = &modmap.device {
+                    if !self.match_device(device_matcher, device) {
                         continue;
                     }
                 }
@@ -379,7 +391,12 @@ impl EventHandler {
         None
     }
 
-    fn find_keymap(&mut self, config: &Config, key: &Key) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+    fn find_keymap(
+        &mut self,
+        config: &Config,
+        key: &Key,
+        device: &InputDeviceInfo,
+    ) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
@@ -433,6 +450,11 @@ impl EventHandler {
                     }
                     if let Some(application_matcher) = &entry.application {
                         if !self.match_application(application_matcher) {
+                            continue;
+                        }
+                    }
+                    if let Some(device_matcher) = &entry.device {
+                        if !self.match_device(device_matcher, device) {
                             continue;
                         }
                     }
@@ -608,6 +630,16 @@ impl EventHandler {
             if let Some(application_not) = &application_matcher.not {
                 return application_not.iter().all(|m| !m.matches(application));
             }
+        }
+        false
+    }
+
+    fn match_device(&self, device_matcher: &config::device::Device, device: &InputDeviceInfo) -> bool {
+        if let Some(device_only) = &device_matcher.only {
+            return device_only.iter().any(|m| device.matches(m));
+        }
+        if let Some(device_not) = &device_matcher.not {
+            return device_not.iter().all(|m| !device.matches(m));
         }
         false
     }

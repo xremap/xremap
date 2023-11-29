@@ -6,6 +6,7 @@ use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
+use super::device::Device;
 use super::key_press::Modifier;
 
 // Config interface
@@ -17,6 +18,7 @@ pub struct Keymap {
     #[serde(deserialize_with = "deserialize_remap")]
     pub remap: HashMap<KeyPress, Vec<KeymapAction>>,
     pub application: Option<Application>,
+    pub device: Option<Device>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
     #[serde(default)]
@@ -40,6 +42,7 @@ pub struct KeymapEntry {
     pub actions: Vec<KeymapAction>,
     pub modifiers: Vec<Modifier>,
     pub application: Option<Application>,
+    pub device: Option<Device>,
     pub mode: Option<Vec<String>>,
     pub exact_match: bool,
 }
@@ -62,6 +65,7 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
                 actions: actions.to_vec(),
                 modifiers: key_press.modifiers.clone(),
                 application: keymap.application.clone(),
+                device: keymap.device.clone(),
                 mode: keymap.mode.clone(),
                 exact_match: keymap.exact_match,
             });

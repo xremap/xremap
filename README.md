@@ -20,6 +20,7 @@
 * Remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
 * Remap a key to two different keys depending on whether it's pressed alone or held.
 * Application-specific remapping. Even if it's not supported by your application, xremap can.
+* Device-specific remapping.
 * Automatically remap newly connected devices by starting xremap with `--watch`.
 * Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
 * Trigger commands on key press/release events.
@@ -349,6 +350,31 @@ keymap:
 ```
 
 Note how Alt-f and Alt-b work in all apps, but the definition of Alt-f is slightly different in LibreOffice Writer. When that app is active, the first definition overrides the second definition; but for any other app, only the second definition is found. This is because xremap uses the first matching definition that it finds.
+
+### device
+
+Much like [`application`](#application), you may specify `{keymap,modmap}.device.{not,only}` in your configuration for device-specific remapping. Consistent with the global `--device` flag, device-matching strings may be any of:
+- the full path of the device
+- the filename of the device
+- the device name
+- a substring of the device name
+
+To determine the names and paths of your devices, examine `xremap`'s log output at startup.
+
+```yml
+device:
+  not: '/dev/input/event0'
+  # or
+  not: ['event0', ...]
+  # or
+  only: 'Some Cool Device Name'
+  # or
+  only: ['Cool Device', ...]
+  # etc...
+```
+
+Unlike for `application`, regexs are not supported for `device`.
+
 
 ### virtual\_modifiers
 
