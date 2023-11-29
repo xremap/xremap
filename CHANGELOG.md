@@ -1,3 +1,7 @@
+## v0.8.12
+
+- Add `device` filter to `modmap` and `keymap` entries [#380](https://github.com/k0kubun/xremap/issues/380)
+
 ## v0.8.11
 
 - Use `xremap` instead of `xremap pid=$pid` as the device name if it doesn't conflict
