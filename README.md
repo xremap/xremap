@@ -207,6 +207,10 @@ modmap:
       not: [Application, ...]
       # or
       only: [Application, ...]
+    device: # Optional
+      not: [Device, ...]
+      # or
+      only: [Device, ...]
 ```
 
 For `KEY_XXX` and `KEY_YYY`, use [these names](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
@@ -249,6 +253,10 @@ keymap:
       not: [Application, ...]
       # or
       only: [Application, ...]
+    device: # Optional
+      not: [Device, ...]
+      # or
+      only: [Device, ...]
     mode: default # Optional
 default_mode: default # Optional
 ```
