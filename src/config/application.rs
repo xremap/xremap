@@ -26,6 +26,7 @@ pub enum ApplicationMatcher {
 
 impl ApplicationMatcher {
     pub fn matches(&self, app: &str) -> bool {
+        println!("matches self: '{:?}', app: '{:?}'", self, app);
         match &self {
             ApplicationMatcher::Literal(s) => s == app,
             ApplicationMatcher::Name(s) => {
