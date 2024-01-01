@@ -12,7 +12,7 @@ anyhow = "1.0.75"
 clap = { version = "4.3.19", features = ["derive"] }
 clap_complete = "4.3.2"
 derive-where = "1.2.5"
-env_logger = "0.10.0"
+env_logger = "0.10.1"
 evdev = "0.12.1"
 fork = "0.1"
 indoc = "2.0"
