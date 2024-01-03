@@ -17,7 +17,7 @@ use evdev::Key;
 use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::IgnoredAny};
 use std::{collections::HashMap, error, fs, path::PathBuf, time::SystemTime};
 
 use self::{
@@ -39,6 +39,11 @@ pub struct Config {
     pub virtual_modifiers: Vec<Key>,
     #[serde(default)]
     pub keypress_delay_ms: u64,
+
+    // Data is not used by any part of the application.
+    // but can be used with Anchors and Aliases
+    #[serde(default)]
+    pub shared: IgnoredAny,
 
     // Internals
     #[serde(skip)]
