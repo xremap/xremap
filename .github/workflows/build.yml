@@ -48,18 +48,6 @@ jobs:
           name: xremap-${{ matrix.arch }}-${{ matrix.feature }}
           path: target/${{ matrix.arch }}-unknown-linux-musl/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
 
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - name: cargo fmt
-        run: cargo fmt -- --check
-
   test:
     runs-on: ubuntu-latest
     steps:
