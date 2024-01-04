@@ -1,3 +1,7 @@
+## v0.8.13
+
+- Add `shared` field for anchors and aliases [#402](https://github.com/k0kubun/xremap/issues/402)
+
 ## v0.8.12
 
 - Add `device` filter to `modmap` and `keymap` entries [#380](https://github.com/k0kubun/xremap/issues/380)
