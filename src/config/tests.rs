@@ -209,6 +209,46 @@ fn test_keymap_mark() {
     "})
 }
 
+#[test]
+fn test_shared_data_anchor() {
+    assert_parse(indoc! {"
+    shared:
+      terminals: &terminals
+        - Gnome-terminal
+        - Kitty
+
+    modmap:
+      - remap:
+          Alt_L: Ctrl_L
+        application:
+          not: *terminals
+      - remap:
+          Shift_R: Win_R
+        application:
+          only: Google-chrome
+    "})
+}
+
+#[test]
+#[should_panic]
+fn test_fail_on_data_outside_of_config_model() {
+    assert_parse(indoc! {"
+    terminals: &terminals
+      - Gnome-terminal
+      - Kitty
+
+    modmap:
+      - remap:
+          Alt_L: Ctrl_L
+        application:
+          not: *terminals
+      - remap:
+          Shift_R: Win_R
+        application:
+          only: Google-chrome
+    "})
+}
+
 fn assert_parse(yaml: &str) {
     let result: Result<Config, Error> = serde_yaml::from_str(yaml);
     if let Err(e) = result {
