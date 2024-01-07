@@ -12,6 +12,7 @@ pub mod remap;
 mod tests;
 
 extern crate serde_yaml;
+extern crate toml;
 
 use evdev::Key;
 use keymap::Keymap;
@@ -54,12 +55,25 @@ pub struct Config {
 
 pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::Error>> {
     // Assumes filenames is non-empty
-    let yaml = fs::read_to_string(&filenames[0])?;
-    let mut config: Config = serde_yaml::from_str(&yaml)?;
+    let config_contents = fs::read_to_string(&filenames[0])?;
+    let mut is_yaml = true;
+
+    let mut config: Config = {
+        match serde_yaml::from_str(&config_contents) {
+            Ok(c) => c,
+            Err(_) => { is_yaml = false; toml::from_str(&config_contents)? }
+        }
+    };
 
     for filename in &filenames[1..] {
-        let yaml = fs::read_to_string(&filename)?;
-        let c: Config = serde_yaml::from_str(&yaml)?;
+        let config_contents = fs::read_to_string(&filename)?;
+        let c: Config = {
+            match is_yaml {
+                true => serde_yaml::from_str(&config_contents)?,
+                false => toml::from_str(&config_contents)?
+            }
+        };
+
         config.modmap.extend(c.modmap);
         config.keymap.extend(c.keymap);
         config.virtual_modifiers.extend(c.virtual_modifiers);
