@@ -523,8 +523,6 @@ fn test_toml_fail_on_data_outside_of_config_model() {
     "})
 }
 
-
-
 fn toml_assert_parse(toml: &str) {
     let result: Result<Config, toml::de::Error> = toml::from_str(toml);
     if let Err(e) = result {
