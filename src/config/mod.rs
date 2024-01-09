@@ -12,6 +12,7 @@ pub mod remap;
 mod tests;
 
 extern crate serde_yaml;
+extern crate toml;
 
 use evdev::Key;
 use keymap::Keymap;
@@ -52,14 +53,40 @@ pub struct Config {
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
 }
 
+enum ConfigFiletype {
+    Yaml,
+    Toml,
+}
+
+fn get_file_ext(filename: &PathBuf) -> ConfigFiletype {
+    match filename.extension() {
+        Some(f) => {
+            if f.to_str().unwrap_or("").to_lowercase() == "toml" {
+                ConfigFiletype::Toml
+            } else {
+                ConfigFiletype::Yaml
+            }
+        },
+        _ => ConfigFiletype::Yaml,
+    }
+}
+
 pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::Error>> {
     // Assumes filenames is non-empty
-    let yaml = fs::read_to_string(&filenames[0])?;
-    let mut config: Config = serde_yaml::from_str(&yaml)?;
+    let config_contents = fs::read_to_string(&filenames[0])?;
 
+    let mut config: Config = match get_file_ext(&filenames[0]) {
+        ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
+        ConfigFiletype::Toml => toml::from_str(&config_contents)?,
+    };
+    
     for filename in &filenames[1..] {
-        let yaml = fs::read_to_string(&filename)?;
-        let c: Config = serde_yaml::from_str(&yaml)?;
+        let config_contents = fs::read_to_string(&filename)?;
+        let c: Config = match get_file_ext(&filename) {
+            ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
+            ConfigFiletype::Toml => serde_yaml::from_str(&config_contents)?,
+        };
+
         config.modmap.extend(c.modmap);
         config.keymap.extend(c.keymap);
         config.virtual_modifiers.extend(c.virtual_modifiers);
