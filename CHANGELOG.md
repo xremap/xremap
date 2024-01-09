@@ -1,3 +1,7 @@
+## v0.8.14
+
+- Support TOML as a config file format [#404](https://github.com/k0kubun/xremap/issues/404)
+
 ## v0.8.13
 
 - Add `shared` field for anchors and aliases [#402](https://github.com/k0kubun/xremap/issues/402)
