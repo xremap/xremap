@@ -423,13 +423,9 @@ shared:
     Alt-b: C-up
 
 keymap:
-  applications:
-    only: *terminals # we can reuse the list here
-    not: *browsers
-  remap:
-    <<: *some_remaps # or we can reuse a map here. If there are duplicate keys, the key in the alias will be ignored.
-    Alt-f: C-right
-    Alt-b: C-left
+  - application:
+      only: *terminals  # we can reuse the list here
+    remap: *some_remaps # and we can reuse a map here.
 ```
 
 ## License
