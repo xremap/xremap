@@ -201,6 +201,7 @@ modmap:
         alone_timeout_millis: 1000 # Optional
       # Hook `keymap` action on key press/release events.
       KEY_XXX:
+        skip_key_event: false # Optional, skip original key event ,defaults to false
         press: { launch: ["xdotool", "mousemove", "0", "7200"] } # Required
         release: { launch: ["xdotool", "mousemove", "0", "0"] } # Required
     application: # Optional
