@@ -1,3 +1,7 @@
+## v0.8.15
+
+- Add `skip_key_event` option to `press`/`release` modmap action [#420](https://github.com/k0kubun/xremap/issues/420)
+
 ## v0.8.14
 
 - Support TOML as a config file format [#404](https://github.com/k0kubun/xremap/issues/404)
