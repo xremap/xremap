@@ -31,6 +31,8 @@ pub struct MultiPurposeKey {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct PressReleaseKey {
+    #[serde(default)]
+    pub skip_key_event: bool ,
     #[serde(deserialize_with = "deserialize_actions")]
     pub press: Vec<KeymapAction>,
     #[serde(deserialize_with = "deserialize_actions")]
