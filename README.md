@@ -218,6 +218,14 @@ For `KEY_XXX` and `KEY_YYY`, use [these names](https://github.com/emberian/evdev
 You can skip `KEY_` and the name is case-insensitive. So `KEY_CAPSLOCK`, `CAPSLOCK`, and `CapsLock` are the same thing.
 Some [custom aliases](src/config/key.rs) like `SHIFT_R`, `CONTROL_L`, etc. are provided.
 
+In case you don't know the name of a key, you can find out by enabling the xremap debug output:
+```bash
+RUST_LOG=debug xremap path/to/your/configuration
+#or 
+sudo RUST_LOG=debug xremap path/to/your/configuration
+```
+Then press the key you want to know the name of.
+
 If you specify a map containing `held` and `alone`, you can use the key for two purposes.
 The key is considered `alone` if it's pressed and released within `alone_timeout_millis` (default: 1000)
 before any other key is pressed. Otherwise it's considered `held`.
