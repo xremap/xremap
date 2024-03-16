@@ -220,9 +220,9 @@ Some [custom aliases](src/config/key.rs) like `SHIFT_R`, `CONTROL_L`, etc. are p
 
 In case you don't know the name of a key, you can find out by enabling the xremap debug output:
 ```bash
-RUST_LOG=debug xremap path/to/your/configuration
-#or 
-sudo RUST_LOG=debug xremap path/to/your/configuration
+RUST_LOG=debug xremap config.yml
+# or
+sudo RUST_LOG=debug xremap config.yml
 ```
 Then press the key you want to know the name of.
 
