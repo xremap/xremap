@@ -62,77 +62,25 @@ Then start the `xremap` daemon by running:
 sudo xremap config.yml
 ```
 
-(You will need to leave it running for your mappings to take effect.)
+To use it without sudo (recommended) run the following commands:
 
-<details>
-<summary>If you want to run xremap without sudo, click here.</summary>
-
-### Running xremap without sudo
-
-To do so, your normal user should be able to use `evdev` and `uinput` without sudo.
-In Ubuntu, this can be configured by running the following commands and rebooting your machine.
-
-```bash
+```sh
 sudo gpasswd -a YOUR_USER input
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
+echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/90-input.rules
+echo 'uinput' | sudo tee /etc/modules-load.d/uinput.conf
 ```
 
-#### Arch Linux
+These changes will take effect after a reboot, to load them for the current session use:
 
-The following can be used on Arch.
-
-```bash
-lsmod | grep uinput
-```
-If this module is not loaded, add to `/etc/modules-load.d/uinput.conf`:
-```bash
-uinput
-```
-Then add udev rule.
-
-```bash
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-input.rules
-```
-
-Then reboot the machine.
-
-#### Debian
-Make sure `uinput` is loaded same as in Arch:
-```
-lsmod | grep uinput
-```
-If it shows up empty:
-```bash
-echo uinput | sudo tee /etc/modules-load.d/uinput.conf
-```
-Add your user to the `input` group and add the same udev rule as in Ubuntu:
-```bash
-sudo gpasswd -a YOUR_USER input
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
-```
-Reboot the machine afterwards or try:
-```bash
+```sh
 sudo modprobe uinput
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-#### Other platforms
-
-In other platforms, you might need to create an `input` group first
-and run `echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules` as well.
-
 If you do this, in some environments, `--watch` may fail to recognize new devices due to temporary permission issues.
 Using `sudo` might be more useful in such cases.
 
----
-
-</details>
-
-See the following instructions for your environment to make `application`-specific remapping work.
-
-### X11
-
-If you use `sudo` to run `xremap`, you may need to run `xhost +SI:localuser:root` if you see `No protocol specified`.
+Make sure to add `xremap config.yml` to your list of autostart program and/or `.xprofile` (if you are on X11).
 
 ### GNOME Wayland
 
@@ -140,7 +88,13 @@ Install xremap's GNOME Shell extension from [this link](https://extensions.gnome
 switching OFF to ON.
 
 <details>
-<summary>If you use <code>sudo</code> to run <code>xremap</code>, also click here.</summary>
+<summary>If you run <code>xremap</code> with <code>sudo</code> and have issues, click here.</summary>
+
+### X11
+
+If you see `No protocol specified`, try to run `xhost +SI:localuser:root`.
+
+### GNOME Wayland
 
 Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
 
@@ -152,11 +106,11 @@ Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
      <!-- Allow everything to be received -->
 ```
 
-</details>
-
 ### KDE-Plasma Wayland
 
 Xremap cannot be run as root. Follow the instructions above to run xremap without sudo.
+
+</details>
 
 ## Configuration
 Your `config.yml` should look like this:
