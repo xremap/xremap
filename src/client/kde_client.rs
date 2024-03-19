@@ -29,14 +29,14 @@ impl Drop for KwinScriptTempFile {
 }
 
 trait KWinScripting {
-    fn load_script(&self, path: &Path) -> Result<String, ConnectionError>;
+    fn load_script(&self, path: &Path) -> Result<i32, ConnectionError>;
     fn unload_script(&self) -> Result<bool, ConnectionError>;
-    fn start_script(&self, script_obj_path: &str) -> Result<(), ConnectionError>;
+    fn start_script(&self, script_obj_id: i32) -> Result<(), ConnectionError>;
     fn is_script_loaded(&self) -> Result<bool, ConnectionError>;
 }
 
 impl KWinScripting for Connection {
-    fn load_script(&self, path: &Path) -> Result<String, ConnectionError> {
+    fn load_script(&self, path: &Path) -> Result<i32, ConnectionError> {
         self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
@@ -48,7 +48,6 @@ impl KWinScripting for Connection {
         .map_err(|_| ConnectionError::LoadScriptCall)?
         .body::<i32>()
         .map_err(|_| ConnectionError::InvalidLoadScriptResult)
-        .map(|obj_path| format!("/{obj_path}"))
     }
 
     fn unload_script(&self) -> Result<bool, ConnectionError> {
@@ -65,10 +64,22 @@ impl KWinScripting for Connection {
         .map_err(|_| ConnectionError::InvalidUnloadScriptResult)
     }
 
-    fn start_script(&self, script_obj_path: &str) -> Result<(), ConnectionError> {
-        self.call_method(Some("org.kde.KWin"), script_obj_path, Some("org.kde.kwin.Script"), "run", &())
-            .map_err(|_| ConnectionError::StartScriptCall)
-            .map(|_| ())
+    fn start_script(&self, script_obj_id: i32) -> Result<(), ConnectionError> {
+        for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
+            if self
+                .call_method(
+                    Some("org.kde.KWin"),
+                    script_obj_path_fn(script_obj_id).as_str(),
+                    Some("org.kde.kwin.Script"),
+                    "run",
+                    &(),
+                )
+                .is_ok()
+            {
+                return Ok(());
+            }
+        }
+        Err(ConnectionError::StartScriptCall)
     }
 
     fn is_script_loaded(&self) -> Result<bool, ConnectionError> {
@@ -91,8 +102,8 @@ fn load_kwin_script() -> Result<(), ConnectionError> {
         let init_script = || {
             let temp_file_path = KwinScriptTempFile::new();
             std::fs::write(&temp_file_path.0, KWIN_SCRIPT).map_err(|_| ConnectionError::WriteScriptToTempFile)?;
-            let script_obj_path = dbus.load_script(&temp_file_path.0)?;
-            dbus.start_script(&script_obj_path)?;
+            let script_obj_id = dbus.load_script(&temp_file_path.0)?;
+            dbus.start_script(script_obj_id)?;
             Ok(())
         };
         if let Err(err) = init_script() {

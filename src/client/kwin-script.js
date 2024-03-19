@@ -1,4 +1,4 @@
-workspace.clientActivated.connect(function(client){
+function notifyActiveWindow(client) {
     callDBus(
         "com.k0kubun.Xremap",
         "/com/k0kubun/Xremap",
@@ -8,4 +8,12 @@ workspace.clientActivated.connect(function(client){
         "resourceClass" in client ? client.resourceClass : "",
         "resourceName" in client ? client.resourceName : ""
     );
-});
+}
+
+if (workspace.windowList) {
+    // kde 6
+    workspace.windowActivated.connect(notifyActiveWindow);
+} else {
+    // kde 5
+    workspace.clientActivated.connect(notifyActiveWindow);
+}
