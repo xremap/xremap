@@ -30,7 +30,7 @@ wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = tru
 x11rb = { version = "0.13.0", optional = true }
 zbus = { version = "1.9.2", optional = true }
 hyprland = { version = "0.3.13", optional = true }
-toml = "0.8.9"
+toml = "0.8.12"
 
 [features]
 gnome = ["zbus"]
