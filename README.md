@@ -58,29 +58,42 @@ Write [a config file](#Configuration) directly, or generate it with
 
 Then start the `xremap` daemon by running:
 
-```
+```sh
 sudo xremap config.yml
 ```
 
-To use it without sudo (recommended) run the following commands:
+You might need to run it with sudo for application-specific remaps to work in
+certain platforms.
+
+Make sure to run `xremap` on startup.
+
+### Run without sudo
+
+To use it without sudo just add your user to the `input` group:
 
 ```sh
 sudo gpasswd -a YOUR_USER input
+```
+
+While this is enough for some distros (Ubuntu), others (Fedora, Arch, Debian)
+might also require adding a `udev` rule:
+
+```sh
 echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/90-input.rules
 echo 'uinput' | sudo tee /etc/modules-load.d/uinput.conf
 ```
 
-These changes will take effect after a reboot, to load them for the current session use:
+These changes will take effect after a reboot, to load them for the current
+session use:
 
 ```sh
 sudo modprobe uinput
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
-If you do this, in some environments, `--watch` may fail to recognize new devices due to temporary permission issues.
+If you do this, in some environments, `--watch` may fail to recognize new devices
+due to temporary permission issues.
 Using `sudo` might be more useful in such cases.
-
-Make sure to add `xremap config.yml` to your list of autostart program and/or `.xprofile` (if you are on X11).
 
 ### GNOME Wayland
 
