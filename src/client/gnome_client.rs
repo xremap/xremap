@@ -24,6 +24,10 @@ impl Client for GnomeClient {
         self.connect();
         self.current_application().is_some()
     }
+    fn current_window(&mut self) -> Option<String> {
+        // TODO:  not implemented
+        None
+    }
 
     fn current_application(&mut self) -> Option<String> {
         self.connect();

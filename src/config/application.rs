@@ -7,7 +7,7 @@ use serde::{Deserialize, Deserializer};
 // TODO: Use trait to allow only either `only` or `not`
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Application {
+pub struct OnlyOrNot {
     #[serde(default, deserialize_with = "deserialize_matchers")]
     pub only: Option<Vec<ApplicationMatcher>>,
     #[serde(default, deserialize_with = "deserialize_matchers")]

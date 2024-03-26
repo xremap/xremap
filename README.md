@@ -208,6 +208,10 @@ modmap:
       not: [Application, ...]
       # or
       only: [Application, ...]
+    window: # Optional (only wlroots clients supported)
+      not: [/regex of window title/, ...]
+      # or
+      only: [/regex of window title/, ...]
     device: # Optional
       not: [Device, ...]
       # or
@@ -262,6 +266,10 @@ keymap:
       not: [Application, ...]
       # or
       only: [Application, ...]
+    window: # Optional (only wlroots clients supported)
+      not: [/regex of window title/, ...]
+      # or
+      only: [/regex of window title/, ...]
     device: # Optional
       not: [Device, ...]
       # or

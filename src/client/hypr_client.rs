@@ -12,6 +12,10 @@ impl Client for HyprlandClient {
     fn supported(&mut self) -> bool {
         true
     }
+    fn current_window(&mut self) -> Option<String> {
+        // TODO:  not implemented
+        None
+    }
 
     fn current_application(&mut self) -> Option<String> {
         if let Ok(win_opt) = HyprClient::get_active() {

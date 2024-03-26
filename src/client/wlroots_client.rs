@@ -20,6 +20,7 @@ use crate::client::Client;
 struct State {
     active_window: Option<ObjectId>,
     windows: HashMap<ObjectId, String>,
+    titles: HashMap<ObjectId, String>,
 }
 
 #[derive(Default)]
@@ -58,6 +59,22 @@ impl Client for WlRootsClient {
                 false
             }
         }
+    }
+    fn current_window(&mut self) -> Option<String> {
+        let queue = self.queue.as_mut()?;
+
+        if let Err(_) = queue.roundtrip(&mut self.state) {
+            // try to reconnect
+            if let Err(err) = self.connect() {
+                log::error!("{err}");
+                return None;
+            }
+
+            log::debug!("Reconnected to wayland");
+        }
+
+        let id = self.state.active_window.as_ref()?;
+        self.state.titles.get(id).cloned()
     }
 
     fn current_application(&mut self) -> Option<String> {
@@ -102,6 +119,7 @@ impl Dispatch<ZwlrForeignToplevelManagerV1, ()> for State {
     ) {
         if let ManagerEvent::Toplevel { toplevel } = event {
             state.windows.insert(toplevel.id(), "<unknown>".into());
+            state.titles.insert(toplevel.id(), "<unknown>".into());
         }
     }
 
@@ -123,8 +141,12 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, ()> for State {
             HandleEvent::AppId { app_id } => {
                 state.windows.insert(handle.id(), app_id);
             }
+            HandleEvent::Title { title } => {
+                state.titles.insert(handle.id(), title);
+            }
             HandleEvent::Closed => {
                 state.windows.remove(&handle.id());
+                state.titles.remove(&handle.id());
             }
             HandleEvent::State { state: handle_state } => {
                 let activated = HandleState::Activated as u8;

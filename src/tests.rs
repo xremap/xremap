@@ -23,6 +23,9 @@ impl Client for StaticClient {
     fn supported(&mut self) -> bool {
         true
     }
+    fn current_window(&mut self) -> Option<String> {
+        None
+    }
 
     fn current_application(&mut self) -> Option<String> {
         self.current_application.clone()

@@ -40,6 +40,10 @@ impl Client for SwayClient {
         self.connect();
         self.connection.is_some()
     }
+    fn current_window(&mut self) -> Option<String> {
+        // TODO:  not implemented
+        None
+    }
 
     fn current_application(&mut self) -> Option<String> {
         self.connect();
