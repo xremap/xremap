@@ -1,6 +1,7 @@
 ## v0.8.16
 
 - Add `window` matcher for the `wlroots` client [#447](https://github.com/k0kubun/xremap/issues/447)
+- Handle new KWin API for the `kde` client [#437](https://github.com/k0kubun/xremap/issues/437)
 
 ## v0.8.15
 
