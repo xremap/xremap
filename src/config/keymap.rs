@@ -1,5 +1,5 @@
 use crate::config::application::deserialize_string_or_vec;
-use crate::config::application::Application;
+use crate::config::application::OnlyOrNot;
 use crate::config::key_press::KeyPress;
 use crate::config::keymap_action::{Actions, KeymapAction};
 use evdev::Key;
@@ -17,7 +17,8 @@ pub struct Keymap {
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
     pub remap: HashMap<KeyPress, Vec<KeymapAction>>,
-    pub application: Option<Application>,
+    pub application: Option<OnlyOrNot>,
+    pub window: Option<OnlyOrNot>,
     pub device: Option<Device>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
@@ -41,7 +42,8 @@ where
 pub struct KeymapEntry {
     pub actions: Vec<KeymapAction>,
     pub modifiers: Vec<Modifier>,
-    pub application: Option<Application>,
+    pub application: Option<OnlyOrNot>,
+    pub title: Option<OnlyOrNot>,
     pub device: Option<Device>,
     pub mode: Option<Vec<String>>,
     pub exact_match: bool,
@@ -65,6 +67,7 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
                 actions: actions.to_vec(),
                 modifiers: key_press.modifiers.clone(),
                 application: keymap.application.clone(),
+                title: keymap.window.clone(),
                 device: keymap.device.clone(),
                 mode: keymap.mode.clone(),
                 exact_match: keymap.exact_match,

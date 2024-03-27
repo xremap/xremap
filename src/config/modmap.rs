@@ -1,4 +1,4 @@
-use crate::config::application::Application;
+use crate::config::application::OnlyOrNot;
 use crate::config::key::deserialize_key;
 use crate::config::modmap_action::ModmapAction;
 use evdev::Key;
@@ -14,7 +14,8 @@ pub struct Modmap {
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
     pub remap: HashMap<Key, ModmapAction>,
-    pub application: Option<Application>,
+    pub application: Option<OnlyOrNot>,
+    pub window: Option<OnlyOrNot>,
     pub device: Option<Device>,
 }
 

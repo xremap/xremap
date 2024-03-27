@@ -1,6 +1,6 @@
 use crate::action::Action;
 use crate::client::WMClient;
-use crate::config::application::Application;
+use crate::config::application::OnlyOrNot;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
@@ -35,6 +35,7 @@ pub struct EventHandler {
     // Check the currently active application
     application_client: WMClient,
     application_cache: Option<String>,
+    title_cache: Option<String>,
     // State machine for multi-purpose keys
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     // Current nested remaps
@@ -68,6 +69,7 @@ impl EventHandler {
             pressed_keys: HashMap::new(),
             application_client,
             application_cache: None,
+            title_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remaps: vec![],
             override_timeout_key: None,
@@ -113,6 +115,7 @@ impl EventHandler {
         device: &InputDeviceInfo,
     ) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
+        self.title_cache = None; // expire cache
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
 
@@ -329,7 +332,11 @@ impl EventHandler {
                 // fallthrough on state discrepancy
                 vec![(key, value)]
             }
-            ModmapAction::PressReleaseKey(PressReleaseKey { skip_key_event, press, release }) => {
+            ModmapAction::PressReleaseKey(PressReleaseKey {
+                skip_key_event,
+                press,
+                release,
+            }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
                 if value == PRESS || value == RELEASE {
@@ -381,6 +388,11 @@ impl EventHandler {
     fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
+                if let Some(window_matcher) = &modmap.window {
+                    if !self.match_window(window_matcher) {
+                        continue;
+                    }
+                }
                 if let Some(application_matcher) = &modmap.application {
                     if !self.match_application(application_matcher) {
                         continue;
@@ -454,6 +466,12 @@ impl EventHandler {
                     if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
                         continue;
                     }
+                    if let Some(window_matcher) = &entry.title {
+                        if !self.match_window(window_matcher) {
+                            continue;
+                        }
+                    }
+
                     if let Some(application_matcher) = &entry.application {
                         if !self.match_application(application_matcher) {
                             continue;
@@ -619,8 +637,27 @@ impl EventHandler {
             Modifier::Key(key) => self.modifiers.contains(key),
         }
     }
+    fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
+        // Lazily fill the wm_class cache
+        if self.title_cache.is_none() {
+            match self.application_client.current_window() {
+                Some(title) => self.title_cache = Some(title),
+                None => self.title_cache = Some(String::new()),
+            }
+        }
 
-    fn match_application(&mut self, application_matcher: &Application) -> bool {
+        if let Some(title) = &self.title_cache {
+            if let Some(title_only) = &window_matcher.only {
+                return title_only.iter().any(|m| m.matches(title));
+            }
+            if let Some(title_not) = &window_matcher.not {
+                return title_not.iter().all(|m| !m.matches(title));
+            }
+        }
+        false
+    }
+
+    fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.application_cache.is_none() {
             match self.application_client.current_application() {

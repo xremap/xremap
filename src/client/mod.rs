@@ -1,6 +1,7 @@
 pub trait Client {
     fn supported(&mut self) -> bool;
     fn current_application(&mut self) -> Option<String>;
+    fn current_window(&mut self) -> Option<String>;
 }
 
 pub struct WMClient {
@@ -8,6 +9,7 @@ pub struct WMClient {
     client: Box<dyn Client>,
     supported: Option<bool>,
     last_application: String,
+    last_window: String,
 }
 
 impl WMClient {
@@ -17,7 +19,27 @@ impl WMClient {
             client,
             supported: None,
             last_application: String::new(),
+            last_window: String::new(),
         }
+    }
+    pub fn current_window(&mut self) -> Option<String> {
+        if self.supported.is_none() {
+            let supported = self.client.supported();
+            self.supported = Some(supported);
+            println!("application-client: {} (supported: {})", self.name, supported);
+        }
+        if !self.supported.unwrap() {
+            return None;
+        }
+
+        let result = self.client.current_window();
+        if let Some(window) = &result {
+            if &self.last_window != window {
+                self.last_window = window.clone();
+                println!("window: {}", window);
+            }
+        }
+        result
     }
 
     pub fn current_application(&mut self) -> Option<String> {
