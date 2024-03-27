@@ -79,13 +79,6 @@ jobs:
         with:
           key: ubuntu-latest
 
-      # Release crate
-      - name: cargo login
-        run: cargo login "$CARGO_TOKEN"
-        env:
-          CARGO_TOKEN: ${{ secrets.CARGO_TOKEN }}
-      - run: cargo publish
-
       # Fetch x86_64 binary
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-x11,     path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-gnome,   path: package/ } }
@@ -111,3 +104,10 @@ jobs:
         env:
           GHR_VERSION: v0.16.2
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Release crate
+      - name: cargo login
+        run: cargo login "$CARGO_TOKEN"
+        env:
+          CARGO_TOKEN: ${{ secrets.CARGO_TOKEN }}
+      - run: cargo publish
