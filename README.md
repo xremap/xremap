@@ -208,7 +208,7 @@ modmap:
       not: [Application, ...]
       # or
       only: [Application, ...]
-    window: # Optional (only wlroots clients supported)
+    window: # Optional (only wlroots/kde clients supported)
       not: [/regex of window title/, ...]
       # or
       only: [/regex of window title/, ...]
@@ -266,7 +266,7 @@ keymap:
       not: [Application, ...]
       # or
       only: [Application, ...]
-    window: # Optional (only wlroots clients supported)
+    window: # Optional (only wlroots/kde clients supported)
       not: [/regex of window title/, ...]
       # or
       only: [/regex of window title/, ...]
@@ -344,7 +344,7 @@ However, it will only start printing, once a mapping has been triggered that use
 So you have to create a mapping with a filter using a dummy application name and trigger it.
 Then each time you switch to a new window xremap will print its caption, class, and name in the following style:
 `active window: caption: '<caption>', class: '<class>', name: '<name>'`
-You want to use the class for the filter.  
+The `class` property should be used for application matching, while the `caption` property should be used for window matching.
 
 If you use a systemd-daemon to manage xremap, the prints will be visible in the system-logs (Can be opened with `journalctl -f`)
 
