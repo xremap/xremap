@@ -109,5 +109,5 @@ jobs:
           curl -L "https://github.com/tcnksm/ghr/releases/download/${GHR_VERSION}/ghr_${GHR_VERSION}_linux_amd64.tar.gz" | tar xvz
           "ghr_${GHR_VERSION}_linux_amd64/ghr" -u k0kubun -r xremap -replace -n "$VERSION" "$VERSION" package/
         env:
-          GHR_VERSION: v0.14.0
+          GHR_VERSION: v0.16.2
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
