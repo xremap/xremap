@@ -1,3 +1,7 @@
+## v0.8.18
+
+- Fix issues in the release pipeline
+
 ## v0.8.17
 
 - Add `window` matcher for the `kde` client [#448](https://github.com/xremap/xremap/pull/448)
