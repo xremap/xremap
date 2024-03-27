@@ -174,12 +174,12 @@ impl Client for KdeClient {
         conn_res.is_ok()
     }
     fn current_window(&mut self) -> Option<String> {
-        // TODO:  not implemented
-        None
+        let aw = self.active_window.lock().ok()?;
+        Some(aw.title.clone())
     }
 
     fn current_application(&mut self) -> Option<String> {
-        let aw = self.active_window.lock().unwrap();
+        let aw = self.active_window.lock().ok()?;
         Some(aw.res_class.clone())
     }
 }
