@@ -1,3 +1,7 @@
+## v0.8.16
+
+- Add `window` matcher for the `wlroots` client [#447](https://github.com/k0kubun/xremap/issues/447)
+
 ## v0.8.15
 
 - Add `skip_key_event` option to `press`/`release` modmap action [#420](https://github.com/k0kubun/xremap/issues/420)
