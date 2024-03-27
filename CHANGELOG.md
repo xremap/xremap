@@ -1,3 +1,7 @@
+## v0.8.17
+
+- Add `window` matcher for the `kde` client [#448](https://github.com/xremap/xremap/pull/448)
+
 ## v0.8.16
 
 - Add `window` matcher for the `wlroots` client [#447](https://github.com/k0kubun/xremap/issues/447)
