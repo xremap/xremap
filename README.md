@@ -196,8 +196,8 @@ modmap:
       KEY_XXX: KEY_YYY # Required
       # Dispatch different keys depending on whether you hold it or press it alone
       KEY_XXX:
-        held: [KEY_YYY] # Required
-        alone: [KEY_ZZZ] # Required
+        held: KEY_YYY # Required, also accepts arrays
+        alone: KEY_ZZZ # Required, also accepts arrays
         alone_timeout_millis: 1000 # Optional
       # Hook `keymap` action on key press/release events.
       KEY_XXX:
