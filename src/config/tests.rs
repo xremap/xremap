@@ -200,6 +200,25 @@ fn test_yaml_keymap_mode() {
 }
 
 #[test]
+fn test_yaml_keymap_mode_launch() {
+    yaml_assert_parse(indoc! {r#"
+    default_mode: insert
+    keymap:
+      - mode: insert
+        remap:
+          Esc: { set_mode: normal, launch: ["wmctrl", "-x", "-a", "code.Code"] }
+    
+      - mode: normal
+        remap:
+          i: { set_mode: insert }
+          h: Left
+          j: Down
+          k: Up
+          l: Right
+    "#})
+}
+
+#[test]
 fn test_yaml_keymap_mark() {
     yaml_assert_parse(indoc! {"
     keymap:

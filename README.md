@@ -262,6 +262,11 @@ keymap:
       MOD1-KEY_XXX: { escape_next_key: true }
       # Set mode to configure Vim-like modal remapping
       MOD1-KEY_XXX: { set_mode: default }
+      # Set mode and launch command at same time
+      MOD1-KEY_XXX:
+        set_mode: test
+        launch: ["notify-send", "test mode"]
+
     application: # Optional
       not: [Application, ...]
       # or

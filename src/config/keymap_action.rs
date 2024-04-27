@@ -5,7 +5,6 @@ use crate::config::remap::Remap;
 use evdev::Key;
 use serde::de;
 use serde::{Deserialize, Deserializer};
-use std::fmt::Debug;
 use std::time::Duration;
 
 use super::key::parse_key;
@@ -22,7 +21,7 @@ pub enum KeymapAction {
     #[serde(deserialize_with = "deserialize_launch")]
     Launch(Vec<String>),
     #[serde(deserialize_with = "deserialize_set_mode")]
-    SetMode(String),
+    SetMode(ModeAction),
     #[serde(deserialize_with = "deserialize_set_mark")]
     SetMark(bool),
     #[serde(deserialize_with = "deserialize_with_mark")]
@@ -67,17 +66,21 @@ where
     Err(de::Error::custom("not a map with a single \"launch\" key"))
 }
 
-fn deserialize_set_mode<'de, D>(deserializer: D) -> Result<String, D::Error>
+fn deserialize_set_mode<'de, D>(deserializer: D) -> Result<ModeAction, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let mut action = HashMap::<String, String>::deserialize(deserializer)?;
-    if let Some(set) = action.remove("set_mode") {
-        if action.is_empty() {
-            return Ok(set);
-        }
+    let action = ModeAction::deserialize(deserializer)?;
+    match &action {
+        ModeAction::Set(set_only) => {
+            if !set_only.contains_key("set_mode") {
+                return Err(de::Error::custom("not a map with a single \"set_mode\" key"));
+            }
+
+            Ok(action)
+        },
+        ModeAction::SetLaunch(_set_launch) =>  Ok(action)
     }
-    Err(de::Error::custom("not a map with a single \"set_mode\" key"))
 }
 
 fn deserialize_set_mark<'de, D>(deserializer: D) -> Result<bool, D::Error>
@@ -134,4 +137,22 @@ impl Actions {
             Actions::Actions(actions) => actions,
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Mode {
+    #[serde(rename = "set_mode")]
+    pub name: String,
+    #[serde(rename = "launch")]
+    pub command: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum ModeAction {
+    // set mode only
+    Set(HashMap<String, String>),
+
+    // set mode and launch command
+    SetLaunch(Mode)
 }

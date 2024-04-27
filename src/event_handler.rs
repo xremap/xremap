@@ -3,7 +3,7 @@ use crate::client::WMClient;
 use crate::config::application::OnlyOrNot;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
-use crate::config::keymap_action::KeymapAction;
+use crate::config::keymap_action::{KeymapAction, ModeAction};
 use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
@@ -539,8 +539,16 @@ impl EventHandler {
             }
             KeymapAction::Launch(command) => self.run_command(command.clone()),
             KeymapAction::SetMode(mode) => {
-                self.mode = mode.clone();
-                println!("mode: {}", mode);
+                match mode {
+                    ModeAction::Set(set_only) => {
+                        let mode = set_only.clone().remove("set_mode").unwrap_or_default();
+                        self.mode = mode.clone();
+                    },
+                    ModeAction::SetLaunch(set) => {
+                        self.run_command(set.command.clone());
+                        self.mode = set.name.clone();
+                    }
+                }
             }
             KeymapAction::SetMark(set) => self.mark_set = *set,
             KeymapAction::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press)),
