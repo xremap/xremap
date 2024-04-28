@@ -354,7 +354,7 @@ impl EventHandler {
 
                 if skip_key_event {
                     // Do not dispatch the original key
-                    vec![(Key::KEY_UNKNOWN, value)]
+                    vec![]
                 } else {
                     // dispatch the original key
                     vec![(key, value)]
