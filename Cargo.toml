@@ -22,7 +22,7 @@ nix = "0.26.2"
 regex = "1.10.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_with = { version = "3.7", features = ["chrono"] }
+serde_with = { version = "3.8", features = ["chrono"] }
 serde_yaml = "0.9"
 swayipc = { version = "3.0.1", optional = true }
 wayland-client = { version = "0.30", optional = true }
