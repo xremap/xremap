@@ -1,3 +1,7 @@
+## Unreleased
+
+- Emit no key event instead of `KEY_UNKNOWN` on `skip_key_event` [#462](https://github.com/xremap/xremap/pull/462)
+
 ## v0.8.18
 
 - Fix issues in the release pipeline
