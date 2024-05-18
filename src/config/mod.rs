@@ -18,7 +18,7 @@ use evdev::Key;
 use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
-use serde::{Deserialize, Deserializer, de::IgnoredAny};
+use serde::{de::IgnoredAny, Deserialize, Deserializer};
 use std::{collections::HashMap, error, fs, path::PathBuf, time::SystemTime};
 
 use self::{
@@ -51,6 +51,8 @@ pub struct Config {
     pub modify_time: Option<SystemTime>,
     #[serde(skip)]
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
+    #[serde(default = "const_true")]
+    pub enable_wheel: bool,
 }
 
 enum ConfigFiletype {
@@ -66,7 +68,7 @@ fn get_file_ext(filename: &PathBuf) -> ConfigFiletype {
             } else {
                 ConfigFiletype::Yaml
             }
-        },
+        }
         _ => ConfigFiletype::Yaml,
     }
 }
@@ -79,7 +81,7 @@ pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::E
         ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
         ConfigFiletype::Toml => toml::from_str(&config_contents)?,
     };
-    
+
     for filename in &filenames[1..] {
         let config_contents = fs::read_to_string(&filename)?;
         let c: Config = match get_file_ext(&filename) {
@@ -131,4 +133,8 @@ where
         keys.push(parse_key(&key_str).map_err(serde::de::Error::custom)?);
     }
     return Ok(keys);
+}
+
+fn const_true() -> bool {
+    true
 }

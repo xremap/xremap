@@ -1,6 +1,7 @@
 ## Unreleased
 
 - Emit no key event instead of `KEY_UNKNOWN` on `skip_key_event` [#462](https://github.com/xremap/xremap/pull/462)
+- Enable `REL_WHEEL` and `REL_HWHEEL` by default regardless of `--mouse` option. You can disable it by `enable_wheel: false` at toplevel. See [#260](https://github.com/xremap/xremap/pull/260) for details.
 
 ## v0.8.18
 
