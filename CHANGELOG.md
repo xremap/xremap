@@ -1,7 +1,12 @@
-## Unreleased
+## v0.9.0
 
+- Add `enable_wheel` option in the config [#478](https://github.com/xremap/xremap/pull/478)
+- Enable `REL_WHEEL` and `REL_HWHEEL` by default regardless of `--mouse` option.
+  [#478](https://github.com/xremap/xremap/pull/478)
+  - This reverts v0.8.2 and v0.8.10.
+  - Arch Linux users on systemd-253-1 can continue to disable them by top-level `enable_wheel: false`.
+    See [#260](https://github.com/xremap/xremap/pull/260) for details.
 - Emit no key event instead of `KEY_UNKNOWN` on `skip_key_event` [#462](https://github.com/xremap/xremap/pull/462)
-- Enable `REL_WHEEL` and `REL_HWHEEL` by default regardless of `--mouse` option. You can disable it by `enable_wheel: false` at toplevel. See [#260](https://github.com/xremap/xremap/pull/260) for details.
 
 ## v0.8.18
 
