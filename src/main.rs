@@ -122,10 +122,11 @@ fn main() -> anyhow::Result<()> {
     let config_watcher = config_watcher(watch_config, &config_paths).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
     let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client());
-    let output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type), mouse) {
-        Ok(output_device) => output_device,
-        Err(e) => bail!("Failed to prepare an output device: {}", e),
-    };
+    let output_device =
+        match output_device(input_devices.values().next().map(InputDevice::bus_type), config.enable_wheel) {
+            Ok(output_device) => output_device,
+            Err(e) => bail!("Failed to prepare an output device: {}", e),
+        };
     let mut dispatcher = ActionDispatcher::new(output_device);
 
     // Main loop
