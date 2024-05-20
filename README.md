@@ -445,6 +445,12 @@ keymap:
     remap: *some_remaps # and we can reuse a map here.
 ```
 
+## Maintainers
+
+- @k0kubun
+- @N4tus (KDE client)
+- @jixiuf (wlroots client)
+
 ## License
 
 `xremap` is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
