@@ -1,3 +1,8 @@
+## v0.10.0
+
+- Drop `sway` and `hypr` clients [#479](https://github.com/xremap/xremap/pull/479)
+  - As recommended since v0.8.9, please use `wlroots` client instead.
+
 ## v0.9.0
 
 - Add `enable_wheel` option in the config [#478](https://github.com/xremap/xremap/pull/478)
