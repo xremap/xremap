@@ -28,7 +28,7 @@ wayland-client = { version = "0.30", optional = true }
 wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = true }
 x11rb = { version = "0.13.1", optional = true }
 zbus = { version = "1.9.2", optional = true }
-toml = "0.8.13"
+toml = "0.8.15"
 
 [features]
 gnome = ["zbus"]
