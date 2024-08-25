@@ -31,19 +31,19 @@ mod event_handler;
 mod tests;
 
 #[derive(Parser, Debug)]
-#[clap(version)]
+#[command(version)]
 struct Args {
     /// Include a device name or path
-    #[clap(long, use_value_delimiter = true)]
+    #[arg(long, value_delimiter = ',')]
     device: Vec<String>,
     /// Ignore a device name or path
-    #[clap(long, use_value_delimiter = true)]
+    #[arg(long, value_delimiter = ',')]
     ignore: Vec<String>,
     /// Match mice by default
-    #[clap(long)]
+    #[arg(long)]
     mouse: bool,
     /// Targets to watch
-    #[clap(long, value_enum, num_args = 0.., use_value_delimiter = true, require_equals = true,
+    #[arg(long, value_enum, num_args = 0.., value_delimiter = ',', require_equals = true,
            default_missing_value = "device", verbatim_doc_comment)]
     watch: Vec<WatchTargets>,
     /// Generate shell completions
@@ -51,10 +51,10 @@ struct Args {
     /// You can use them by storing in your shells completion file or by running
     /// - in bash: eval "$(xremap --completions bash)"
     /// - in fish: xremap --completions fish | source
-    #[clap(long, value_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
+    #[arg(long, value_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
     completions: Option<Shell>,
     /// Config file(s)
-    #[clap(required_unless_present = "completions", num_args = 1..)]
+    #[arg(required_unless_present = "completions", num_args = 1..)]
     configs: Vec<PathBuf>,
 }
 
