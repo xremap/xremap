@@ -94,8 +94,8 @@ fn get_wm_class(client: &mut X11Client, window: Window) -> Option<String> {
     if let Some(delimiter) = reply.value.iter().position(|byte| *byte == '\0' as u8) {
         if let Ok(prefix) = String::from_utf8(reply.value[..delimiter].to_vec()) {
             let name = reply.value[(delimiter + 1)..].to_vec();
-            if let Some(end) = name.iter().position(|byte| *byte == '\0' as u8) {
-                if end == name.len() - 1 {
+            if let Some(end) = name.iter().position(|byte| *byte == '\0' as u8).or(Some(name.len())) {
+                if end == name.len() - 1 || end == name.len() {
                     if let Ok(name) = String::from_utf8(name[..end].to_vec()) {
                         return Some(format!("{prefix}.{name}"));
                     }
