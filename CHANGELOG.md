@@ -1,3 +1,7 @@
+## v0.10.1
+
+- X11: Handle WM\_CLASS reply without terminating null-byte [#525](https://github.com/xremap/xremap/pull/525)
+
 ## v0.10.0
 
 - Drop `sway` and `hypr` clients [#479](https://github.com/xremap/xremap/pull/479)
