@@ -1400,28 +1400,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "swayipc"
-version = "3.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "daa5d19f881f372e225095e297072e2e3ee1c4e9e3a46cafe5f5cf70f1313f29"
-dependencies = [
- "serde",
- "serde_json",
- "swayipc-types",
-]
-
-[[package]]
-name = "swayipc-types"
-version = "1.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "150570ddeab049ddd51930539fe05834054795d5db1a6735285e9534a5f56931"
-dependencies = [
- "serde",
- "serde_json",
- "thiserror",
-]
-
-[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1920,7 +1898,6 @@ dependencies = [
  "serde_json",
  "serde_with",
  "serde_yaml",
- "swayipc",
  "toml 0.8.15",
  "wayland-client",
  "wayland-protocols-wlr",

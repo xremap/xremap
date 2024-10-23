@@ -37,7 +37,8 @@ and run one of the following commands:
 cargo install xremap --features x11     # X11
 cargo install xremap --features gnome   # GNOME Wayland
 cargo install xremap --features kde     # KDE-Plasma Wayland
-cargo install xremap --features wlroots # Sway, Hyprland, etc.
+cargo install xremap --features wlroots # Sway, Wayfire, etc.
+cargo install xremap --features hypr    # Hyprland
 cargo install xremap                    # Others
 ```
 

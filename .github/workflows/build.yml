@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
-        feature: [x11, gnome, kde, sway, hypr, wlroots]
+        feature: [x11, gnome, kde, hypr, wlroots]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -81,7 +81,6 @@ jobs:
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-x11,     path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-gnome,   path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-kde,     path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-sway,    path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-hypr,    path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-wlroots, path: package/ } }
 
@@ -89,7 +88,6 @@ jobs:
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-x11,     path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-gnome,   path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-kde,     path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-sway,    path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-hypr,    path: package/ } }
       - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-wlroots, path: package/ } }
 
