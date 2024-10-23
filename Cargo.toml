@@ -24,7 +24,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.8", features = ["chrono"] }
 serde_yaml = "0.9"
-swayipc = { version = "3.0.1", optional = true }
 wayland-client = { version = "0.30", optional = true }
 wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = true }
 x11rb = { version = "0.13.1", optional = true }
@@ -34,7 +33,6 @@ toml = "0.8.15"
 
 [features]
 gnome = ["zbus"]
-sway = ["swayipc"]
 x11 = ["x11rb"]
 hypr = ["hyprland"]
 kde = ["zbus"]
