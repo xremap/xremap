@@ -52,6 +52,10 @@ If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.a
 
 If you are using NixOS, xremap can be installed and configured through a [flake](https://github.com/xremap/nix-flake/).
 
+### Fedora Linux
+
+If you are using Fedora, xremap can be installed via this [Fedora Copr](https://copr.fedorainfracloud.org/coprs/blakegardner/xremap/) repository.
+
 ## Usage
 
 Write [a config file](#Configuration) directly, or generate it with
