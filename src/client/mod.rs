@@ -77,6 +77,20 @@ pub fn build_client() -> WMClient {
     WMClient::new("KDE", Box::new(kde_client::KdeClient::new()))
 }
 
+#[cfg(feature = "sway")]
+mod sway_client;
+#[cfg(feature = "sway")]
+pub fn build_client() -> WMClient {
+    WMClient::new("Sway", Box::new(sway_client::SwayClient::new()))
+}
+
+#[cfg(feature = "hypr")]
+mod hypr_client;
+#[cfg(feature = "hypr")]
+pub fn build_client() -> WMClient {
+    WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()))
+}
+
 #[cfg(feature = "x11")]
 mod x11_client;
 #[cfg(feature = "x11")]
