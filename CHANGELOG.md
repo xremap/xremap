@@ -1,3 +1,9 @@
+## v0.10.2
+
+- Resurrect `hypr` client that was dropped in v0.10.0
+  - Hyprland stopped using wlroots ([ref](https://hyprland.org/news/independentHyprland/)),
+    so `wlroots` client no longer works for it.
+
 ## v0.10.1
 
 - X11: Handle WM\_CLASS reply without terminating null-byte [#525](https://github.com/xremap/xremap/pull/525)
