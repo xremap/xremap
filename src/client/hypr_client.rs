@@ -13,7 +13,11 @@ impl Client for HyprlandClient {
         true
     }
     fn current_window(&mut self) -> Option<String> {
-        // TODO:  not implemented
+        if let Ok(win_opt) = HyprClient::get_active() {
+            if let Some(win) = win_opt {
+                return Some(win.title);
+            }
+        }
         None
     }
 

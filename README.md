@@ -213,7 +213,7 @@ modmap:
       not: [Application, ...]
       # or
       only: [Application, ...]
-    window: # Optional (only wlroots/kde clients supported)
+    window: # Optional (only hyprland/wlroots/kde clients supported)
       not: [/regex of window title/, ...]
       # or
       only: [/regex of window title/, ...]
@@ -271,7 +271,7 @@ keymap:
       not: [Application, ...]
       # or
       only: [Application, ...]
-    window: # Optional (only wlroots/kde clients supported)
+    window: # Optional (only hyprland/wlroots/kde clients supported)
       not: [/regex of window title/, ...]
       # or
       only: [/regex of window title/, ...]
