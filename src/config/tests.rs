@@ -257,6 +257,12 @@ fn test_yaml_no_keymap_action() {
     keymap:
       - remap:
           f12: []
+    "});
+
+    yaml_assert_parse(indoc! {"
+    keymap:
+      - remap:
+          f12: null
     "})
 }
 

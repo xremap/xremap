@@ -684,7 +684,7 @@ fn test_mixing_keypress_and_remap_in_keymap_action() {
 
 #[test]
 fn test_mixing_no_keypress_and_remap_in_keymap_action() {
-    // The first match doesn't stop the search for matches. So the last remap will be used.
+    // The first match stops the search for matches. So the last remap isn't used.
     assert_actions(
         indoc! {"
         keymap:
@@ -703,10 +703,7 @@ fn test_mixing_no_keypress_and_remap_in_keymap_action() {
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-            Action::Delay(Duration::from_nanos(0)),
-            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
         ],
     )
@@ -725,10 +722,23 @@ fn test_no_keymap_action() {
             Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
         ],
         vec![
-            //It's unexpected that something is emitted here. The empty list of keys, should mean nothing.
-            Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Press)),
+            //This is just release, so the key is not emitted.
             Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
         ],
+    );
+
+    //Same test with the null keyword
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12: null
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+        ],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release))],
     )
 }
 
