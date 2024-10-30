@@ -135,3 +135,50 @@ impl Actions {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::KeymapAction;
+    use crate::config::key_press::KeyPress;
+    use crate::config::key_press::Modifier;
+    use evdev::Key;
+
+    #[test]
+    fn test_keypress_action() {
+        test_yaml_parsing_key_press(
+            "c-x",
+            KeyPress {
+                key: Key::KEY_X,
+                modifiers: vec![Modifier::Control],
+            },
+        );
+    }
+
+    #[test]
+    fn test_launch_action() {
+        test_yaml_parsing_key_launch("{launch: []}", vec![]);
+        test_yaml_parsing_key_launch("{launch: [\"bla\"]}", vec!["bla".into()]);
+    }
+
+    //
+    // util
+    //
+
+    fn test_yaml_parsing_key_press(yaml: &str, expected: KeyPress) {
+        match serde_yaml::from_str(yaml).unwrap() {
+            KeymapAction::KeyPress(keyp) => {
+                assert_eq!(keyp, expected);
+            }
+            _ => panic!("unexpected type"),
+        }
+    }
+
+    fn test_yaml_parsing_key_launch(yaml: &str, expected: Vec<String>) {
+        match serde_yaml::from_str(yaml).unwrap() {
+            KeymapAction::Launch(vect) => {
+                assert_eq!(vect, expected);
+            }
+            _ => panic!("unexpected type"),
+        }
+    }
+}
