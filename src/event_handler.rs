@@ -9,6 +9,7 @@ use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::{config, Config};
+use config::keyboard_layout::keyboard_layout;
 use evdev::Key;
 use lazy_static::lazy_static;
 use log::debug;
@@ -116,6 +117,15 @@ impl EventHandler {
     ) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         self.title_cache = None; // expire cache
+
+        // apply keyboard layout
+
+        let event = if let Some(&new_key_code) = keyboard_layout.get(&event.code()) {
+            &KeyEvent::new_with(new_key_code, event.value())
+        } else {
+            event
+        };
+
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
 

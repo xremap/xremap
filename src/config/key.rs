@@ -1,3 +1,4 @@
+use super::keyboard_layout::apply_keyboard_layout;
 use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
 use evdev::Key;
 use serde::{Deserialize, Deserializer};
@@ -15,6 +16,11 @@ where
 pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
     // Everything is case-insensitive
     let name = input.to_uppercase();
+
+    // Use pseudo key from user-defined keyboard layout
+    if let Some(key) = apply_keyboard_layout(&name) {
+        return Ok(key);
+    }
 
     // Original evdev scancodes should always work
     if let Ok(key) = Key::from_str(&name) {
