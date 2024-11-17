@@ -10,6 +10,7 @@ use super::device::Device;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Modmap {
+    #[allow(dead_code)]
     #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]

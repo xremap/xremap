@@ -13,6 +13,7 @@ use super::key_press::Modifier;
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Keymap {
+    #[allow(dead_code)]
     #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
