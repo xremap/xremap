@@ -697,6 +697,10 @@ impl EventHandler {
 }
 
 fn is_remap(actions: &Vec<KeymapAction>) -> bool {
+    if actions.len() == 0 {
+        return false;
+    }
+
     actions.iter().all(|x| match x {
         KeymapAction::Remap(..) => true,
         _ => false,
