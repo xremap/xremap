@@ -8,6 +8,7 @@ use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
 use std::process::{exit, Command, Stdio};
 
+use crate::config::keyboard_layout::reverse_keyboard_layout;
 use crate::event::RelativeEvent;
 use crate::{action::Action, event::KeyEvent};
 
@@ -77,10 +78,19 @@ impl ActionDispatcher {
         self.device.emit(&mousemovementbatch)
     }
 
-    fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
+    fn send_event(&mut self, mut event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
         }
+
+        // apply reverse keyboard layout
+
+        if event.event_type() == EventType::KEY {
+            if let Some(&new_key_code) = reverse_keyboard_layout.get(&event.code()) {
+                event = InputEvent::new_now(EventType::KEY, new_key_code, event.value());
+            }
+        }
+
         self.device.emit(&[event])
     }
 
