@@ -697,6 +697,16 @@ impl EventHandler {
 }
 
 fn is_remap(actions: &Vec<KeymapAction>) -> bool {
+    if actions.len() == 0 {
+        // When actions is empty it could either be regarded as an empty remap
+        //  or no actions. In principle that shouldn't matter, but remap is
+        //  implemented to gather all defined remaps, not just the first match.
+        // Here we regard an empty actions as non-remap, so the matching will stop
+        //  here, and no actions are performed. The possibly following remaps are
+        //  hence ignored.
+        return false;
+    }
+
     actions.iter().all(|x| match x {
         KeymapAction::Remap(..) => true,
         _ => false,

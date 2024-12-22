@@ -649,6 +649,99 @@ fn test_merge_remaps_with_override() {
     )
 }
 
+#[test]
+fn test_mixing_keypress_and_remap_in_keymap_action() {
+    // KEY_D will be emitted, and the remap will be used for next key press.
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                - d
+                - remap:
+                    a: b
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_mixing_no_keypress_and_remap_in_keymap_action() {
+    // The first match stops the search for matches. So the last remap isn't used.
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12: []
+          - remap:
+              f12:
+                - remap:
+                    a: b
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_no_keymap_action() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12: []
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+        ],
+        vec![
+            //This is just release, so the key is not emitted.
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+        ],
+    );
+
+    //Same test with the null keyword
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12: null
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+        ],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release))],
+    )
+}
+
 fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     assert_actions_with_current_application(config_yaml, None, events, actions);
 }
