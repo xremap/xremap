@@ -252,6 +252,21 @@ fn test_yaml_fail_on_data_outside_of_config_model() {
 }
 
 #[test]
+fn test_yaml_no_keymap_action() {
+    yaml_assert_parse(indoc! {"
+    keymap:
+      - remap:
+          f12: []
+    "});
+
+    yaml_assert_parse(indoc! {"
+    keymap:
+      - remap:
+          f12: null
+    "})
+}
+
+#[test]
 fn test_toml_modmap_basic() {
     toml_assert_parse(indoc! {"
     [[modmap]]
@@ -520,6 +535,15 @@ fn test_toml_fail_on_data_outside_of_config_model() {
 
     [modmap.application]
     only = \"Google-chrome\"
+    "})
+}
+
+#[test]
+fn test_toml_no_keymap_action() {
+    toml_assert_parse(indoc! {"
+    [[keymap]]
+    [keymap.remap]
+    f12 = []
     "})
 }
 
