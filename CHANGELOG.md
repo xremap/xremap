@@ -1,3 +1,8 @@
+## v0.10.3
+
+- Allow keymap with no action [#544](https://github.com/xremap/xremap/pull/544)
+- hypr: Support window title match
+
 ## v0.10.2
 
 - Resurrect `hypr` client that was dropped in v0.10.0
