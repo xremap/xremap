@@ -12,7 +12,7 @@ use super::keymap_action::Actions;
 pub struct Remap {
     pub remap: HashMap<KeyPress, Vec<KeymapAction>>,
     pub timeout: Option<Duration>,
-    pub timeout_key: Option<Key>,
+    pub timeout_key: Option<Vec<Key>>,
 }
 
 // USed only for deserialization
@@ -20,5 +20,5 @@ pub struct Remap {
 pub struct RemapActions {
     pub remap: HashMap<KeyPress, Actions>,
     pub timeout_millis: Option<u64>,
-    pub timeout_key: Option<String>,
+    pub timeout_key: Option<Vec<String>>,
 }

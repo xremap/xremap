@@ -45,7 +45,7 @@ pub struct EventHandler {
     // Current nested remaps
     override_remaps: Vec<HashMap<Key, Vec<OverrideEntry>>>,
     // Key triggered on a timeout of nested remaps
-    override_timeout_key: Option<Key>,
+    override_timeout_key: Option<Vec<Key>>,
     // Trigger a timeout of nested remaps through select(2)
     override_timer: TimerFd,
     // { set_mode: String }
@@ -252,9 +252,11 @@ impl EventHandler {
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
-        if let Some(key) = self.override_timeout_key {
-            self.send_key(&key, PRESS);
-            self.send_key(&key, RELEASE);
+        if let Some(keys) = &self.override_timeout_key.take() {
+            for key in keys {
+                self.send_key(&key, PRESS);
+                self.send_key(&key, RELEASE);
+            }
         }
         self.remove_override()
     }
@@ -547,7 +549,9 @@ impl EventHandler {
                         // TODO: Consider handling the timer in ActionDispatcher
                         self.override_timer.unset()?;
                         self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                        self.override_timeout_key = timeout_key.or_else(|| Some(*key));
+                        self.override_timeout_key =
+                            <std::option::Option<Vec<evdev::Key>> as Clone>::clone(&timeout_key)
+                                .or_else(|| Some(vec![*key]));
                     }
                 }
             }
