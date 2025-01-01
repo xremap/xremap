@@ -267,6 +267,13 @@ keymap:
       MOD1-KEY_XXX: { escape_next_key: true }
       # Set mode to configure Vim-like modal remapping
       MOD1-KEY_XXX: { set_mode: default }
+      # Illustrate a nested mapping that times out;
+      # also useful for timing out double-key sequences if the second key is never pressed.
+      space:  # Use timeout to fix a bouncy spacebar
+        remap:
+          space: null          # make space output nothing; null is equivalent to []
+          timeout_key: space   # output space after timeout or a non-mapped key (only space is mapped above)
+          timeout_millis: 150  # timeout duration in ms
     application: # Optional
       not: [Application, ...]
       # or
