@@ -163,7 +163,7 @@ fn test_yaml_keymap_remap() {
               C-s:
                 remap:
                   x: C-z
-            timeout_key: Down
+            timeout_key: [Down]
             timeout_millis: 1000
     "})
 }
@@ -415,7 +415,7 @@ fn test_toml_keymap_remap() {
     toml_assert_parse(indoc! {"
     [[keymap]]
     [keymap.remap.C-x]
-    timeout_key = \"Down\"
+    timeout_key = [ \"Down\" ]
     timeout_millis = 1_000
 
     [keymap.remap.C-x.remap]
