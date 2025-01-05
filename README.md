@@ -198,15 +198,15 @@ modmap:
     exact_match: false # Optional, defaults to false
     remap: # Required
       # Replace a key with another
-      KEY_XXX: KEY_YYY # Required
+      KEY_XXX1: KEY_YYY # Required
       # Dispatch different keys depending on whether you hold it or press it alone
-      KEY_XXX:
+      KEY_XXX2:
         held: KEY_YYY # Required, also accepts arrays
         alone: KEY_ZZZ # Required, also accepts arrays
         alone_timeout_millis: 1000 # Optional
       # Hook `keymap` action on key press/release events.
-      KEY_XXX:
-        skip_key_event: false # Optional, skip original key event ,defaults to false
+      KEY_XXX3:
+        skip_key_event: false # Optional, skip original key event, defaults to false
         press: { launch: ["xdotool", "mousemove", "0", "7200"] } # Required
         release: { launch: ["xdotool", "mousemove", "0", "0"] } # Required
     application: # Optional
@@ -248,25 +248,25 @@ keymap:
   - name: Name # Optional
     remap: # Required
       # Key press -> Key press
-      MOD1-KEY_XXX: MOD2-KEY_YYY
-      # Sequence (MOD1-KEY_XXX, MOD2-KEY_YYY) -> Key press (MOD3-KEY_ZZZ)
-      MOD1-KEY_XXX:
+      MOD1-KEY_XXX1: MOD2-KEY_YYY
+      # Sequence (MOD1-KEY_XXX2, MOD2-KEY_YYY) -> Key press (MOD3-KEY_ZZZ)
+      MOD1-KEY_XXX2:
         remap:
           MOD2-KEY_YYY: MOD3-KEY_ZZZ
         timeout_millis: 200 # Optional. No timeout by default.
-      # Key press (MOD1-KEY_XXX) -> Sequence (MOD2-KEY_YYY, MOD3-KEY_ZZZ)
-      MOD1-KEY_XXX: [MOD2-KEY_YYY, MOD3-KEY_ZZZ]
+      # Key press (MOD1-KEY_XXX3) -> Sequence (MOD2-KEY_YYY, MOD3-KEY_ZZZ)
+      MOD1-KEY_XXX3: [MOD2-KEY_YYY, MOD3-KEY_ZZZ]
       # Execute a command
-      MOD1-KEY_XXX:
+      MOD1-KEY_XXX4:
         launch: ["bash", "-c", "echo hello > /tmp/test"]
       # Let `with_mark` also press a Shift key (useful for Emacs emulation)
-      MOD1-KEY_XXX: { set_mark: true } # use { set_mark: false } to disable it
+      MOD1-KEY_XXX5: { set_mark: true } # use { set_mark: false } to disable it
       # Also press Shift only when { set_mark: true } is used before
-      MOD1-KEY_XXX: { with_mark: MOD2-KEY_YYY }
-      # The next key press will ignore keymap
-      MOD1-KEY_XXX: { escape_next_key: true }
+      MOD1-KEY_XXX6: { with_mark: MOD2-KEY_YYY }
+      # After pressing MOD1-KEY_XXX7, the next key press will ignore keymap
+      MOD1-KEY_XXX7: { escape_next_key: true }
       # Set mode to configure Vim-like modal remapping
-      MOD1-KEY_XXX: { set_mode: default }
+      MOD1-KEY_XXX8: { set_mode: default }
     application: # Optional
       not: [Application, ...]
       # or
