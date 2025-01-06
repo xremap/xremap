@@ -25,6 +25,10 @@ use std::time::{Duration, Instant};
 // to prevent conflating disguised relative events with other events.
 pub const DISGUISED_EVENT_OFFSETTER: u16 = 59974;
 
+// This const is defined a keycode for a configuration key used to match any key.
+// It's the offset of XHIRES_LEFTSCROLL + 1
+pub const KEY_MATCH_ANY: Key = Key(DISGUISED_EVENT_OFFSETTER + 26);
+
 pub struct EventHandler {
     // Currently pressed modifier keys
     modifiers: HashSet<Key>,
@@ -143,6 +147,9 @@ impl EventHandler {
                     self.escape_next_key = false
                 } else if let Some(actions) = self.find_keymap(config, &key, device)? {
                     self.dispatch_actions(&actions, &key)?;
+                    continue;
+                } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device)? {
+                    self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
                     continue;
                 }
             }
