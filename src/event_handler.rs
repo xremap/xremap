@@ -545,6 +545,7 @@ impl EventHandler {
             KeymapAction::SetMark(set) => self.mark_set = *set,
             KeymapAction::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press)),
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
+            KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
             KeymapAction::SetExtraModifiers(keys) => {
                 self.extra_modifiers.clear();
                 for key in keys {

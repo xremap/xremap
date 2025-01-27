@@ -29,6 +29,8 @@ pub enum KeymapAction {
     WithMark(KeyPress),
     #[serde(deserialize_with = "deserialize_escape_next_key")]
     EscapeNextKey(bool),
+    #[serde(deserialize_with = "deserialize_sleep")]
+    Sleep(u64),
 
     // Internals
     #[serde(skip)]
@@ -117,6 +119,19 @@ where
         }
     }
     Err(de::Error::custom("not a map with a single \"escape_next_key\" key"))
+}
+
+fn deserialize_sleep<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, u64>::deserialize(deserializer)?;
+    if let Some(set) = action.remove("sleep") {
+        if action.is_empty() {
+            return Ok(set);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"sleep\" key"))
 }
 
 // Used only for deserializing Vec<Action>
