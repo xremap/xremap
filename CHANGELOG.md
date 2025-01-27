@@ -1,3 +1,7 @@
+## v0.10.4
+
+- Add sleep KeymapAction [#574](https://github.com/xremap/xremap/pull/574)
+
 ## v0.10.3
 
 - Allow keymap with no action [#544](https://github.com/xremap/xremap/pull/544)
