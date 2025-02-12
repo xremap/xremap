@@ -138,6 +138,8 @@ pub fn get_input_devices(
 pub struct InputDeviceInfo<'a> {
     pub name: &'a str,
     pub path: &'a Path,
+    pub product: u16,
+    pub vendor: u16,
 }
 
 impl<'a> InputDeviceInfo<'a> {
@@ -150,6 +152,20 @@ impl<'a> InputDeviceInfo<'a> {
         // eventXX shorthand for /dev/input/eventXX
         if filter.starts_with("event") && self.path.file_name().expect("every device path has a file name") == filter {
             return true;
+        }
+        if filter.starts_with("ids:") {
+            let args = filter.split(':').collect::<Vec<&str>>();
+            if args.len() == 3 {
+                let vid = u16::from_str_radix(args[1].trim_start_matches("0x"), 16).unwrap_or(0);
+                let pid = u16::from_str_radix(args[2].trim_start_matches("0x"), 16).unwrap_or(0);
+                match (vid,pid) {
+                    (0, 0) => {},
+                    (v, 0) if v == self.vendor => { return true; },
+                    (0, p) if p == self.product => { return true; },
+                    (v, p) if v == self.vendor && p == self.product => { return true; },
+                    (_, _) => {},
+                }
+            }
         }
         // Allow partial matches for device names
         if self.name.contains(filter) {
@@ -227,9 +243,19 @@ impl InputDevice {
         self.device.input_id().bus_type()
     }
 
+    pub fn product(&self) -> u16 {
+        self.device.input_id().product()
+    }
+
+    pub fn vendor(&self) -> u16 {
+        self.device.input_id().vendor()
+    }
+
     pub fn to_info(&self) -> InputDeviceInfo {
         InputDeviceInfo {
             name: self.device_name(),
+            product: self.product(),
+            vendor: self.vendor(),
             path: &self.path,
         }
     }
