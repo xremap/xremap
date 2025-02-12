@@ -41,7 +41,7 @@ static MOUSE_BTNS: [&str; 20] = [
 static mut DEVICE_NAME: Option<String> = None;
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
-pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool) -> Result<VirtualDevice, Box<dyn Error>> {
+pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool, vendor: u16, product: u16) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
@@ -59,10 +59,9 @@ pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool) -> Result<Vi
         relative_axes.insert(RelativeAxisType::REL_WHEEL);
     }
     relative_axes.insert(RelativeAxisType::REL_MISC);
-
     let device = VirtualDeviceBuilder::new()?
         // These are taken from https://docs.rs/evdev/0.12.0/src/evdev/uinput.rs.html#183-188
-        .input_id(InputId::new(bus_type.unwrap_or(BusType::BUS_USB), 0x1234, 0x5678, 0x111))
+        .input_id(InputId::new(bus_type.unwrap_or(BusType::BUS_USB), vendor, product, 0x111))
         .name(&InputDevice::current_name())
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
