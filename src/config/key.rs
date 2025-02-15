@@ -1,4 +1,4 @@
-use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
+use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
@@ -119,6 +119,7 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
             REL_WHEEL_HI_RES = 0x0b,
             REL_HWHEEL_HI_RES = 0x0c,
         */
+        "ANY" => KEY_MATCH_ANY,
         // End of custom scancodes
 
         // else

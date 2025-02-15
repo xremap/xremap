@@ -43,7 +43,7 @@ jobs:
         run: zip "xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip" xremap
         working-directory: target/${{ matrix.arch }}-unknown-linux-musl/release
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: xremap-${{ matrix.arch }}-${{ matrix.feature }}
           path: target/${{ matrix.arch }}-unknown-linux-musl/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
@@ -78,18 +78,18 @@ jobs:
           override: true
 
       # Fetch x86_64 binary
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-x11,     path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-gnome,   path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-kde,     path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-hypr,    path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-x86_64-wlroots, path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-x11,     path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-gnome,   path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-kde,     path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-hypr,    path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-wlroots, path: package/ } }
 
       # Fetch aarch64 binary
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-x11,     path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-gnome,   path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-kde,     path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-hypr,    path: package/ } }
-      - { uses: actions/download-artifact@v3, with: { name: xremap-aarch64-wlroots, path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-x11,     path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-gnome,   path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-kde,     path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-hypr,    path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-wlroots, path: package/ } }
 
       # Release binary
       - name: Release
