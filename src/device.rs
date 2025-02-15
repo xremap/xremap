@@ -5,6 +5,7 @@ use anyhow::bail;
 use derive_where::derive_where;
 use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
 use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, Key, RelativeAxisType};
+use log::debug;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 use std::error::Error;
@@ -301,6 +302,11 @@ impl InputDevice {
     }
 
     fn is_mouse(&self) -> bool {
+        // Xremap doesn't support absolute device so will break them.
+        if self.device.supported_absolute_axes().is_some()  {
+            debug!("Ignoring absolute device {:18} {}", self.path.display(), self.device_name());
+            return false;
+        }
         self.device
             .supported_keys()
             .map_or(false, |keys| keys.contains(Key::BTN_LEFT))
