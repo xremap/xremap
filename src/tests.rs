@@ -123,8 +123,8 @@ fn verify_disguised_relative_events() {
     // is a bigger number than the biggest one a scancode had at the time of writing this (26 december 2022)
     assert!(0x2e7 < DISGUISED_EVENT_OFFSETTER);
     // and that it's not big enough that one of the "disguised" events's scancode would overflow.
-    // (the largest of those events is equal to DISGUISED_EVENT_OFFSETTER + 25)
-    assert!(DISGUISED_EVENT_OFFSETTER <= u16::MAX - 25)
+    // (the largest of those events is equal to DISGUISED_EVENT_OFFSETTER + 26)
+    assert!(DISGUISED_EVENT_OFFSETTER <= u16::MAX - 26)
 }
 
 #[test]
@@ -740,6 +740,32 @@ fn test_no_keymap_action() {
         ],
         vec![Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release))],
     )
+}
+
+#[test]
+fn test_any_key() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              a: b
+              ANY: null
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+        ],
+    );
 }
 
 fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
