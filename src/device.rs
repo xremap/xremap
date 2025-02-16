@@ -295,8 +295,6 @@ impl InputDevice {
                 keys.contains(Key::KEY_SPACE)
                 && keys.contains(Key::KEY_A)
                 && keys.contains(Key::KEY_Z)
-                // BTN_MOUSE
-                && !keys.contains(Key::BTN_LEFT)
             }
             None => false,
         }
