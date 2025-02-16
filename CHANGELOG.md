@@ -1,3 +1,9 @@
+## v0.10.5
+
+- Allow matching any key with `ANY` [#575](https://github.com/xremap/xremap/pull/575)
+- Ignore absolute input devices on `--mouse` [#577](https://github.com/xremap/xremap/pull/577)
+- Detect keyboards with a mouse button by default [#550](https://github.com/xremap/xremap/pull/550)
+
 ## v0.10.4
 
 - Add sleep KeymapAction [#574](https://github.com/xremap/xremap/pull/574)
