@@ -255,6 +255,7 @@ impl InputDevice {
         }))
     }
 
+    #[allow(static_mut_refs)]
     fn current_name() -> &'static str {
         if unsafe { DEVICE_NAME.is_none() } {
             let device_name = if Self::has_device_name("xremap") {
