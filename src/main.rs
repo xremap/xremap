@@ -56,6 +56,10 @@ struct Args {
     /// Config file(s)
     #[arg(required_unless_present = "completions", num_args = 1..)]
     configs: Vec<PathBuf>,
+    #[arg(long)]
+    vendor: Option<String>,
+    #[arg(long)]
+    product: Option<String>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,6 +86,8 @@ fn main() -> anyhow::Result<()> {
         watch,
         configs,
         completions,
+        product,
+        vendor
     } = Args::parse();
 
     if let Some(shell) = completions {
@@ -122,8 +128,10 @@ fn main() -> anyhow::Result<()> {
     let config_watcher = config_watcher(watch_config, &config_paths).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
     let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client());
+    let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
+    let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device =
-        match output_device(input_devices.values().next().map(InputDevice::bus_type), config.enable_wheel) {
+        match output_device(input_devices.values().next().map(InputDevice::bus_type), config.enable_wheel, vendor, product) {
             Ok(output_device) => output_device,
             Err(e) => bail!("Failed to prepare an output device: {}", e),
         };
