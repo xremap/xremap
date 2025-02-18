@@ -14,6 +14,12 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::{io, process};
+#[cfg(feature = "udev")]
+use udev::DeviceType;
+#[cfg(feature = "udev")]
+use std::fs::metadata;
+#[cfg(feature = "udev")]
+use std::os::linux::fs::MetadataExt;
 
 static MOUSE_BTNS: [&str; 20] = [
     "BTN_MISC",
@@ -169,6 +175,31 @@ impl<'a> InputDeviceInfo<'a> {
         // Allow partial matches for device names
         if self.name.contains(filter) {
             return true;
+        }
+
+        #[cfg(feature = "udev")]
+        {
+        if filter.starts_with("props:") {
+            if let Ok(meta) = metadata(self.path) {
+                let args = filter.split(':').collect::<Vec<&str>>();
+                if args.len() == 3 {
+                    if let Ok(ud) = udev::Device::from_devnum(DeviceType::Character, meta.st_rdev()) {
+                        for _ in 0..10 {
+                            if ud.is_initialized() {
+                                break;
+                            }
+                            std::thread::sleep(std::time::Duration::from_millis(10));
+                        }
+                        let props = ud.properties();
+                        for p in props.filter(|p| p.name() == args[1]) {
+                            if p.value() == args[2] {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         }
         return false;
     }
