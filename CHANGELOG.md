@@ -1,3 +1,8 @@
+## v0.10.6
+
+- Add `--vendor` and `--product` options to specify xremap's uinput product / vendor IDs
+  [#583](https://github.com/xremap/xremap/pull/583)
+
 ## v0.10.5
 
 - Allow matching any key with `ANY` [#575](https://github.com/xremap/xremap/pull/575)
