@@ -37,3 +37,7 @@ x11 = ["x11rb"]
 hypr = ["hyprland"]
 kde = ["zbus"]
 wlroots = ["wayland-client", "wayland-protocols-wlr"]
+
+[profile.release]
+codegen-units = 1
+lto = true
