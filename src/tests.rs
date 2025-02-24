@@ -36,6 +36,8 @@ fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
     InputDeviceInfo {
         name: "Some Device",
         path: &Path::new("/dev/input/event0"),
+        vendor: 0x1234,
+        product: 0x5678
     }
 }
 
@@ -497,6 +499,8 @@ fn test_device_override() {
             InputDeviceInfo {
                 name: "Some Device",
                 path: &Path::new("/dev/input/event0"),
+                vendor: 0x1234,
+                product: 0x5678
             },
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
@@ -516,6 +520,8 @@ fn test_device_override() {
             InputDeviceInfo {
                 name: "Other Device",
                 path: &Path::new("/dev/input/event1"),
+                vendor: 0x1234,
+                product: 0x5678
             },
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
