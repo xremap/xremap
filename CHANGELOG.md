@@ -1,3 +1,7 @@
+## v0.10.7
+
+- Enable LTO in release builds [#643](https://github.com/xremap/xremap/pull/643)
+
 ## v0.10.6
 
 - Add `--vendor` and `--product` options to specify xremap's uinput product / vendor IDs
