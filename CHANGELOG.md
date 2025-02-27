@@ -1,3 +1,8 @@
+## v0.10.8
+
+- Allow matching event device on udev properties with `--features udev` build
+  [#587](https://github.com/xremap/xremap/pull/587)
+
 ## v0.10.7
 
 - Enable LTO in release builds [#643](https://github.com/xremap/xremap/pull/643)
