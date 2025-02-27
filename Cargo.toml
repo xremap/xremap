@@ -30,6 +30,7 @@ x11rb = { version = "0.13.1", optional = true }
 zbus = { version = "1.9.2", optional = true }
 hyprland = { version = "0.3.13", optional = true }
 toml = "0.8.15"
+udev = { version = "0.9.3", optional = true }
 
 [features]
 gnome = ["zbus"]
@@ -37,6 +38,7 @@ x11 = ["x11rb"]
 hypr = ["hyprland"]
 kde = ["zbus"]
 wlroots = ["wayland-client", "wayland-protocols-wlr"]
+udev = ["dep:udev"]
 
 [profile.release]
 codegen-units = 1
