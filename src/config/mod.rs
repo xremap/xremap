@@ -87,7 +87,7 @@ pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::E
         let config_contents = fs::read_to_string(&filename)?;
         let c: Config = match get_file_ext(&filename) {
             ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
-            ConfigFiletype::Toml => serde_yaml::from_str(&config_contents)?,
+            ConfigFiletype::Toml => toml::from_str(&config_contents)?,
         };
 
         config.modmap.extend(c.modmap);
