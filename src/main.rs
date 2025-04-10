@@ -198,7 +198,11 @@ fn main() -> anyhow::Result<()> {
                         .flatten()
                         .max(),
                 ) {
-                    (Some(last_mtime), Some(current_mtim)) if last_mtime == current_mtim => continue,
+                    (Some(last_mtime), Some(current_mtim)) if last_mtime == current_mtim => {
+                        if let Ok(c) = load_configs(&config_paths) {
+                            config = c;
+                        }
+                    },
                     _ => {
                         if let Ok(c) = load_configs(&config_paths) {
                             println!("Reloading Config");
