@@ -1,3 +1,8 @@
+## v0.10.9
+
+- Use an appropriate parser for secondary TOML files [#665](https://github.com/xremap/xremap/pull/665)
+- Let `--watch=config` reload the config even when the timestamp is not changed [#666](https://github.com/xremap/xremap/pull/666)
+
 ## v0.10.8
 
 - Allow matching event device on udev properties with `--features udev` build
