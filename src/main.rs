@@ -174,6 +174,7 @@ fn main() -> anyhow::Result<()> {
                         &ignore_filter,
                         mouse,
                         &config_paths,
+                        inotify,
                     )? {
                         break 'event_loop ReloadEvent::ReloadConfig;
                     }
@@ -282,7 +283,18 @@ fn handle_config_changes(
     ignore_filter: &[String],
     mouse: bool,
     config_paths: &Vec<PathBuf>,
+    inotify: Inotify,
 ) -> anyhow::Result<bool> {
+    //Re-add AddWatchFlags if config file has been deleted then recreated or overwritten by renaming another file to its own name
+    for event in &events {
+        if event.mask.intersects(AddWatchFlags::IN_CREATE | AddWatchFlags::IN_MOVED_TO) {
+            for config_path in config_paths {
+                if config_path.file_name().unwrap_or_default() == event.name.clone().unwrap_or_default() {
+                    inotify.add_watch(config_path, AddWatchFlags::IN_MODIFY)?;
+                }
+            }
+        }
+    }
     for event in &events {
         match (event.mask, &event.name) {
             // Dir events
