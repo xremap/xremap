@@ -1,3 +1,8 @@
+## v0.10.10
+
+- Support deleting and re-adding a config with `--watch=config`
+  [#673](https://github.com/xremap/xremap/pull/673)
+
 ## v0.10.9
 
 - Use an appropriate parser for secondary TOML files [#665](https://github.com/xremap/xremap/pull/665)
