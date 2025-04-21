@@ -410,6 +410,11 @@ impl EventHandler {
                         continue;
                     }
                 }
+                if let Some(modes) = &modmap.mode {
+                    if !modes.contains(&self.mode) {
+                        continue;
+                    }
+                }
                 return Some(key_action.clone());
             }
         }
