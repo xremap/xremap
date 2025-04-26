@@ -1,3 +1,8 @@
+## v0.10.11
+
+- Add mode for modmap
+  [#675](https://github.com/xremap/xremap/pull/675)
+
 ## v0.10.10
 
 - Support deleting and re-adding a config with `--watch=config`
