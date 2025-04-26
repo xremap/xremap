@@ -1,3 +1,4 @@
+use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::OnlyOrNot;
 use crate::config::key::deserialize_key;
 use crate::config::modmap_action::ModmapAction;
@@ -18,6 +19,8 @@ pub struct Modmap {
     pub application: Option<OnlyOrNot>,
     pub window: Option<OnlyOrNot>,
     pub device: Option<Device>,
+    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
+    pub mode: Option<Vec<String>>,
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<Key, ModmapAction>, D::Error>

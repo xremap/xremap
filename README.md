@@ -221,6 +221,10 @@ modmap:
       not: [Device, ...]
       # or
       only: [Device, ...]
+    mode: default # Optional
+    # or 
+    mode: [ default, my_mode ]
+default_mode: default # Optional
 ```
 
 For `KEY_XXX` and `KEY_YYY`, use [these names](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
@@ -287,6 +291,8 @@ keymap:
       # or
       only: [Device, ...]
     mode: default # Optional
+    # or 
+    mode: [ default, my_mode ]
 default_mode: default # Optional
 ```
 
@@ -411,6 +417,49 @@ device:
 ```
 
 Unlike for `application`, regexs are not supported for `device`.
+
+
+### mode
+
+You can assign mode(s) to keymap and/or remap which effectively turns them on or off
+when you set the mode.
+
+```yml
+modmap:
+  - name: Up
+    remap:
+      W: UP
+    mode: [ Up, Up_And_Down ] # Mode is optional
+
+  - name: Down
+    remap:
+      S: DOWN
+    mode: [ Down, Up_And_Down ]
+
+  - name: Right_And_Left
+    remap:
+      D: RIGHT
+      A: LEFT
+    mode: Right_And_Left # Mode can be a string or vector of strings
+
+  - name: Turn Off
+    remap:
+      L: 
+        press: { set_mode: Off } # Modmap can set mode via press and release
+        release: 
+    # If mode is absent the keymap or modmap is always on
+
+keymap:
+  - name: SetMode
+    remap:
+      CTRL-U: { set_mode: Up }
+      CTRL-I: { set_mode: Down }
+      CTRL-O: { set_mode: Up_And_Down }
+      CTRL-P: { set_mode: Right_And_Left }
+    mode: [ Up, Down, Right_And_Left, Up_And_Down, Off ] # You can assign modes to keymap too!
+
+default_mode: Up_And_Down # Optional, if absent default mode is "default"
+```
 
 
 ### virtual\_modifiers
