@@ -1,4 +1,5 @@
 use crate::client::Client;
+use futures::executor::block_on;
 use serde::{Deserialize, Serialize};
 use zbus::Connection;
 
@@ -12,7 +13,7 @@ impl GnomeClient {
     }
 
     fn connect(&mut self) {
-        match Connection::new_session() {
+        match block_on(Connection::session()) {
             Ok(connection) => self.connection = Some(connection),
             Err(e) => println!("GnomeClient#connect() failed: {}", e),
         }
@@ -37,27 +38,27 @@ impl Client for GnomeClient {
         };
 
         // Attempt the latest protocol
-        if let Ok(message) = connection.call_method(
+        if let Ok(message) = block_on(connection.call_method(
             Some("org.gnome.Shell"),
             "/com/k0kubun/Xremap",
             Some("com.k0kubun.Xremap"),
             "ActiveWindow",
             &(),
-        ) {
-            if let Ok(json) = message.body::<String>() {
+        )) {
+            if let Ok(json) = message.body().deserialize::<String>() {
                 if let Ok(window) = serde_json::from_str::<ActiveWindow>(&json) {
                     return Some(window.wm_class);
                 }
             }
         // Fallback to the legacy protocol
-        } else if let Ok(message) = connection.call_method(
+        } else if let Ok(message) = block_on(connection.call_method(
             Some("org.gnome.Shell"),
             "/com/k0kubun/Xremap",
             Some("com.k0kubun.Xremap"),
             "WMClass",
             &(),
-        ) {
-            if let Ok(wm_class) = message.body::<String>() {
+        )) {
+            if let Ok(wm_class) = message.body().deserialize::<String>() {
                 return Some(wm_class);
             }
         }
