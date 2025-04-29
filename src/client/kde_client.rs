@@ -1,11 +1,15 @@
+use futures::executor::block_on;
 use log::{debug, warn};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+use zbus::connection::Builder;
+use zbus::{interface, Connection};
 
 use crate::client::Client;
-use zbus::{dbus_interface, fdo, Connection};
 
 const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
 const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
@@ -37,44 +41,45 @@ trait KWinScripting {
 
 impl KWinScripting for Connection {
     fn load_script(&self, path: &Path) -> Result<i32, ConnectionError> {
-        self.call_method(
+        block_on(self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "loadScript",
             // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
             &(path.to_str().ok_or(ConnectionError::TempPathNotValidUtf8)?, KWIN_SCRIPT_PLUGIN_NAME),
-        )
+        ))
         .map_err(|_| ConnectionError::LoadScriptCall)?
-        .body::<i32>()
+        .body()
+        .deserialize::<i32>()
         .map_err(|_| ConnectionError::InvalidLoadScriptResult)
     }
 
     fn unload_script(&self) -> Result<bool, ConnectionError> {
-        self.call_method(
+        block_on(self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "unloadScript",
             // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
             &KWIN_SCRIPT_PLUGIN_NAME,
-        )
+        ))
         .map_err(|_| ConnectionError::UnloadScriptCall)?
-        .body::<bool>()
+        .body()
+        .deserialize::<bool>()
         .map_err(|_| ConnectionError::InvalidUnloadScriptResult)
     }
 
     fn start_script(&self, script_obj_id: i32) -> Result<(), ConnectionError> {
         for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
-            if self
-                .call_method(
-                    Some("org.kde.KWin"),
-                    script_obj_path_fn(script_obj_id).as_str(),
-                    Some("org.kde.kwin.Script"),
-                    "run",
-                    &(),
-                )
-                .is_ok()
+            if block_on(self.call_method(
+                Some("org.kde.KWin"),
+                script_obj_path_fn(script_obj_id).as_str(),
+                Some("org.kde.kwin.Script"),
+                "run",
+                &(),
+            ))
+            .is_ok()
             {
                 return Ok(());
             }
@@ -83,21 +88,22 @@ impl KWinScripting for Connection {
     }
 
     fn is_script_loaded(&self) -> Result<bool, ConnectionError> {
-        self.call_method(
+        block_on(self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "isScriptLoaded",
             &KWIN_SCRIPT_PLUGIN_NAME,
-        )
+        ))
         .map_err(|_| ConnectionError::IsScriptLoadedCall)?
-        .body::<bool>()
+        .body()
+        .deserialize::<bool>()
         .map_err(|_| ConnectionError::InvalidIsScriptLoadedResult)
     }
 }
 
 fn load_kwin_script() -> Result<(), ConnectionError> {
-    let dbus = Connection::new_session().map_err(|_| ConnectionError::ClientSession)?;
+    let dbus = block_on(Connection::session()).map_err(|_| ConnectionError::ClientSession)?;
     if !dbus.is_script_loaded()? {
         let init_script = || {
             let temp_file_path = KwinScriptTempFile::new();
@@ -134,31 +140,29 @@ impl KdeClient {
 
         let active_window = Arc::clone(&self.active_window);
         let (tx, rx) = channel();
+
         std::thread::spawn(move || {
-            let connect = move || {
-                let connection = Connection::new_session().map_err(|_| ConnectionError::ServerSession)?;
-                fdo::DBusProxy::new(&connection)
-                    .map_err(|_| ConnectionError::CreateDBusProxy)?
-                    .request_name("com.k0kubun.Xremap", fdo::RequestNameFlags::ReplaceExisting.into())
-                    .map_err(|_| ConnectionError::RequestName)?;
-                let mut object_server = zbus::ObjectServer::new(&connection);
+            let connect = move || -> Result<Connection, anyhow::Error> {
                 let awi = ActiveWindowInterface { active_window };
-                object_server
-                    .at(&"/com/k0kubun/Xremap".try_into().unwrap(), awi)
-                    .map_err(|_| ConnectionError::ServeObjServer)?;
-                Ok(object_server)
+
+                let connection = Builder::session()?
+                    .name("com.k0kubun.Xremap")?
+                    .serve_at("/com/k0kubun/Xremap", awi)?
+                    .build();
+
+                Ok(block_on(connection)?)
             };
-            let object_server: Result<zbus::ObjectServer, ConnectionError> = connect();
-            match object_server {
-                Ok(mut object_server) => {
-                    let _ = tx.send(Ok(()));
+
+            let result = connect().map_err(|_| ConnectionError::ServerSession);
+
+            match result {
+                Ok(_) => {
+                    tx.send(Ok(())).unwrap();
                     loop {
-                        if let Err(err) = object_server.try_handle_next() {
-                            eprintln!("{}", err);
-                        }
+                        thread::sleep(Duration::from_secs(86400));
                     }
                 }
-                Err(err) => tx.send(Err(err)),
+                Err(err) => tx.send(Err(err)).unwrap(),
             }
         });
         rx.recv().unwrap()
@@ -202,9 +206,6 @@ enum ConnectionError {
     InvalidIsScriptLoadedResult,
 
     ServerSession,
-    CreateDBusProxy,
-    RequestName,
-    ServeObjServer,
 }
 
 struct ActiveWindow {
@@ -217,7 +218,7 @@ struct ActiveWindowInterface {
     active_window: Arc<Mutex<ActiveWindow>>,
 }
 
-#[dbus_interface(name = "com.k0kubun.Xremap")]
+#[interface(name = "com.k0kubun.Xremap")]
 impl ActiveWindowInterface {
     fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
         // I want to always print this, since it is the only way to know what the resource class of applications is.
