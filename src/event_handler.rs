@@ -341,6 +341,7 @@ impl EventHandler {
             }
             ModmapAction::PressReleaseKey(PressReleaseKey {
                 skip_key_event,
+                remap,
                 press,
                 release,
             }) => {
@@ -359,7 +360,10 @@ impl EventHandler {
                     )?;
                 }
 
-                if skip_key_event {
+                if let Some(modmap_key) = remap {
+                    vec![(modmap_key, value)]
+                }
+                else if skip_key_event {
                     // Do not dispatch the original key
                     vec![]
                 } else {

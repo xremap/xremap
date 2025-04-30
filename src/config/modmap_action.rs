@@ -1,4 +1,4 @@
-use crate::config::key::deserialize_key;
+use crate::config::key::{deserialize_key, deserialize_optional_key};
 use evdev::Key;
 use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, DurationMilliSeconds};
@@ -33,6 +33,8 @@ pub struct MultiPurposeKey {
 pub struct PressReleaseKey {
     #[serde(default)]
     pub skip_key_event: bool,
+    #[serde(default, deserialize_with = "deserialize_optional_key")]
+    pub remap: Option<Key>,
     #[serde(deserialize_with = "deserialize_actions")]
     pub press: Vec<KeymapAction>,
     #[serde(deserialize_with = "deserialize_actions")]
