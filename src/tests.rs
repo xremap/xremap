@@ -774,6 +774,29 @@ fn test_any_key() {
     );
 }
 
+#[test]
+fn test_press_and_release_with_remap() {
+    assert_actions(
+        indoc! {"
+        modmap:
+         - remap:
+              a:
+                remap: b
+                press: { launch: [\"bash\"] }
+                release: { launch: [\"crash\"] }
+        "}, 
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release))
+        ], 
+        vec![
+            Action::Command(vec![String::from("bash")]),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::Command(vec![String::from("crash")]),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+        ]);
+}
+
 fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     assert_actions_with_current_application(config_yaml, None, events, actions);
 }
