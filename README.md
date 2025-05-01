@@ -207,9 +207,8 @@ modmap:
       # Hook `keymap` action on key press/release events.
       KEY_XXX3:
         skip_key_event: false # Optional, skip original key event, defaults to false
-        remap: KEY_YYYY # Optional, replace the key with another. If set skip_key_event does nothing
-        press: { launch: ["xdotool", "mousemove", "0", "7200"] } # Required, but can be null
-        release: { launch: ["xdotool", "mousemove", "0", "0"] } # Required, but can be null
+        press: { launch: ["xdotool", "mousemove", "0", "7200"] } # Required
+        release: { launch: ["xdotool", "mousemove", "0", "0"] } # Required
     application: # Optional
       not: [Application, ...]
       # or

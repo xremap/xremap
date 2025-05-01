@@ -4,20 +4,6 @@ use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::str::FromStr;
 
-pub fn deserialize_optional_key<'de, D>(deserializer: D) -> Result<Option<Key>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let option_key_string: Option<String>  =  Option::deserialize(deserializer)?;
-    if let Some(key_string) = option_key_string {
-        let key = parse_key(&key_string).map_err(serde::de::Error::custom)?;
-        return Ok(Some(key));
-    }
-    else {
-        return Ok(None);
-    }
-}
-
 pub fn deserialize_key<'de, D>(deserializer: D) -> Result<Key, D::Error>
 where
     D: Deserializer<'de>,
