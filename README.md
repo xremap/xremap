@@ -6,25 +6,25 @@
 
 ## Concept
 
-* **Fast** - Xremap is written in Rust, which is faster than JIT-less interpreters like Python.
+- **Fast** - Xremap is written in Rust, which is faster than JIT-less interpreters like Python.
 
-* **Cross-platform** - Xremap uses `evdev` and `uinput`, which works whether you use X11 or Wayland.
+- **Cross-platform** - Xremap uses `evdev` and `uinput`, which works whether you use X11 or Wayland.
 
-* **Language-agnostic** - The config is JSON-compatible. Generate it from any language,
+- **Language-agnostic** - The config is JSON-compatible. Generate it from any language,
   e.g. [Ruby](https://github.com/xremap/xremap-ruby), [Python](https://github.com/xremap/xremap-python).
 
 ## Features
 
-* Remap any keys, e.g. Ctrl or CapsLock.
-* Remap any key combination to another, even to a key sequence.
-* Remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
-* Remap a key to two different keys depending on whether it's pressed alone or held.
-* Application-specific remapping. Even if it's not supported by your application, xremap can.
-* Device-specific remapping.
-* Automatically remap newly connected devices by starting xremap with `--watch`.
-* Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
-* Trigger commands on key press/release events.
-* Use a non-modifier key as a virtual modifier key.
+- Remap any keys, e.g. Ctrl or CapsLock.
+- Remap any key combination to another, even to a key sequence.
+- Remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
+- Remap a key to two different keys depending on whether it's pressed alone or held.
+- Application-specific remapping. Even if it's not supported by your application, xremap can.
+- Device-specific remapping.
+- Automatically remap newly connected devices by starting xremap with `--watch`.
+- Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
+- Trigger commands on key press/release events.
+- Use a non-modifier key as a virtual modifier key.
 
 ## Installation
 
@@ -89,10 +89,13 @@ The following can be used on Arch.
 ```bash
 lsmod | grep uinput
 ```
+
 If this module is not loaded, add to `/etc/modules-load.d/uinput.conf`:
+
 ```bash
 uinput
 ```
+
 Then add udev rule.
 
 ```bash
@@ -102,20 +105,28 @@ echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rule
 Then reboot the machine.
 
 #### Debian
+
 Make sure `uinput` is loaded same as in Arch:
+
 ```
 lsmod | grep uinput
 ```
+
 If it shows up empty:
+
 ```bash
 echo uinput | sudo tee /etc/modules-load.d/uinput.conf
 ```
+
 Add your user to the `input` group and add the same udev rule as in Ubuntu:
+
 ```bash
 sudo gpasswd -a YOUR_USER input
 echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
 ```
+
 Reboot the machine afterwards or try:
+
 ```bash
 sudo modprobe uinput
 sudo udevadm control --reload-rules && sudo udevadm trigger
@@ -164,6 +175,7 @@ Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
 Xremap cannot be run as root. Follow the instructions above to run xremap without sudo.
 
 ## Configuration
+
 Your `config.yml` should look like this:
 
 ```yml
@@ -189,7 +201,7 @@ See also: [example/config.yml](example/config.yml) and [example/emacs.yml](examp
 ### modmap
 
 `modmap` is for key-to-key remapping like xmodmap.
-Note that remapping a key to a modifier key, e.g. CapsLock to Control\_L,
+Note that remapping a key to a modifier key, e.g. CapsLock to Control_L,
 is supported only in `modmap` since `keymap` handles modifier keys differently.
 
 ```yml
@@ -222,7 +234,7 @@ modmap:
       # or
       only: [Device, ...]
     mode: default # Optional
-    # or 
+    # or
     mode: [ default, my_mode ]
 default_mode: default # Optional
 ```
@@ -232,11 +244,13 @@ You can skip `KEY_` and the name is case-insensitive. So `KEY_CAPSLOCK`, `CAPSLO
 Some [custom aliases](src/config/key.rs) like `SHIFT_R`, `CONTROL_L`, etc. are provided.
 
 In case you don't know the name of a key, you can find out by enabling the xremap debug output:
+
 ```bash
 RUST_LOG=debug xremap config.yml
 # or
 sudo RUST_LOG=debug xremap config.yml
 ```
+
 Then press the key you want to know the name of.
 
 If you specify a map containing `held` and `alone`, you can use the key for two purposes.
@@ -291,7 +305,7 @@ keymap:
       # or
       only: [Device, ...]
     mode: default # Optional
-    # or 
+    # or
     mode: [ default, my_mode ]
 default_mode: default # Optional
 ```
@@ -301,10 +315,10 @@ You can skip `KEY_` and the name is case-insensitive. So `KEY_CAPSLOCK`, `CAPSLO
 
 For the `MOD1-` part, the following prefixes can be used (also case-insensitive):
 
-* Shift: `SHIFT-`
-* Control: `C-`, `CTRL-`, `CONTROL-`
-* Alt: `M-`, `ALT-`
-* Windows: `SUPER-`, `WIN-`, `WINDOWS-`
+- Shift: `SHIFT-`
+- Control: `C-`, `CTRL-`, `CONTROL-`
+- Alt: `M-`, `ALT-`
+- Windows: `SUPER-`, `WIN-`, `WINDOWS-`
 
 You can use multiple prefixes like `C-M-Shift-a`.
 You may also suffix them with `_L` or `_R` (case-insensitive) so that
@@ -352,13 +366,15 @@ or just the last segment after `.` (`Slack`, `Code`).
 #### GNOME Wayland
 
 Use the following command or check windows' WMClass by pressing Alt+F2 and running `lg` command in [LookingGlass](https://wiki.gnome.org/Projects/GnomeShell/LookingGlass):
+
 ```
 busctl --user call org.gnome.Shell /com/k0kubun/Xremap com.k0kubun.Xremap WMClasses
 ```
+
 #### KDE-Plasma Wayland
 
-Xremap prints the active window to the console. 
-However, it will only start printing, once a mapping has been triggered that uses an application filter. 
+Xremap prints the active window to the console.
+However, it will only start printing, once a mapping has been triggered that uses an application filter.
 So you have to create a mapping with a filter using a dummy application name and trigger it.
 Then each time you switch to a new window xremap will print its caption, class, and name in the following style:
 `active window: caption: '<caption>', class: '<class>', name: '<name>'`
@@ -397,6 +413,7 @@ Note how Alt-f and Alt-b work in all apps, but the definition of Alt-f is slight
 ### device
 
 Much like [`application`](#application), you may specify `{keymap,modmap}.device.{not,only}` in your configuration for device-specific remapping. Consistent with the global `--device` flag, device-matching strings may be any of:
+
 - the full path of the device
 - the filename of the device
 - the device name
@@ -418,7 +435,6 @@ device:
 
 Unlike for `application`, regexs are not supported for `device`.
 
-
 ### mode
 
 You can assign mode(s) to keymap and/or remap which effectively turns them on or off
@@ -429,12 +445,12 @@ modmap:
   - name: Up
     remap:
       W: UP
-    mode: [ Up, Up_And_Down ] # Mode is optional
+    mode: [Up, Up_And_Down] # Mode is optional
 
   - name: Down
     remap:
       S: DOWN
-    mode: [ Down, Up_And_Down ]
+    mode: [Down, Up_And_Down]
 
   - name: Right_And_Left
     remap:
@@ -444,9 +460,9 @@ modmap:
 
   - name: Turn Off
     remap:
-      L: 
+      L:
         press: { set_mode: Off } # Modmap can set mode via press and release
-        release: 
+        release:
     # If mode is absent the keymap or modmap is always on
 
 keymap:
@@ -456,13 +472,12 @@ keymap:
       CTRL-I: { set_mode: Down }
       CTRL-O: { set_mode: Up_And_Down }
       CTRL-P: { set_mode: Right_And_Left }
-    mode: [ Up, Down, Right_And_Left, Up_And_Down, Off ] # You can assign modes to keymap too!
+    mode: [Up, Down, Right_And_Left, Up_And_Down, Off] # You can assign modes to keymap too!
 
 default_mode: Up_And_Down # Optional, if absent default mode is "default"
 ```
 
-
-### virtual\_modifiers
+### virtual_modifiers
 
 You can declare keys that should act like a modifier.
 
@@ -481,7 +496,6 @@ keymap:
 
 Some applications have trouble understanding synthesized key events, especially on
 Wayland. `keypress_delay_ms` can be used to workaround the issue.
-See [#179](https://github.com/k0kubun/xremap/issues/179) for the detail.
 
 ### Shared data field
 
@@ -490,20 +504,40 @@ This can be usefull when using Anchors and Aliases.
 For more information about the use of Yaml anchors see the [Yaml specification](https://yaml.org/spec/1.2.2/#3222-anchors-and-aliases).
 
 #### example:
+
 ```yaml
 shared:
   terminals: &terminals # The & Symbol marks this entry as a Anchor
     - Gnome-terminal
     - Kitty
-  
+
   some_remaps: &some_remaps
     Ctrl-f: C-right
     Alt-b: C-up
 
 keymap:
   - application:
-      only: *terminals  # we can reuse the list here
+      only: *terminals # we can reuse the list here
     remap: *some_remaps # and we can reuse a map here.
+```
+
+## Running xremap as a daemon
+
+copy your config file to `/etc/xremap.yml`
+and copy `example-xremap.service` to `/etc/systemd/system/xremap.service`
+
+```bash
+sudp cp example-xremap.service /etc/systemd/system/xremap.service
+```
+
+> [!WARNING]
+> make sure `xremap` installaion path matches `xremap.service` path
+
+then run
+
+```bash
+sudo systemctl enable xremap.service
+sudo systemctl start xremap.service
 ```
 
 ## Maintainers
