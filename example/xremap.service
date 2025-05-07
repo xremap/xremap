@@ -1,9 +1,9 @@
 [Unit]
-Description=xremap user service
+Description=Xremap
 After=default.target
 
 [Service]
-ExecStart=/usr/bin/xremap --watch=device /etc/xremap.yml
+ExecStart=/usr/bin/xremap --watch=device %h/.config/xremap/config.yml
 Restart=always
 StandardOutput=journal
 StandardError=journal
