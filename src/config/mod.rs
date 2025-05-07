@@ -14,7 +14,7 @@ mod tests;
 extern crate serde_yaml;
 extern crate toml;
 
-use evdev::Key;
+use evdev::KeyCode as Key;
 use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};

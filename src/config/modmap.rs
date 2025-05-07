@@ -2,7 +2,7 @@ use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::OnlyOrNot;
 use crate::config::key::deserialize_key;
 use crate::config::modmap_action::ModmapAction;
-use evdev::Key;
+use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 

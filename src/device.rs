@@ -3,8 +3,8 @@ extern crate nix;
 
 use anyhow::bail;
 use derive_where::derive_where;
-use evdev::uinput::{VirtualDevice, VirtualDeviceBuilder};
-use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, Key, RelativeAxisType};
+use evdev::uinput::VirtualDevice;
+use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode as Key, RelativeAxisCode};
 use log::debug;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
@@ -57,15 +57,16 @@ pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool, vendor: u16,
         }
     }
 
-    let mut relative_axes: AttributeSet<RelativeAxisType> = AttributeSet::new();
-    relative_axes.insert(RelativeAxisType::REL_X);
-    relative_axes.insert(RelativeAxisType::REL_Y);
+    let mut relative_axes: AttributeSet<RelativeAxisCode> = AttributeSet::new();
+    relative_axes.insert(RelativeAxisCode::REL_X);
+    relative_axes.insert(RelativeAxisCode::REL_Y);
     if enable_wheel {
-        relative_axes.insert(RelativeAxisType::REL_HWHEEL);
-        relative_axes.insert(RelativeAxisType::REL_WHEEL);
+        relative_axes.insert(RelativeAxisCode::REL_HWHEEL);
+        relative_axes.insert(RelativeAxisCode::REL_WHEEL);
     }
-    relative_axes.insert(RelativeAxisType::REL_MISC);
-    let device = VirtualDeviceBuilder::new()?
+    relative_axes.insert(RelativeAxisCode::REL_MISC);
+
+    let device = VirtualDevice::builder()?
         // These are taken from https://docs.rs/evdev/0.12.0/src/evdev/uinput.rs.html#183-188
         .input_id(InputId::new(bus_type.unwrap_or(BusType::BUS_USB), vendor, product, 0x111))
         .name(&InputDevice::current_name())

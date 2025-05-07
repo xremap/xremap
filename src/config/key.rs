@@ -1,5 +1,5 @@
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
-use evdev::Key;
+use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::str::FromStr;

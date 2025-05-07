@@ -9,7 +9,7 @@ use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::{config, Config};
-use evdev::Key;
+use evdev::KeyCode as Key;
 use lazy_static::lazy_static;
 use log::debug;
 use nix::sys::time::TimeSpec;

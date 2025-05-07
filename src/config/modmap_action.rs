@@ -1,5 +1,5 @@
 use crate::config::key::deserialize_key;
-use evdev::Key;
+use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, DurationMilliSeconds};
 use std::time::Duration;

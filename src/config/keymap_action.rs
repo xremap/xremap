@@ -2,7 +2,7 @@ use crate::config::key_press::KeyPress;
 use std::collections::HashMap;
 
 use crate::config::remap::Remap;
-use evdev::Key;
+use evdev::KeyCode as Key;
 use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::fmt::Debug;
@@ -160,7 +160,7 @@ mod tests {
     use crate::config::key_press::KeyPress;
     use crate::config::key_press::Modifier;
     use crate::config::keymap_action::Actions;
-    use evdev::Key;
+    use evdev::KeyCode as Key;
 
     #[test]
     fn test_keypress_action() {

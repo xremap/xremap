@@ -1,6 +1,6 @@
 use std::thread;
 
-use evdev::{uinput::VirtualDevice, EventType, InputEvent, Key};
+use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
 use fork::{fork, setsid, Fork};
 use log::debug;
 use log::error;
@@ -55,12 +55,12 @@ impl ActionDispatcher {
     }
 
     fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
-        let event = InputEvent::new_now(EventType::KEY, event.code(), event.value());
+        let event = InputEvent::new_now(EventType::KEY.0, event.code(), event.value());
         self.send_event(event)
     }
 
     fn on_relative_event(&mut self, event: RelativeEvent) -> std::io::Result<()> {
-        let event = InputEvent::new_now(EventType::RELATIVE, event.code, event.value);
+        let event = InputEvent::new_now(EventType::RELATIVE.0, event.code, event.value);
         self.send_event(event)
     }
 
@@ -69,7 +69,7 @@ impl ActionDispatcher {
         let mut mousemovementbatch: Vec<InputEvent> = Vec::new();
         for mouse_movement in eventbatch {
             mousemovementbatch.push(InputEvent::new_now(
-                EventType::RELATIVE,
+                EventType::RELATIVE.0,
                 mouse_movement.code,
                 mouse_movement.value,
             ));
