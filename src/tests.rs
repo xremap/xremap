@@ -1,6 +1,6 @@
 use evdev::EventType;
 use evdev::InputEvent;
-use evdev::Key;
+use evdev::KeyCode as Key;
 use indoc::indoc;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::path::Path;
@@ -37,7 +37,7 @@ fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
         name: "Some Device",
         path: &Path::new("/dev/input/event0"),
         vendor: 0x1234,
-        product: 0x5678
+        product: 0x5678,
     }
 }
 
@@ -196,10 +196,11 @@ fn test_cursor_behavior_1() {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {}", e),
     };
-    let mut output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
-        Ok(output_device) => output_device,
-        Err(e) => panic!("Failed to prepare an output device: {}", e),
-    };
+    let mut output_device =
+        match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
+            Ok(output_device) => output_device,
+            Err(e) => panic!("Failed to prepare an output device: {}", e),
+        };
     for input_device in input_devices.values_mut() {
         let _unused = input_device.fetch_events().unwrap();
     }
@@ -208,12 +209,12 @@ fn test_cursor_behavior_1() {
     for _ in 0..400 {
         output_device
             .emit(&[
-                InputEvent::new_now(EventType::RELATIVE, _REL_X, _POSITIVE),
+                InputEvent::new_now(EventType::RELATIVE.0, _REL_X, _POSITIVE),
                 //
                 // This line is the only difference between test_cursor_behavior_1 and test_cursor_behavior_2.
-                InputEvent::new(EventType::SYNCHRONIZATION, 0, 0),
+                InputEvent::new(EventType::SYNCHRONIZATION.0, 0, 0),
                 //
-                InputEvent::new_now(EventType::RELATIVE, _REL_Y, _NEGATIVE),
+                InputEvent::new_now(EventType::RELATIVE.0, _REL_Y, _NEGATIVE),
             ])
             .unwrap();
 
@@ -236,10 +237,11 @@ fn test_cursor_behavior_2() {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {}", e),
     };
-    let mut output_device = match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
-        Ok(output_device) => output_device,
-        Err(e) => panic!("Failed to prepare an output device: {}", e),
-    };
+    let mut output_device =
+        match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
+            Ok(output_device) => output_device,
+            Err(e) => panic!("Failed to prepare an output device: {}", e),
+        };
     for input_device in input_devices.values_mut() {
         let _unused = input_device.fetch_events().unwrap();
     }
@@ -248,8 +250,8 @@ fn test_cursor_behavior_2() {
     for _ in 0..400 {
         output_device
             .emit(&[
-                InputEvent::new_now(EventType::RELATIVE, _REL_X, _POSITIVE),
-                InputEvent::new_now(EventType::RELATIVE, _REL_Y, _NEGATIVE),
+                InputEvent::new_now(EventType::RELATIVE.0, _REL_X, _POSITIVE),
+                InputEvent::new_now(EventType::RELATIVE.0, _REL_Y, _NEGATIVE),
             ])
             .unwrap();
 
@@ -500,7 +502,7 @@ fn test_device_override() {
                 name: "Some Device",
                 path: &Path::new("/dev/input/event0"),
                 vendor: 0x1234,
-                product: 0x5678
+                product: 0x5678,
             },
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
@@ -521,7 +523,7 @@ fn test_device_override() {
                 name: "Other Device",
                 path: &Path::new("/dev/input/event1"),
                 vendor: 0x1234,
-                product: 0x5678
+                product: 0x5678,
             },
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],

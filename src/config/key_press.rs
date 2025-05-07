@@ -1,5 +1,5 @@
 use crate::config::key::parse_key;
-use evdev::Key;
+use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::error::{self, Error};
 

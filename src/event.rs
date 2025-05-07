@@ -1,4 +1,4 @@
-use evdev::{EventType, InputEvent, Key};
+use evdev::{EventType, InputEvent, KeyCode as Key};
 
 use crate::device::InputDeviceInfo;
 

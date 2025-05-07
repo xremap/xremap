@@ -1,4 +1,4 @@
-use evdev::Key;
+use evdev::KeyCode as Key;
 use serde::Deserialize;
 
 use crate::config::key_press::KeyPress;

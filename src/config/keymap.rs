@@ -2,7 +2,7 @@ use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::OnlyOrNot;
 use crate::config::key_press::KeyPress;
 use crate::config::keymap_action::{Actions, KeymapAction};
-use evdev::Key;
+use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
