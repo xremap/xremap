@@ -524,7 +524,7 @@ keymap:
 ## Running xremap as a daemon
 
 Put your config file at `~/.config/xremap/config.yml` and
-and copy `example/xremap.service` to `~/.config/systemd/user/xremap.service`.
+copy `example/xremap.service` to `~/.config/systemd/user/xremap.service`.
 
 ```bash
 cp example/xremap.service ~/.config/systemd/user/xremap.service
