@@ -527,7 +527,7 @@ Copy your config file to `/etc/xremap.yml`
 and copy `example/xremap.service` to `/etc/systemd/system/xremap.service`.
 
 ```bash
-sudp cp example/xremap.service /etc/systemd/system/xremap.service
+sudo cp example/xremap.service /etc/systemd/system/xremap.service
 ```
 
 > [!WARNING]
