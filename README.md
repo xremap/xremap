@@ -523,7 +523,7 @@ keymap:
 
 ## Running xremap as a daemon
 
-Copy your config file to `/etc/xremap.yml`
+Put your config file at `~/.config/xremap/xremap.yml`
 and copy `example/xremap.service` to `/etc/systemd/system/xremap.service`.
 
 ```bash
