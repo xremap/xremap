@@ -33,11 +33,11 @@ pub struct MultiPurposeKey {
 pub struct PressReleaseKey {
     #[serde(default)]
     pub skip_key_event: bool,
-    #[serde(deserialize_with = "deserialize_actions")]
+    #[serde(default, deserialize_with = "deserialize_actions")]
     pub press: Vec<KeymapAction>,
     #[serde(default, deserialize_with = "deserialize_actions")]
     pub repeat: Vec<KeymapAction>,
-    #[serde(deserialize_with = "deserialize_actions")]
+    #[serde(default, deserialize_with = "deserialize_actions")]
     pub release: Vec<KeymapAction>,
 }
 // Used only for deserializing Vec<Keys>
