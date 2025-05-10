@@ -17,6 +17,12 @@ use super::remap::RemapActions;
 pub enum KeymapAction {
     // Config interface
     KeyPressAndRelease(KeyPress),
+    #[serde(deserialize_with = "deserialize_key_press")]
+    KeyPress(Key),
+    #[serde(deserialize_with = "deserialize_key_repeat")]
+    KeyRepeat(Key),
+    #[serde(deserialize_with = "deserialize_key_release")]
+    KeyRelease(Key),
     #[serde(deserialize_with = "deserialize_remap")]
     Remap(Remap),
     #[serde(deserialize_with = "deserialize_launch")]
@@ -35,6 +41,48 @@ pub enum KeymapAction {
     // Internals
     #[serde(skip)]
     SetExtraModifiers(Vec<Key>),
+}
+
+fn deserialize_key_press<'de, D>(deserializer: D) -> Result<Key, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, String>::deserialize(deserializer)?;
+    if let Some(key_string) = action.remove("press") {
+        if action.is_empty() {
+            let key = parse_key(&key_string).map_err(serde::de::Error::custom)?;
+            return Ok(key);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"press\" key"))
+}
+
+fn deserialize_key_repeat<'de, D>(deserializer: D) -> Result<Key, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, String>::deserialize(deserializer)?;
+    if let Some(key_string) = action.remove("repeat") {
+        if action.is_empty() {
+            let key = parse_key(&key_string).map_err(serde::de::Error::custom)?;
+            return Ok(key);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"repeat\" key"))
+}
+
+fn deserialize_key_release<'de, D>(deserializer: D) -> Result<Key, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut action = HashMap::<String, String>::deserialize(deserializer)?;
+    if let Some(key_string) = action.remove("release") {
+        if action.is_empty() {
+            let key = parse_key(&key_string).map_err(serde::de::Error::custom)?;
+            return Ok(key);
+        }
+    }
+    Err(de::Error::custom("not a map with a single \"release\" key"))
 }
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<Remap, D::Error>

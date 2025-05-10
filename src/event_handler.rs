@@ -528,6 +528,9 @@ impl EventHandler {
     fn dispatch_action(&mut self, action: &TaggedAction, key: &Key) -> Result<(), Box<dyn Error>> {
         match &action.action {
             KeymapAction::KeyPressAndRelease(key_press) => self.send_key_press_and_release(key_press),
+            KeymapAction::KeyPress(key) => self.send_key(key, PRESS),
+            KeymapAction::KeyRepeat(key) => self.send_key(key, REPEAT),
+            KeymapAction::KeyRelease(key) => self.send_key(key, RELEASE),
             KeymapAction::Remap(Remap {
                 remap,
                 timeout,
