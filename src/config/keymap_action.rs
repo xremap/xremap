@@ -16,7 +16,7 @@ use super::remap::RemapActions;
 #[serde(untagged)]
 pub enum KeymapAction {
     // Config interface
-    KeyPress(KeyPress),
+    KeyPressAndRelease(KeyPress),
     #[serde(deserialize_with = "deserialize_remap")]
     Remap(Remap),
     #[serde(deserialize_with = "deserialize_launch")]
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_keypress_action() {
-        test_yaml_parsing_key_press(
+        test_yaml_parsing_key_press_and_release(
             "c-x",
             KeyPress {
                 key: Key::KEY_X,
@@ -191,9 +191,9 @@ mod tests {
     // util
     //
 
-    fn test_yaml_parsing_key_press(yaml: &str, expected: KeyPress) {
+    fn test_yaml_parsing_key_press_and_release(yaml: &str, expected: KeyPress) {
         match serde_yaml::from_str(yaml).unwrap() {
-            KeymapAction::KeyPress(keyp) => {
+            KeymapAction::KeyPressAndRelease(keyp) => {
                 assert_eq!(keyp, expected);
             }
             _ => panic!("unexpected type"),

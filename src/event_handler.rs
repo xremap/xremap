@@ -527,7 +527,7 @@ impl EventHandler {
 
     fn dispatch_action(&mut self, action: &TaggedAction, key: &Key) -> Result<(), Box<dyn Error>> {
         match &action.action {
-            KeymapAction::KeyPress(key_press) => self.send_key_press(key_press),
+            KeymapAction::KeyPressAndRelease(key_press) => self.send_key_press_and_release(key_press),
             KeymapAction::Remap(Remap {
                 remap,
                 timeout,
@@ -555,7 +555,7 @@ impl EventHandler {
                 println!("mode: {}", mode);
             }
             KeymapAction::SetMark(set) => self.mark_set = *set,
-            KeymapAction::WithMark(key_press) => self.send_key_press(&self.with_mark(key_press)),
+            KeymapAction::WithMark(key_press) => self.send_key_press_and_release(&self.with_mark(key_press)),
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
             KeymapAction::SetExtraModifiers(keys) => {
@@ -568,7 +568,7 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_press(&mut self, key_press: &KeyPress) {
+    fn send_key_press_and_release(&mut self, key_press: &KeyPress) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because logical modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
