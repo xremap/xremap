@@ -342,22 +342,21 @@ impl EventHandler {
             ModmapAction::PressReleaseKey(PressReleaseKey {
                 skip_key_event,
                 press,
+                repeat,
                 release,
             }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
-                if value == PRESS || value == RELEASE {
-                    self.dispatch_actions(
-                        &(if value == PRESS { press } else { release })
-                            .into_iter()
-                            .map(|action| TaggedAction {
-                                action,
-                                exact_match: false,
-                            })
-                            .collect(),
-                        &key,
-                    )?;
-                }
+                self.dispatch_actions(
+                    &(if value == PRESS { press } else if value == RELEASE { release } else { repeat })
+                        .into_iter()
+                        .map(|action| TaggedAction {
+                            action,
+                            exact_match: false,
+                        })
+                        .collect(),
+                    &key,
+                )?;                
 
                 if skip_key_event {
                     // Do not dispatch the original key
