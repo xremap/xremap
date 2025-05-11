@@ -1,3 +1,8 @@
+## v0.10.12
+
+- Add `{ press: }`, `{ repeat: }`, and `{ release: }` keymap actions [#678](https://github.com/xremap/xremap/pull/678)
+- Add `repeat` field for `press`/`release` modmap [#678](https://github.com/xremap/xremap/pull/678)
+
 ## v0.10.11
 
 - Add mode for modmap

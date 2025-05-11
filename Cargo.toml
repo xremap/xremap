@@ -1,6 +1,6 @@
 [package]
 name = "xremap"
-version = "0.10.11"
+version = "0.10.12"
 edition = "2021"
 description = "Dynamic key remapp for X and Wayland"
 license = "MIT"
