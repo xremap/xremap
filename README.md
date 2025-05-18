@@ -132,6 +132,29 @@ sudo modprobe uinput
 sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
+#### NixOS
+
+The following can be used on NixOS.
+
+Ensure `uninput` is enabled in your `configuration.nix`:
+
+```nix
+hardward.uinput.enable = true;
+boot.kernelModules = [ "uinput" ];
+```
+
+Then add the rule to the `udev` extra rules in your `configuration.nix`:
+
+```nix
+services.udev.extraRules = ''
+  KERNEL=="uinput", GROUP="input", TAG+="uaccess"
+  '';
+```
+
+The new rule will be added to `/etc/udev/rules.d/99-local.rules`. See [NixOS documentation](https://search.nixos.org/options?channel=24.11&show=services.udev.extraRules&from=0&size=50&sort=relevance&type=packages&query=services.udev) for additional information.
+
+Rebuild with `nixos-rebuild switch`. Note you may also need to reboot your machine.
+
 #### Other platforms
 
 In other platforms, you might need to create an `input` group first
