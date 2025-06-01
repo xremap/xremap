@@ -27,7 +27,7 @@ serde_yaml = "0.9"
 wayland-client = { version = "0.30", optional = true }
 wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = true }
 x11rb = { version = "0.13.1", optional = true }
-zbus = { version = "5.2.0", optional = true }
+zbus = { version = "5.7.1", optional = true }
 hyprland = { version = "0.3.13", optional = true }
 toml = "0.8.22"
 udev = { version = "0.9.3", optional = true }
