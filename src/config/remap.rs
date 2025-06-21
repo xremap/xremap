@@ -1,6 +1,7 @@
 use evdev::KeyCode as Key;
 use serde::Deserialize;
 
+use crate::config::application::deserialize_string_or_vec;
 use crate::config::key_press::KeyPress;
 use crate::config::keymap_action::KeymapAction;
 use std::collections::HashMap;
@@ -20,5 +21,6 @@ pub struct Remap {
 pub struct RemapActions {
     pub remap: HashMap<KeyPress, Actions>,
     pub timeout_millis: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub timeout_key: Option<Vec<String>>,
 }

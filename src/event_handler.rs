@@ -549,9 +549,7 @@ impl EventHandler {
                         // TODO: Consider handling the timer in ActionDispatcher
                         self.override_timer.unset()?;
                         self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                        self.override_timeout_key =
-                            <std::option::Option<Vec<evdev::Key>> as Clone>::clone(&timeout_key)
-                                .or_else(|| Some(vec![*key]));
+                        self.override_timeout_key = timeout_key.clone().or_else(|| Some(vec![*key]))
                     }
                 }
             }

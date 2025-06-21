@@ -163,7 +163,23 @@ fn test_yaml_keymap_remap() {
               C-s:
                 remap:
                   x: C-z
-            timeout_key: [Down]
+            timeout_key: Down
+            timeout_millis: 1000
+    "})
+}
+
+#[test]
+fn test_yaml_keymap_remap_timeout_as_sequence() {
+    yaml_assert_parse(indoc! {"
+    keymap:
+      - remap:
+          C-x:
+            remap:
+              s: C-w
+              C-s:
+                remap:
+                  x: C-z
+            timeout_key: [Down,Up]
             timeout_millis: 1000
     "})
 }
@@ -430,7 +446,22 @@ fn test_toml_keymap_remap() {
     toml_assert_parse(indoc! {"
     [[keymap]]
     [keymap.remap.C-x]
-    timeout_key = [ \"Down\" ]
+    timeout_key = \"Down\"
+    timeout_millis = 1_000
+
+    [keymap.remap.C-x.remap]
+    s = \"C-w\"
+
+    [keymap.remap.C-x.remap.C-s.remap]
+    x = \"C-z\"
+    "})
+}
+#[test]
+fn test_toml_keymap_remap_timeout_key_sequence() {
+    toml_assert_parse(indoc! {"
+    [[keymap]]
+    [keymap.remap.C-x]
+    timeout_key = [ \"Down\", \"UP\" ]
     timeout_millis = 1_000
 
     [keymap.remap.C-x.remap]
