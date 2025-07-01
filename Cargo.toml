@@ -29,7 +29,7 @@ wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = tru
 x11rb = { version = "0.13.1", optional = true }
 zbus = { version = "5.7.1", optional = true }
 hyprland = { version = "0.3.13", optional = true }
-toml = "0.8.22"
+toml = "0.8.23"
 udev = { version = "0.9.3", optional = true }
 futures = "0.3.31"
 
