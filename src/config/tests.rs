@@ -68,6 +68,19 @@ fn test_yaml_modmap_multi_purpose_key() {
     "})
 }
 #[test]
+fn test_yaml_modmap_multi_purpose_key_without_timeout() {
+    yaml_assert_parse(indoc! {"
+    modmap:
+      - remap:
+          Space:
+            held: Shift_L
+            alone: Space
+            tap_hold_without_timeout: true
+    "})
+    // NOTE: add edge cases tests for when timeout = default
+}
+
+#[test]
 fn test_yaml_modmap_multi_purpose_key_multi_key() {
     yaml_assert_parse(indoc! {"
     modmap:
