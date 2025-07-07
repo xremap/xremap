@@ -396,6 +396,17 @@ impl EventHandler {
             for (_, state) in self.multi_purpose_keys.iter_mut() {
                 flushed.extend(state.force_held());
             }
+
+            // filter out key presses that are part of the flushed events
+            let flushed_presses: HashSet<Key> = flushed
+                .iter()
+                .filter_map(|(k, v)| (*v == PRESS).then_some(*k))
+                .collect();
+            let key_values: Vec<(Key, i32)> = key_values
+                .into_iter()
+                .filter(|(key, value)| !(*value == PRESS && flushed_presses.contains(key)))
+                .collect();
+
             flushed.extend(key_values);
             flushed
         } else {
@@ -868,7 +879,7 @@ impl MultiPurposeKeyState {
 
         if press {
             let mut keys = self.held.clone().into_vec();
-            keys.sort_by(modifiers_last);
+            keys.sort_by(modifiers_first);
             keys.into_iter().map(|key| (key, PRESS)).collect()
         } else {
             vec![]
