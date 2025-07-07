@@ -75,7 +75,7 @@ fn test_yaml_modmap_multi_purpose_key_without_timeout() {
           Space:
             held: Shift_L
             alone: Space
-            tap_hold_without_timeout: true
+            free_hold: true
     "})
     // NOTE: add edge cases tests for when timeout = default
 }
