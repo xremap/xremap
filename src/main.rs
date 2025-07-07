@@ -87,7 +87,7 @@ fn main() -> anyhow::Result<()> {
         configs,
         completions,
         product,
-        vendor
+        vendor,
     } = Args::parse();
 
     if let Some(shell) = completions {
@@ -130,11 +130,15 @@ fn main() -> anyhow::Result<()> {
     let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client());
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
-    let output_device =
-        match output_device(input_devices.values().next().map(InputDevice::bus_type), config.enable_wheel, vendor, product) {
-            Ok(output_device) => output_device,
-            Err(e) => bail!("Failed to prepare an output device: {}", e),
-        };
+    let output_device = match output_device(
+        input_devices.values().next().map(InputDevice::bus_type),
+        config.enable_wheel,
+        vendor,
+        product,
+    ) {
+        Ok(output_device) => output_device,
+        Err(e) => bail!("Failed to prepare an output device: {}", e),
+    };
     let mut dispatcher = ActionDispatcher::new(output_device);
 
     // Main loop
@@ -287,7 +291,10 @@ fn handle_config_changes(
 ) -> anyhow::Result<bool> {
     //Re-add AddWatchFlags if config file has been deleted then recreated or overwritten by renaming another file to its own name
     for event in &events {
-        if event.mask.intersects(AddWatchFlags::IN_CREATE | AddWatchFlags::IN_MOVED_TO) {
+        if event
+            .mask
+            .intersects(AddWatchFlags::IN_CREATE | AddWatchFlags::IN_MOVED_TO)
+        {
             for config_path in config_paths {
                 if config_path.file_name().unwrap_or_default() == event.name.clone().unwrap_or_default() {
                     inotify.add_watch(config_path, AddWatchFlags::IN_MODIFY)?;

@@ -348,15 +348,21 @@ impl EventHandler {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
                 self.dispatch_actions(
-                    &(if value == PRESS { press } else if value == RELEASE { release } else { repeat })
-                        .into_iter()
-                        .map(|action| TaggedAction {
-                            action,
-                            exact_match: false,
-                        })
-                        .collect(),
+                    &(if value == PRESS {
+                        press
+                    } else if value == RELEASE {
+                        release
+                    } else {
+                        repeat
+                    })
+                    .into_iter()
+                    .map(|action| TaggedAction {
+                        action,
+                        exact_match: false,
+                    })
+                    .collect(),
                     &key,
-                )?;                
+                )?;
 
                 if skip_key_event {
                     // Do not dispatch the original key

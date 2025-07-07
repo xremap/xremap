@@ -9,17 +9,17 @@ use log::debug;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 use std::error::Error;
+#[cfg(feature = "udev")]
+use std::fs::metadata;
 use std::fs::read_dir;
+#[cfg(feature = "udev")]
+use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::{io, process};
 #[cfg(feature = "udev")]
 use udev::DeviceType;
-#[cfg(feature = "udev")]
-use std::fs::metadata;
-#[cfg(feature = "udev")]
-use std::os::linux::fs::MetadataExt;
 
 static MOUSE_BTNS: [&str; 20] = [
     "BTN_MISC",
@@ -47,7 +47,12 @@ static MOUSE_BTNS: [&str; 20] = [
 static mut DEVICE_NAME: Option<String> = None;
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
-pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool, vendor: u16, product: u16) -> Result<VirtualDevice, Box<dyn Error>> {
+pub fn output_device(
+    bus_type: Option<BusType>,
+    enable_wheel: bool,
+    vendor: u16,
+    product: u16,
+) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
@@ -164,12 +169,18 @@ impl<'a> InputDeviceInfo<'a> {
             if args.len() == 3 {
                 let vid = u16::from_str_radix(args[1].trim_start_matches("0x"), 16).unwrap_or(0);
                 let pid = u16::from_str_radix(args[2].trim_start_matches("0x"), 16).unwrap_or(0);
-                match (vid,pid) {
-                    (0, 0) => {},
-                    (v, 0) if v == self.vendor => { return true; },
-                    (0, p) if p == self.product => { return true; },
-                    (v, p) if v == self.vendor && p == self.product => { return true; },
-                    (_, _) => {},
+                match (vid, pid) {
+                    (0, 0) => {}
+                    (v, 0) if v == self.vendor => {
+                        return true;
+                    }
+                    (0, p) if p == self.product => {
+                        return true;
+                    }
+                    (v, p) if v == self.vendor && p == self.product => {
+                        return true;
+                    }
+                    (_, _) => {}
                 }
             }
         }
@@ -180,27 +191,27 @@ impl<'a> InputDeviceInfo<'a> {
 
         #[cfg(feature = "udev")]
         {
-        if filter.starts_with("props:") {
-            if let Ok(meta) = metadata(self.path) {
-                let args = filter.split(':').collect::<Vec<&str>>();
-                if args.len() == 3 {
-                    if let Ok(ud) = udev::Device::from_devnum(DeviceType::Character, meta.st_rdev()) {
-                        for _ in 0..10 {
-                            if ud.is_initialized() {
-                                break;
+            if filter.starts_with("props:") {
+                if let Ok(meta) = metadata(self.path) {
+                    let args = filter.split(':').collect::<Vec<&str>>();
+                    if args.len() == 3 {
+                        if let Ok(ud) = udev::Device::from_devnum(DeviceType::Character, meta.st_rdev()) {
+                            for _ in 0..10 {
+                                if ud.is_initialized() {
+                                    break;
+                                }
+                                std::thread::sleep(std::time::Duration::from_millis(10));
                             }
-                            std::thread::sleep(std::time::Duration::from_millis(10));
-                        }
-                        let props = ud.properties();
-                        for p in props.filter(|p| p.name() == args[1]) {
-                            if p.value() == args[2] {
-                                return true;
+                            let props = ud.properties();
+                            for p in props.filter(|p| p.name() == args[1]) {
+                                if p.value() == args[2] {
+                                    return true;
+                                }
                             }
                         }
                     }
                 }
             }
-        }
         }
         return false;
     }
@@ -348,18 +359,14 @@ impl InputDevice {
     fn is_keyboard(&self) -> bool {
         // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/input.py#L17-L32
         match self.device.supported_keys() {
-            Some(keys) => {
-                keys.contains(Key::KEY_SPACE)
-                && keys.contains(Key::KEY_A)
-                && keys.contains(Key::KEY_Z)
-            }
+            Some(keys) => keys.contains(Key::KEY_SPACE) && keys.contains(Key::KEY_A) && keys.contains(Key::KEY_Z),
             None => false,
         }
     }
 
     fn is_mouse(&self) -> bool {
         // Xremap doesn't support absolute device so will break them.
-        if self.device.supported_absolute_axes().is_some()  {
+        if self.device.supported_absolute_axes().is_some() {
             debug!("Ignoring absolute device {:18} {}", self.path.display(), self.device_name());
             return false;
         }
