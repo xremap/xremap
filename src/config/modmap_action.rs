@@ -27,8 +27,8 @@ pub struct MultiPurposeKey {
     #[serde_as(as = "DurationMilliSeconds")]
     #[serde(default = "default_alone_timeout", rename = "alone_timeout_millis")]
     pub alone_timeout: Duration,
-    #[serde(default = "default_tap_hold_without_timeout")]
-    pub tap_hold_without_timeout: bool,
+    #[serde(default = "default_free_hold")]
+    pub free_hold: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -73,7 +73,7 @@ fn default_alone_timeout() -> Duration {
     Duration::from_millis(1000)
 }
 
-fn default_tap_hold_without_timeout() -> bool {
+fn default_free_hold() -> bool {
     false // NOTE: should default to true ?!
           // up to maintainer
 }
