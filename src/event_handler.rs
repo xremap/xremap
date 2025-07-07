@@ -823,79 +823,75 @@ struct MultiPurposeKeyState {
 
 impl MultiPurposeKeyState {
     fn repeat(&mut self) -> Vec<(Key, i32)> {
-        if let Some(alone_timeout_at) = &self.alone_timeout_at {
-            if Instant::now() < *alone_timeout_at {
+        match self.alone_timeout_at {
+            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => {
                 vec![] // still delay the press
-            } else {
-                self.alone_timeout_at = None; // timeout
+            }
+            Some(_) => {
+                // timeout
+                self.alone_timeout_at = None;
                 let mut keys = self.held.clone().into_vec();
                 keys.sort_by(modifiers_first);
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
-        } else {
-            let mut keys = self.held.clone().into_vec();
-            keys.sort_by(modifiers_first);
-            keys.into_iter().map(|key| (key, REPEAT)).collect()
+            None => {
+                let mut keys = self.held.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                keys.into_iter().map(|key| (key, REPEAT)).collect()
+            }
         }
     }
 
     fn release(&self) -> Vec<(Key, i32)> {
-        if let Some(alone_timeout_at) = &self.alone_timeout_at {
-            if Instant::now() < *alone_timeout_at {
-                // dispatch the delayed press and this release
-                let mut release_keys = self.alone.clone().into_vec();
-                release_keys.sort_by(modifiers_last);
-                let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
-
-                let mut keys = self.alone.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
-                keys.extend(release_keys);
-                keys
-            } else {
-                // dispatch the delayed press and this release
-                let mut release_keys = self.held.clone().into_vec();
-                release_keys.sort_by(modifiers_last);
-                let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
-
-                let mut keys = self.held.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
-                keys.extend(release_keys);
-                keys
-            }
-        } else if self.held_down {
-            let mut release_keys = self.held.clone().into_vec();
-            release_keys.sort_by(modifiers_last);
-            release_keys.into_iter().map(|key| (key, RELEASE)).collect()
-        } else {
-            // dispatch the delayed press and this release
-            let mut release_keys = self.alone.clone().into_vec();
-            release_keys.sort_by(modifiers_last);
-            let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
-
-            let mut keys = self.alone.clone().into_vec();
-            keys.sort_by(modifiers_first);
-            let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
-            keys.extend(release_keys);
-            keys
+        match self.alone_timeout_at {
+            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => self.press_and_release(&self.alone),
+            Some(_) => self.press_and_release(&self.held),
+            None => match self.held_down {
+                true => {
+                    let mut release_keys = self.held.clone().into_vec();
+                    release_keys.sort_by(modifiers_last);
+                    release_keys.into_iter().map(|key| (key, RELEASE)).collect()
+                }
+                false => self.press_and_release(&self.alone),
+            },
         }
     }
 
     fn force_held(&mut self) -> Vec<(Key, i32)> {
-        if self.alone_timeout_at.is_some() {
-            self.alone_timeout_at = None;
-            let mut keys = self.held.clone().into_vec();
-            keys.sort_by(modifiers_last);
-            keys.into_iter().map(|key| (key, PRESS)).collect()
-        } else if !self.held_down {
-            self.held_down = true;
+        let press = match self.alone_timeout_at {
+            Some(_) => {
+                self.alone_timeout_at = None;
+                true
+            }
+            None => {
+                if !self.held_down {
+                    self.held_down = true;
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+
+        if press {
             let mut keys = self.held.clone().into_vec();
             keys.sort_by(modifiers_last);
             keys.into_iter().map(|key| (key, PRESS)).collect()
         } else {
             vec![]
         }
+    }
+
+    fn press_and_release(&self, keys_to_use: &Keys) -> Vec<(Key, i32)> {
+        let mut release_keys = keys_to_use.clone().into_vec();
+        release_keys.sort_by(modifiers_last);
+        let release_events: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
+
+        let mut press_keys = keys_to_use.clone().into_vec();
+        press_keys.sort_by(modifiers_first);
+        let mut events: Vec<(Key, i32)> = press_keys.into_iter().map(|key| (key, PRESS)).collect();
+        events.extend(release_events);
+        events
     }
 }
 
