@@ -315,6 +315,7 @@ impl EventHandler {
                 held,
                 alone,
                 alone_timeout,
+                tap_hold_without_timeout, //FIX: it's just a bad name!
             }) => {
                 if value == PRESS {
                     self.multi_purpose_keys.insert(
@@ -322,7 +323,13 @@ impl EventHandler {
                         MultiPurposeKeyState {
                             held,
                             alone,
-                            alone_timeout_at: Some(Instant::now() + alone_timeout),
+                            alone_timeout_at: if tap_hold_without_timeout {
+                                //FIX: refactor
+                                None
+                            } else {
+                                Some(Instant::now() + alone_timeout)
+                            },
+                            held_down: false,
                         },
                     );
                     return Ok(vec![]); // delay the press
@@ -813,6 +820,7 @@ struct MultiPurposeKeyState {
     alone: Keys,
     // Some if the first press is still delayed, None if already considered held.
     alone_timeout_at: Option<Instant>,
+    held_down: bool,
 }
 
 impl MultiPurposeKeyState {
@@ -858,16 +866,32 @@ impl MultiPurposeKeyState {
                 keys.extend(release_keys);
                 keys
             }
-        } else {
+        } else if self.held_down {
             let mut release_keys = self.held.clone().into_vec();
             release_keys.sort_by(modifiers_last);
             release_keys.into_iter().map(|key| (key, RELEASE)).collect()
+        } else {
+            // dispatch the delayed press and this release
+            let mut release_keys = self.alone.clone().into_vec();
+            release_keys.sort_by(modifiers_last);
+            let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
+
+            let mut keys = self.alone.clone().into_vec();
+            keys.sort_by(modifiers_first);
+            let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
+            keys.extend(release_keys);
+            keys
         }
     }
 
     fn force_held(&mut self) -> Vec<(Key, i32)> {
         if self.alone_timeout_at.is_some() {
             self.alone_timeout_at = None;
+            let mut keys = self.held.clone().into_vec();
+            keys.sort_by(modifiers_last);
+            keys.into_iter().map(|key| (key, PRESS)).collect()
+        } else if !self.held_down {
+            self.held_down = true;
             let mut keys = self.held.clone().into_vec();
             keys.sort_by(modifiers_last);
             keys.into_iter().map(|key| (key, PRESS)).collect()
