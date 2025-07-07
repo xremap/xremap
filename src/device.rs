@@ -56,7 +56,7 @@ pub fn output_device(
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
-        let name = format!("{:?}", key);
+        let name = format!("{key:?}");
         if name.starts_with("KEY_") || MOUSE_BTNS.contains(&&*name) {
             keys.insert(key);
         }
@@ -101,9 +101,9 @@ pub fn get_input_devices(
     devices.sort();
 
     println!("Selecting devices from the following list:");
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
     devices.iter().for_each(InputDevice::print);
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
 
     if device_opts.is_empty() {
         if mouse {
@@ -112,12 +112,12 @@ pub fn get_input_devices(
             print!("Selected keyboards automatically since --device options weren't specified");
         }
     } else {
-        print!("Selected devices matching {:?}", device_opts);
+        print!("Selected devices matching {device_opts:?}");
     };
     if ignore_opts.is_empty() {
         println!(":")
     } else {
-        println!(", ignoring {:?}:", ignore_opts);
+        println!(", ignoring {ignore_opts:?}:");
     }
 
     let devices: Vec<_> = devices
@@ -126,11 +126,11 @@ pub fn get_input_devices(
         // alternative is `Vec::retain_mut` whenever that gets stabilized
         .filter_map(|mut device| {
             // filter out any not matching devices and devices that error on grab
-            (device.is_input_device(device_opts, ignore_opts, mouse) && device.grab()).then(|| device)
+            (device.is_input_device(device_opts, ignore_opts, mouse) && device.grab()).then_some(device)
         })
         .collect();
 
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
     if devices.is_empty() {
         if watch {
             println!("warning: No device was selected, but --watch is waiting for new devices.");
@@ -140,7 +140,7 @@ pub fn get_input_devices(
     } else {
         devices.iter().for_each(InputDevice::print);
     }
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
 
     Ok(devices.into_iter().map(From::from).collect())
 }
@@ -213,7 +213,7 @@ impl<'a> InputDeviceInfo<'a> {
                 }
             }
         }
-        return false;
+        false
     }
 }
 
@@ -343,9 +343,7 @@ impl InputDevice {
             Ok(devices) => devices.collect(),
             Err(_) => return true, // fallback to the safe side
         };
-        devices
-            .iter()
-            .any(|device| return device.device_name().contains(device_name))
+        devices.iter().any(|device| device.device_name().contains(device_name))
     }
 
     fn matches_any(&self, filter: &[String]) -> bool {
@@ -353,7 +351,7 @@ impl InputDevice {
         if self.device_name() == Self::current_name() {
             return false;
         }
-        return filter.iter().any(|f| self.to_info().matches(f));
+        filter.iter().any(|f| self.to_info().matches(f))
     }
 
     fn is_keyboard(&self) -> bool {
@@ -372,7 +370,7 @@ impl InputDevice {
         }
         self.device
             .supported_keys()
-            .map_or(false, |keys| keys.contains(Key::BTN_LEFT))
+            .is_some_and(|keys| keys.contains(Key::BTN_LEFT))
     }
 
     pub fn print(&self) {

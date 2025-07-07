@@ -35,7 +35,7 @@ impl Client for StaticClient {
 fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
     InputDeviceInfo {
         name: "Some Device",
-        path: &Path::new("/dev/input/event0"),
+        path: Path::new("/dev/input/event0"),
         vendor: 0x1234,
         product: 0x5678,
     }
@@ -194,12 +194,12 @@ fn test_cursor_behavior_1() {
     // Setup to be able to send events
     let mut input_devices = match get_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
         Ok(input_devices) => input_devices,
-        Err(e) => panic!("Failed to prepare input devices: {}", e),
+        Err(e) => panic!("Failed to prepare input devices: {e}"),
     };
     let mut output_device =
         match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
             Ok(output_device) => output_device,
-            Err(e) => panic!("Failed to prepare an output device: {}", e),
+            Err(e) => panic!("Failed to prepare an output device: {e}"),
         };
     for input_device in input_devices.values_mut() {
         let _unused = input_device.fetch_events().unwrap();
@@ -235,12 +235,12 @@ fn test_cursor_behavior_2() {
     // Setup to be able to send events
     let mut input_devices = match get_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
         Ok(input_devices) => input_devices,
-        Err(e) => panic!("Failed to prepare input devices: {}", e),
+        Err(e) => panic!("Failed to prepare input devices: {e}"),
     };
     let mut output_device =
         match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
             Ok(output_device) => output_device,
-            Err(e) => panic!("Failed to prepare an output device: {}", e),
+            Err(e) => panic!("Failed to prepare an output device: {e}"),
         };
     for input_device in input_devices.values_mut() {
         let _unused = input_device.fetch_events().unwrap();
@@ -500,7 +500,7 @@ fn test_device_override() {
         vec![Event::KeyEvent(
             InputDeviceInfo {
                 name: "Some Device",
-                path: &Path::new("/dev/input/event0"),
+                path: Path::new("/dev/input/event0"),
                 vendor: 0x1234,
                 product: 0x5678,
             },
@@ -521,7 +521,7 @@ fn test_device_override() {
         vec![Event::KeyEvent(
             InputDeviceInfo {
                 name: "Other Device",
-                path: &Path::new("/dev/input/event1"),
+                path: Path::new("/dev/input/event1"),
                 vendor: 0x1234,
                 product: 0x5678,
             },
@@ -799,5 +799,5 @@ fn assert_actions_with_current_application(
 
     actual.append(&mut event_handler.on_events(&events, &config).unwrap());
 
-    assert_eq!(format!("{:?}", actions), format!("{:?}", actual));
+    assert_eq!(format!("{actions:?}"), format!("{:?}", actual));
 }

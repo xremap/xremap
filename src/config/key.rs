@@ -22,7 +22,7 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
     }
 
     // You can abbreviate "KEY_" of any "KEY_*" scancodes.
-    if let Ok(key) = Key::from_str(&format!("KEY_{}", name)) {
+    if let Ok(key) = Key::from_str(&format!("KEY_{name}")) {
         return Ok(key);
     }
 
@@ -129,5 +129,5 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         return Ok(key);
     }
 
-    return Err(format!("unknown key '{}'", input).into());
+    Err(format!("unknown key '{input}'").into())
 }

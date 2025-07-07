@@ -84,8 +84,8 @@ pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::E
     };
 
     for filename in &filenames[1..] {
-        let config_contents = fs::read_to_string(&filename)?;
-        let c: Config = match get_file_ext(&filename) {
+        let config_contents = fs::read_to_string(filename)?;
+        let c: Config = match get_file_ext(filename) {
             ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
             ConfigFiletype::Toml => toml::from_str(&config_contents)?,
         };
@@ -133,7 +133,7 @@ where
     for key_str in key_strs {
         keys.push(parse_key(&key_str).map_err(serde::de::Error::custom)?);
     }
-    return Ok(keys);
+    Ok(keys)
 }
 
 fn const_true() -> bool {
