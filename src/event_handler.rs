@@ -284,7 +284,7 @@ impl EventHandler {
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
-    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut Vec<(Key, i32)>) {
+    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut [(Key, i32)]) {
         // Not handling multi-purpose keysfor now; too complicated
         if events.len() != 1 || value != events[0].1 {
             return;
@@ -623,7 +623,7 @@ impl EventHandler {
     }
 
     // Return (extra_modifiers, missing_modifiers)
-    fn diff_modifiers(&self, modifiers: &Vec<Modifier>) -> (Vec<Key>, Vec<Key>) {
+    fn diff_modifiers(&self, modifiers: &[Modifier]) -> (Vec<Key>, Vec<Key>) {
         let extra_modifiers: Vec<Key> = self
             .modifiers
             .iter()
@@ -723,7 +723,7 @@ impl EventHandler {
     }
 }
 
-fn is_remap(actions: &Vec<KeymapAction>) -> bool {
+fn is_remap(actions: &[KeymapAction]) -> bool {
     if actions.is_empty() {
         // When actions is empty it could either be regarded as an empty remap
         //  or no actions. In principle that shouldn't matter, but remap is
@@ -740,16 +740,12 @@ fn is_remap(actions: &Vec<KeymapAction>) -> bool {
     })
 }
 
-fn with_extra_modifiers(
-    actions: &Vec<KeymapAction>,
-    extra_modifiers: &Vec<Key>,
-    exact_match: bool,
-) -> Vec<TaggedAction> {
+fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> Vec<TaggedAction> {
     let mut result: Vec<TaggedAction> = vec![];
     if !extra_modifiers.is_empty() {
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
         result.push(TaggedAction {
-            action: KeymapAction::SetExtraModifiers(extra_modifiers.clone()),
+            action: KeymapAction::SetExtraModifiers(extra_modifiers.to_vec()),
             exact_match,
         });
     }
@@ -767,7 +763,7 @@ fn with_extra_modifiers(
     result
 }
 
-fn contains_modifier(modifiers: &Vec<Modifier>, key: &Key) -> bool {
+fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
     for modifier in modifiers {
         if match modifier {
             Modifier::Shift => key == &Key::KEY_LEFTSHIFT || key == &Key::KEY_RIGHTSHIFT,
