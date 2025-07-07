@@ -317,32 +317,34 @@ impl EventHandler {
                 alone_timeout,
                 tap_hold_without_timeout, //FIX: it's just a bad name!
             }) => {
-                if value == PRESS {
-                    self.multi_purpose_keys.insert(
-                        key,
-                        MultiPurposeKeyState {
-                            held,
-                            alone,
-                            alone_timeout_at: if tap_hold_without_timeout {
-                                //FIX: refactor
-                                None
-                            } else {
-                                Some(Instant::now() + alone_timeout)
+                match value {
+                    PRESS => {
+                        self.multi_purpose_keys.insert(
+                            key,
+                            MultiPurposeKeyState {
+                                held,
+                                alone,
+                                alone_timeout_at: if tap_hold_without_timeout {
+                                    None
+                                } else {
+                                    Some(Instant::now() + alone_timeout)
+                                },
+                                held_down: false,
                             },
-                            held_down: false,
-                        },
-                    );
-                    return Ok(vec![]); // delay the press
-                } else if value == REPEAT {
-                    if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
-                        return Ok(state.repeat());
+                        );
+                        return Ok(vec![]); // delay the press
                     }
-                } else if value == RELEASE {
-                    if let Some(state) = self.multi_purpose_keys.remove(&key) {
-                        return Ok(state.release());
+                    REPEAT => {
+                        if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
+                            return Ok(state.repeat());
+                        }
                     }
-                } else {
-                    panic!("unexpected key event value: {value}");
+                    RELEASE => {
+                        if let Some(state) = self.multi_purpose_keys.remove(&key) {
+                            return Ok(state.release());
+                        }
+                    }
+                    _ => panic!("unexpected key event value: {value}"),
                 }
                 // fallthrough on state discrepancy
                 vec![(key, value)]
@@ -355,29 +357,25 @@ impl EventHandler {
             }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
+                let actions_to_dispatch = match value {
+                    PRESS => press,
+                    RELEASE => release,
+                    _ => repeat,
+                };
                 self.dispatch_actions(
-                    &(if value == PRESS {
-                        press
-                    } else if value == RELEASE {
-                        release
-                    } else {
-                        repeat
-                    })
-                    .into_iter()
-                    .map(|action| TaggedAction {
-                        action,
-                        exact_match: false,
-                    })
-                    .collect(),
+                    &actions_to_dispatch
+                        .into_iter()
+                        .map(|action| TaggedAction {
+                            action,
+                            exact_match: false,
+                        })
+                        .collect(),
                     &key,
                 )?;
 
-                if skip_key_event {
-                    // Do not dispatch the original key
-                    vec![]
-                } else {
-                    // dispatch the original key
-                    vec![(key, value)]
+                match skip_key_event {
+                    true => vec![],              // do not dispatch the original key
+                    false => vec![(key, value)], // dispatch the original key
                 }
             }
         };
@@ -808,9 +806,9 @@ fn is_pressed(value: i32) -> bool {
 }
 
 // InputEvent#value
-static RELEASE: i32 = 0;
-static PRESS: i32 = 1;
-static REPEAT: i32 = 2;
+const RELEASE: i32 = 0;
+const PRESS: i32 = 1;
+const REPEAT: i32 = 2;
 
 // ---
 
