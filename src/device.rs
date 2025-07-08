@@ -7,11 +7,12 @@ use evdev::uinput::VirtualDevice;
 use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode as Key, RelativeAxisCode};
 use log::debug;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::fs::read_dir;
+use std::fs::{read_dir, create_dir_all};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
+use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::{io, process};
 #[cfg(feature = "udev")]
@@ -47,7 +48,7 @@ static MOUSE_BTNS: [&str; 20] = [
 static mut DEVICE_NAME: Option<String> = None;
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
-pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool, vendor: u16, product: u16) -> Result<VirtualDevice, Box<dyn Error>> {
+pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool, vendor: u16, product: u16) -> Result<(VirtualDevice, Option<PathBuf>), Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
@@ -66,14 +67,45 @@ pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool, vendor: u16,
     }
     relative_axes.insert(RelativeAxisCode::REL_MISC);
 
-    let device = VirtualDevice::builder()?
+    let mut device = VirtualDevice::builder()?
         // These are taken from https://docs.rs/evdev/0.12.0/src/evdev/uinput.rs.html#183-188
         .input_id(InputId::new(bus_type.unwrap_or(BusType::BUS_USB), vendor, product, 0x111))
         .name(&InputDevice::current_name())
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
         .build()?;
-    Ok(device)
+    
+    // Create symlink to the virtual device
+    let symlink_path = match device.enumerate_dev_nodes_blocking() {
+        Ok(paths) => {
+            if let Some(device_path_result) = paths.into_iter().next() {
+                match device_path_result {
+                    Ok(device_path) => {
+                        match create_xremap_symlink(&device_path) {
+                            Ok(symlink_path) => Some(symlink_path),
+                            Err(e) => {
+                                eprintln!("Warning: Failed to create symlink: {}", e);
+                                None
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: Failed to get device path: {}", e);
+                        None
+                    }
+                }
+            } else {
+                eprintln!("Warning: No device paths found for virtual device");
+                None
+            }
+        }
+        Err(e) => {
+            eprintln!("Warning: Failed to enumerate device nodes: {}", e);
+            None
+        }
+    };
+    
+    Ok((device, symlink_path))
 }
 
 pub fn device_watcher(watch: bool) -> anyhow::Result<Option<Inotify>> {
@@ -374,3 +406,51 @@ impl InputDevice {
 }
 
 const SEPARATOR: &str = "------------------------------------------------------------------------------";
+
+/// Find the next available xremap symlink number
+fn find_next_xremap_number() -> anyhow::Result<u32> {
+    let by_id_dir = Path::new("/dev/input/by-id");
+    
+    if !by_id_dir.exists() {
+        create_dir_all(by_id_dir)?;
+        return Ok(0);
+    }
+
+    let mut used_numbers = HashSet::new();
+    
+    if let Ok(entries) = read_dir(by_id_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with("xremap") {
+                if let Ok(num) = name_str.strip_prefix("xremap").unwrap_or("").parse::<u32>() {
+                    used_numbers.insert(num);
+                }
+            }
+        }
+    }
+    
+    for i in 0..u32::MAX {
+        if !used_numbers.contains(&i) {
+            return Ok(i);
+        }
+    }
+    
+    anyhow::bail!("No available xremap symlink numbers")
+}
+
+/// Create a numbered symlink for the virtual device
+pub fn create_xremap_symlink(device_path: &Path) -> anyhow::Result<PathBuf> {
+    let number = find_next_xremap_number()?;
+    let symlink_path = PathBuf::from(format!("/dev/input/by-id/xremap{}", number));
+    
+    // Remove existing symlink if it exists
+    if symlink_path.exists() {
+        std::fs::remove_file(&symlink_path)?;
+    }
+    
+    symlink(device_path, &symlink_path)?;
+    println!("Created symlink: {} -> {}", symlink_path.display(), device_path.display());
+    
+    Ok(symlink_path)
+}

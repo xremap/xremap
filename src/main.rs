@@ -130,9 +130,9 @@ fn main() -> anyhow::Result<()> {
     let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client());
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
-    let output_device =
+    let (output_device, _symlink_path) =
         match output_device(input_devices.values().next().map(InputDevice::bus_type), config.enable_wheel, vendor, product) {
-            Ok(output_device) => output_device,
+            Ok((device, symlink)) => (device, symlink),
             Err(e) => bail!("Failed to prepare an output device: {}", e),
         };
     let mut dispatcher = ActionDispatcher::new(output_device);
@@ -195,6 +195,19 @@ fn main() -> anyhow::Result<()> {
                     println!("Reloading Config");
                     config = c;
                 }
+            }
+        }
+    }
+}
+
+/// Clean up the symlink when the program exits
+fn cleanup_symlink(symlink_path: &Option<PathBuf>) {
+    if let Some(path) = symlink_path {
+        if path.exists() {
+            if let Err(e) = std::fs::remove_file(path) {
+                eprintln!("Warning: Failed to remove symlink {}: {}", path.display(), e);
+            } else {
+                println!("Removed symlink: {}", path.display());
             }
         }
     }
