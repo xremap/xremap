@@ -93,9 +93,10 @@ where
     Ok(Remap {
         remap: action.remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect(),
         timeout: action.timeout_millis.map(Duration::from_millis),
-        timeout_key: if let Some(key) = action.timeout_key {
-            match parse_key(&key) {
-                Ok(key) => Some(key),
+        timeout_key: if let Some(keys) = action.timeout_key {
+            let parsed_keys: Result<Vec<_>, _> = keys.into_iter().map(|key| parse_key(&key)).collect();
+            match parsed_keys {
+                Ok(parsed_keys) => Some(parsed_keys),
                 Err(e) => return Err(de::Error::custom(e.to_string())),
             }
         } else {
