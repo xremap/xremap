@@ -36,7 +36,7 @@ impl WMClient {
         if let Some(window) = &result {
             if &self.last_window != window {
                 self.last_window = window.clone();
-                println!("window: {}", window);
+                println!("window: {window}");
             }
         }
         result
@@ -56,7 +56,7 @@ impl WMClient {
         if let Some(application) = &result {
             if &self.last_application != application {
                 self.last_application = application.clone();
-                println!("application: {}", application);
+                println!("application: {application}");
             }
         }
         result

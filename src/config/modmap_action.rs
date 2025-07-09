@@ -64,7 +64,7 @@ where
     D: Deserializer<'de>,
 {
     let actions = Actions::deserialize(deserializer)?;
-    return Ok(actions.into_vec());
+    Ok(actions.into_vec())
 }
 
 fn default_alone_timeout() -> Duration {

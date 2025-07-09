@@ -9,17 +9,17 @@ use log::debug;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 use std::error::Error;
+#[cfg(feature = "udev")]
+use std::fs::metadata;
 use std::fs::read_dir;
+#[cfg(feature = "udev")]
+use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::{io, process};
 #[cfg(feature = "udev")]
 use udev::DeviceType;
-#[cfg(feature = "udev")]
-use std::fs::metadata;
-#[cfg(feature = "udev")]
-use std::os::linux::fs::MetadataExt;
 
 static MOUSE_BTNS: [&str; 20] = [
     "BTN_MISC",
@@ -47,11 +47,16 @@ static MOUSE_BTNS: [&str; 20] = [
 static mut DEVICE_NAME: Option<String> = None;
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
-pub fn output_device(bus_type: Option<BusType>, enable_wheel: bool, vendor: u16, product: u16) -> Result<VirtualDevice, Box<dyn Error>> {
+pub fn output_device(
+    bus_type: Option<BusType>,
+    enable_wheel: bool,
+    vendor: u16,
+    product: u16,
+) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
-        let name = format!("{:?}", key);
+        let name = format!("{key:?}");
         if name.starts_with("KEY_") || MOUSE_BTNS.contains(&&*name) {
             keys.insert(key);
         }
@@ -96,9 +101,9 @@ pub fn get_input_devices(
     devices.sort();
 
     println!("Selecting devices from the following list:");
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
     devices.iter().for_each(InputDevice::print);
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
 
     if device_opts.is_empty() {
         if mouse {
@@ -107,12 +112,12 @@ pub fn get_input_devices(
             print!("Selected keyboards automatically since --device options weren't specified");
         }
     } else {
-        print!("Selected devices matching {:?}", device_opts);
+        print!("Selected devices matching {device_opts:?}");
     };
     if ignore_opts.is_empty() {
         println!(":")
     } else {
-        println!(", ignoring {:?}:", ignore_opts);
+        println!(", ignoring {ignore_opts:?}:");
     }
 
     let devices: Vec<_> = devices
@@ -121,11 +126,11 @@ pub fn get_input_devices(
         // alternative is `Vec::retain_mut` whenever that gets stabilized
         .filter_map(|mut device| {
             // filter out any not matching devices and devices that error on grab
-            (device.is_input_device(device_opts, ignore_opts, mouse) && device.grab()).then(|| device)
+            (device.is_input_device(device_opts, ignore_opts, mouse) && device.grab()).then_some(device)
         })
         .collect();
 
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
     if devices.is_empty() {
         if watch {
             println!("warning: No device was selected, but --watch is waiting for new devices.");
@@ -135,7 +140,7 @@ pub fn get_input_devices(
     } else {
         devices.iter().for_each(InputDevice::print);
     }
-    println!("{}", SEPARATOR);
+    println!("{SEPARATOR}");
 
     Ok(devices.into_iter().map(From::from).collect())
 }
@@ -164,12 +169,18 @@ impl<'a> InputDeviceInfo<'a> {
             if args.len() == 3 {
                 let vid = u16::from_str_radix(args[1].trim_start_matches("0x"), 16).unwrap_or(0);
                 let pid = u16::from_str_radix(args[2].trim_start_matches("0x"), 16).unwrap_or(0);
-                match (vid,pid) {
-                    (0, 0) => {},
-                    (v, 0) if v == self.vendor => { return true; },
-                    (0, p) if p == self.product => { return true; },
-                    (v, p) if v == self.vendor && p == self.product => { return true; },
-                    (_, _) => {},
+                match (vid, pid) {
+                    (0, 0) => {}
+                    (v, 0) if v == self.vendor => {
+                        return true;
+                    }
+                    (0, p) if p == self.product => {
+                        return true;
+                    }
+                    (v, p) if v == self.vendor && p == self.product => {
+                        return true;
+                    }
+                    (_, _) => {}
                 }
             }
         }
@@ -180,29 +191,29 @@ impl<'a> InputDeviceInfo<'a> {
 
         #[cfg(feature = "udev")]
         {
-        if filter.starts_with("props:") {
-            if let Ok(meta) = metadata(self.path) {
-                let args = filter.split(':').collect::<Vec<&str>>();
-                if args.len() == 3 {
-                    if let Ok(ud) = udev::Device::from_devnum(DeviceType::Character, meta.st_rdev()) {
-                        for _ in 0..10 {
-                            if ud.is_initialized() {
-                                break;
+            if filter.starts_with("props:") {
+                if let Ok(meta) = metadata(self.path) {
+                    let args = filter.split(':').collect::<Vec<&str>>();
+                    if args.len() == 3 {
+                        if let Ok(ud) = udev::Device::from_devnum(DeviceType::Character, meta.st_rdev()) {
+                            for _ in 0..10 {
+                                if ud.is_initialized() {
+                                    break;
+                                }
+                                std::thread::sleep(std::time::Duration::from_millis(10));
                             }
-                            std::thread::sleep(std::time::Duration::from_millis(10));
-                        }
-                        let props = ud.properties();
-                        for p in props.filter(|p| p.name() == args[1]) {
-                            if p.value() == args[2] {
-                                return true;
+                            let props = ud.properties();
+                            for p in props.filter(|p| p.name() == args[1]) {
+                                if p.value() == args[2] {
+                                    return true;
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        }
-        return false;
+        false
     }
 }
 
@@ -332,9 +343,7 @@ impl InputDevice {
             Ok(devices) => devices.collect(),
             Err(_) => return true, // fallback to the safe side
         };
-        devices
-            .iter()
-            .any(|device| return device.device_name().contains(device_name))
+        devices.iter().any(|device| device.device_name().contains(device_name))
     }
 
     fn matches_any(&self, filter: &[String]) -> bool {
@@ -342,30 +351,26 @@ impl InputDevice {
         if self.device_name() == Self::current_name() {
             return false;
         }
-        return filter.iter().any(|f| self.to_info().matches(f));
+        filter.iter().any(|f| self.to_info().matches(f))
     }
 
     fn is_keyboard(&self) -> bool {
         // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/input.py#L17-L32
         match self.device.supported_keys() {
-            Some(keys) => {
-                keys.contains(Key::KEY_SPACE)
-                && keys.contains(Key::KEY_A)
-                && keys.contains(Key::KEY_Z)
-            }
+            Some(keys) => keys.contains(Key::KEY_SPACE) && keys.contains(Key::KEY_A) && keys.contains(Key::KEY_Z),
             None => false,
         }
     }
 
     fn is_mouse(&self) -> bool {
         // Xremap doesn't support absolute device so will break them.
-        if self.device.supported_absolute_axes().is_some()  {
+        if self.device.supported_absolute_axes().is_some() {
             debug!("Ignoring absolute device {:18} {}", self.path.display(), self.device_name());
             return false;
         }
         self.device
             .supported_keys()
-            .map_or(false, |keys| keys.contains(Key::BTN_LEFT))
+            .is_some_and(|keys| keys.contains(Key::BTN_LEFT))
     }
 
     pub fn print(&self) {

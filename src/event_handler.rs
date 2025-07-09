@@ -94,7 +94,6 @@ impl EventHandler {
             match event {
                 Event::KeyEvent(device, key_event) => {
                     self.on_key_event(key_event, config, device)?;
-                    ()
                 }
                 Event::RelativeEvent(device, relative_event) => {
                     self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
@@ -105,7 +104,7 @@ impl EventHandler {
             };
         }
         // if there is at least one mouse movement event, sending all of them as one MouseMovementEventCollection
-        if mouse_movement_collection.len() > 0 {
+        if !mouse_movement_collection.is_empty() {
             self.send_action(Action::MouseMovementEventCollection(mouse_movement_collection));
         }
         Ok(self.actions.drain(..).collect())
@@ -207,7 +206,7 @@ impl EventHandler {
             i32::MIN..=-1 => (event.code * 2) + 1 + DISGUISED_EVENT_OFFSETTER,
 
             0 => {
-                println!("This event has a value of zero : {:?}", event);
+                println!("This event has a value of zero : {event:?}");
                 // A value of zero would be unexpected for a relative event,
                 // since changing something by zero is kinda useless.
                 // Just in case it can actually happen (and also because match arms need the same output type),
@@ -217,7 +216,7 @@ impl EventHandler {
         };
 
         // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-        match self.on_key_event(&KeyEvent::new_with(key, PRESS), config, &device)? {
+        match self.on_key_event(&KeyEvent::new_with(key, PRESS), config, device)? {
             // the boolean value is from a variable at the end of on_key_event from event_handler,
             // used to indicate whether the event got through unchanged.
             true => {
@@ -246,7 +245,7 @@ impl EventHandler {
         }
 
         // Sending the "unpressed" version of the "fake" KEY event.
-        self.on_key_event(&KeyEvent::new_with(key, RELEASE), config, &device)?;
+        self.on_key_event(&KeyEvent::new_with(key, RELEASE), config, device)?;
 
         Ok(())
     }
@@ -336,7 +335,7 @@ impl EventHandler {
                         return Ok(state.release());
                     }
                 } else {
-                    panic!("unexpected key event value: {}", value);
+                    panic!("unexpected key event value: {value}");
                 }
                 // fallthrough on state discrepancy
                 vec![(key, value)]
@@ -350,15 +349,21 @@ impl EventHandler {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
                 self.dispatch_actions(
-                    &(if value == PRESS { press } else if value == RELEASE { release } else { repeat })
-                        .into_iter()
-                        .map(|action| TaggedAction {
-                            action,
-                            exact_match: false,
-                        })
-                        .collect(),
+                    &(if value == PRESS {
+                        press
+                    } else if value == RELEASE {
+                        release
+                    } else {
+                        repeat
+                    })
+                    .into_iter()
+                    .map(|action| TaggedAction {
+                        action,
+                        exact_match: false,
+                    })
+                    .collect(),
                     &key,
-                )?;                
+                )?;
 
                 if skip_key_event {
                     // Do not dispatch the original key
@@ -445,7 +450,7 @@ impl EventHandler {
                             continue;
                         }
                         let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
-                        if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
+                        if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                             continue;
                         }
 
@@ -476,7 +481,7 @@ impl EventHandler {
                         continue;
                     }
                     let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
-                    if (exact_match && extra_modifiers.len() > 0) || missing_modifiers.len() > 0 {
+                    if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                         continue;
                     }
                     if let Some(window_matcher) = &entry.title {
@@ -556,7 +561,7 @@ impl EventHandler {
             KeymapAction::Launch(command) => self.run_command(command.clone()),
             KeymapAction::SetMode(mode) => {
                 self.mode = mode.clone();
-                println!("mode: {}", mode);
+                println!("mode: {mode}");
             }
             KeymapAction::SetMark(set) => self.mark_set = *set,
             KeymapAction::WithMark(key_press) => self.send_key_press_and_release(&self.with_mark(key_press)),
@@ -576,8 +581,8 @@ impl EventHandler {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because logical modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
-        extra_modifiers.retain(|key| MODIFIER_KEYS.contains(&key) && !self.extra_modifiers.contains(&key));
-        missing_modifiers.retain(|key| MODIFIER_KEYS.contains(&key));
+        extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !self.extra_modifiers.contains(key));
+        missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
 
         // Emulate the modifiers of KeyPress
         self.send_keys(&missing_modifiers, PRESS);
@@ -618,7 +623,7 @@ impl EventHandler {
             .modifiers
             .iter()
             .filter(|modifier| !contains_modifier(modifiers, modifier))
-            .map(|modifier| modifier.clone())
+            .copied()
             .collect();
         let missing_modifiers: Vec<Key> = modifiers
             .iter()
@@ -636,7 +641,7 @@ impl EventHandler {
                 }
             })
             .collect();
-        return (extra_modifiers, missing_modifiers);
+        (extra_modifiers, missing_modifiers)
     }
 
     fn match_modifier(&self, modifier: &Modifier) -> bool {
@@ -714,7 +719,7 @@ impl EventHandler {
 }
 
 fn is_remap(actions: &Vec<KeymapAction>) -> bool {
-    if actions.len() == 0 {
+    if actions.is_empty() {
         // When actions is empty it could either be regarded as an empty remap
         //  or no actions. In principle that shouldn't matter, but remap is
         //  implemented to gather all defined remaps, not just the first match.
@@ -736,7 +741,7 @@ fn with_extra_modifiers(
     exact_match: bool,
 ) -> Vec<TaggedAction> {
     let mut result: Vec<TaggedAction> = vec![];
-    if extra_modifiers.len() > 0 {
+    if !extra_modifiers.is_empty() {
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
         result.push(TaggedAction {
             action: KeymapAction::SetExtraModifiers(extra_modifiers.clone()),
@@ -747,14 +752,14 @@ fn with_extra_modifiers(
         action: action.clone(),
         exact_match,
     }));
-    if extra_modifiers.len() > 0 {
+    if !extra_modifiers.is_empty() {
         // Resurrect the modifier status
         result.push(TaggedAction {
             action: KeymapAction::SetExtraModifiers(vec![]),
             exact_match,
         });
     }
-    return result;
+    result
 }
 
 fn contains_modifier(modifiers: &Vec<Modifier>, key: &Key) -> bool {
