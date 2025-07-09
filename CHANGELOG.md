@@ -1,3 +1,7 @@
+## v0.10.13
+
+- Accept key sequences in `timeout_key` [#565](https://github.com/xremap/xremap/pull/565)
+
 ## v0.10.12
 
 - Add `{ press: }`, `{ repeat: }`, and `{ release: }` keymap actions [#678](https://github.com/xremap/xremap/pull/678)
