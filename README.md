@@ -139,7 +139,7 @@ The following can be used on NixOS.
 Ensure `uninput` is enabled in your `configuration.nix`:
 
 ```nix
-hardward.uinput.enable = true;
+hardware.uinput.enable = true;
 boot.kernelModules = [ "uinput" ];
 ```
 
