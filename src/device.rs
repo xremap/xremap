@@ -18,6 +18,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::{io, process};
+use std::time::Duration;
 #[cfg(feature = "udev")]
 use udev::DeviceType;
 
@@ -258,7 +259,23 @@ impl AsRawFd for InputDevice {
 
 /// Device Wrappers Abstractions
 impl InputDevice {
+    pub fn wait_for_all_keys_up(&self) {
+        for _ in 0..50 {
+            let count = self.device.get_key_state().unwrap().iter().count();
+
+            if count == 0 {
+                return;
+            }
+
+            std::thread::sleep(Duration::from_millis(100));
+        }
+
+        panic!("Can't start xremap when keys are pressed.");
+    }
+
     pub fn grab(&mut self) -> bool {
+        self.wait_for_all_keys_up();
+
         if let Err(error) = self.device.grab() {
             println!("Failed to grab device '{}' at '{}' due to: {error}", self.device_name(), self.path.display());
             false
