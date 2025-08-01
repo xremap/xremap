@@ -277,9 +277,27 @@ sudo RUST_LOG=debug xremap config.yml
 
 Then press the key you want to know the name of.
 
-If you specify a map containing `held` and `alone`, you can use the key for two purposes.
-The key is considered `alone` if it's pressed and released within `alone_timeout_millis` (default: 1000)
-before any other key is pressed. Otherwise it's considered `held`.
+If you specify a map containing `held` and `alone`, you can use the key for two purposes. By default, the behavior is determined by a timeout:
+- If the key is pressed and released within `alone_timeout_millis` (default: 1000) without any other key being pressed, it's considered `alone`.
+- If the key is held down longer than the timeout, it's considered `held`.
+
+This can be problematic if you want to use a key as a modifier, as you might trigger the `held` action by simply holding the key for too long.
+
+The `free_hold: true` option provides a different behavior for these multi-purpose keys. When enabled:
+- The `held` action is *only* triggered when another key is pressed while the multi-purpose key is being held down. The timeout is ignored for the `held` action.
+- If the key is released without any other key being pressed, it triggers the `alone` action, regardless of how long it was held.
+
+This allows a key to be held indefinitely without triggering its `held` state, which is ideal for keys that also serve as modifiers. For example, you can make the `Space` key act as `Shift` when held and combined with another key, but still type a regular `Space` when tapped.
+
+```yml
+modmap:
+  - name: Space as Shift
+    remap:
+      Space:
+        held: Shift_L
+        alone: Space
+        free_hold: true
+```
 
 ### keymap
 

@@ -284,7 +284,7 @@ impl EventHandler {
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
-    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut Vec<(Key, i32)>) {
+    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut [(Key, i32)]) {
         // Not handling multi-purpose keysfor now; too complicated
         if events.len() != 1 || value != events[0].1 {
             return;
@@ -315,27 +315,36 @@ impl EventHandler {
                 held,
                 alone,
                 alone_timeout,
+                free_hold,
             }) => {
-                if value == PRESS {
-                    self.multi_purpose_keys.insert(
-                        key,
-                        MultiPurposeKeyState {
-                            held,
-                            alone,
-                            alone_timeout_at: Some(Instant::now() + alone_timeout),
-                        },
-                    );
-                    return Ok(vec![]); // delay the press
-                } else if value == REPEAT {
-                    if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
-                        return Ok(state.repeat());
+                match value {
+                    PRESS => {
+                        self.multi_purpose_keys.insert(
+                            key,
+                            MultiPurposeKeyState {
+                                held,
+                                alone,
+                                alone_timeout_at: if free_hold {
+                                    None
+                                } else {
+                                    Some(Instant::now() + alone_timeout)
+                                },
+                                held_down: false,
+                            },
+                        );
+                        return Ok(vec![]); // delay the press
                     }
-                } else if value == RELEASE {
-                    if let Some(state) = self.multi_purpose_keys.remove(&key) {
-                        return Ok(state.release());
+                    REPEAT => {
+                        if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
+                            return Ok(state.repeat());
+                        }
                     }
-                } else {
-                    panic!("unexpected key event value: {value}");
+                    RELEASE => {
+                        if let Some(state) = self.multi_purpose_keys.remove(&key) {
+                            return Ok(state.release());
+                        }
+                    }
+                    _ => panic!("unexpected key event value: {value}"),
                 }
                 // fallthrough on state discrepancy
                 vec![(key, value)]
@@ -348,29 +357,25 @@ impl EventHandler {
             }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
+                let actions_to_dispatch = match value {
+                    PRESS => press,
+                    RELEASE => release,
+                    _ => repeat,
+                };
                 self.dispatch_actions(
-                    &(if value == PRESS {
-                        press
-                    } else if value == RELEASE {
-                        release
-                    } else {
-                        repeat
-                    })
-                    .into_iter()
-                    .map(|action| TaggedAction {
-                        action,
-                        exact_match: false,
-                    })
-                    .collect(),
+                    &actions_to_dispatch
+                        .into_iter()
+                        .map(|action| TaggedAction {
+                            action,
+                            exact_match: false,
+                        })
+                        .collect(),
                     &key,
                 )?;
 
-                if skip_key_event {
-                    // Do not dispatch the original key
-                    vec![]
-                } else {
-                    // dispatch the original key
-                    vec![(key, value)]
+                match skip_key_event {
+                    true => vec![],              // do not dispatch the original key
+                    false => vec![(key, value)], // dispatch the original key
                 }
             }
         };
@@ -391,6 +396,17 @@ impl EventHandler {
             for (_, state) in self.multi_purpose_keys.iter_mut() {
                 flushed.extend(state.force_held());
             }
+
+            // filter out key presses that are part of the flushed events
+            let flushed_presses: HashSet<Key> = flushed
+                .iter()
+                .filter_map(|(k, v)| (*v == PRESS).then_some(*k))
+                .collect();
+            let key_values: Vec<(Key, i32)> = key_values
+                .into_iter()
+                .filter(|(key, value)| !(*value == PRESS && flushed_presses.contains(key)))
+                .collect();
+
             flushed.extend(key_values);
             flushed
         } else {
@@ -618,7 +634,7 @@ impl EventHandler {
     }
 
     // Return (extra_modifiers, missing_modifiers)
-    fn diff_modifiers(&self, modifiers: &Vec<Modifier>) -> (Vec<Key>, Vec<Key>) {
+    fn diff_modifiers(&self, modifiers: &[Modifier]) -> (Vec<Key>, Vec<Key>) {
         let extra_modifiers: Vec<Key> = self
             .modifiers
             .iter()
@@ -718,7 +734,7 @@ impl EventHandler {
     }
 }
 
-fn is_remap(actions: &Vec<KeymapAction>) -> bool {
+fn is_remap(actions: &[KeymapAction]) -> bool {
     if actions.is_empty() {
         // When actions is empty it could either be regarded as an empty remap
         //  or no actions. In principle that shouldn't matter, but remap is
@@ -729,22 +745,15 @@ fn is_remap(actions: &Vec<KeymapAction>) -> bool {
         return false;
     }
 
-    actions.iter().all(|x| match x {
-        KeymapAction::Remap(..) => true,
-        _ => false,
-    })
+    actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
 }
 
-fn with_extra_modifiers(
-    actions: &Vec<KeymapAction>,
-    extra_modifiers: &Vec<Key>,
-    exact_match: bool,
-) -> Vec<TaggedAction> {
+fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> Vec<TaggedAction> {
     let mut result: Vec<TaggedAction> = vec![];
     if !extra_modifiers.is_empty() {
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
         result.push(TaggedAction {
-            action: KeymapAction::SetExtraModifiers(extra_modifiers.clone()),
+            action: KeymapAction::SetExtraModifiers(extra_modifiers.to_vec()),
             exact_match,
         });
     }
@@ -762,7 +771,7 @@ fn with_extra_modifiers(
     result
 }
 
-fn contains_modifier(modifiers: &Vec<Modifier>, key: &Key) -> bool {
+fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
     for modifier in modifiers {
         if match modifier {
             Modifier::Shift => key == &Key::KEY_LEFTSHIFT || key == &Key::KEY_RIGHTSHIFT,
@@ -801,9 +810,9 @@ fn is_pressed(value: i32) -> bool {
 }
 
 // InputEvent#value
-static RELEASE: i32 = 0;
-static PRESS: i32 = 1;
-static REPEAT: i32 = 2;
+const RELEASE: i32 = 0;
+const PRESS: i32 = 1;
+const REPEAT: i32 = 2;
 
 // ---
 
@@ -813,67 +822,80 @@ struct MultiPurposeKeyState {
     alone: Keys,
     // Some if the first press is still delayed, None if already considered held.
     alone_timeout_at: Option<Instant>,
+    held_down: bool,
 }
 
 impl MultiPurposeKeyState {
     fn repeat(&mut self) -> Vec<(Key, i32)> {
-        if let Some(alone_timeout_at) = &self.alone_timeout_at {
-            if Instant::now() < *alone_timeout_at {
+        match self.alone_timeout_at {
+            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => {
                 vec![] // still delay the press
-            } else {
-                self.alone_timeout_at = None; // timeout
+            }
+            Some(_) => {
+                // timeout
+                self.alone_timeout_at = None;
                 let mut keys = self.held.clone().into_vec();
                 keys.sort_by(modifiers_first);
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
-        } else {
-            let mut keys = self.held.clone().into_vec();
-            keys.sort_by(modifiers_first);
-            keys.into_iter().map(|key| (key, REPEAT)).collect()
+            None => {
+                let mut keys = self.held.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                keys.into_iter().map(|key| (key, REPEAT)).collect()
+            }
         }
     }
 
     fn release(&self) -> Vec<(Key, i32)> {
-        if let Some(alone_timeout_at) = &self.alone_timeout_at {
-            if Instant::now() < *alone_timeout_at {
-                // dispatch the delayed press and this release
-                let mut release_keys = self.alone.clone().into_vec();
-                release_keys.sort_by(modifiers_last);
-                let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
-
-                let mut keys = self.alone.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
-                keys.extend(release_keys);
-                keys
-            } else {
-                // dispatch the delayed press and this release
-                let mut release_keys = self.held.clone().into_vec();
-                release_keys.sort_by(modifiers_last);
-                let release_keys: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
-
-                let mut keys = self.held.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                let mut keys: Vec<(Key, i32)> = keys.into_iter().map(|key| (key, PRESS)).collect();
-                keys.extend(release_keys);
-                keys
-            }
-        } else {
-            let mut release_keys = self.held.clone().into_vec();
-            release_keys.sort_by(modifiers_last);
-            release_keys.into_iter().map(|key| (key, RELEASE)).collect()
+        match self.alone_timeout_at {
+            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => self.press_and_release(&self.alone),
+            Some(_) => self.press_and_release(&self.held),
+            None => match self.held_down {
+                true => {
+                    let mut release_keys = self.held.clone().into_vec();
+                    release_keys.sort_by(modifiers_last);
+                    release_keys.into_iter().map(|key| (key, RELEASE)).collect()
+                }
+                false => self.press_and_release(&self.alone),
+            },
         }
     }
 
     fn force_held(&mut self) -> Vec<(Key, i32)> {
-        if self.alone_timeout_at.is_some() {
-            self.alone_timeout_at = None;
+        let press = match self.alone_timeout_at {
+            Some(_) => {
+                self.alone_timeout_at = None;
+                true
+            }
+            None => {
+                if !self.held_down {
+                    self.held_down = true;
+                    true
+                } else {
+                    false
+                }
+            }
+        };
+
+        if press {
             let mut keys = self.held.clone().into_vec();
-            keys.sort_by(modifiers_last);
+            keys.sort_by(modifiers_first);
             keys.into_iter().map(|key| (key, PRESS)).collect()
         } else {
             vec![]
         }
+    }
+
+    fn press_and_release(&self, keys_to_use: &Keys) -> Vec<(Key, i32)> {
+        let mut release_keys = keys_to_use.clone().into_vec();
+        release_keys.sort_by(modifiers_last);
+        let release_events: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
+
+        let mut press_keys = keys_to_use.clone().into_vec();
+        press_keys.sort_by(modifiers_first);
+        let mut events: Vec<(Key, i32)> = press_keys.into_iter().map(|key| (key, PRESS)).collect();
+        events.extend(release_events);
+        events
     }
 }
 
