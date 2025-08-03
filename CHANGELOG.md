@@ -1,3 +1,8 @@
+## v0.10.14
+
+- Add `free_hold` option to `held`/`alone` keys [#705](https://github.com/xremap/xremap/pull/705)
+- Wait for all keys to be released on boot [#710](https://github.com/xremap/xremap/pull/710)
+
 ## v0.10.13
 
 - Accept key sequences in `timeout_key` [#565](https://github.com/xremap/xremap/pull/565)
