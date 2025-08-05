@@ -237,6 +237,7 @@ modmap:
       # Dispatch different keys depending on whether you hold it or tap it
       KEY_XXX2:
         held: KEY_YYY # Required, also accepts arrays
+        held_threshold_millis: 0 # Optional
         tap: KEY_ZZZ # Required, also accepts arrays
         tap_timeout_millis: 1000 # Optional
       # Hook `keymap` action on key press/release events.
