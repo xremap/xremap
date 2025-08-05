@@ -852,21 +852,14 @@ impl MultiPurposeKeyState {
 
     fn release(&self) -> Vec<(Key, i32)> {
         match self.tap_timeout_at {
-            Some(tap_timeout_at) if Instant::now() < tap_timeout_at => {
-                debug!("Release match Some(tap) : {:?}", self);
-                self.press_and_release(&self.tap)
-            }
+            Some(tap_timeout_at) if Instant::now() < tap_timeout_at => self.press_and_release(&self.tap),
             Some(_) | None => match self.held_down {
                 true => {
-                    debug!("Release match None true : {:?}", self);
                     let mut release_keys = self.held.clone().into_vec();
                     release_keys.sort_by(modifiers_last);
                     release_keys.into_iter().map(|key| (key, RELEASE)).collect()
                 }
-                false => {
-                    debug!("Release match None false : {:?}", self);
-                    self.press_and_release(&self.tap)
-                }
+                false => self.press_and_release(&self.tap),
             },
         }
     }
