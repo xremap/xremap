@@ -872,41 +872,22 @@ impl MultiPurposeKeyState {
     }
 
     fn force_held(&mut self) -> Vec<(Key, i32)> {
-        enum HeldAction {
-            SendTap,
-            SendHeld,
-            AlreadyHeld,
-        }
-        use HeldAction::*;
-
-        let flag = match (self.tap_timeout_at, self.held_threshold_at) {
-            (Some(_), Some(held_threshold_at)) if Instant::now() < held_threshold_at => {
+        match (self.tap_timeout_at, self.held_threshold_at) {
+            // If it is before the held_threshold then act as a tap
+            (Some(_), Some(threshold)) if Instant::now() < threshold => {
                 self.held_down = false;
-                SendTap
+                self.press_without_release(&self.tap)
             }
-            (Some(_), _) => {
+            // If it is after the held_threshold then act as held
+            (Some(_), _) | (_, _) if !self.held_down => {
                 self.tap_timeout_at = None;
                 self.held_down = true;
-                SendHeld
-            }
-            _ => {
-                if !self.held_down {
-                    self.held_down = true;
-                    SendHeld
-                } else {
-                    AlreadyHeld
-                }
-            }
-        };
-
-        match flag {
-            SendTap => self.press_without_release(&self.tap),
-            SendHeld => {
                 let mut keys = self.held.clone().into_vec();
                 keys.sort_by(modifiers_first);
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
-            AlreadyHeld => vec![],
+            // If it already counts as held then no need to update
+            _ => vec![],
         }
     }
 
