@@ -18,7 +18,7 @@
 - Remap any keys, e.g. Ctrl or CapsLock.
 - Remap any key combination to another, even to a key sequence.
 - Remap a key sequence as well. You could do something like Emacs's `C-x C-c`.
-- Remap a key to two different keys depending on whether it's pressed alone or held.
+- Remap a key to two different keys depending on whether it's tapped or held.
 - Application-specific remapping. Even if it's not supported by your application, xremap can.
 - Device-specific remapping.
 - Automatically remap newly connected devices by starting xremap with `--watch`.
@@ -234,11 +234,11 @@ modmap:
     remap: # Required
       # Replace a key with another
       KEY_XXX1: KEY_YYY # Required
-      # Dispatch different keys depending on whether you hold it or press it alone
+      # Dispatch different keys depending on whether you hold it or tap it
       KEY_XXX2:
         held: KEY_YYY # Required, also accepts arrays
-        alone: KEY_ZZZ # Required, also accepts arrays
-        alone_timeout_millis: 1000 # Optional
+        tap: KEY_ZZZ # Required, also accepts arrays
+        tap_timeout_millis: 1000 # Optional
       # Hook `keymap` action on key press/release events.
       KEY_XXX3:
         skip_key_event: true # Optional, skip original key event, defaults to false
@@ -277,15 +277,16 @@ sudo RUST_LOG=debug xremap config.yml
 
 Then press the key you want to know the name of.
 
-If you specify a map containing `held` and `alone`, you can use the key for two purposes. By default, the behavior is determined by a timeout:
-- If the key is pressed and released within `alone_timeout_millis` (default: 1000) without any other key being pressed, it's considered `alone`.
-- If the key is held down longer than the timeout, it's considered `held`.
+If you specify a map containing `held` and `tap`, you can use the key for two purposes. By default, the behavior is determined by a timeout and a threshold:
+- If the key is pressed and held less than `held_threshold_millis` (default: 0) it will send the `tap` action when released or if another key is pressed.
+- If the key is pressed and held longer than `held_threshold_millis` but shorter than `tap_timeout_millis` (default: 1000) it will send the `tap` key if released alone or `held` if another key is pressed.
+- If the key is held down longer than both `held_threshold_millis` and `tap_timeout_millis` it will send the `held` key.
 
 This can be problematic if you want to use a key as a modifier, as you might trigger the `held` action by simply holding the key for too long.
 
 The `free_hold: true` option provides a different behavior for these multi-purpose keys. When enabled:
 - The `held` action is *only* triggered when another key is pressed while the multi-purpose key is being held down. The timeout is ignored for the `held` action.
-- If the key is released without any other key being pressed, it triggers the `alone` action, regardless of how long it was held.
+- If the key is released without any other key being pressed, it triggers the `tap` action, regardless of how long it was held.
 
 This allows a key to be held indefinitely without triggering its `held` state, which is ideal for keys that also serve as modifiers. For example, you can make the `Space` key act as `Shift` when held and combined with another key, but still type a regular `Space` when tapped.
 
@@ -295,7 +296,7 @@ modmap:
     remap:
       Space:
         held: Shift_L
-        alone: Space
+        tap: Space
         free_hold: true
 ```
 
