@@ -320,8 +320,9 @@ impl EventHandler {
                 .collect(),
             ModmapAction::MultiPurposeKey(MultiPurposeKey {
                 held,
-                alone,
-                alone_timeout,
+                tap,
+                held_threshold,
+                tap_timeout,
                 free_hold,
             }) => {
                 match value {
@@ -330,11 +331,12 @@ impl EventHandler {
                             key,
                             MultiPurposeKeyState {
                                 held,
-                                alone,
-                                alone_timeout_at: if free_hold {
+                                tap,
+                                held_threshold_at: Some(Instant::now() + held_threshold),
+                                tap_timeout_at: if free_hold {
                                     None
                                 } else {
-                                    Some(Instant::now() + alone_timeout)
+                                    Some(Instant::now() + tap_timeout)
                                 },
                                 held_down: false,
                             },
@@ -828,22 +830,24 @@ pub const REPEAT: i32 = 2;
 #[derive(Debug)]
 struct MultiPurposeKeyState {
     held: Keys,
-    alone: Keys,
+    tap: Keys,
+    #[allow(warnings)]
+    held_threshold_at: Option<Instant>,
     // Some if the first press is still delayed, None if already considered held.
-    alone_timeout_at: Option<Instant>,
+    tap_timeout_at: Option<Instant>,
     // Whether the multipurpose key is considered to be held down, and key presses has been emitted.
     held_down: bool,
 }
 
 impl MultiPurposeKeyState {
     fn repeat(&mut self) -> Vec<(Key, i32)> {
-        match self.alone_timeout_at {
-            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => {
+        match self.tap_timeout_at {
+            Some(tap_timeout_at) if Instant::now() < tap_timeout_at => {
                 vec![] // still delay the press
             }
             Some(_) => {
                 // timeout
-                self.alone_timeout_at = None;
+                self.tap_timeout_at = None;
                 self.held_down = true;
                 let mut keys = self.held.clone().into_vec();
                 keys.sort_by(modifiers_first);
@@ -862,8 +866,8 @@ impl MultiPurposeKeyState {
     }
 
     fn release(&self) -> Vec<(Key, i32)> {
-        match self.alone_timeout_at {
-            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => self.press_and_release(&self.alone),
+        match self.tap_timeout_at {
+            Some(tap_timeout_at) if Instant::now() < tap_timeout_at => self.press_and_release(&self.tap),
             Some(_) => self.press_and_release(&self.held),
             None => match self.held_down {
                 true => {
@@ -871,7 +875,7 @@ impl MultiPurposeKeyState {
                     release_keys.sort_by(modifiers_last);
                     release_keys.into_iter().map(|key| (key, RELEASE)).collect()
                 }
-                false => self.press_and_release(&self.alone),
+                false => self.press_and_release(&self.tap),
             },
         }
     }
@@ -879,9 +883,9 @@ impl MultiPurposeKeyState {
     // Other keys were pressed, so the multipurpose key
     // should emit presses of its held-value.
     fn force_held(&mut self) -> Vec<(Key, i32)> {
-        let press = match self.alone_timeout_at {
+        let press = match self.tap_timeout_at {
             Some(_) => {
-                self.alone_timeout_at = None;
+                self.tap_timeout_at = None;
                 self.held_down = true;
                 true
             }

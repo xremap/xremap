@@ -56,12 +56,12 @@ fn test_yaml_modmap_multi_purpose_key() {
       - remap:
           Space:
             held: Shift_L
-            alone: Space
+            tap: Space
       - remap:
           Muhenkan:
             held: Alt_L
-            alone: Muhenkan
-            alone_timeout_millis: 500
+            tap: Muhenkan
+            tap_timeout_millis: 500
     "})
 }
 #[test]
@@ -71,7 +71,7 @@ fn test_yaml_modmap_multi_purpose_key_without_timeout() {
       - remap:
           Space:
             held: Shift_L
-            alone: Space
+            tap: Space
             free_hold: true
     "})
     // NOTE: add edge cases tests for when timeout = default
@@ -84,12 +84,12 @@ fn test_yaml_modmap_multi_purpose_key_multi_key() {
       - remap:
           Space:
             held: [Shift_L]
-            alone: [Shift_L,A]
+            tap: [Shift_L,A]
       - remap:
           Muhenkan:
             held: [Alt_L,Shift_L]
-            alone: [Muhenkan]
-            alone_timeout_millis: 500
+            tap: [Muhenkan]
+            tap_timeout_millis: 500
     "})
 }
 
@@ -529,13 +529,13 @@ fn test_toml_modmap_multi_purpose_key() {
     [[modmap]]
     [modmap.remap.Space]
     held = [ \"Shift_L\" ]
-    alone = \"Space\"
+    tap = \"Space\"
 
     [[modmap]]
     [modmap.remap.Muhenkan]
     held = [ \"Alt_L\", \"Shift_L\" ]
-    alone = [ \"Muhenkan\" ]
-    alone_timeout_millis = 500
+    tap = [ \"Muhenkan\" ]
+    tap_timeout_millis = 500
     "})
 }
 
@@ -545,13 +545,13 @@ fn test_toml_modmap_multi_purpose_key_multi_key() {
     [[modmap]]
     [modmap.remap.Space]
     held = [ \"Shift_L\" ]
-    alone = [ \"Shift_L\", \"A\" ]
+    tap = [ \"Shift_L\", \"A\" ]
 
     [[modmap]]
     [modmap.remap.Muhenkan]
     held = [ \"Alt_L\", \"Shift_L\" ]
-    alone = [ \"Muhenkan\" ]
-    alone_timeout_millis = 500
+    tap = [ \"Muhenkan\" ]
+    tap_timeout_millis = 500
     "})
 }
 #[test]
