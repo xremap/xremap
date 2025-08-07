@@ -122,15 +122,39 @@ impl EventHandler {
         let key = Key::new(event.code());
         debug!("=> {}: {:?}", event.value(), &key);
 
+        let mut is_multi_key = false;
+        let mut multi_key_time: Option<Instant> = None;
+
         // Apply modmap
         let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, device) {
+            is_multi_key = matches!(key_action, ModmapAction::MultiPurposeKey(_));
+
+            // If it's a multipurpose key, try to get its time_added
+            if is_multi_key {
+                if let Some(state) = self.multi_purpose_keys.get(&key) {
+                    multi_key_time = Some(state.time_added);
+                }
+            }
+
             self.dispatch_keys(key_action, key, event.value())?
         } else {
             vec![(key, event.value())]
         };
+
         self.maintain_pressed_keys(key, event.value(), &mut key_values);
-        if !self.multi_purpose_keys.is_empty() {
-            key_values = self.flush_timeout_keys(key_values);
+
+        // Decide whether to flush
+        let should_flush = match (is_multi_key, multi_key_time) {
+            // not a multipurpose key => flush
+            (false, _) if !self.multi_purpose_keys.is_empty() => true,
+            // if there are earlier multi-purpose keys => flush those
+            (true, Some(time)) => self.multi_purpose_keys.values().any(|state| state.time_added < time),
+            // default fallback
+            _ => false,
+        };
+
+        if should_flush {
+            key_values = self.flush_timeout_keys(key_values, multi_key_time);
         }
 
         let mut send_original_relative_event = false;
@@ -332,6 +356,7 @@ impl EventHandler {
                                     Some(Instant::now() + tap_timeout)
                                 },
                                 held_down: false,
+                                time_added: Instant::now(),
                             },
                         );
                         return Ok(vec![]); // delay the press
@@ -384,7 +409,7 @@ impl EventHandler {
         Ok(keys)
     }
 
-    fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
+    fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>, cutoff_time: Option<Instant>) -> Vec<(Key, i32)> {
         let mut flush = false;
         for (_, value) in key_values.iter() {
             if *value == PRESS {
@@ -394,9 +419,18 @@ impl EventHandler {
         }
 
         if flush {
-            let mut flushed: Vec<(Key, i32)> = vec![];
-            for (_, state) in self.multi_purpose_keys.iter_mut() {
-                flushed.extend(state.force_held());
+            let mut states: Vec<_> = self.multi_purpose_keys.iter_mut().collect();
+            states.sort_by_key(|(_, state)| state.time_added);
+
+            let mut flushed = Vec::new();
+            for (_, state) in states {
+                if let Some(cutoff_time) = cutoff_time {
+                    if state.time_added >= cutoff_time {
+                        // Skip newer multi_purpose_keys on release of old ones
+                        continue;
+                    }
+                }
+                flushed.extend(state.force_hold());
             }
 
             // filter out key presses that are part of the flushed events
@@ -826,6 +860,7 @@ struct MultiPurposeKeyState {
     tap_timeout_at: Option<Instant>,
     hold_threshold_at: Option<Instant>,
     held_down: bool,
+    time_added: Instant,
 }
 
 impl MultiPurposeKeyState {
