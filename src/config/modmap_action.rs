@@ -21,12 +21,17 @@ pub enum ModmapAction {
 #[serde_as]
 #[derive(Clone, Debug, Deserialize)]
 pub struct MultiPurposeKey {
-    pub held: Keys,
+    #[serde(alias = "held")]
+    pub hold: Keys,
     #[serde(alias = "alone")]
     pub tap: Keys,
     #[serde_as(as = "DurationMilliSeconds")]
-    #[serde(default = "default_held_threshold", rename = "held_threshold_millis")]
-    pub held_threshold: Duration,
+    #[serde(
+        default = "default_hold_threshold",
+        alias = "hold_threshold_millis",
+        alias = "held_threshold_millis"
+    )]
+    pub hold_threshold: Duration,
     #[serde_as(as = "DurationMilliSeconds")]
     #[serde(
         default = "default_tap_timeout",
@@ -80,7 +85,7 @@ fn default_tap_timeout() -> Duration {
     Duration::from_millis(1000)
 }
 
-fn default_held_threshold() -> Duration {
+fn default_hold_threshold() -> Duration {
     Duration::from_millis(0)
 }
 

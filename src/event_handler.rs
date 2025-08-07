@@ -319,9 +319,9 @@ impl EventHandler {
                 .map(|modmap_key| (modmap_key, value))
                 .collect(),
             ModmapAction::MultiPurposeKey(MultiPurposeKey {
-                held,
+                hold,
                 tap,
-                held_threshold,
+                hold_threshold,
                 tap_timeout,
                 free_hold,
             }) => {
@@ -330,9 +330,9 @@ impl EventHandler {
                         self.multi_purpose_keys.insert(
                             key,
                             MultiPurposeKeyState {
-                                held,
+                                hold,
                                 tap,
-                                held_threshold_at: Some(Instant::now() + held_threshold),
+                                hold_threshold_at: Some(Instant::now() + hold_threshold),
                                 tap_timeout_at: if free_hold {
                                     None
                                 } else {
@@ -403,7 +403,7 @@ impl EventHandler {
         if flush {
             let mut flushed: Vec<(Key, i32)> = vec![];
             for (_, state) in self.multi_purpose_keys.iter_mut() {
-                flushed.extend(state.force_held());
+                flushed.extend(state.force_hold());
             }
 
             // filter out key presses that are part of the flushed events
@@ -829,10 +829,10 @@ pub const REPEAT: i32 = 2;
 
 #[derive(Debug)]
 struct MultiPurposeKeyState {
-    held: Keys,
+    hold: Keys,
     tap: Keys,
     #[allow(warnings)]
-    held_threshold_at: Option<Instant>,
+    hold_threshold_at: Option<Instant>,
     // Some if the first press is still delayed, None if already considered held.
     tap_timeout_at: Option<Instant>,
     // Whether the multipurpose key is considered to be held down, and key presses has been emitted.
@@ -849,7 +849,7 @@ impl MultiPurposeKeyState {
                 // timeout
                 self.tap_timeout_at = None;
                 self.held_down = true;
-                let mut keys = self.held.clone().into_vec();
+                let mut keys = self.hold.clone().into_vec();
                 keys.sort_by(modifiers_first);
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
@@ -857,7 +857,7 @@ impl MultiPurposeKeyState {
                 if !self.held_down {
                     vec![] // still delay the press
                 } else {
-                    let mut keys = self.held.clone().into_vec();
+                    let mut keys = self.hold.clone().into_vec();
                     keys.sort_by(modifiers_first);
                     keys.into_iter().map(|key| (key, REPEAT)).collect()
                 }
@@ -868,10 +868,10 @@ impl MultiPurposeKeyState {
     fn release(&self) -> Vec<(Key, i32)> {
         match self.tap_timeout_at {
             Some(tap_timeout_at) if Instant::now() < tap_timeout_at => self.press_and_release(&self.tap),
-            Some(_) => self.press_and_release(&self.held),
+            Some(_) => self.press_and_release(&self.hold),
             None => match self.held_down {
                 true => {
-                    let mut release_keys = self.held.clone().into_vec();
+                    let mut release_keys = self.hold.clone().into_vec();
                     release_keys.sort_by(modifiers_last);
                     release_keys.into_iter().map(|key| (key, RELEASE)).collect()
                 }
@@ -882,7 +882,7 @@ impl MultiPurposeKeyState {
 
     // Other keys were pressed, so the multipurpose key
     // should emit presses of its held-value.
-    fn force_held(&mut self) -> Vec<(Key, i32)> {
+    fn force_hold(&mut self) -> Vec<(Key, i32)> {
         let press = match self.tap_timeout_at {
             Some(_) => {
                 self.tap_timeout_at = None;
@@ -900,7 +900,7 @@ impl MultiPurposeKeyState {
         };
 
         if press {
-            let mut keys = self.held.clone().into_vec();
+            let mut keys = self.hold.clone().into_vec();
             keys.sort_by(modifiers_first);
             keys.into_iter().map(|key| (key, PRESS)).collect()
         } else {
