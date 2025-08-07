@@ -58,11 +58,11 @@ fn test_yaml_modmap_multi_purpose_key() {
     modmap:
       - remap:
           Space:
-            held: Shift_L
+            hold: Shift_L
             tap: Space
       - remap:
           Muhenkan:
-            held: Alt_L
+            hold: Alt_L
             tap: Muhenkan
             tap_timeout_millis: 500
     "})
@@ -73,7 +73,7 @@ fn test_yaml_modmap_multi_purpose_key_without_timeout() {
     modmap:
       - remap:
           Space:
-            held: Shift_L
+            hold: Shift_L
             tap: Space
             free_hold: true
     "})
@@ -86,11 +86,11 @@ fn test_yaml_modmap_multi_purpose_key_multi_key() {
     modmap:
       - remap:
           Space:
-            held: [Shift_L]
+            hold: [Shift_L]
             tap: [Shift_L,A]
       - remap:
           Muhenkan:
-            held: [Alt_L,Shift_L]
+            hold: [Alt_L,Shift_L]
             tap: [Muhenkan]
             tap_timeout_millis: 500
     "})
@@ -357,12 +357,12 @@ fn test_toml_modmap_multi_purpose_key() {
     toml_assert_parse(indoc! {"
     [[modmap]]
     [modmap.remap.Space]
-    held = [ \"Shift_L\" ]
+    hold = [ \"Shift_L\" ]
     tap = \"Space\"
 
     [[modmap]]
     [modmap.remap.Muhenkan]
-    held = [ \"Alt_L\", \"Shift_L\" ]
+    hold = [ \"Alt_L\", \"Shift_L\" ]
     tap = [ \"Muhenkan\" ]
     tap_timeout_millis = 500
     "})
@@ -373,12 +373,12 @@ fn test_toml_modmap_multi_purpose_key_multi_key() {
     toml_assert_parse(indoc! {"
     [[modmap]]
     [modmap.remap.Space]
-    held = [ \"Shift_L\" ]
+    hold = [ \"Shift_L\" ]
     tap = [ \"Shift_L\", \"A\" ]
 
     [[modmap]]
     [modmap.remap.Muhenkan]
-    held = [ \"Alt_L\", \"Shift_L\" ]
+    hold = [ \"Alt_L\", \"Shift_L\" ]
     tap = [ \"Muhenkan\" ]
     tap_timeout_millis = 500
     "})
