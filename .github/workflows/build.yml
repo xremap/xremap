@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
-        feature: [x11, gnome, kde, hypr, wlroots]
+        feature: [x11, gnome, kde, hypr, wlroots, niri]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -107,6 +107,7 @@ jobs:
       - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-kde,     path: package/ } }
       - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-hypr,    path: package/ } }
       - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-wlroots, path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-niri,    path: package/ } }
 
       # Fetch aarch64 binary
       - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-x11,     path: package/ } }
@@ -114,6 +115,7 @@ jobs:
       - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-kde,     path: package/ } }
       - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-hypr,    path: package/ } }
       - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-wlroots, path: package/ } }
+      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-niri,    path: package/ } }
 
       # Release binary
       - name: Release
