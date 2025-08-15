@@ -39,6 +39,7 @@ cargo install xremap --features gnome   # GNOME Wayland
 cargo install xremap --features kde     # KDE-Plasma Wayland
 cargo install xremap --features wlroots # Sway, Wayfire, etc.
 cargo install xremap --features hypr    # Hyprland
+cargo install xremap --features niri    # Niri
 cargo install xremap                    # Others
 ```
 
@@ -197,6 +198,14 @@ Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
 
 Xremap cannot be run as root. Follow the instructions above to run xremap without sudo.
 
+### Niri
+
+If you use `sudo` to run `xremap`, you need to ensure that the `NIRI_SOCKET` env var is available to xremap:
+
+```bash
+sudo NIRI_SOCKET="$NIRI_SOCKET" xremap config.yml
+```
+
 ## Configuration
 
 Your `config.yml` should look like this:
@@ -249,7 +258,7 @@ modmap:
       not: [Application, ...]
       # or
       only: [Application, ...]
-    window: # Optional (only hyprland/wlroots/kde clients supported)
+    window: # Optional (only hyprland/wlroots/kde/niri clients supported)
       not: [/regex of window title/, ...]
       # or
       only: [/regex of window title/, ...]
@@ -338,7 +347,7 @@ keymap:
       not: [Application, ...]
       # or
       only: [Application, ...]
-    window: # Optional (only hyprland/wlroots/kde clients supported)
+    window: # Optional (only hyprland/wlroots/kde/niri clients supported)
       not: [/regex of window title/, ...]
       # or
       only: [/regex of window title/, ...]
@@ -431,6 +440,14 @@ swaymsg -t get_tree
 ```
 
 Locate `app_id` in the output.
+
+#### Niri
+
+```
+niri msg windows
+```
+
+Locate `App ID` in the output.
 
 #### application-specific key overrides
 

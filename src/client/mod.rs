@@ -98,12 +98,20 @@ pub fn build_client() -> WMClient {
     WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()))
 }
 
+#[cfg(feature = "niri")]
+mod niri_client;
+#[cfg(feature = "niri")]
+pub fn build_client() -> WMClient {
+    WMClient::new("Niri", Box::new(niri_client::NiriClient::new()))
+}
+
 #[cfg(not(any(
     feature = "gnome",
     feature = "x11",
     feature = "hypr",
     feature = "kde",
-    feature = "wlroots"
+    feature = "wlroots",
+    feature = "niri"
 )))]
 mod null_client;
 #[cfg(not(any(
@@ -111,7 +119,8 @@ mod null_client;
     feature = "x11",
     feature = "hypr",
     feature = "kde",
-    feature = "wlroots"
+    feature = "wlroots",
+    feature = "niri"
 )))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))
