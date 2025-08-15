@@ -801,3 +801,52 @@ fn assert_actions_with_current_application(
 
     assert_eq!(format!("{actions:?}"), format!("{:?}", actual));
 }
+
+#[test]
+fn test_virtual_modifier_standalone_press() {
+    // Test that a virtual modifier pressed alone sends the normal key events
+    assert_actions(
+        indoc! {"
+        virtual_modifiers:
+          - CapsLock
+        keymap:
+          - remap:
+              CapsLock-h: left
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_virtual_modifier_combination_press() {
+    // Test that virtual modifier in combination acts as modifier (doesn't send normal key)
+    assert_actions(
+        indoc! {"
+        virtual_modifiers:
+          - CapsLock
+        keymap:
+          - remap:
+              CapsLock-h: left
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_H, KeyValue::Release)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFT, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_H, KeyValue::Release)),
+        ],
+    )
+}

@@ -58,6 +58,8 @@ pub struct EventHandler {
     keypress_delay: Duration,
     // Buffered actions to be dispatched. TODO: Just return actions from each function instead of using this.
     actions: Vec<Action>,
+    // Track virtual modifiers that are pressed but not yet used in combinations
+    pending_virtual_modifiers: HashMap<Key, Instant>,
 }
 
 struct TaggedAction {
@@ -83,6 +85,7 @@ impl EventHandler {
             escape_next_key: false,
             keypress_delay,
             actions: vec![],
+            pending_virtual_modifiers: HashMap::new(),
         }
     }
 
@@ -137,7 +140,7 @@ impl EventHandler {
         // Apply keymap
         for (key, value) in key_values.into_iter() {
             if config.virtual_modifiers.contains(&key) {
-                self.update_modifier(key, value);
+                self.handle_virtual_modifier(key, value);
                 continue;
             } else if MODIFIER_KEYS.contains(&key) {
                 self.update_modifier(key, value);
@@ -145,9 +148,13 @@ impl EventHandler {
                 if self.escape_next_key {
                     self.escape_next_key = false
                 } else if let Some(actions) = self.find_keymap(config, &key, device)? {
+                    // Clear pending virtual modifiers since they're being used in a combination
+                    self.pending_virtual_modifiers.clear();
                     self.dispatch_actions(&actions, &key)?;
                     continue;
                 } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device)? {
+                    // Clear pending virtual modifiers since they're being used in a combination
+                    self.pending_virtual_modifiers.clear();
                     self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
                     continue;
                 }
@@ -396,6 +403,9 @@ impl EventHandler {
             for (_, state) in self.multi_purpose_keys.iter_mut() {
                 flushed.extend(state.force_held());
             }
+
+            // Flush pending virtual modifiers when other keys are pressed
+            self.flush_pending_virtual_modifiers(&mut flushed);
 
             // filter out key presses that are part of the flushed events
             let flushed_presses: HashSet<Key> = flushed
@@ -731,6 +741,37 @@ impl EventHandler {
         } else if value == RELEASE {
             self.modifiers.remove(&key);
         }
+    }
+
+    fn handle_virtual_modifier(&mut self, key: Key, value: i32) {
+        match value {
+            PRESS => {
+                self.update_modifier(key, value);
+                // Record when this virtual modifier was pressed
+                self.pending_virtual_modifiers.insert(key, Instant::now());
+            }
+            RELEASE => {
+                self.update_modifier(key, value);
+                // Check if this virtual modifier should act as a normal key
+                if let Some(_press_time) = self.pending_virtual_modifiers.remove(&key) {
+                    // Virtual modifier was released without being used in a combination
+                    // Send it as a normal key press/release
+                    self.send_key(&key, PRESS);
+                    self.send_key(&key, RELEASE);
+                }
+            }
+            REPEAT => {
+                // For repeat, just update modifier state
+                self.update_modifier(key, value);
+            }
+            _ => {}
+        }
+    }
+
+    fn flush_pending_virtual_modifiers(&mut self, _flushed: &mut Vec<(Key, i32)>) {
+        // When other keys are pressed, pending virtual modifiers should stay as modifiers
+        // and not be sent as normal keys, so we clear them
+        self.pending_virtual_modifiers.clear();
     }
 }
 
