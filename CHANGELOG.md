@@ -1,3 +1,7 @@
+## v0.10.15
+
+- Add Niri client [#720](https://github.com/xremap/xremap/pull/720)
+
 ## v0.10.14
 
 - Add `free_hold` option to `held`/`alone` keys [#705](https://github.com/xremap/xremap/pull/705)
