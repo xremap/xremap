@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::device::{device_watcher, get_input_devices, output_device};
-use crate::event_handler::EventHandler;
+use crate::event_handler::{EventEngine, EventHandler};
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
@@ -29,6 +29,8 @@ mod event;
 mod event_handler;
 #[cfg(test)]
 mod tests;
+// #[cfg(test)]
+// mod type_string_manual;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -149,7 +151,7 @@ fn main() -> anyhow::Result<()> {
                 if let Err(error) =
                     handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::OverrideTimeout])
                 {
-                    println!("Error on remap timeout: {error}")
+                    log::error!("Error on remap timeout: {error}")
                 }
             }
 
@@ -159,7 +161,7 @@ fn main() -> anyhow::Result<()> {
                 }
 
                 if !handle_input_events(input_device, &mut handler, &mut dispatcher, &mut config)? {
-                    println!("Found a removed device. Reselecting devices.");
+                    log::warn!("Found a removed device. Reselecting devices.");
                     break 'event_loop ReloadEvent::ReloadDevices;
                 }
             }
@@ -196,7 +198,7 @@ fn main() -> anyhow::Result<()> {
             }
             ReloadEvent::ReloadConfig => {
                 if let Ok(c) = load_configs(&config_paths) {
-                    println!("Reloading Config");
+                    log::info!("Reloading config");
                     config = c;
                 }
             }
@@ -224,7 +226,7 @@ fn select_readable<'a>(
 // Return false when a removed device is found.
 fn handle_input_events(
     input_device: &mut InputDevice,
-    handler: &mut EventHandler,
+    handler: &mut impl EventEngine,
     dispatcher: &mut ActionDispatcher,
     config: &mut Config,
 ) -> anyhow::Result<bool> {
@@ -244,7 +246,7 @@ fn handle_input_events(
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
 fn handle_events(
-    handler: &mut EventHandler,
+    handler: &mut impl EventEngine,
     dispatcher: &mut ActionDispatcher,
     config: &mut Config,
     events: Vec<Event>,
