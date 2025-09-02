@@ -1,17 +1,24 @@
 use evdev::KeyCode as Key;
 
+use crate::action::Action;
+use crate::config::application::OnlyOrNot;
+use crate::config::key_press::Modifier;
+use crate::config::keymap::OverrideEntry;
 use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_action::ModmapAction;
-use crate::config::application::OnlyOrNot;
 use crate::device::InputDeviceInfo;
 use crate::{config, Config};
-use crate::config::keymap::OverrideEntry;
-use crate::config::key_press::Modifier;
 
-use super::TaggedAction;
 use super::EventHandler;
+use super::TaggedAction;
 
-pub(super) fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
+#[derive(Default)]
+pub struct FindKeymapResult {
+    pub actions: Vec<Action>,
+    pub tagged: Option<Vec<TaggedAction>>,
+}
+
+pub fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
     for modifier in modifiers {
         let matches = match modifier {
             Modifier::Shift => key == &Key::KEY_LEFTSHIFT || key == &Key::KEY_RIGHTSHIFT,
@@ -28,8 +35,7 @@ pub(super) fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
 }
 
 impl EventHandler {
-    // Return (extra_modifiers, missing_modifiers)
-    pub(super) fn diff_modifiers(&self, modifiers: &[Modifier]) -> (Vec<Key>, Vec<Key>) {
+    pub fn diff_modifiers(&self, modifiers: &[Modifier]) -> (Vec<Key>, Vec<Key>) {
         let extra_modifiers: Vec<Key> = self
             .modifiers
             .iter()
@@ -55,7 +61,7 @@ impl EventHandler {
         (extra_modifiers, missing_modifiers)
     }
 
-    pub(super) fn match_modifier(&self, modifier: &Modifier) -> bool {
+    pub fn match_modifier(&self, modifier: &Modifier) -> bool {
         match modifier {
             Modifier::Shift => {
                 self.modifiers.contains(&Key::KEY_LEFTSHIFT) || self.modifiers.contains(&Key::KEY_RIGHTSHIFT)
@@ -71,8 +77,7 @@ impl EventHandler {
         }
     }
 
-    pub(super) fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
-        // Lazily fill the wm_class cache
+    pub fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
         if self.title_cache.is_none() {
             match self.application_client.current_window() {
                 Some(title) => self.title_cache = Some(title),
@@ -91,8 +96,7 @@ impl EventHandler {
         false
     }
 
-    pub(super) fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
-        // Lazily fill the wm_class cache
+    pub fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
         if self.application_cache.is_none() {
             match self.application_client.current_application() {
                 Some(application) => self.application_cache = Some(application),
@@ -111,7 +115,7 @@ impl EventHandler {
         false
     }
 
-    pub(super) fn match_device(&self, device_matcher: &config::device::Device, device: &InputDeviceInfo) -> bool {
+    pub fn match_device(&self, device_matcher: &config::device::Device, device: &InputDeviceInfo) -> bool {
         if let Some(device_only) = &device_matcher.only {
             return device_only.iter().any(|m| device.matches(m));
         }
@@ -121,7 +125,7 @@ impl EventHandler {
         false
     }
 
-    pub(super) fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
+    pub fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(window_matcher) = &modmap.window {
@@ -150,12 +154,13 @@ impl EventHandler {
         None
     }
 
-    pub(super) fn find_keymap(
+    pub fn find_keymap(
         &mut self,
         config: &Config,
         key: &Key,
         device: &InputDeviceInfo,
-    ) -> Result<Option<Vec<TaggedAction>>, Box<dyn std::error::Error>> {
+    ) -> Result<FindKeymapResult, Box<dyn std::error::Error>> {
+        let mut out = FindKeymapResult::default();
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
@@ -180,20 +185,21 @@ impl EventHandler {
                         let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
                         let is_remap = is_remap(&entry.actions);
 
-                        // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
                         if remaps.is_empty() && !is_remap {
-                            return Ok(Some(actions));
+                            out.tagged = Some(actions);
+                            return Ok(out);
                         } else if is_remap {
                             remaps.extend(actions);
                         }
                     }
                     if !remaps.is_empty() {
-                        return Ok(Some(remaps));
+                        out.tagged = Some(remaps);
+                        return Ok(out);
                     }
                 }
             }
-            // An override remap is set but not used. Flush the pending key.
-            self.timeout_override()?;
+
+            out.actions.extend(self.timeout_override()?);
         }
 
         if let Some(entries) = config.keymap_table.get(key) {
@@ -232,37 +238,37 @@ impl EventHandler {
                     let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
                     let is_remap = is_remap(&entry.actions);
 
-                    // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
                     if remaps.is_empty() && !is_remap {
-                        return Ok(Some(actions));
+                        out.tagged = Some(actions);
+                        return Ok(out);
                     } else if is_remap {
                         remaps.extend(actions)
                     }
                 }
                 if !remaps.is_empty() {
-                    return Ok(Some(remaps));
+                    out.tagged = Some(remaps);
+                    return Ok(out);
                 }
             }
         }
-        Ok(None)
+        Ok(out)
     }
 }
 
-pub(super) fn is_remap(actions: &[KeymapAction]) -> bool {
+pub fn is_remap(actions: &[KeymapAction]) -> bool {
     if actions.is_empty() {
         return false;
     }
     actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
 }
 
-pub(super) fn with_extra_modifiers(
+pub fn with_extra_modifiers(
     actions: &[KeymapAction],
     extra_modifiers: &[Key],
     exact_match: bool,
 ) -> Vec<TaggedAction> {
     let mut result: Vec<TaggedAction> = vec![];
     if !extra_modifiers.is_empty() {
-        // Virtually release extra modifiers so that they won't be physically released on KeyPress
         result.push(TaggedAction {
             action: KeymapAction::SetExtraModifiers(extra_modifiers.to_vec()),
             exact_match,
@@ -273,7 +279,6 @@ pub(super) fn with_extra_modifiers(
         exact_match,
     }));
     if !extra_modifiers.is_empty() {
-        // Resurrect the modifier status
         result.push(TaggedAction {
             action: KeymapAction::SetExtraModifiers(vec![]),
             exact_match,

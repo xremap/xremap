@@ -1,31 +1,31 @@
 use evdev::KeyCode as Key;
 
 use super::EventHandler;
+use crate::event::KeyValue;
 
 impl EventHandler {
-    pub(super) fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut [(Key, i32)]) {
-        // Not handling multi-purpose keysfor now; too complicated
+    pub fn maintain_pressed_keys(&mut self, key: Key, value: KeyValue, events: &mut [(Key, KeyValue)]) {
         if events.len() != 1 || value != events[0].1 {
             return;
         }
 
         let event = events[0];
-        if value == super::PRESS {
+        if value == KeyValue::Press {
             self.pressed_keys.insert(key, event.0);
         } else {
             if let Some(original_key) = self.pressed_keys.get(&key) {
                 events[0].0 = *original_key;
             }
-            if value == super::RELEASE {
+            if value == KeyValue::Release {
                 self.pressed_keys.remove(&key);
             }
         }
     }
 
-    pub(super) fn update_modifier(&mut self, key: Key, value: i32) {
-        if value == super::PRESS {
+    pub fn update_modifier(&mut self, key: Key, value: KeyValue) {
+        if value == KeyValue::Press {
             self.modifiers.insert(key);
-        } else if value == super::RELEASE {
+        } else if value == KeyValue::Release {
             self.modifiers.remove(&key);
         }
     }

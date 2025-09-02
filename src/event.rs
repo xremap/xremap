@@ -27,7 +27,7 @@ pub struct RelativeEvent {
     pub value: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum KeyValue {
     Press,
     Release,
@@ -62,6 +62,10 @@ impl KeyEvent {
         self.key.code()
     }
 
+    pub fn phase(&self) -> KeyValue {
+        self.value
+    }
+
     pub fn value(&self) -> i32 {
         self.value.value()
     }
@@ -91,5 +95,22 @@ impl KeyValue {
             KeyValue::Press => 1,
             KeyValue::Repeat => 2,
         }
+    }
+
+    pub fn is_pressed(&self) -> bool {
+        matches!(self, KeyValue::Press | KeyValue::Repeat)
+    }
+}
+
+impl core::convert::TryFrom<i32> for KeyValue {
+    type Error = ();
+    fn try_from(v: i32) -> Result<Self, Self::Error> {
+        KeyValue::new(v).ok_or(())
+    }
+}
+
+impl From<KeyValue> for i32 {
+    fn from(v: KeyValue) -> Self {
+        v.value()
     }
 }
