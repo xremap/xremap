@@ -37,11 +37,7 @@ impl EventHandler {
         Action::Command(command)
     }
 
-    pub fn dispatch_actions(
-        &mut self,
-        actions: &Vec<TaggedAction>,
-        key: &Key,
-    ) -> Result<Vec<Action>, Box<dyn Error>> {
+    pub fn dispatch_actions(&mut self, actions: &Vec<TaggedAction>, key: &Key) -> Result<Vec<Action>, Box<dyn Error>> {
         let mut out = Vec::with_capacity(actions.len());
         for action in actions {
             out.extend(self.dispatch_action(action, key)?);

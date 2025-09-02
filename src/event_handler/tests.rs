@@ -1,5 +1,48 @@
 #![cfg(test)]
 
+/*!
+# Events Test Scenarios
+
+These cases cover all outcomes of a multipurpose key: outcomes depend only on whether another
+key intervenes and on timing relative to the alone window, plus free_hold and zero-timeout modes.
+
+
+- MOD: The remapped key (e.g., `Space`).
+- COMBO: Any other key pressed while MOD is held (e.g., `A`, `B`).
+- Window: The `alone_timeout_millis` duration.
+
+---
+
+### Mode 1: Standard Timeout (`free_hold: false`)
+
+- case_01 -> tap within window => alone
+- case_02 -> hold past window => held
+- case_03 -> combo within window => held
+- case_04 -> combo fast typist (MOD up before COMBO up) => held
+- case_05 -> combo multiple keys => held
+- case_06 -> combo after window => held
+
+---
+
+### Mode 2: Free Hold (`free_hold: true`)
+
+In this mode, timing is irrelevant for the final outcome.
+
+- case_07 -> free hold tap => alone
+- case_08 -> free hold combo => held
+- case_09 -> free hold combo fast typist => held
+- case_10 -> free hold combo multiple keys => held
+
+---
+
+### Mode 3: Zero Timeout Edge Case (`alone_timeout_millis: 0`)
+
+This mode forces an immediate state transition on the next event.
+
+- case_11 -> zero-timeout tap => alone (not realistic!)
+- case_12 -> zero-timeout: held on next event => held
+*/
+
 use evdev::KeyCode as Key;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::path::Path;
@@ -36,6 +79,7 @@ enum Phase {
 
 const KEY_SPACE: Key = Key::KEY_SPACE;
 const KEY_A: Key = Key::KEY_A;
+const KEY_B: Key = Key::KEY_B;
 const KEY_LEFTSHIFT: Key = Key::KEY_LEFTSHIFT;
 
 trait KeyTupleExt {
@@ -52,8 +96,6 @@ trait KeyTupleExt {
     // and press + repeat as `held`
     // but this implementation makes testing for phased events simpler. (when alone_timeout_millis,
     // modifies the event chain)
-    //
-    // check our phased_default() test for an example
 }
 
 impl KeyTupleExt for Key {
@@ -195,6 +237,8 @@ where
         .collect()
 }
 
+//TODO: rename remaining test funtions based on the new doc added!
+
 #[test]
 fn free_hold_combo() {
     let mut ctx = TestCtx::new(Some(400), Some(true));
@@ -324,3 +368,100 @@ fn phased_default_free_hold() {
         vec![KEY_SPACE.press(), KEY_SPACE.release()],
     );
 }
+
+#[test]
+fn case_02_hold_past_window() {
+    let mut ctx = TestCtx::new(Some(400), Some(false));
+
+    ctx.run_phases_and_assert(
+        vec![
+            Phase::Events(vec![KEY_SPACE.press()]),
+            Phase::Sleep(450),
+            Phase::Events(vec![KEY_SPACE.release()]),
+        ],
+        vec![KEY_LEFTSHIFT.press(), KEY_LEFTSHIFT.release()],
+    );
+}
+
+#[test]
+fn case_04_combo_fast_typist() {
+    let mut ctx = TestCtx::new(Some(400), Some(false));
+    ctx.run_and_assert(
+        vec![KEY_SPACE.press(), KEY_A.press(), KEY_SPACE.release(), KEY_A.release()],
+        vec![
+            KEY_LEFTSHIFT.press(),
+            KEY_A.press(),
+            KEY_LEFTSHIFT.release(),
+            KEY_A.release(),
+        ],
+    );
+}
+
+#[test]
+fn case_05_combo_multi_key() {
+    let mut ctx = TestCtx::new(Some(400), Some(false));
+    ctx.run_and_assert(
+        vec![
+            KEY_SPACE.press(),
+            KEY_A.press(),
+            KEY_B.press(),
+            KEY_A.release(),
+            KEY_B.release(),
+            KEY_SPACE.release(),
+        ],
+        vec![
+            KEY_LEFTSHIFT.press(),
+            KEY_A.press(),
+            KEY_B.press(),
+            KEY_A.release(),
+            KEY_B.release(),
+            KEY_LEFTSHIFT.release(),
+        ],
+    );
+}
+
+#[test]
+fn case_09_free_hold_combo_fast_typist() {
+    let mut ctx = TestCtx::new(Some(400), Some(true));
+    ctx.run_and_assert(
+        vec![KEY_SPACE.press(), KEY_A.press(), KEY_SPACE.release(), KEY_A.release()],
+        vec![
+            KEY_LEFTSHIFT.press(),
+            KEY_A.press(),
+            KEY_LEFTSHIFT.release(),
+            KEY_A.release(),
+        ],
+    );
+}
+
+#[test]
+fn case_10_free_hold_combo_multi_key() {
+    let mut ctx = TestCtx::new(Some(400), Some(true));
+    ctx.run_and_assert(
+        vec![
+            KEY_SPACE.press(),
+            KEY_A.press(),
+            KEY_B.press(),
+            KEY_A.release(),
+            KEY_B.release(),
+            KEY_SPACE.release(),
+        ],
+        vec![
+            KEY_LEFTSHIFT.press(),
+            KEY_A.press(),
+            KEY_B.press(),
+            KEY_A.release(),
+            KEY_B.release(),
+            KEY_LEFTSHIFT.release(),
+        ],
+    );
+}
+
+// #[test]
+// fn case_11_zero_timeout_tap() {
+//     let mut ctx = TestCtx::new(Some(0), Some(false));
+//     ctx.run_and_assert(
+//         vec![KEY_SPACE.press(), KEY_SPACE.release()],
+//         vec![KEY_SPACE.press(), KEY_SPACE.release()],
+//     );
+// }

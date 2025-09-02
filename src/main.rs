@@ -25,10 +25,6 @@ mod action_dispatcher;
 mod client;
 mod config;
 mod device;
-#[cfg(test)]
-mod e2e_end_to_end;
-#[cfg(test)]
-mod e2e_tests;
 mod event;
 mod event_handler;
 #[cfg(test)]

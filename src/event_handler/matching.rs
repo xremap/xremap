@@ -262,11 +262,7 @@ pub fn is_remap(actions: &[KeymapAction]) -> bool {
     actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
 }
 
-pub fn with_extra_modifiers(
-    actions: &[KeymapAction],
-    extra_modifiers: &[Key],
-    exact_match: bool,
-) -> Vec<TaggedAction> {
+pub fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> Vec<TaggedAction> {
     let mut result: Vec<TaggedAction> = vec![];
     if !extra_modifiers.is_empty() {
         result.push(TaggedAction {
