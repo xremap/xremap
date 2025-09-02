@@ -834,6 +834,7 @@ impl MultiPurposeKeyState {
             Some(_) => {
                 // timeout
                 self.alone_timeout_at = None;
+                self.held_down = true;
                 let mut keys = self.held.clone().into_vec();
                 keys.sort_by(modifiers_first);
                 keys.into_iter().map(|key| (key, PRESS)).collect()
@@ -865,6 +866,7 @@ impl MultiPurposeKeyState {
         let press = match self.alone_timeout_at {
             Some(_) => {
                 self.alone_timeout_at = None;
+                self.held_down = true;
                 true
             }
             None => {
