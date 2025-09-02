@@ -11,7 +11,7 @@ repository = "https://github.com/k0kubun/xremap"
 anyhow = "1.0.98"
 clap = { version = "4.3.19", features = ["derive"] }
 clap_complete = "4.3.2"
-derive-where = "1.5.0"
+derive-where = "1.6.0"
 env_logger = "0.10.2"
 evdev = "0.13.0"
 fork = "0.2"
