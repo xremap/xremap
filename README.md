@@ -59,7 +59,7 @@ If you are using Fedora, xremap can be installed via this [Fedora Copr](https://
 
 ## Usage
 
-Write [a config file](#Configuration) directly, or generate it with
+Write [a config file](#configuration) directly, or generate it with
 [xremap-ruby](https://github.com/xremap/xremap-ruby) or [xremap-python](https://github.com/xremap/xremap-python).
 
 Then start the `xremap` daemon by running:
@@ -248,6 +248,7 @@ modmap:
         held: KEY_YYY # Required, also accepts arrays
         alone: KEY_ZZZ # Required, also accepts arrays
         alone_timeout_millis: 1000 # Optional
+        free_hold: false # Optional
       # Hook `keymap` action on key press/release events.
       KEY_XXX3:
         skip_key_event: true # Optional, skip original key event, defaults to false
@@ -287,12 +288,14 @@ sudo RUST_LOG=debug xremap config.yml
 Then press the key you want to know the name of.
 
 If you specify a map containing `held` and `alone`, you can use the key for two purposes. By default, the behavior is determined by a timeout:
+
 - If the key is pressed and released within `alone_timeout_millis` (default: 1000) without any other key being pressed, it's considered `alone`.
 - If the key is held down longer than the timeout, it's considered `held`.
 
 This can be problematic if you want to use a key as a modifier, as you might trigger the `held` action by simply holding the key for too long.
 
 The `free_hold: true` option provides a different behavior for these multi-purpose keys. When enabled:
+
 - The `held` action is *only* triggered when another key is pressed while the multi-purpose key is being held down. The timeout is ignored for the `held` action.
 - If the key is released without any other key being pressed, it triggers the `alone` action, regardless of how long it was held.
 
@@ -562,7 +565,7 @@ You can declare data that does not directly go into the config under the `shared
 This can be usefull when using Anchors and Aliases.  
 For more information about the use of Yaml anchors see the [Yaml specification](https://yaml.org/spec/1.2.2/#3222-anchors-and-aliases).
 
-#### example:
+#### example
 
 ```yaml
 shared:
