@@ -1,3 +1,7 @@
+## v0.10.16
+
+- Fix release events for `held`/`alone` keys after `free_hold` changes [#731](https://github.com/xremap/xremap/pull/731)
+
 ## v0.10.15
 
 - Add Niri client [#720](https://github.com/xremap/xremap/pull/720)
