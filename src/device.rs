@@ -155,8 +155,7 @@ pub struct InputDeviceInfo<'a> {
 }
 
 impl<'a> InputDeviceInfo<'a> {
-    pub fn matches(&self, filter: &String) -> bool {
-        let filter = filter.as_str();
+    pub fn matches(&self, filter: &str) -> bool {
         // Check exact matches for explicit selection
         if self.path.as_os_str() == filter || self.name == filter {
             return true;
@@ -290,7 +289,7 @@ impl InputDevice {
         }
     }
 
-    pub fn fetch_events(&mut self) -> io::Result<FetchEventsSynced> {
+    pub fn fetch_events(&mut self) -> io::Result<FetchEventsSynced<'_>> {
         self.device.fetch_events()
     }
 
@@ -310,7 +309,7 @@ impl InputDevice {
         self.device.input_id().vendor()
     }
 
-    pub fn to_info(&self) -> InputDeviceInfo {
+    pub fn to_info(&self) -> InputDeviceInfo<'_> {
         InputDeviceInfo {
             name: self.device_name(),
             product: self.product(),
