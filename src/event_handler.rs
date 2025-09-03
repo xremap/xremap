@@ -253,8 +253,8 @@ impl EventHandler {
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(keys) = &self.override_timeout_key.take() {
             for key in keys {
-                self.send_key(&key, PRESS);
-                self.send_key(&key, RELEASE);
+                self.send_key(key, PRESS);
+                self.send_key(key, RELEASE);
             }
         }
         self.remove_override()
