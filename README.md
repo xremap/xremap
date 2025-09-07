@@ -243,13 +243,15 @@ modmap:
     remap: # Required
       # Replace a key with another
       KEY_XXX1: KEY_YYY # Required
+      # Replace a key with multiple keys (pressed and released simultaneously)
+      KEY_XXX2: [KEY_YYY, KEY_ZZZ]
       # Dispatch different keys depending on whether you hold it or press it alone
-      KEY_XXX2:
+      KEY_XXX3:
         held: KEY_YYY # Required, also accepts arrays
         alone: KEY_ZZZ # Required, also accepts arrays
         alone_timeout_millis: 1000 # Optional
       # Hook `keymap` action on key press/release events.
-      KEY_XXX3:
+      KEY_XXX4:
         skip_key_event: true # Optional, skip original key event, defaults to false
         press: [{ press: KEY_YYY }, { launch: ["xdotool", "mousemove", "0", "7200"] }] # Optional
         repeat: { repeat: KEY_YYY } # Optional

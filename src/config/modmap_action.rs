@@ -13,8 +13,7 @@ use super::{
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum ModmapAction {
-    #[serde(deserialize_with = "deserialize_key")]
-    Key(Key),
+    Keys(Keys),
     MultiPurposeKey(MultiPurposeKey),
     PressReleaseKey(PressReleaseKey),
 }
