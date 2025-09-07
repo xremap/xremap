@@ -1,3 +1,7 @@
+## v0.10.17
+
+- Support mapping one key to multiple keys in `modmap` [#742](https://github.com/xremap/xremap/pull/742)
+
 ## v0.10.16
 
 - Fix release events for `held`/`alone` keys after `free_hold` changes [#731](https://github.com/xremap/xremap/pull/731)
