@@ -310,7 +310,11 @@ impl EventHandler {
         value: i32,
     ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
         let keys = match key_action {
-            ModmapAction::Key(modmap_key) => vec![(modmap_key, value)],
+            ModmapAction::Keys(modmap_keys) => modmap_keys
+                .into_vec()
+                .into_iter()
+                .map(|modmap_key| (modmap_key, value))
+                .collect(),
             ModmapAction::MultiPurposeKey(MultiPurposeKey {
                 held,
                 alone,
