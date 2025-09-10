@@ -120,7 +120,10 @@ impl EventHandler {
         self.application_cache = None; // expire cache
         self.title_cache = None; // expire cache
         let key = Key::new(event.code());
-        debug!("=> {}: {:?}", event.value(), &key);
+        
+        if key.code() < DISGUISED_EVENT_OFFSETTER {
+            debug!("=> {}: {:?}", event.value(), &key);
+        }
 
         // Apply modmap
         let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, device) {
