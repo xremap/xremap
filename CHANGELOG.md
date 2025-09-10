@@ -1,3 +1,7 @@
+## v0.10.18
+
+- Stop printing mouse movements on `RUST_LOG=debug` [#744](https://github.com/xremap/xremap/pull/744)
+
 ## v0.10.17
 
 - Support mapping one key to multiple keys in `modmap` [#742](https://github.com/xremap/xremap/pull/742)
