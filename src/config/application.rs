@@ -125,6 +125,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_exact_match() {
+        let matcher = ApplicationMatcher::from_str("class.name").unwrap();
+        assert!(matcher.matches("class.name"));
+        assert!(!matcher.matches("class"));
+        assert!(!matcher.matches("name"));
+    }
+
+    #[test]
+    fn test_name_match() {
+        let matcher = ApplicationMatcher::from_str("name").unwrap();
+        assert!(matcher.matches("class.name"));
+        assert!(matcher.matches("name"));
+        assert!(!matcher.matches("name.foo"));
+        assert!(!matcher.matches("name-and-more"));
+    }
+
+    #[test]
     fn test_literal_application_name_matcher() {
         let matcher = ApplicationMatcher::from_str(r"Minecraft").unwrap();
         assert!(matcher.matches("Minecraft"), "Failed to match exact Minecraft");
