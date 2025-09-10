@@ -32,7 +32,7 @@ impl Client for StaticClient {
     }
 }
 
-fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
+pub fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
     InputDeviceInfo {
         name: "Some Device",
         path: Path::new("/dev/input/event0"),
@@ -776,11 +776,11 @@ fn test_any_key() {
     );
 }
 
-fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
+pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     assert_actions_with_current_application(config_yaml, None, events, actions);
 }
 
-fn assert_actions_with_current_application(
+pub fn assert_actions_with_current_application(
     config_yaml: &str,
     current_application: Option<String>,
     events: Vec<Event>,

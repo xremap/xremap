@@ -70,3 +70,34 @@ fn parse_modifier(modifier: &str) -> Result<Modifier, Box<dyn Error>> {
         key => parse_key(key).map(Modifier::Key),
     }
 }
+
+#[test]
+fn test_parse_key_press() {
+    // Can have modifiers with unspecified sidedness
+    assert_eq!(
+        parse_key_press("Shift-2").unwrap(),
+        KeyPress {
+            key: Key::KEY_2,
+            modifiers: vec![Modifier::Shift]
+        }
+    );
+
+    // Can use custom key names. Defined in `parse_key`.
+    assert_eq!(
+        parse_key_press("Shift_L-2").unwrap(),
+        KeyPress {
+            key: Key::KEY_2,
+            modifiers: vec![Modifier::Key(Key::KEY_LEFTSHIFT)]
+        }
+    );
+
+    // All keys are accepted as modifiers, because it's not possible to know
+    // if the key is listed in virtual_modifers at this point.
+    assert_eq!(
+        parse_key_press("Enter-2").unwrap(),
+        KeyPress {
+            key: Key::KEY_2,
+            modifiers: vec![Modifier::Key(Key::KEY_ENTER)]
+        }
+    );
+}

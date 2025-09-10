@@ -29,6 +29,10 @@ mod event;
 mod event_handler;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_extra_modifiers;
+#[cfg(test)]
+mod tests_virtual_modifier;
 
 #[derive(Parser, Debug)]
 #[command(version)]
