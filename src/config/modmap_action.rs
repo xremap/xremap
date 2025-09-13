@@ -22,7 +22,7 @@ pub enum ModmapAction {
 #[derive(Clone, Debug, Deserialize)]
 pub struct MultiPurposeKey {
     pub held: Keys,
-    pub alone: Keys,
+    pub alone: Actions,
     #[serde_as(as = "DurationMilliSeconds")]
     #[serde(default = "default_alone_timeout", rename = "alone_timeout_millis")]
     pub alone_timeout: Duration,
