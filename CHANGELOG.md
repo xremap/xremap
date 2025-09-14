@@ -1,3 +1,7 @@
+## v0.11.0
+
+- Allow `keymap` actions under `alone` [#746](https://github.com/xremap/xremap/pull/746)
+
 ## v0.10.18
 
 - Stop printing mouse movements on `RUST_LOG=debug` [#744](https://github.com/xremap/xremap/pull/744)
