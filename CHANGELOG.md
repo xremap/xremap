@@ -1,6 +1,7 @@
 ## v0.12.0
 
 - Revert "Allow `keymap` actions under `alone` [#746](https://github.com/xremap/xremap/pull/746)"
+  - v0.12.0 is the same release as v0.10.18
 
 ## v0.11.0
 
