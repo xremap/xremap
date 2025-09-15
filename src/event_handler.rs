@@ -348,19 +348,22 @@ impl EventHandler {
                     }
                     RELEASE => {
                         if let Some(state) = self.multi_purpose_keys.remove(&key) {
-                            self.dispatch_actions(
-                                &state
-                                    .release()
-                                    .into_iter()
-                                    .map(|action| TaggedAction {
-                                        action,
-                                        exact_match: false,
-                                    })
-                                    .collect(),
-                                &key,
-                            )?;
-                            // Releasing any held keys will be handled by the dispatched actions
-                            return Ok(vec![]);
+                            match state.release() {
+                                ReleaseActions::Held(keys) => return Ok(keys),
+                                ReleaseActions::Alone(actions) => {
+                                    self.dispatch_actions(
+                                        &actions
+                                            .into_iter()
+                                            .map(|action| TaggedAction {
+                                                action,
+                                                exact_match: false,
+                                            })
+                                            .collect(),
+                                        &key,
+                                    )?;
+                                    return Ok(vec![]);
+                                }
+                            }
                         }
                     }
                     _ => panic!("unexpected key event value: {value}"),
@@ -866,20 +869,17 @@ impl MultiPurposeKeyState {
         }
     }
 
-    fn release(self) -> Vec<KeymapAction> {
+    fn release(self) -> ReleaseActions {
         match self.alone_timeout_at {
-            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => self.alone.into_vec(),
-            Some(_) => self.press_and_release(&self.held),
+            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => ReleaseActions::Alone(self.alone.into_vec()),
+            Some(_) => ReleaseActions::Held(self.press_and_release(&self.held)),
             None => match self.held_down {
                 true => {
                     let mut release_keys = self.held.clone().into_vec();
                     release_keys.sort_by(modifiers_last);
-                    release_keys
-                        .into_iter()
-                        .map(|key| KeymapAction::KeyRelease(key))
-                        .collect()
+                    ReleaseActions::Held(release_keys.into_iter().map(|key| (key, RELEASE)).collect())
                 }
-                false => self.alone.into_vec(),
+                false => ReleaseActions::Alone(self.alone.into_vec()),
             },
         }
     }
@@ -910,16 +910,24 @@ impl MultiPurposeKeyState {
         }
     }
 
-    fn press_and_release(&self, keys_to_use: &Keys) -> Vec<KeymapAction> {
+    fn press_and_release(&self, keys_to_use: &Keys) -> Vec<(Key, i32)> {
         let mut release_keys = keys_to_use.clone().into_vec();
         release_keys.sort_by(modifiers_last);
-        let release_events = release_keys.into_iter().map(|key| KeymapAction::KeyRelease(key));
+        let release_events: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
 
         let mut press_keys = keys_to_use.clone().into_vec();
         press_keys.sort_by(modifiers_first);
-        let events = press_keys.into_iter().map(|key| KeymapAction::KeyPress(key));
-        events.chain(release_events).collect()
+        let mut events: Vec<(Key, i32)> = press_keys.into_iter().map(|key| (key, PRESS)).collect();
+        events.extend(release_events);
+        events
     }
+}
+
+/// When processing the MultiPurposeKeyState's release action, we will either trigger the actions
+/// provided by alone, or we will release the held key. This tracks which of those we want to do.
+enum ReleaseActions {
+    Held(Vec<(Key, i32)>),
+    Alone(Vec<KeymapAction>),
 }
 
 /// Orders modifier keys ahead of non-modifier keys.
