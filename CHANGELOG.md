@@ -1,3 +1,8 @@
+## v0.13.0
+
+- Allow `keymap` actions under `alone` (take 2) [#747](https://github.com/xremap/xremap/pull/747)
+  - This is a redo of the v0.11.0 release with a bugfix
+
 ## v0.12.0
 
 - Revert "Allow `keymap` actions under `alone` [#746](https://github.com/xremap/xremap/pull/746)"
