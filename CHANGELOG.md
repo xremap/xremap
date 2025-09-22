@@ -2,6 +2,7 @@
 
 - Revert "Allow `keymap` actions under `alone` (take 2) [#747](https://github.com/xremap/xremap/pull/747)"
   - We've added regression tests for modmap bugs [#748](https://github.com/xremap/xremap/pull/747) and [#750](https://github.com/xremap/xremap/pull/750) ([#751](https://github.com/xremap/xremap/pull/751))
+  - v0.14.0 is the same release as v0.12.0 and v0.10.18
 
 ## v0.13.0
 
