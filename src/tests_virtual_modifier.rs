@@ -97,7 +97,7 @@ fn test_ordinary_modifier_as_virtual() {
 
 #[test]
 fn test_modifier_not_declared() {
-    // Wouldn't it be better to give a warning here, telling the mapping has no effect? 
+    // Wouldn't it be better to give a warning here, telling the mapping has no effect?
     assert_actions(
         indoc! {"
         keymap:
@@ -115,6 +115,36 @@ fn test_modifier_not_declared() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_ENTER, KeyValue::Release)),
+        ],
+    )
+}
+
+
+#[test]
+fn test_modmap_output_is_used_in_virtual_modifiers() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                Shift_L: Capslock
+        virtual_modifiers:
+            - Capslock
+        keymap:
+            - remap:
+                Capslock-A: B
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
         ],
     )
 }

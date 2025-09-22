@@ -17,8 +17,8 @@ use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::{Path, PathBuf};
-use std::{io, process};
 use std::time::Duration;
+use std::{io, process};
 #[cfg(feature = "udev")]
 use udev::DeviceType;
 

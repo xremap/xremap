@@ -844,6 +844,7 @@ struct MultiPurposeKeyState {
     alone: Actions,
     // Some if the first press is still delayed, None if already considered held.
     alone_timeout_at: Option<Instant>,
+    // Whether the multipurpose key is considered to be held down, and key presses has been emitted.
     held_down: bool,
 }
 
@@ -884,6 +885,8 @@ impl MultiPurposeKeyState {
         }
     }
 
+    // Other keys where pressed, so the multipurpose key
+    // should emit presses of its held-value.
     fn force_held(&mut self) -> Vec<(Key, i32)> {
         let press = match self.alone_timeout_at {
             Some(_) => {
