@@ -3,7 +3,7 @@ use crate::client::WMClient;
 use crate::config::application::OnlyOrNot;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
-use crate::config::keymap_action::{Actions, KeymapAction};
+use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
@@ -120,7 +120,7 @@ impl EventHandler {
         self.application_cache = None; // expire cache
         self.title_cache = None; // expire cache
         let key = Key::new(event.code());
-
+        
         if key.code() < DISGUISED_EVENT_OFFSETTER {
             debug!("=> {}: {:?}", event.value(), &key);
         }
@@ -348,22 +348,7 @@ impl EventHandler {
                     }
                     RELEASE => {
                         if let Some(state) = self.multi_purpose_keys.remove(&key) {
-                            match state.release() {
-                                ReleaseActions::Held(keys) => return Ok(keys),
-                                ReleaseActions::Alone(actions) => {
-                                    self.dispatch_actions(
-                                        &actions
-                                            .into_iter()
-                                            .map(|action| TaggedAction {
-                                                action,
-                                                exact_match: false,
-                                            })
-                                            .collect(),
-                                        &key,
-                                    )?;
-                                    return Ok(vec![]);
-                                }
-                            }
+                            return Ok(state.release());
                         }
                     }
                     _ => panic!("unexpected key event value: {value}"),
@@ -841,7 +826,7 @@ const REPEAT: i32 = 2;
 #[derive(Debug)]
 struct MultiPurposeKeyState {
     held: Keys,
-    alone: Actions,
+    alone: Keys,
     // Some if the first press is still delayed, None if already considered held.
     alone_timeout_at: Option<Instant>,
     // Whether the multipurpose key is considered to be held down, and key presses has been emitted.
@@ -870,17 +855,17 @@ impl MultiPurposeKeyState {
         }
     }
 
-    fn release(self) -> ReleaseActions {
+    fn release(&self) -> Vec<(Key, i32)> {
         match self.alone_timeout_at {
-            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => ReleaseActions::Alone(self.alone.into_vec()),
-            Some(_) => ReleaseActions::Held(self.press_and_release(&self.held)),
+            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => self.press_and_release(&self.alone),
+            Some(_) => self.press_and_release(&self.held),
             None => match self.held_down {
                 true => {
                     let mut release_keys = self.held.clone().into_vec();
                     release_keys.sort_by(modifiers_last);
-                    ReleaseActions::Held(release_keys.into_iter().map(|key| (key, RELEASE)).collect())
+                    release_keys.into_iter().map(|key| (key, RELEASE)).collect()
                 }
-                false => ReleaseActions::Alone(self.alone.into_vec()),
+                false => self.press_and_release(&self.alone),
             },
         }
     }
@@ -924,13 +909,6 @@ impl MultiPurposeKeyState {
         events.extend(release_events);
         events
     }
-}
-
-/// When processing the MultiPurposeKeyState's release action, we will either trigger the actions
-/// provided by alone, or we will release the held key. This tracks which of those we want to do.
-enum ReleaseActions {
-    Held(Vec<(Key, i32)>),
-    Alone(Vec<KeymapAction>),
 }
 
 /// Orders modifier keys ahead of non-modifier keys.
