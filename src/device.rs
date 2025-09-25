@@ -258,28 +258,38 @@ impl AsRawFd for InputDevice {
 
 /// Device Wrappers Abstractions
 impl InputDevice {
-    pub fn wait_for_all_keys_up(&self) {
+    pub fn wait_for_all_keys_up(&self) -> io::Result<()> {
         for _ in 0..50 {
-            let count = self.device.get_key_state().unwrap().iter().count();
-
-            if count == 0 {
-                return;
+            let keys = self.device.get_key_state()?;
+            if keys.iter().count() == 0 {
+                return Ok(());
             }
 
             std::thread::sleep(Duration::from_millis(100));
         }
 
-        panic!("Can't start xremap when keys are pressed.");
+        Err(io::Error::new(
+            io::ErrorKind::TimedOut,
+            "Timed out waiting for keys to be released.",
+        ))
     }
 
     pub fn grab(&mut self) -> bool {
-        self.wait_for_all_keys_up();
+        let result = self.wait_for_all_keys_up().and_then(|_| self.device.grab());
 
-        if let Err(error) = self.device.grab() {
-            println!("Failed to grab device '{}' at '{}' due to: {error}", self.device_name(), self.path.display());
-            false
-        } else {
-            true
+        match result {
+            Ok(_) => {
+                true
+            }
+            Err(error) => {
+                eprintln!(
+                    "warning: Failed to grab device '{}' at '{}'. It may have been disconnected, have keys held down, or you may need to grant permissions. Error: {}",
+                    self.device_name(),
+                    self.path.display(),
+                    error
+                );
+                false
+            }
         }
     }
 
