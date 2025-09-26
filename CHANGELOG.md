@@ -1,3 +1,7 @@
+## v0.14.1
+
+- Prevent panic on device disconnect https://github.com/xremap/xremap/pull/753
+
 ## v0.14.0
 
 - Revert "Allow `keymap` actions under `alone` (take 2) [#747](https://github.com/xremap/xremap/pull/747)"
