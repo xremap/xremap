@@ -20,7 +20,7 @@ lazy_static = "1.5.0"
 log = "0.4.28"
 nix = "0.26.2"
 niri-ipc = { version = "25.8.0", optional = true }
-regex = "1.11.2"
+regex = "1.11.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.8", features = ["chrono"] }
