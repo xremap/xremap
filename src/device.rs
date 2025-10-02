@@ -268,19 +268,14 @@ impl InputDevice {
             std::thread::sleep(Duration::from_millis(100));
         }
 
-        Err(io::Error::new(
-            io::ErrorKind::TimedOut,
-            "Timed out waiting for keys to be released.",
-        ))
+        Err(io::Error::new(io::ErrorKind::TimedOut, "Timed out waiting for keys to be released."))
     }
 
     pub fn grab(&mut self) -> bool {
         let result = self.wait_for_all_keys_up().and_then(|_| self.device.grab());
 
         match result {
-            Ok(_) => {
-                true
-            }
+            Ok(_) => true,
             Err(error) => {
                 eprintln!(
                     "warning: Failed to grab device '{}' at '{}'. It may have been disconnected, have keys held down, or you may need to grant permissions. Error: {}",

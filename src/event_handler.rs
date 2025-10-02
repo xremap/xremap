@@ -120,7 +120,7 @@ impl EventHandler {
         self.application_cache = None; // expire cache
         self.title_cache = None; // expire cache
         let key = Key::new(event.code());
-        
+
         if key.code() < DISGUISED_EVENT_OFFSETTER {
             debug!("=> {}: {:?}", event.value(), &key);
         }
