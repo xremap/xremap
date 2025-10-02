@@ -119,7 +119,6 @@ fn test_modifier_not_declared() {
     )
 }
 
-
 #[test]
 fn test_modmap_output_is_used_in_virtual_modifiers() {
     assert_actions(
