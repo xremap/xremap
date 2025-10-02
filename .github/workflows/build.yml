@@ -84,7 +84,10 @@ jobs:
       - uses: Swatinem/rust-cache@v1
         with:
           key: ubuntu-latest
-      - run: cargo test
+      - name: Run unit tests
+        run: cargo test
+      - name: Run device tests
+        run: sudo -E env "PATH=$PATH" cargo test --tests --features device-test
 
   # Release xremap binaries on GitHub
   release:

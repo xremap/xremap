@@ -34,6 +34,9 @@ toml = "0.9.5"
 udev = { version = "0.9.3", optional = true }
 futures = "0.3.31"
 
+[dev-dependencies]
+fastrand = "2.3.0"
+
 [features]
 gnome = ["zbus"]
 x11 = ["x11rb"]
@@ -42,6 +45,7 @@ kde = ["zbus"]
 wlroots = ["wayland-client", "wayland-protocols-wlr"]
 udev = ["dep:udev"]
 niri = ["niri-ipc"]
+device-test = []
 
 [profile.release]
 codegen-units = 1

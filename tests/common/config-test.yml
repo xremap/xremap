@@ -1,0 +1,7 @@
+modmap:
+  - remap:
+      Q: Q
+
+keymap:
+  - remap:
+      W: W
