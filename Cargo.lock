@@ -2200,6 +2200,7 @@ dependencies = [
  "derive-where",
  "env_logger",
  "evdev",
+ "fastrand",
  "fork",
  "futures",
  "hyprland",
