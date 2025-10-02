@@ -45,7 +45,7 @@ static MOUSE_BTNS: [&str; 20] = [
     "BTN_TASK",
 ];
 
-static mut DEVICE_NAME: Option<String> = None;
+pub static mut DEVICE_NAME: Option<String> = None;
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
 pub fn output_device(
