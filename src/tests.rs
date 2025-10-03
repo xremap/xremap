@@ -776,6 +776,48 @@ fn test_any_key() {
     );
 }
 
+#[test]
+fn only_flush_keys_pressed_before() {
+    assert_actions(
+        indoc! {"
+        modmap:
+        - name: test
+          remap:
+            q:
+              hold: Shift_L
+              hold_threshold_millis: 999999
+              tap: q
+              tap_timeout_millis: 1000
+            w:
+              hold: Ctrl_L
+              hold_threshold_millis: 999999
+              tap: w
+              tap_timeout_millis: 1000
+            e:
+              hold: Alt_L
+              hold_threshold_millis: 999999
+              tap: e
+              tap_timeout_millis: 1000
+        "},
+        vec![
+            // Should only flush Q
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_Q, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_W, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_E, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_W, KeyValue::Release)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_Q, KeyValue::Release)),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_W, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_W, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Release)),
+        ],
+    );
+}
+
+
 pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     assert_actions_with_current_application(config_yaml, None, events, actions);
 }
