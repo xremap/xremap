@@ -32,7 +32,7 @@ impl Client for StaticClient {
     }
 }
 
-fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
+pub fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
     InputDeviceInfo {
         name: "Some Device",
         path: Path::new("/dev/input/event0"),
@@ -123,10 +123,10 @@ fn verify_disguised_relative_events() {
     use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
     // Verifies that the event offsetter used to "disguise" relative events into key event
     // is a bigger number than the biggest one a scancode had at the time of writing this (26 december 2022)
-    assert!(0x2e7 < DISGUISED_EVENT_OFFSETTER);
+    const _: () = assert!(0x2e7 < DISGUISED_EVENT_OFFSETTER);
     // and that it's not big enough that one of the "disguised" events's scancode would overflow.
     // (the largest of those events is equal to DISGUISED_EVENT_OFFSETTER + 26)
-    assert!(DISGUISED_EVENT_OFFSETTER <= u16::MAX - 26)
+    const _: () = assert!(DISGUISED_EVENT_OFFSETTER <= u16::MAX - 26);
 }
 
 #[test]
@@ -817,11 +817,11 @@ fn only_flush_keys_pressed_before() {
     );
 }
 
-fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
+pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     assert_actions_with_current_application(config_yaml, None, events, actions);
 }
 
-fn assert_actions_with_current_application(
+pub fn assert_actions_with_current_application(
     config_yaml: &str,
     current_application: Option<String>,
     events: Vec<Event>,

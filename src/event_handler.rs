@@ -120,7 +120,13 @@ impl EventHandler {
         self.application_cache = None; // expire cache
         self.title_cache = None; // expire cache
         let key = Key::new(event.code());
-        debug!("=> {}: {:?}", event.value(), &key);
+
+        if key.code() < DISGUISED_EVENT_OFFSETTER {
+            debug!("=> {}: {:?}", event.value(), &key);
+        }
+
+        let mut is_multi_key = false;
+        let mut multi_key_time: Option<Instant> = None;
 
         let mut is_multi_key = false;
         let mut multi_key_time: Option<Instant> = None;
@@ -277,8 +283,8 @@ impl EventHandler {
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
         if let Some(keys) = &self.override_timeout_key.take() {
             for key in keys {
-                self.send_key(&key, PRESS);
-                self.send_key(&key, RELEASE);
+                self.send_key(key, PRESS);
+                self.send_key(key, RELEASE);
             }
         }
         self.remove_override()
@@ -334,7 +340,11 @@ impl EventHandler {
         value: i32,
     ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
         let keys = match key_action {
-            ModmapAction::Key(modmap_key) => vec![(modmap_key, value)],
+            ModmapAction::Keys(modmap_keys) => modmap_keys
+                .into_vec()
+                .into_iter()
+                .map(|modmap_key| (modmap_key, value))
+                .collect(),
             ModmapAction::MultiPurposeKey(MultiPurposeKey {
                 hold,
                 hold_threshold,
@@ -859,6 +869,7 @@ struct MultiPurposeKeyState {
     // Some if the first press is still delayed, None if already considered held.
     tap_timeout_at: Option<Instant>,
     hold_threshold_at: Option<Instant>,
+    // Whether the multipurpose key is considered to be held down, and key presses has been emitted.
     held_down: bool,
     time_added: Instant,
 }

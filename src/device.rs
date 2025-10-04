@@ -17,8 +17,8 @@ use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::prelude::AsRawFd;
 use std::path::{Path, PathBuf};
-use std::{io, process};
 use std::time::Duration;
+use std::{io, process};
 #[cfg(feature = "udev")]
 use udev::DeviceType;
 
@@ -45,7 +45,7 @@ static MOUSE_BTNS: [&str; 20] = [
     "BTN_TASK",
 ];
 
-static mut DEVICE_NAME: Option<String> = None;
+pub static mut DEVICE_NAME: Option<String> = None;
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
 pub fn output_device(
@@ -155,8 +155,7 @@ pub struct InputDeviceInfo<'a> {
 }
 
 impl<'a> InputDeviceInfo<'a> {
-    pub fn matches(&self, filter: &String) -> bool {
-        let filter = filter.as_str();
+    pub fn matches(&self, filter: &str) -> bool {
         // Check exact matches for explicit selection
         if self.path.as_os_str() == filter || self.name == filter {
             return true;
@@ -259,28 +258,33 @@ impl AsRawFd for InputDevice {
 
 /// Device Wrappers Abstractions
 impl InputDevice {
-    pub fn wait_for_all_keys_up(&self) {
+    pub fn wait_for_all_keys_up(&self) -> io::Result<()> {
         for _ in 0..50 {
-            let count = self.device.get_key_state().unwrap().iter().count();
-
-            if count == 0 {
-                return;
+            let keys = self.device.get_key_state()?;
+            if keys.iter().count() == 0 {
+                return Ok(());
             }
 
             std::thread::sleep(Duration::from_millis(100));
         }
 
-        panic!("Can't start xremap when keys are pressed.");
+        Err(io::Error::new(io::ErrorKind::TimedOut, "Timed out waiting for keys to be released."))
     }
 
     pub fn grab(&mut self) -> bool {
-        self.wait_for_all_keys_up();
+        let result = self.wait_for_all_keys_up().and_then(|_| self.device.grab());
 
-        if let Err(error) = self.device.grab() {
-            println!("Failed to grab device '{}' at '{}' due to: {error}", self.device_name(), self.path.display());
-            false
-        } else {
-            true
+        match result {
+            Ok(_) => true,
+            Err(error) => {
+                eprintln!(
+                    "warning: Failed to grab device '{}' at '{}'. It may have been disconnected, have keys held down, or you may need to grant permissions. Error: {}",
+                    self.device_name(),
+                    self.path.display(),
+                    error
+                );
+                false
+            }
         }
     }
 
@@ -290,7 +294,7 @@ impl InputDevice {
         }
     }
 
-    pub fn fetch_events(&mut self) -> io::Result<FetchEventsSynced> {
+    pub fn fetch_events(&mut self) -> io::Result<FetchEventsSynced<'_>> {
         self.device.fetch_events()
     }
 
@@ -310,7 +314,7 @@ impl InputDevice {
         self.device.input_id().vendor()
     }
 
-    pub fn to_info(&self) -> InputDeviceInfo {
+    pub fn to_info(&self) -> InputDeviceInfo<'_> {
         InputDeviceInfo {
             name: self.device_name(),
             product: self.product(),
@@ -395,4 +399,4 @@ impl InputDevice {
     }
 }
 
-const SEPARATOR: &str = "------------------------------------------------------------------------------";
+pub const SEPARATOR: &str = "------------------------------------------------------------------------------";

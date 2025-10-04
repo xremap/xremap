@@ -19,7 +19,12 @@ use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use serde::{de::IgnoredAny, Deserialize, Deserializer};
-use std::{collections::HashMap, error, fs, path::PathBuf, time::SystemTime};
+use std::{
+    collections::HashMap,
+    error, fs,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
 use self::{
     key::parse_key,
@@ -61,7 +66,7 @@ enum ConfigFiletype {
     Toml,
 }
 
-fn get_file_ext(filename: &PathBuf) -> ConfigFiletype {
+fn get_file_ext(filename: &Path) -> ConfigFiletype {
     match filename.extension() {
         Some(f) => {
             if f.to_str().unwrap_or("").to_lowercase() == "toml" {
@@ -74,7 +79,7 @@ fn get_file_ext(filename: &PathBuf) -> ConfigFiletype {
     }
 }
 
-pub fn load_configs(filenames: &Vec<PathBuf>) -> Result<Config, Box<dyn error::Error>> {
+pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Error>> {
     // Assumes filenames is non-empty
     let config_contents = fs::read_to_string(&filenames[0])?;
 

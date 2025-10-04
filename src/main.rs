@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::device::{device_watcher, get_input_devices, output_device};
+use crate::device::{device_watcher, get_input_devices, output_device, DEVICE_NAME};
 use crate::event_handler::EventHandler;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
@@ -29,6 +29,14 @@ mod event;
 mod event_handler;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_extra_modifiers;
+#[cfg(test)]
+mod tests_modmap_keys;
+#[cfg(test)]
+mod tests_modmap_mul_purpose;
+#[cfg(test)]
+mod tests_virtual_modifier;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -53,6 +61,8 @@ struct Args {
     /// - in fish: xremap --completions fish | source
     #[arg(long, value_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
     completions: Option<Shell>,
+    #[arg(long)]
+    output_device_name: Option<String>,
     /// Config file(s)
     #[arg(required_unless_present = "completions", num_args = 1..)]
     configs: Vec<PathBuf>,
@@ -86,6 +96,7 @@ fn main() -> anyhow::Result<()> {
         watch,
         configs,
         completions,
+        output_device_name,
         product,
         vendor,
     } = Args::parse();
@@ -93,6 +104,12 @@ fn main() -> anyhow::Result<()> {
     if let Some(shell) = completions {
         clap_complete::generate(shell, &mut Args::command(), "xremap", &mut stdout());
         return Ok(());
+    }
+
+    if let Some(output_device_name) = output_device_name {
+        unsafe {
+            DEVICE_NAME = Some(output_device_name);
+        }
     }
 
     // Configuration

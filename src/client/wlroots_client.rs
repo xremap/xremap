@@ -63,7 +63,7 @@ impl Client for WlRootsClient {
     fn current_window(&mut self) -> Option<String> {
         let queue = self.queue.as_mut()?;
 
-        if let Err(_) = queue.roundtrip(&mut self.state) {
+        if queue.roundtrip(&mut self.state).is_err() {
             // try to reconnect
             if let Err(err) = self.connect() {
                 log::error!("{err}");
@@ -80,7 +80,7 @@ impl Client for WlRootsClient {
     fn current_application(&mut self) -> Option<String> {
         let queue = self.queue.as_mut()?;
 
-        if let Err(_) = queue.roundtrip(&mut self.state) {
+        if queue.roundtrip(&mut self.state).is_err() {
             // try to reconnect
             if let Err(err) = self.connect() {
                 log::error!("{err}");

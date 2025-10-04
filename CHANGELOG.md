@@ -1,3 +1,43 @@
+## v0.14.1
+
+- Prevent panic on device disconnect https://github.com/xremap/xremap/pull/753
+
+## v0.14.0
+
+- Revert "Allow `keymap` actions under `alone` (take 2) [#747](https://github.com/xremap/xremap/pull/747)"
+  - We've added regression tests for modmap bugs [#748](https://github.com/xremap/xremap/pull/747) and [#750](https://github.com/xremap/xremap/pull/750) ([#751](https://github.com/xremap/xremap/pull/751))
+  - v0.14.0 is the same release as v0.12.0 and v0.10.18
+
+## v0.13.0
+
+- Allow `keymap` actions under `alone` (take 2) [#747](https://github.com/xremap/xremap/pull/747)
+  - This is a redo of the v0.11.0 release with a bugfix
+
+## v0.12.0
+
+- Revert "Allow `keymap` actions under `alone` [#746](https://github.com/xremap/xremap/pull/746)"
+  - v0.12.0 is the same release as v0.10.18
+
+## v0.11.0
+
+- Allow `keymap` actions under `alone` [#746](https://github.com/xremap/xremap/pull/746)
+
+## v0.10.18
+
+- Stop printing mouse movements on `RUST_LOG=debug` [#744](https://github.com/xremap/xremap/pull/744)
+
+## v0.10.17
+
+- Support mapping one key to multiple keys in `modmap` [#742](https://github.com/xremap/xremap/pull/742)
+
+## v0.10.16
+
+- Fix release events for `held`/`alone` keys after `free_hold` changes [#731](https://github.com/xremap/xremap/pull/731)
+
+## v0.10.15
+
+- Add Niri client [#720](https://github.com/xremap/xremap/pull/720)
+
 ## v0.10.14
 
 - Add `free_hold` option to `held`/`alone` keys [#705](https://github.com/xremap/xremap/pull/705)

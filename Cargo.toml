@@ -1,6 +1,6 @@
 [package]
 name = "xremap"
-version = "0.10.14"
+version = "0.14.1"
 edition = "2021"
 description = "Dynamic key remapp for X and Wayland"
 license = "MIT"
@@ -8,30 +8,34 @@ repository = "https://github.com/k0kubun/xremap"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 clap = { version = "4.3.19", features = ["derive"] }
 clap_complete = "4.3.2"
-derive-where = "1.5.0"
+derive-where = "1.6.0"
 env_logger = "0.10.2"
-evdev = "0.13.0"
+evdev = "0.13.2"
 fork = "0.2"
 indoc = "2.0"
 lazy_static = "1.5.0"
-log = "0.4.27"
+log = "0.4.28"
 nix = "0.26.2"
-regex = "1.11.1"
+niri-ipc = { version = "25.8.0", optional = true }
+regex = "1.11.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.8", features = ["chrono"] }
 serde_yaml = "0.9"
 wayland-client = { version = "0.30", optional = true }
 wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = true }
-x11rb = { version = "0.13.1", optional = true }
-zbus = { version = "5.9.0", optional = true }
+x11rb = { version = "0.13.2", optional = true }
+zbus = { version = "5.11.0", optional = true }
 hyprland = { version = "0.3.13", optional = true }
-toml = "0.9.4"
+toml = "0.9.5"
 udev = { version = "0.9.3", optional = true }
 futures = "0.3.31"
+
+[dev-dependencies]
+fastrand = "2.3.0"
 
 [features]
 gnome = ["zbus"]
@@ -40,6 +44,8 @@ hypr = ["hyprland"]
 kde = ["zbus"]
 wlroots = ["wayland-client", "wayland-protocols-wlr"]
 udev = ["dep:udev"]
+niri = ["niri-ipc"]
+device-test = []
 
 [profile.release]
 codegen-units = 1

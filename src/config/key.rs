@@ -131,3 +131,21 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
 
     Err(format!("unknown key '{input}'").into())
 }
+
+#[test]
+fn test_parse_key() {
+    // Can omit the 'KEY_' prefex
+    assert_eq!(parse_key("Enter").unwrap(), Key::KEY_ENTER);
+
+    // Can use lower case
+    assert_eq!(parse_key("key_enter").unwrap(), Key::KEY_ENTER);
+
+    // Can use uppercase keys
+    assert_eq!(parse_key("KEY_ENTER").unwrap(), Key::KEY_ENTER);
+
+    // S is KEY_S, not shift.
+    assert_eq!(parse_key("S").unwrap(), Key::KEY_S);
+
+    // Modifier without sidedness can't be a key.
+    assert_eq!(parse_key("Shift").unwrap_err().to_string(), "unknown key 'Shift'");
+}
