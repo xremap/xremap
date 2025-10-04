@@ -902,6 +902,7 @@ impl MultiPurposeKeyState {
             Some(_) | None => match self.held_down {
                 true => {
                     let mut release_keys = self.hold.clone().into_vec();
+                    release_keys.extend(self.tap.clone().into_vec());
                     release_keys.sort_by(modifiers_last);
                     release_keys.into_iter().map(|key| (key, RELEASE)).collect()
                 }
