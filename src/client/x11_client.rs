@@ -1,20 +1,25 @@
 use crate::client::Client;
-use anyhow::bail;
+use anyhow::{bail, Result};
 use std::env;
+use x11rb::connection::Connection;
 use x11rb::cookie::Cookie;
 use x11rb::protocol::xproto::{self};
-use x11rb::protocol::xproto::{AtomEnum, Window};
+use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, Window};
 use x11rb::rust_connection::ConnectionError;
 use x11rb::x11_utils::TryParse;
 use x11rb::{protocol::xproto::get_property, rust_connection::RustConnection};
 
 pub struct X11Client {
     connection: Option<RustConnection>,
+    screen_num: Option<usize>,
 }
 
 impl X11Client {
     pub fn new() -> X11Client {
-        X11Client { connection: None }
+        X11Client {
+            connection: None,
+            screen_num: None,
+        }
     }
 
     fn connect(&mut self) {
@@ -31,7 +36,10 @@ impl X11Client {
 
     fn reconnect(&mut self) {
         match x11rb::connect(None) {
-            Ok((connection, _)) => self.connection = Some(connection),
+            Ok((connection, screen)) => {
+                self.connection = Some(connection);
+                self.screen_num = Some(screen);
+            }
             Err(error) => {
                 let var = env::var("DISPLAY").unwrap();
                 println!("warning: Failed to connect to X11: {error}");
@@ -49,8 +57,17 @@ impl Client for X11Client {
         // TODO: Test XGetInputFocus and focused_window > 0?
     }
     fn current_window(&mut self) -> Option<String> {
-        // TODO:  not implemented
-        None
+        self.connect();
+
+        match get_focused_title(self) {
+            Ok(x) => Some(x),
+            Err(e) => {
+                println!("Error when fetching window title: {e:?}");
+                // Drop connection so it might work next time.
+                self.connection = None;
+                None
+            }
+        }
     }
 
     fn current_application(&mut self) -> Option<String> {
@@ -127,5 +144,67 @@ fn get_cookie_reply<T: TryParse>(
     match &client.connection {
         Some(conn) => return Ok(get_cookie(conn)?.reply()?),
         None => bail!("No connection to X11"),
+    }
+}
+
+fn get_focused_title(client: &X11Client) -> Result<String> {
+    let conn = client
+        .connection
+        .as_ref()
+        .ok_or_else(|| anyhow::format_err!("Should already be connected"))?;
+
+    let screen_num = client
+        .screen_num
+        .ok_or_else(|| anyhow::format_err!("Screen_num should be available"))?;
+
+    let winid = get_focused_window_id(conn, screen_num)?;
+
+    let atoms = Atoms::new(&conn)?.reply()?;
+
+    // Get title
+    let prop_reply = conn
+        .get_property(false, winid, atoms._NET_WM_NAME, atoms.UTF8_STRING, 0, u32::MAX)?
+        .reply()?;
+
+    if prop_reply.type_ != x11rb::NONE {
+        return Ok(String::from_utf8(prop_reply.value)?);
+    }
+
+    // Fallback
+    let prop_reply = conn
+        .get_property(false, winid, AtomEnum::WM_NAME, AtomEnum::STRING, 0, u32::MAX)?
+        .reply()?;
+
+    Ok(String::from_utf8(prop_reply.value)?)
+}
+
+/// This is a better alternative to the existing function: get_focus_window
+/// Because xproto::get_input_focus is not a reliable way to get focused window.
+fn get_focused_window_id(conn: &RustConnection, screen_num: usize) -> anyhow::Result<u32> {
+    let root = conn.setup().roots[screen_num].root;
+
+    let atoms = Atoms::new(&conn)?.reply()?;
+
+    // Get _NET_ACTIVE_WINDOW
+    let prop_reply = conn
+        .get_property(false, root, atoms._NET_ACTIVE_WINDOW, AtomEnum::WINDOW, 0, 1)?
+        .reply()?;
+
+    if prop_reply.type_ != x11rb::NONE && prop_reply.value.len() == 4 {
+        let arr: [u8; 4] = prop_reply.value.try_into().expect("Should be vector of 4 bytes");
+
+        return Ok(u32::from_le_bytes(arr));
+    }
+
+    // Fallback to focused element which sometimes is the window
+    // but could also be an UI element within the active window.
+    Ok(conn.get_input_focus()?.reply()?.focus)
+}
+
+x11rb::atom_manager! {
+    pub Atoms: AtomsCookie {
+        _NET_WM_NAME,
+        _NET_ACTIVE_WINDOW,
+        UTF8_STRING,
     }
 }
