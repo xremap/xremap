@@ -1,3 +1,8 @@
+## v0.14.2
+
+- x11: Add window title support https://github.com/xremap/xremap/pull/767
+- kde: Ignore when there is no active window https://github.com/xremap/xremap/pull/769
+
 ## v0.14.1
 
 - Prevent panic on device disconnect https://github.com/xremap/xremap/pull/753
