@@ -1,4 +1,9 @@
 function notifyActiveWindow(client) {
+    if (!client) {
+        // Ignore when there is no active window.
+        return;
+    }
+
     callDBus(
         "com.k0kubun.Xremap",
         "/com/k0kubun/Xremap",
