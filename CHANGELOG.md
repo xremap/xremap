@@ -1,3 +1,7 @@
+## v0.14.3
+
+- gnome: Add window title support https://github.com/xremap/xremap/pull/773
+
 ## v0.14.2
 
 - x11: Add window title support https://github.com/xremap/xremap/pull/767
