@@ -1,7 +1,7 @@
 use crate::client::Client;
 use futures::executor::block_on;
 use serde::{Deserialize, Serialize};
-use zbus::Connection;
+use zbus::{zvariant, Connection, Error, Message};
 
 pub struct GnomeClient {
     connection: Option<Connection>,
@@ -18,6 +18,45 @@ impl GnomeClient {
             Err(e) => println!("GnomeClient#connect() failed: {}", e),
         }
     }
+
+    fn get_focused_title(&mut self) -> anyhow::Result<String> {
+        let json = self.call_method("ActiveWindow", &())?.body().deserialize::<String>()?;
+
+        let window = serde_json::from_str::<ActiveWindow>(&json)?;
+
+        Ok(window.title)
+    }
+
+    fn call_method<B>(&mut self, method: &str, body: &B) -> anyhow::Result<Message>
+    where
+        B: serde::ser::Serialize + zvariant::Type,
+    {
+        self.connect();
+
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| anyhow::format_err!("No gnome connection"))?;
+
+        let result = block_on(conn.call_method(
+            Some("org.gnome.Shell"),
+            "/com/k0kubun/Xremap",
+            Some("com.k0kubun.Xremap"),
+            method,
+            body,
+        ));
+
+        // Try to print some extra information about the failure
+        if let Err(Error::MethodError(_, Some(msg), _)) = &result {
+            if msg.contains("Object does not exist at path") || msg.contains("No such interface") {
+                println!("Error using xremap GNOME extension. Is it installed and enabled?");
+            } else if msg.contains("No such method") {
+                println!("Error using xremap GNOME extension. Is it updated to the latest version?");
+            }
+        };
+
+        Ok(result?)
+    }
 }
 
 impl Client for GnomeClient {
@@ -25,9 +64,15 @@ impl Client for GnomeClient {
         self.connect();
         self.current_application().is_some()
     }
+
     fn current_window(&mut self) -> Option<String> {
-        // TODO:  not implemented
-        None
+        match self.get_focused_title() {
+            Ok(x) => Some(x),
+            Err(e) => {
+                println!("Error when fetching window title: {e:?}");
+                None
+            }
+        }
     }
 
     fn current_application(&mut self) -> Option<String> {
