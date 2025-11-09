@@ -30,11 +30,23 @@ mod event_handler;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_disguised_events_in;
+#[cfg(test)]
+mod tests_disguised_events_out;
+#[cfg(test)]
 mod tests_extra_modifiers;
+#[cfg(test)]
+mod tests_keymap_mark;
+#[cfg(test)]
+mod tests_keymap_mode;
 #[cfg(test)]
 mod tests_modmap_keys;
 #[cfg(test)]
 mod tests_modmap_mul_purpose;
+#[cfg(test)]
+mod tests_modmap_press_release_key;
+#[cfg(test)]
+mod tests_nested_remap;
 #[cfg(test)]
 mod tests_virtual_modifier;
 

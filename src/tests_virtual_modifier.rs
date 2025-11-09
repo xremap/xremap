@@ -34,6 +34,51 @@ fn test_virtual_modifier_is_never_emitted() {
 }
 
 #[test]
+fn test_virtual_modifier_not_emitted_when_no_match() {
+    assert_actions(
+        indoc! {"
+        virtual_modifiers:
+            - CAPSLOCK
+        keymap:
+            - remap:
+                CAPSLOCK-A: B
+        "},
+        vec![
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_K),
+            Event::key_release(Key::KEY_K),
+            Event::key_release(Key::KEY_CAPSLOCK),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_virtual_modifier_not_emitted_even_if_defined_in_emit_definition() {
+    assert_actions(
+        indoc! {"
+        virtual_modifiers:
+            - CAPSLOCK
+
+        keymap:
+            - remap:
+                A: CAPSLOCK-B
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
 fn test_virtual_modifier_in_inexact_match() {
     assert_actions(
         indoc! {"
@@ -96,6 +141,27 @@ fn test_ordinary_modifier_as_virtual() {
 }
 
 #[test]
+fn test_virtual_modifier_can_be_explicitly_emitted_as_key() {
+    assert_actions(
+        indoc! {"
+        virtual_modifiers:
+            - CAPSLOCK
+        keymap:
+            - remap:
+                A: CAPSLOCK
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
 fn test_modifier_not_declared() {
     // Wouldn't it be better to give a warning here, telling the mapping has no effect?
     assert_actions(
@@ -145,5 +211,20 @@ fn test_modmap_output_is_used_in_virtual_modifiers() {
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
         ],
+    )
+}
+
+#[test]
+fn test_virtual_terminal_modifier_is_not_supported() {
+    assert_actions(
+        indoc! {"
+        virtual_modifiers:
+            - Capslock
+        keymap:
+          - remap:
+              capslock: end
+        "},
+        vec![Event::key_press(Key::KEY_CAPSLOCK)],
+        vec![],
     )
 }

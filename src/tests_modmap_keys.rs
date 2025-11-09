@@ -157,3 +157,21 @@ fn test_modmap_output_is_used_in_keymap() {
         ],
     );
 }
+
+#[test]
+fn test_modmap_emit_is_not_used_in_subsequent_remaps() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                a: b
+            - remap:
+                b: c
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+        ],
+    )
+}
