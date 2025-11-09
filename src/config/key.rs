@@ -31,6 +31,8 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         // Shift
         "SHIFT_R" => Key::KEY_RIGHTSHIFT,
         "SHIFT_L" => Key::KEY_LEFTSHIFT,
+        "S_R" => Key::KEY_RIGHTSHIFT,
+        "S_L" => Key::KEY_LEFTSHIFT,
         // Control
         "CONTROL_R" => Key::KEY_RIGHTCTRL,
         "CONTROL_L" => Key::KEY_LEFTCTRL,
@@ -41,6 +43,8 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         // Alt
         "ALT_R" => Key::KEY_RIGHTALT,
         "ALT_L" => Key::KEY_LEFTALT,
+        "A_R" => Key::KEY_RIGHTALT,
+        "A_L" => Key::KEY_LEFTALT,
         "M_R" => Key::KEY_RIGHTALT,
         "M_L" => Key::KEY_LEFTALT,
         // Windows
@@ -48,6 +52,8 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         "SUPER_L" => Key::KEY_LEFTMETA,
         "WIN_R" => Key::KEY_RIGHTMETA,
         "WIN_L" => Key::KEY_LEFTMETA,
+        "W_R" => Key::KEY_RIGHTMETA,
+        "W_L" => Key::KEY_LEFTMETA,
 
         // Custom aliases used in config files to represent scancodes for disguised relative events.
         // Relative events are disguised into key events with those scancodes,
