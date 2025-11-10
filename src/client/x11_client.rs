@@ -193,7 +193,11 @@ fn get_focused_window_id(conn: &RustConnection, screen_num: usize) -> anyhow::Re
     if prop_reply.type_ != x11rb::NONE && prop_reply.value.len() == 4 {
         let arr: [u8; 4] = prop_reply.value.try_into().expect("Should be vector of 4 bytes");
 
-        return Ok(u32::from_le_bytes(arr));
+        let winid = u32::from_le_bytes(arr);
+
+        if winid != 0 {
+            return Ok(winid);
+        }
     }
 
     // Fallback to focused element which sometimes is the window
