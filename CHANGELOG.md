@@ -1,3 +1,8 @@
+## v0.14.4
+
+- Add more modifier aliases: `S_R`/`S_L` for Shift, `A_R`/`A_L` for Alt, and `W_R`/`W_L` for Windows https://github.com/xremap/xremap/pull/785
+- x11: Use a fallback when there's no active window https://github.com/xremap/xremap/pull/784
+
 ## v0.14.3
 
 - gnome: Add window title support https://github.com/xremap/xremap/pull/773
