@@ -15,6 +15,24 @@ use crate::{
     event_handler::EventHandler,
 };
 
+/// There are a lot of features and some interact.
+/// To order test cases they are placed according to which features they are testing.
+/// Test cases are placed in the file of the most specific feature they test.
+/// With the following definition of specific (ordered by most specific first):
+///
+///     Virtual modifiers
+///     Disguised events output
+///     Disguised events input (i.e. transformation of relative event to pseudo keys)
+///     Multipurpose keys
+///     PressRelease keys
+///     Relative events/Mouse click
+///     Modmap key-to-key
+///     Nested remap in keymap
+///     Keymap
+///
+/// In other words: A feature is responsible for testing
+/// all interactions with less specific features.
+
 struct StaticClient {
     current_application: Option<String>,
 }
@@ -430,6 +448,79 @@ fn test_exact_match_false_nested() {
 }
 
 #[test]
+fn test_keymaps_are_merged() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              a: b
+          - remap:
+              c: d
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_press(Key::KEY_C),
+            Event::key_release(Key::KEY_C),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_keymap_merge_gives_precedence_to_first() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              a: b
+          - remap:
+              a: c
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_keymap_emit_is_not_used_in_subsequent_remaps() {
+    assert_actions(
+        indoc! {"
+        keymap:
+            - remap:
+                a: b
+            - remap:
+                b: c
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
 fn test_application_override() {
     let config = indoc! {"
         keymap:
@@ -776,6 +867,19 @@ fn test_any_key() {
     );
 }
 
+#[test]
+fn test_keymap_with_modifier_alone_is_not_supported() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              C_L: end
+        "},
+        vec![Event::key_press(Key::KEY_LEFTCTRL)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press))],
+    )
+}
+
 pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     assert_actions_with_current_application(config_yaml, None, events, actions);
 }
@@ -791,7 +895,7 @@ pub fn assert_actions_with_current_application(
     config.keymap_table = build_keymap_table(&config.keymap);
     let mut event_handler = EventHandler::new(
         timer,
-        "default",
+        &config.default_mode,
         Duration::from_micros(0),
         WMClient::new("static", Box::new(StaticClient { current_application })),
     );

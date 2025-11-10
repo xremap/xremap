@@ -15,6 +15,25 @@ pub enum Event<'a> {
     OverrideTimeout,
 }
 
+impl<'a> Event<'a> {
+    #[cfg(test)]
+    pub fn key_release(code: Key) -> Event<'a> {
+        Event::KeyEvent(crate::tests::get_input_device_info(), KeyEvent::new(code, KeyValue::Release))
+    }
+    #[cfg(test)]
+    pub fn key_press(code: Key) -> Event<'a> {
+        Event::KeyEvent(crate::tests::get_input_device_info(), KeyEvent::new(code, KeyValue::Press))
+    }
+    #[cfg(test)]
+    pub fn key_repeat(code: Key) -> Event<'a> {
+        Event::KeyEvent(crate::tests::get_input_device_info(), KeyEvent::new(code, KeyValue::Repeat))
+    }
+    #[cfg(test)]
+    pub fn relative(code: u16, value: i32) -> Event<'a> {
+        Event::RelativeEvent(crate::tests::get_input_device_info(), RelativeEvent { code, value })
+    }
+}
+
 #[derive(Debug)]
 pub struct KeyEvent {
     pub key: Key,
