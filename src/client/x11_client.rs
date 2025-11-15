@@ -82,6 +82,11 @@ impl Client for X11Client {
             }
 
             window = get_parent_window(self, window)?;
+
+            if window == 0 {
+                // No more parents, so fall back to using _NET_ACTIVE_WINDOW
+                return current_application_fallback(self);
+            }
         }
     }
 }
@@ -121,6 +126,13 @@ fn get_wm_class(client: &mut X11Client, window: Window) -> Option<String> {
         }
     }
     return None;
+}
+
+/// Get WM_CLASS by using _NET_ACTIVE_WINDOW
+fn current_application_fallback(client: &mut X11Client) -> Option<String> {
+    let winid = get_focused_window_id(client.connection.as_ref()?, client.screen_num?).ok()?;
+
+    get_wm_class(client, winid)
 }
 
 fn get_cookie_reply_with_reconnect<T: TryParse>(
