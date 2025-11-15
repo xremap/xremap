@@ -4,6 +4,18 @@
 
 `xremap` is a key remapper for Linux. Unlike `xmodmap`, it supports app-specific remapping and Wayland.
 
+## Table of contents
+
+- [Concept](#Concept)
+- [Features](#Features)
+- [Installation](#Installation)
+- [Usage](#Usage)
+- [Configuration](#Configuration)
+- [Commandline arguments](#Commandline%20arguments)
+- [Running xremap as a daemon](#Running%20xremap%20as%20a%20daemon)
+- [Maintainers](#Maintainers)
+- [License](#License)
+
 ## Concept
 
 - **Fast** - Xremap is written in Rust, which is faster than JIT-less interpreters like Python.
@@ -137,7 +149,7 @@ sudo udevadm control --reload-rules && sudo udevadm trigger
 
 The following can be used on NixOS.
 
-Ensure `uninput` is enabled in your `configuration.nix`:
+Ensure `uinput` is enabled in your `configuration.nix`:
 
 ```nix
 hardware.uinput.enable = true;
@@ -246,16 +258,18 @@ modmap:
       # Replace a key with multiple keys (pressed and released simultaneously)
       KEY_XXX2: [KEY_YYY, KEY_ZZZ]
       # Dispatch different keys depending on whether you hold it or press it alone
-      KEY_XXX3:
+      # Disable a key
+      KEY_XXX3: []
+      KEY_XXX4:
         held: KEY_YYY # Required, also accepts arrays
         alone: KEY_ZZZ # Required, also accepts arrays
-        alone_timeout_millis: 1000 # Optional
+        alone_timeout_millis: 1000 # Optional, defaults to 1000
       # Hook `keymap` action on key press/release events.
-      KEY_XXX4:
+      KEY_XXX5:
         skip_key_event: true # Optional, skip original key event, defaults to false
-        press: [{ press: KEY_YYY }, { launch: ["xdotool", "mousemove", "0", "7200"] }] # Optional
-        repeat: { repeat: KEY_YYY } # Optional
-        release: [{ release: KEY_YYY }, { set_mode: my_mode }] # Optional
+        press: [{ press: KEY_YYY }, { launch: ["xdotool", "mousemove", "0", "7200"] }] # Optional, default to no action
+        repeat: { repeat: KEY_YYY } # Optional, default to no action
+        release: [{ release: KEY_YYY }, { set_mode: my_mode }] # Optional, default to no action
     application: # Optional
       not: [Application, ...]
       # or
@@ -288,12 +302,16 @@ sudo RUST_LOG=debug xremap config.yml
 
 Then press the key you want to know the name of.
 
+### Multi-purpose key with alone_timeout_millis
+
 If you specify a map containing `held` and `alone`, you can use the key for two purposes. By default, the behavior is determined by a timeout:
 
 - If the key is pressed and released within `alone_timeout_millis` (default: 1000) without any other key being pressed, it's considered `alone`.
 - If the key is held down longer than the timeout, it's considered `held`.
 
 This can be problematic if you want to use a key as a modifier, as you might trigger the `held` action by simply holding the key for too long.
+
+### Multi-purpose key with free hold
 
 The `free_hold: true` option provides a different behavior for these multi-purpose keys. When enabled:
 
@@ -309,16 +327,19 @@ modmap:
       Space:
         held: Shift_L
         alone: Space
-        free_hold: true
+        free_hold: true # Optional, defaults to false.
 ```
 
 ### keymap
 
 `keymap` is for remapping a sequence of key combinations to another sequence of key combinations or other actions.
+Key actions in `keymap` will generally press and release keys right away
+when the last key in the trigger combination is pressed.
 
 ```yml
 keymap:
   - name: Name # Optional
+    exact_match: false # Optional, defaults to false
     remap: # Required
       # Key press -> Key press
       MOD1-KEY_XXX1: MOD2-KEY_YYY
@@ -327,6 +348,7 @@ keymap:
         remap:
           MOD2-KEY_YYY: MOD3-KEY_ZZZ
         timeout_millis: 200 # Optional. No timeout by default.
+        timeout_key: KEY_A # Optional. Defaults to nothing. Can also be an array.
       # Key press (MOD1-KEY_XXX3) -> Sequence (MOD2-KEY_YYY, MOD3-KEY_ZZZ)
       MOD1-KEY_XXX3: [MOD2-KEY_YYY, MOD3-KEY_ZZZ]
       # Execute a command
@@ -582,6 +604,72 @@ keymap:
   - application:
       only: *terminals # we can reuse the list here
     remap: *some_remaps # and we can reuse a map here.
+```
+
+## Commandline arguments
+
+Usage for xremap is shown by running the following command:
+
+```
+xremap --help
+```
+
+The result is shown here:
+
+```
+Usage: xremap [OPTIONS] [CONFIGS]...
+
+Arguments:
+  [CONFIGS]...
+          Config file(s)
+
+          When more than one file is given, then will modmap, keymap and virtual_modifiers from the subsequent files be merged into the first configuration file.
+
+Options:
+      --device <DEVICE>
+          Limit input devices to the given names or paths. Default is all keyboards
+
+      --ignore <IGNORE>
+          Ignore input devices with the given names or paths
+
+      --mouse
+          Listen to mouse devices. Default is false
+
+      --watch[=<WATCH>...]
+          Watch for new devices or changing configuration files.
+          Default is not watching for either.
+          Examples
+          - xremap --watch config.yml               # watch devices
+          - xremap --watch=config config.yml        # watch configuration files
+          - xremap --watch=config,device config.yml # watch both
+
+          Possible values:
+          - device: add new devices automatically
+          - config: reload the config automatically
+
+      --output-device-name <OUTPUT_DEVICE_NAME>
+          Choose the name of the created output device. Default is 'xremap' or 'xremap pid=xx'
+
+      --vendor <VENDOR>
+          Choose the vendor value of the created output device. Default is: 0x1234
+
+      --product <PRODUCT>
+          Choose the product value of the created output device. Default is: 0x5678
+
+      --completions <SHELL>
+          Generate shell completions
+
+          You can use them by storing in your shells completion file or by running
+          - in bash: eval "$(xremap --completions bash)"
+          - in fish: xremap --completions fish | source
+
+          [possible values: bash, elvish, fish, powershell, zsh]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
 ```
 
 ## Running xremap as a daemon
