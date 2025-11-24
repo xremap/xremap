@@ -35,10 +35,7 @@ fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
     if let Some((key, modifier_keys)) = keys.split_last() {
         let mut modifiers = vec![];
         for modifier_key in modifier_keys.iter() {
-            match parse_modifier(modifier_key) {
-                Ok(modifier) => modifiers.push(modifier),
-                Err(e) => return Err(e),
-            }
+            modifiers.push(parse_modifier(modifier_key)?);
         }
 
         Ok(KeyPress {
