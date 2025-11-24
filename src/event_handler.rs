@@ -36,7 +36,7 @@ pub struct EventHandler {
     extra_modifiers: HashSet<Key>,
     // Make sure the original event is released even if remapping changes while holding the key
     pressed_keys: HashMap<Key, Key>,
-    // Check the currently active application
+    // Client that interacts with the window manager.
     application_client: WMClient,
     application_cache: Option<String>,
     title_cache: Option<String>,
@@ -602,7 +602,7 @@ impl EventHandler {
 
     fn send_key_press_and_release(&mut self, key_press: &KeyPress) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
-        // because logical modifiers shouldn't make an impact outside xremap.
+        // because virtual modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
         extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !self.extra_modifiers.contains(key));
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
