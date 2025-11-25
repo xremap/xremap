@@ -11,8 +11,6 @@ on:
       - opened
       - synchronize
       - reopened
-  schedule:
-    - cron: '00 15 * * *' # 7:00 PST (-8), 8:00 PDT (-7)
 env:
   CARGO_TERM_COLOR: always
 jobs:
