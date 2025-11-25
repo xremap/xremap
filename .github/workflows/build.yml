@@ -14,6 +14,20 @@ on:
 env:
   CARGO_TERM_COLOR: always
 jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: Swatinem/rust-cache@v1
+        with:
+          key: ubuntu-latest
+      - run: cargo fmt --check
+
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -40,11 +54,15 @@ jobs:
       - name: package
         run: zip "xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip" xremap
         working-directory: target/${{ matrix.arch }}-unknown-linux-musl/release
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: xremap-${{ matrix.arch }}-${{ matrix.feature }}
           path: target/${{ matrix.arch }}-unknown-linux-musl/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
+
+      - name: lint
+        run: cargo check --features ${{ matrix.feature }}
 
   build-libc:
     runs-on: ubuntu-latest
@@ -70,6 +88,9 @@ jobs:
       - name: Build
         run: cargo build --release --features ${{ matrix.feature }}
 
+      - name: lint
+        run: cargo check --features ${{ matrix.feature }}
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -86,6 +107,9 @@ jobs:
         run: cargo test
       - name: Run device tests
         run: sudo -E env "PATH=$PATH" cargo test --tests --features device-test
+
+      - name: lint
+        run: cargo check --tests --features device-test
 
   # Release xremap binaries on GitHub
   release:
