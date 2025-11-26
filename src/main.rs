@@ -332,7 +332,9 @@ fn handle_input_events(
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => Ok(events.collect()),
     }?;
-    let input_events = events.iter().map(|e| Event::new(input_device.to_info(), *e)).collect();
+
+    let info = input_device.to_info();
+    let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
     handle_events(handler, dispatcher, config, input_events)?;
     Ok(device_exists)
 }
