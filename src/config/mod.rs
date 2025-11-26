@@ -45,6 +45,8 @@ pub struct Config {
     pub virtual_modifiers: Vec<Key>,
     #[serde(default)]
     pub keypress_delay_ms: u64,
+    #[serde(default)]
+    pub throttle_ms: u64,
 
     // Data is not used by any part of the application.
     // but can be used with Anchors and Aliases

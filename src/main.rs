@@ -4,6 +4,7 @@ use crate::device::{
     device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
 };
 use crate::event_handler::EventHandler;
+use crate::throttle_emit::ThrottleEmit;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
@@ -51,7 +52,10 @@ mod tests_modmap_press_release_key;
 #[cfg(test)]
 mod tests_nested_remap;
 #[cfg(test)]
+mod tests_throttle_emit;
+#[cfg(test)]
 mod tests_virtual_modifier;
+mod throttle_emit;
 mod util;
 
 #[derive(Parser, Debug)]
@@ -222,7 +226,14 @@ fn main() -> anyhow::Result<()> {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),
     };
-    let mut dispatcher = ActionDispatcher::new(output_device);
+
+    let throttle_emit = if config.throttle_ms == 0 {
+        None
+    } else {
+        Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
+    };
+
+    let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 
     // Main loop
     loop {

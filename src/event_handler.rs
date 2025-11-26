@@ -794,7 +794,7 @@ fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
 }
 
 lazy_static! {
-    static ref MODIFIER_KEYS: [Key; 8] = [
+    pub static ref MODIFIER_KEYS: [Key; 8] = [
         // Shift
         Key::KEY_LEFTSHIFT,
         Key::KEY_RIGHTSHIFT,
@@ -817,9 +817,9 @@ fn is_pressed(value: i32) -> bool {
 }
 
 // InputEvent#value
-const RELEASE: i32 = 0;
-const PRESS: i32 = 1;
-const REPEAT: i32 = 2;
+pub const RELEASE: i32 = 0;
+pub const PRESS: i32 = 1;
+pub const REPEAT: i32 = 2;
 
 // ---
 

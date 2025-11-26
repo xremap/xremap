@@ -490,8 +490,27 @@ keymap:
 
 ### keypress_delay_ms
 
+Default is `0ms`.
+
 Some applications have trouble understanding synthesized key events, especially on
-Wayland. `keypress_delay_ms` can be used to workaround the issue.
+Wayland. `keypress_delay_ms` can be used to workaround the issue. Only events from
+key combos in `keymap` are delayed. If that isn't enough try `throttle_ms`.
+
+### throttle_ms
+
+Default is `0ms`.
+
+Slow down synthetic events, so applications have the time to register events.
+All events from anywhere in xremap are slowed down between:
+
+- Press and release of the same key. But not the other way around.
+- Press of ordinary key and press/release of modifier key.
+- Press/release of modifier key and press of ordinary key.
+
+The delay is only added if needed. That is there's no delay if the time has already elapsed.
+
+The logic is choosen to allow applications enough time to register the exact modifiers pressed when
+a key is pressed, and keep to key pressed enough time.
 
 ### Shared data field
 
