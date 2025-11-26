@@ -1,5 +1,4 @@
-use std::thread;
-
+use crate::throttle_emit::ThrottleEmit;
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
 use fork::{fork, setsid, Fork};
 use log::debug;
@@ -7,6 +6,7 @@ use log::error;
 use nix::sys::signal;
 use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet};
 use std::process::{exit, Command, Stdio};
+use std::thread;
 
 use crate::event::RelativeEvent;
 use crate::{action::Action, event::KeyEvent};
@@ -16,13 +16,16 @@ pub struct ActionDispatcher {
     device: VirtualDevice,
     // Whether we've called a sigaction for spawing commands or not
     sigaction_set: bool,
+    // Throttle emitting events
+    throttle_emit: Option<ThrottleEmit>,
 }
 
 impl ActionDispatcher {
-    pub fn new(device: VirtualDevice) -> ActionDispatcher {
+    pub fn new(device: VirtualDevice, throttle_emit: Option<ThrottleEmit>) -> ActionDispatcher {
         ActionDispatcher {
             device,
             sigaction_set: false,
+            throttle_emit,
         }
     }
 
@@ -79,8 +82,14 @@ impl ActionDispatcher {
 
     fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
         if event.event_type() == EventType::KEY {
+            // Throttle
+            if let Some(throttle_emit) = &mut self.throttle_emit {
+                throttle_emit.sleep_if_needed(Key(event.code()), event.value());
+            };
+
             debug!("{}: {:?}", event.value(), Key::new(event.code()))
         }
+
         self.device.emit(&[event])
     }
 
