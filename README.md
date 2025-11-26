@@ -16,6 +16,10 @@ This experimental fork is compatible with xremap in the following way:
 
 Changes made on top of xremap:
 
+**Add all mouse buttons to output device** ([PR 6](https://github.com/hpccc53/xremap/pull/6))
+
+Make it possible to emit all mouse buttons from a config file. Before it was only possible to click some of the mouse buttons.
+
 **Throttle output events** ([PR 5](https://github.com/hpccc53/xremap/pull/5))
 
 Delay (if needed) between:
