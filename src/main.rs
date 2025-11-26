@@ -242,8 +242,7 @@ fn main() -> anyhow::Result<()> {
         match 'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
             if readable_fds.contains(timer_fd) {
-                if let Err(error) =
-                    handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::OverrideTimeout])
+                if let Err(error) = handle_events(&mut handler, &mut dispatcher, &config, vec![Event::OverrideTimeout])
                 {
                     println!("Error on remap timeout: {error}")
                 }
@@ -254,7 +253,7 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
 
-                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &mut config)? {
+                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &config)? {
                     println!("Found a removed device. Reselecting devices.");
                     break 'event_loop ReloadEvent::ReloadDevices;
                 }
@@ -322,7 +321,7 @@ fn handle_input_events(
     input_device: &mut InputDevice,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
-    config: &mut Config,
+    config: &Config,
 ) -> anyhow::Result<bool> {
     let mut device_exists = true;
     let events = match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
@@ -342,7 +341,7 @@ fn handle_input_events(
 fn handle_events(
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
-    config: &mut Config,
+    config: &Config,
     events: Vec<Event>,
 ) -> anyhow::Result<()> {
     let actions = handler
