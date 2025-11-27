@@ -57,16 +57,21 @@ mod throttle_emit;
 #[derive(Parser, Debug)]
 #[command(version)]
 struct Args {
-    /// Include a device name or path
+    /// Limit input devices to the given names or paths. Default is all keyboards.
     #[arg(long, value_delimiter = ',')]
     device: Vec<String>,
-    /// Ignore a device name or path
+    /// Ignore input devices with the given names or paths.
     #[arg(long, value_delimiter = ',')]
     ignore: Vec<String>,
-    /// Match mice by default
+    /// Listen to mouse devices. Default is false.
     #[arg(long)]
     mouse: bool,
-    /// Targets to watch
+    /// Watch for new devices or changing configuration files.
+    /// Default is not watching for either.
+    /// Examples
+    /// - xremap --watch config.yml               # watch devices
+    /// - xremap --watch=config config.yml        # watch configuration files
+    /// - xremap --watch=config,device config.yml # watch both
     #[arg(long, value_enum, num_args = 0.., value_delimiter = ',', require_equals = true,
            default_missing_value = "device", verbatim_doc_comment)]
     watch: Vec<WatchTargets>,
@@ -77,13 +82,22 @@ struct Args {
     /// - in fish: xremap --completions fish | source
     #[arg(long, value_enum, display_order = 100, value_name = "SHELL", verbatim_doc_comment)]
     completions: Option<Shell>,
+    /// Choose the name of the created output device.
+    /// Default is 'xremap' or 'xremap pid=xx'
     #[arg(long)]
     output_device_name: Option<String>,
     /// Config file(s)
+    ///
+    /// When more than one file is given, then will modmap, keymap and virtual_modifiers
+    /// from the subsequent files be merged into the first configuration file.
     #[arg(required_unless_present = "completions", num_args = 1..)]
     configs: Vec<PathBuf>,
+    /// Choose the vendor value of the created output device.
+    /// Default is: 0x1234
     #[arg(long)]
     vendor: Option<String>,
+    /// Choose the product value of the created output device.
+    /// Default is: 0x5678
     #[arg(long)]
     product: Option<String>,
 }
