@@ -10,7 +10,7 @@ This experimental fork is compatible with xremap in the following way:
 
 | Version | Xremap version |
 | ------- | -------------- |
-| 0.0.1   | 0.14.5         |
+| 50.0.1  | 0.14.5         |
 
 ## Changelog
 
