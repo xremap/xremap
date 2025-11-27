@@ -238,7 +238,8 @@ impl InputDevice {
     pub fn wait_for_all_keys_up(&self) -> io::Result<()> {
         for _ in 0..50 {
             let keys = self.device.get_key_state()?;
-            if keys.iter().count() == 0 {
+
+            if keys.iter().filter(|&key| key != Key::KEY_UNKNOWN).count() == 0 {
                 return Ok(());
             }
 
