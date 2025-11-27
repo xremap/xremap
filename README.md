@@ -8,9 +8,9 @@ This is a fork for experimenting with new features for xremap. Full compatibilit
 
 This experimental fork is compatible with xremap in the following way:
 
-| Version              | Xremap version |
-| -------------------- | -------------- |
-| 0.0.1 (not released) | 0.14.4         |
+| Version | Xremap version |
+| ------- | -------------- |
+| 0.0.1   | 0.14.5         |
 
 ## Changelog
 
