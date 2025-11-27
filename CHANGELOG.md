@@ -1,3 +1,9 @@
+## v0.14.5
+
+- x11: Fallback for `WM_CLASS` https://github.com/xremap/xremap/pull/787
+- Ignore unknown keys in `wait_for_all_keys_up` https://github.com/xremap/xremap/pull/788
+- Update docs https://github.com/xremap/xremap/pull/789
+
 ## v0.14.4
 
 - Add more modifier aliases: `S_R`/`S_L` for Shift, `A_R`/`A_L` for Alt, and `W_R`/`W_L` for Windows https://github.com/xremap/xremap/pull/785
