@@ -17,13 +17,13 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
           key: ubuntu-latest
       - run: cargo fmt --check
@@ -36,7 +36,7 @@ jobs:
         arch: [x86_64, aarch64]
         feature: [x11, gnome, kde, hypr, wlroots, niri]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -56,7 +56,7 @@ jobs:
         working-directory: target/${{ matrix.arch }}-unknown-linux-musl/release
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: xremap-${{ matrix.arch }}-${{ matrix.feature }}
           path: target/${{ matrix.arch }}-unknown-linux-musl/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
@@ -71,7 +71,7 @@ jobs:
       matrix:
         feature: [udev]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -94,13 +94,13 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
         with:
           key: ubuntu-latest
       - name: Run unit tests
@@ -119,7 +119,7 @@ jobs:
       - test
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -145,9 +145,12 @@ jobs:
       # Release binary
       - name: Release
         run: |
+          set -e
           export VERSION=$(echo "$GITHUB_REF" | sed -e 's!refs/tags/!!')
-          curl -L "https://github.com/tcnksm/ghr/releases/download/${GHR_VERSION}/ghr_${GHR_VERSION}_linux_amd64.tar.gz" | tar xvz
+          curl -L "https://github.com/tcnksm/ghr/releases/download/${GHR_VERSION}/ghr_${GHR_VERSION}_linux_amd64.tar.gz" -o ghr.tar.gz
+          printf "%s\n" "bdf8f7134ac5362c18debf34e10fd50b5141d9d7ae4d9f3863b67236a31012eb  ghr.tar.gz" | sha256sum -c --strict
+          tar xvzf ghr.tar.gz
           "ghr_${GHR_VERSION}_linux_amd64/ghr" -u hpccc53 -r xremap -replace -n "$VERSION" "$VERSION" package/
         env:
-          GHR_VERSION: v0.16.2
+          GHR_VERSION: v0.17.0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
