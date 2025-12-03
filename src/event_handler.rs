@@ -334,7 +334,8 @@ impl EventHandler {
                                 tap,
                                 hold_threshold_at: Some(Instant::now() + hold_threshold),
                                 tap_timeout_at: if free_hold {
-                                    None
+                                    // An approximation of never.
+                                    Some(Instant::now() + Duration::from_secs_f32(1e10))
                                 } else {
                                     Some(Instant::now() + tap_timeout)
                                 },
@@ -883,15 +884,10 @@ impl MultiPurposeKeyState {
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
             None => {
-                if !self.held_down {
-                    assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                    vec![] // still delay the press
-                } else {
-                    assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
-                    let mut keys = self.hold.clone().into_vec();
-                    keys.sort_by(modifiers_first);
-                    keys.into_iter().map(|key| (key, REPEAT)).collect()
-                }
+                assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
+                let mut keys = self.hold.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                keys.into_iter().map(|key| (key, REPEAT)).collect()
             }
         }
     }
@@ -912,18 +908,12 @@ impl MultiPurposeKeyState {
 
                 self.press_and_release(&self.hold)
             }
-            None => match self.held_down {
-                true => {
-                    assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
-                    let mut release_keys = self.hold.clone().into_vec();
-                    release_keys.sort_by(modifiers_last);
-                    release_keys.into_iter().map(|key| (key, RELEASE)).collect()
-                }
-                false => {
-                    assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                    self.press_and_release(&self.tap)
-                }
-            },
+            None => {
+                assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
+                let mut release_keys = self.hold.clone().into_vec();
+                release_keys.sort_by(modifiers_last);
+                release_keys.into_iter().map(|key| (key, RELEASE)).collect()
+            }
         }
     }
 
