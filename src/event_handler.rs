@@ -932,22 +932,18 @@ impl MultiPurposeKeyState {
     fn force_hold(&mut self) -> Vec<(Key, i32)> {
         assert!(self.held_down == (self.state == MultiPurposeKeyStateEnum::HoldDown));
 
-        let press = if !self.held_down {
+        if !self.held_down {
             assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
             self.state = MultiPurposeKeyStateEnum::HoldDown;
             self.tap_timeout_at = None;
             self.held_down = true;
-            true
-        } else {
-            assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
-            false
-        };
 
-        if press {
             let mut keys = self.hold.clone().into_vec();
             keys.sort_by(modifiers_first);
             keys.into_iter().map(|key| (key, PRESS)).collect()
         } else {
+            assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
+
             vec![]
         }
     }
