@@ -930,21 +930,18 @@ impl MultiPurposeKeyState {
     // Other keys were pressed, so the multipurpose key
     // should emit presses of its held-value.
     fn force_hold(&mut self) -> Vec<(Key, i32)> {
-        assert!(self.held_down == (self.state == MultiPurposeKeyStateEnum::HoldDown));
+        match self.state {
+            MultiPurposeKeyStateEnum::TapPreferred => todo!(),
+            MultiPurposeKeyStateEnum::HoldPreferred => {
+                self.state = MultiPurposeKeyStateEnum::HoldDown;
+                self.tap_timeout_at = None;
+                self.held_down = true;
 
-        if !self.held_down {
-            assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-            self.state = MultiPurposeKeyStateEnum::HoldDown;
-            self.tap_timeout_at = None;
-            self.held_down = true;
-
-            let mut keys = self.hold.clone().into_vec();
-            keys.sort_by(modifiers_first);
-            keys.into_iter().map(|key| (key, PRESS)).collect()
-        } else {
-            assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
-
-            vec![]
+                let mut keys = self.hold.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                keys.into_iter().map(|key| (key, PRESS)).collect()
+            }
+            MultiPurposeKeyStateEnum::HoldDown => vec![],
         }
     }
 
