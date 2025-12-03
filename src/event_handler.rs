@@ -932,27 +932,15 @@ impl MultiPurposeKeyState {
     fn force_hold(&mut self) -> Vec<(Key, i32)> {
         assert!(self.held_down == (self.state == MultiPurposeKeyStateEnum::HoldDown));
 
-        let press = match self.tap_timeout_at {
-            Some(_) => {
-                assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                assert!(!self.held_down);
-
-                self.state = MultiPurposeKeyStateEnum::HoldDown;
-                self.tap_timeout_at = None;
-                self.held_down = true;
-                true
-            }
-            None => {
-                if !self.held_down {
-                    assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                    self.state = MultiPurposeKeyStateEnum::HoldDown;
-                    self.held_down = true;
-                    true
-                } else {
-                    assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
-                    false
-                }
-            }
+        let press = if !self.held_down {
+            assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
+            self.state = MultiPurposeKeyStateEnum::HoldDown;
+            self.tap_timeout_at = None;
+            self.held_down = true;
+            true
+        } else {
+            assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldDown);
+            false
         };
 
         if press {
