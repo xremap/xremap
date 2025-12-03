@@ -339,7 +339,6 @@ impl EventHandler {
                                 } else {
                                     Some(Instant::now() + tap_timeout)
                                 },
-                                held_down: false,
                                 state: if hold_threshold == Duration::ZERO {
                                     MultiPurposeKeyStateEnum::HoldPreferred
                                 } else {
@@ -855,30 +854,23 @@ struct MultiPurposeKeyState {
     hold_threshold_at: Option<Instant>,
     // Some if the first press is still delayed, None if already considered held.
     tap_timeout_at: Option<Instant>,
-    // Whether the multipurpose key is considered to be held down, and key presses has been emitted.
-    held_down: bool,
     state: MultiPurposeKeyStateEnum,
 }
 
 impl MultiPurposeKeyState {
     fn repeat(&mut self) -> Vec<(Key, i32)> {
-        assert!(self.held_down == (self.state == MultiPurposeKeyStateEnum::HoldDown));
-
         match self.tap_timeout_at {
             Some(tap_timeout_at) if Instant::now() < tap_timeout_at => {
                 assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                assert!(!self.held_down);
 
                 vec![] // still delay the press
             }
             Some(_) => {
                 assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                assert!(!self.held_down);
 
                 // timeout
                 self.state = MultiPurposeKeyStateEnum::HoldDown;
                 self.tap_timeout_at = None;
-                self.held_down = true;
                 let mut keys = self.hold.clone().into_vec();
                 keys.sort_by(modifiers_first);
                 keys.into_iter().map(|key| (key, PRESS)).collect()
@@ -893,18 +885,14 @@ impl MultiPurposeKeyState {
     }
 
     fn release(&self) -> Vec<(Key, i32)> {
-        assert!(self.held_down == (self.state == MultiPurposeKeyStateEnum::HoldDown));
-
         match self.tap_timeout_at {
             Some(tap_timeout_at) if Instant::now() < tap_timeout_at => {
                 assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                assert!(!self.held_down);
 
                 self.press_and_release(&self.tap)
             }
             Some(_) => {
                 assert_eq!(self.state, MultiPurposeKeyStateEnum::HoldPreferred);
-                assert!(!self.held_down);
 
                 self.press_and_release(&self.hold)
             }
@@ -925,7 +913,6 @@ impl MultiPurposeKeyState {
             MultiPurposeKeyStateEnum::HoldPreferred => {
                 self.state = MultiPurposeKeyStateEnum::HoldDown;
                 self.tap_timeout_at = None;
-                self.held_down = true;
 
                 let mut keys = self.hold.clone().into_vec();
                 keys.sort_by(modifiers_first);
