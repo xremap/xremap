@@ -62,7 +62,7 @@ pub fn e2e_wait_for_output_with_nocapture() -> anyhow::Result<()> {
 }
 
 #[test]
-pub fn e2e_error_in_config_file_cur() -> Result<()> {
+pub fn e2e_error_in_config_file() -> Result<()> {
     let ctrl = XremapController::builder()
         .config(indoc! {"
                 keymap:
