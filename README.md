@@ -11,8 +11,8 @@
 - [Installation](#Installation)
 - [Usage](#Usage)
 - [Configuration](#Configuration)
-- [Commandline arguments](#Commandline%20arguments)
-- [Running xremap as a daemon](#Running%20xremap%20as%20a%20daemon)
+- [Commandline arguments](#Commandline-arguments)
+- [Running xremap as a daemon](#Running-xremap-as-a-daemon)
 - [Maintainers](#Maintainers)
 - [License](#License)
 
