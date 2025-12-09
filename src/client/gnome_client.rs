@@ -1,15 +1,24 @@
 use crate::client::Client;
 use futures::executor::block_on;
+use log::debug;
 use serde::{Deserialize, Serialize};
+use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
+use std::path::Path;
 use zbus::{zvariant, Connection, Error, Message};
 
 pub struct GnomeClient {
+    socket_path: Option<String>,
     connection: Option<Connection>,
 }
 
 impl GnomeClient {
     pub fn new() -> GnomeClient {
-        GnomeClient { connection: None }
+        let socket_path = std::env::var("GNOME_SOCKET").ok().filter(|s| !s.is_empty());
+        GnomeClient {
+            socket_path,
+            connection: None,
+        }
     }
 
     fn connect(&mut self) {
@@ -20,11 +29,32 @@ impl GnomeClient {
     }
 
     fn get_focused_title(&mut self) -> anyhow::Result<String> {
-        let json = self.call_method("ActiveWindow", &())?.body().deserialize::<String>()?;
+        let window = self.get_active_window()?;
+        return Ok(window.title);
+    }
 
-        let window = serde_json::from_str::<ActiveWindow>(&json)?;
+    fn get_active_window(&mut self) -> anyhow::Result<ActiveWindow> {
+        let json;
+        if self.socket_path.is_some() {
+            json = self.call_via_socket("ActiveWindow")?;
+        } else {
+            json = self.call_method("ActiveWindow", &())?.body().deserialize::<String>()?;
+        }
+        Ok(serde_json::from_str::<ActiveWindow>(&json)?)
+    }
 
-        Ok(window.title)
+    fn call_via_socket(&self, command: &str) -> anyhow::Result<String> {
+        let path = self.socket_path
+            .as_ref()
+            .ok_or_else(|| anyhow::format_err!("GNOME_SOCKET not set"))?;
+        let mut stream = UnixStream::connect(path)?;
+        stream.write_all(serde_json::to_string(command)?.as_bytes())?;
+        stream.write_all(b"\n")?;
+        stream.flush()?;
+        let mut reader = BufReader::new(stream);
+        let mut response = String::new();
+        reader.read_line(&mut response)?;
+        Ok(response)
     }
 
     fn call_method<B>(&mut self, method: &str, body: &B) -> anyhow::Result<Message>
@@ -61,6 +91,20 @@ impl GnomeClient {
 
 impl Client for GnomeClient {
     fn supported(&mut self) -> bool {
+        if let Some(socket) = self.socket_path.as_ref() {
+            match Path::new(socket).parent() {
+                Some(parent) if parent.is_dir() => {
+                    debug!("Using GNOME_SOCKET={}", socket);
+                    return true;
+                }
+                _ => {
+                    println!("Warning: GNOME_SOCKET={} parent directory not found", socket);
+                    return false;
+                }
+            }
+        }
+
+        // Fallback to DBus
         self.connect();
         self.current_application().is_some()
     }
@@ -76,27 +120,20 @@ impl Client for GnomeClient {
     }
 
     fn current_application(&mut self) -> Option<String> {
-        self.connect();
+        if let Ok(window) = self.get_active_window() {
+            return Some(window.wm_class);
+        } else if self.socket_path.is_some() {
+            // no fallback if GNOME_SOCKET has a value
+            return None;
+        }
+
+        // Fallback to the legacy protocol
+        // self.connect() already called if we got this far
         let connection = match &mut self.connection {
             Some(connection) => connection,
             None => return None,
         };
-
-        // Attempt the latest protocol
         if let Ok(message) = block_on(connection.call_method(
-            Some("org.gnome.Shell"),
-            "/com/k0kubun/Xremap",
-            Some("com.k0kubun.Xremap"),
-            "ActiveWindow",
-            &(),
-        )) {
-            if let Ok(json) = message.body().deserialize::<String>() {
-                if let Ok(window) = serde_json::from_str::<ActiveWindow>(&json) {
-                    return Some(window.wm_class);
-                }
-            }
-        // Fallback to the legacy protocol
-        } else if let Ok(message) = block_on(connection.call_method(
             Some("org.gnome.Shell"),
             "/com/k0kubun/Xremap",
             Some("com.k0kubun.Xremap"),
