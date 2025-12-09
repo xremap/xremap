@@ -43,12 +43,12 @@ impl GnomeClient {
         Ok(serde_json::from_str::<ActiveWindow>(&json)?)
     }
 
-    fn call_via_socket(&self, command: &str) -> anyhow::Result<String> {
+    fn call_via_socket<T: serde::Serialize>(&self, command: T) -> anyhow::Result<String> {
         let path = self.socket_path
             .as_ref()
             .ok_or_else(|| anyhow::format_err!("GNOME_SOCKET not set"))?;
         let mut stream = UnixStream::connect(path)?;
-        stream.write_all(serde_json::to_string(command)?.as_bytes())?;
+        stream.write_all(serde_json::to_string(&command)?.as_bytes())?;
         stream.write_all(b"\n")?;
         stream.flush()?;
         let mut reader = BufReader::new(stream);
@@ -145,6 +145,19 @@ impl Client for GnomeClient {
             }
         }
         None
+    }
+
+    fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
+        if self.socket_path.is_none() {
+            return Ok(false);
+        }
+        let request = serde_json::json!({"Run": command});
+        let response = self.call_via_socket(&request)?;
+        let parsed = serde_json::from_str::<serde_json::Value>(&response);
+        match parsed {
+            Ok(v) if v == "Ok" => Ok(true),
+            _ => Err(anyhow::format_err!(response))
+        }
     }
 }
 

@@ -2,6 +2,12 @@ pub trait Client {
     fn supported(&mut self) -> bool;
     fn current_application(&mut self) -> Option<String>;
     fn current_window(&mut self) -> Option<String>;
+    fn run(&mut self, _command: &Vec<String>) -> anyhow::Result<bool> {
+        // Ok(false) means the client cannot run the command (try another way)
+        // Ok(true) means the command was run successfully
+        // Err(...) means there was an error running the command
+        Ok(false)
+    }
 }
 
 pub struct WMClient {
@@ -22,15 +28,18 @@ impl WMClient {
             last_window: String::new(),
         }
     }
-    pub fn current_window(&mut self) -> Option<String> {
+
+    fn check_supported(&mut self) -> Option<()> {
         if self.supported.is_none() {
             let supported = self.client.supported();
             self.supported = Some(supported);
             println!("application-client: {} (supported: {})", self.name, supported);
         }
-        if !self.supported.unwrap() {
-            return None;
-        }
+        self.supported.unwrap().then_some(())
+    }
+
+    pub fn current_window(&mut self) -> Option<String> {
+        self.check_supported()?;
 
         let result = self.client.current_window();
         if let Some(window) = &result {
@@ -43,14 +52,7 @@ impl WMClient {
     }
 
     pub fn current_application(&mut self) -> Option<String> {
-        if self.supported.is_none() {
-            let supported = self.client.supported();
-            self.supported = Some(supported);
-            println!("application-client: {} (supported: {})", self.name, supported);
-        }
-        if !self.supported.unwrap() {
-            return None;
-        }
+        self.check_supported()?;
 
         let result = self.client.current_application();
         if let Some(application) = &result {
@@ -60,6 +62,13 @@ impl WMClient {
             }
         }
         result
+    }
+
+    pub fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
+        if self.check_supported().is_some() {
+            return self.client.run(command);
+        }
+        Ok(false)
     }
 }
 

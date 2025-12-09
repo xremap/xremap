@@ -110,6 +110,10 @@ impl EventHandler {
         Ok(self.actions.drain(..).collect())
     }
 
+    pub fn delegate_to_client(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
+        self.application_client.run(command)
+    }
+
     // Handle EventType::KEY
     fn on_key_event(
         &mut self,
