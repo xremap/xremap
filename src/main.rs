@@ -295,8 +295,11 @@ fn handle_events(
     let actions = handler
         .on_events(&events, config)
         .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
+    let mut run = |command: &Vec<String>| -> anyhow::Result<bool> {
+        handler.delegate_to_client(&command)
+    };
     for action in actions {
-        dispatcher.on_action(action)?;
+        dispatcher.on_action(action, &mut run)?;
     }
     Ok(())
 }

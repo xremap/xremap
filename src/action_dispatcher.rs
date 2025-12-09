@@ -27,7 +27,9 @@ impl ActionDispatcher {
     }
 
     // Execute Actions created by EventHandler. This should be the only public method of ActionDispatcher.
-    pub fn on_action(&mut self, action: Action) -> anyhow::Result<()> {
+    pub fn on_action<F>(&mut self, action: Action, mut run: F) -> anyhow::Result<()>
+    where F: FnMut(&Vec<String>) -> anyhow::Result<bool>
+    {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
             Action::RelativeEvent(relative_event) => self.on_relative_event(relative_event)?,
@@ -48,7 +50,14 @@ impl ActionDispatcher {
             }
 
             Action::InputEvent(event) => self.send_event(event)?,
-            Action::Command(command) => self.run_command(command),
+            Action::Command(command) => match run(&command) {
+                Ok(false) => {
+                    // could not run command, proceed to fork
+                    self.run_command(command);
+                }
+                Ok(true) => {}
+                Err(e) => { debug!("{command:?} failed: {e:?}"); }
+            }
             Action::Delay(duration) => thread::sleep(duration),
         }
         Ok(())
