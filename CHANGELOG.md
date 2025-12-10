@@ -1,3 +1,7 @@
+## v0.14.6
+
+- Security model improvements for GNOME https://github.com/xremap/xremap/pull/805
+
 ## v0.14.5
 
 - x11: Fallback for `WM_CLASS` https://github.com/xremap/xremap/pull/787
