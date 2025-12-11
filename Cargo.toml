@@ -33,6 +33,9 @@ hyprland = { version = "0.3.13", optional = true }
 toml = "0.9.8"
 udev = { version = "0.9.3", optional = true }
 futures = "0.3.31"
+wayland-protocols = { version = "0.30.0", features = ["client"], optional = true }
+wayland-scanner = { version = "0.30.0", optional = true }
+wayland-backend = { version = "0.1.0", optional = true }
 
 [dev-dependencies]
 fastrand = "2.3.0"
@@ -46,6 +49,7 @@ wlroots = ["wayland-client", "wayland-protocols-wlr"]
 udev = ["dep:udev"]
 niri = ["niri-ipc"]
 device-test = []
+cosmic = [ "wayland-client","wayland-scanner","wayland-backend"]
 
 [profile.release]
 codegen-units = 1

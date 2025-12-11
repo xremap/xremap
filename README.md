@@ -52,6 +52,7 @@ cargo install xremap --features kde     # KDE-Plasma Wayland
 cargo install xremap --features wlroots # Sway, Wayfire, etc.
 cargo install xremap --features hypr    # Hyprland
 cargo install xremap --features niri    # Niri
+cargo install xremap --features cosmic  # Cosmic
 cargo install xremap                    # Others
 ```
 

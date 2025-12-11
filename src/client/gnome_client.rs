@@ -44,7 +44,8 @@ impl GnomeClient {
     }
 
     fn call_via_socket<T: serde::Serialize>(&self, command: T) -> anyhow::Result<String> {
-        let path = self.socket_path
+        let path = self
+            .socket_path
             .as_ref()
             .ok_or_else(|| anyhow::format_err!("GNOME_SOCKET not set"))?;
         let mut stream = UnixStream::connect(path)?;
@@ -156,7 +157,7 @@ impl Client for GnomeClient {
         let parsed = serde_json::from_str::<serde_json::Value>(&response);
         match parsed {
             Ok(v) if v == "Ok" => Ok(true),
-            _ => Err(anyhow::format_err!(response))
+            _ => Err(anyhow::format_err!(response)),
         }
     }
 }
