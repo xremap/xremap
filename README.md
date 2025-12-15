@@ -701,6 +701,18 @@ Consider copying `example/xremap.desktop` to `~/.config/autostart/xremap.desktop
 - @jixiuf (wlroots client)
 - @saurabhsharan (Niri client)
 
+## Releasing
+
+First, bump the xremap version at Cargo.toml and Cargo.lock, and Update CHANGELOG.md. Then:
+
+```
+git add .
+git commit -m "Version 0.X.Y"
+git push origin master
+git tag v0.X.Y
+git push origin --tags
+```
+
 ## License
 
 `xremap` is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
