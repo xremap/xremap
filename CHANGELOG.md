@@ -1,3 +1,7 @@
+## v0.14.7
+
+- Add cosmic (24.04) client https://github.com/xremap/xremap/pull/806
+
 ## v0.14.6
 
 - Security model improvements for GNOME https://github.com/xremap/xremap/pull/805
