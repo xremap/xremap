@@ -114,13 +114,23 @@ pub fn build_client() -> WMClient {
     WMClient::new("Niri", Box::new(niri_client::NiriClient::new()))
 }
 
+#[cfg(feature = "cosmic")]
+mod cosmic_client;
+#[cfg(feature = "cosmic")]
+mod cosmic_protocols;
+#[cfg(feature = "cosmic")]
+pub fn build_client() -> WMClient {
+    WMClient::new("Cosmic", Box::new(cosmic_client::CosmicClient::new()))
+}
+
 #[cfg(not(any(
     feature = "gnome",
     feature = "x11",
     feature = "hypr",
     feature = "kde",
     feature = "wlroots",
-    feature = "niri"
+    feature = "niri",
+    feature = "cosmic"
 )))]
 mod null_client;
 #[cfg(not(any(
@@ -129,7 +139,8 @@ mod null_client;
     feature = "hypr",
     feature = "kde",
     feature = "wlroots",
-    feature = "niri"
+    feature = "niri",
+    feature = "cosmic"
 )))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))

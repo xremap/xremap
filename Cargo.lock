@@ -2239,8 +2239,11 @@ dependencies = [
  "serde_yaml",
  "toml",
  "udev",
+ "wayland-backend",
  "wayland-client",
+ "wayland-protocols",
  "wayland-protocols-wlr",
+ "wayland-scanner",
  "x11rb",
  "zbus",
 ]
