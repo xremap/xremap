@@ -701,6 +701,7 @@ Consider copying `example/xremap.desktop` to `~/.config/autostart/xremap.desktop
 - @N4tus (KDE client)
 - @jixiuf (wlroots client)
 - @saurabhsharan (Niri client)
+- @hpccc53 (Cosmic client)
 
 ## Releasing
 
