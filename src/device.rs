@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::error::Error;
 #[cfg(feature = "udev")]
 use std::fs::metadata;
-use std::fs::read_dir;
+use std::fs::{self, read_dir};
 #[cfg(feature = "udev")]
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
@@ -159,6 +159,17 @@ impl<'a> InputDeviceInfo<'a> {
         // Check exact matches for explicit selection
         if self.path.as_os_str() == filter || self.name == filter {
             return true;
+        }
+        if filter.contains("/dev/") {
+            let path = Path::new(filter);
+            match fs::canonicalize(path) {
+                Ok(resolved_path) => {
+                    if self.path.as_os_str() == resolved_path {
+                        return true;
+                    }
+                }
+                Err(_e) => {}
+            }
         }
         // eventXX shorthand for /dev/input/eventXX
         if filter.starts_with("event") && self.path.file_name().expect("every device path has a file name") == filter {
