@@ -160,17 +160,6 @@ impl<'a> InputDeviceInfo<'a> {
         if self.path.as_os_str() == filter || self.name == filter {
             return true;
         }
-        if filter.contains("/dev/") {
-            let path = Path::new(filter);
-            match fs::canonicalize(path) {
-                Ok(resolved_path) => {
-                    if self.path.as_os_str() == resolved_path {
-                        return true;
-                    }
-                }
-                Err(_e) => {}
-            }
-        }
         // eventXX shorthand for /dev/input/eventXX
         if filter.starts_with("event") && self.path.file_name().expect("every device path has a file name") == filter {
             return true;
@@ -198,6 +187,14 @@ impl<'a> InputDeviceInfo<'a> {
         // Allow partial matches for device names
         if self.name.contains(filter) {
             return true;
+        }
+        // Match udev symlinks to actual physical device path
+        if Path::new(filter).is_absolute() {
+            if let Ok(resolved_filter) = fs::canonicalize(filter) {
+                if self.path == resolved_filter {
+                    return true;
+                }
+            }
         }
 
         #[cfg(feature = "udev")]
