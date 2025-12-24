@@ -1,3 +1,7 @@
+## v0.14.8
+
+- Follow udev created device symlinks https://github.com/xremap/xremap/pull/808
+
 ## v0.14.7
 
 - Add cosmic (24.04) client https://github.com/xremap/xremap/pull/806
