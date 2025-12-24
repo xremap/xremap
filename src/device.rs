@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::error::Error;
 #[cfg(feature = "udev")]
 use std::fs::metadata;
-use std::fs::read_dir;
+use std::fs::{self, read_dir};
 #[cfg(feature = "udev")]
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
@@ -187,6 +187,14 @@ impl<'a> InputDeviceInfo<'a> {
         // Allow partial matches for device names
         if self.name.contains(filter) {
             return true;
+        }
+        // Match udev symlinks to actual physical device path
+        if Path::new(filter).is_absolute() {
+            if let Ok(resolved_filter) = fs::canonicalize(filter) {
+                if self.path == resolved_filter {
+                    return true;
+                }
+            }
         }
 
         #[cfg(feature = "udev")]
