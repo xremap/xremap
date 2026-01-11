@@ -1,5 +1,7 @@
 use crate::config::Config;
-use crate::device::{device_watcher, get_input_devices, output_device, DEVICE_NAME};
+use crate::device::{
+    device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
+};
 use crate::event_handler::EventHandler;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
@@ -49,6 +51,7 @@ mod tests_modmap_press_release_key;
 mod tests_nested_remap;
 #[cfg(test)]
 mod tests_virtual_modifier;
+mod util;
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -86,16 +89,26 @@ struct Args {
     ///
     /// When more than one file is given, then will modmap, keymap and virtual_modifiers
     /// from the subsequent files be merged into the first configuration file.
-    #[arg(required_unless_present = "completions", num_args = 1..)]
+    #[arg(required_unless_present = "completions",
+        required_unless_present = "list_devices",
+        required_unless_present = "device_details", num_args = 1..)]
     configs: Vec<PathBuf>,
     /// Choose the vendor value of the created output device.
+    /// Must be given in hexadecimal with or without a prefix '0x'.
     /// Default is: 0x1234
     #[arg(long)]
     vendor: Option<String>,
     /// Choose the product value of the created output device.
+    /// Must be given in hexadecimal with or without a prefix '0x'.
     /// Default is: 0x5678
     #[arg(long)]
     product: Option<String>,
+    /// List info about devices
+    #[arg(long)]
+    list_devices: bool,
+    /// Show device details
+    #[arg(long)]
+    device_details: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -125,10 +138,22 @@ fn main() -> anyhow::Result<()> {
         output_device_name,
         product,
         vendor,
+        list_devices,
+        device_details,
     } = Args::parse();
 
     if let Some(shell) = completions {
         clap_complete::generate(shell, &mut Args::command(), "xremap", &mut stdout());
+        return Ok(());
+    }
+
+    if device_details {
+        print_device_details()?;
+        return Ok(());
+    }
+
+    if list_devices {
+        print_device_list()?;
         return Ok(());
     }
 

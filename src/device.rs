@@ -22,6 +22,8 @@ use std::{io, process};
 #[cfg(feature = "udev")]
 use udev::DeviceType;
 
+use crate::util::{evdev_enums_to_string, print_table};
+
 static MOUSE_BTNS: [&str; 20] = [
     "BTN_MISC",
     "BTN_0",
@@ -406,6 +408,82 @@ impl InputDevice {
     pub fn print(&self) {
         println!("{:18}: {}", self.path.display(), self.device_name())
     }
+
+    pub fn print_details(&self) {
+        let properties = evdev_enums_to_string(self.device.properties());
+        let events = evdev_enums_to_string(self.device.supported_events());
+        let keys = evdev_enums_to_string(self.device.supported_keys().unwrap_or_default());
+        let relative = evdev_enums_to_string(self.device.supported_relative_axes().unwrap_or_default());
+        let absolute = evdev_enums_to_string(self.device.supported_absolute_axes().unwrap_or_default());
+        let leds = evdev_enums_to_string(self.device.supported_leds().unwrap_or_default());
+        let switches = evdev_enums_to_string(self.device.supported_switches().unwrap_or_default());
+
+        println!("{}", self.device_name());
+        println!("");
+        println!("  Path:            {}", self.path.display());
+        println!("  Type:            {}", self.bus_type());
+        println!(
+            "  Vendor/product:  {}:{} (0x{:x}:0x{:x}) ",
+            self.vendor(),
+            self.product(),
+            self.vendor(),
+            self.product()
+        );
+        println!("  Properties:      {}", properties);
+        println!("  Events:          {}", events);
+        println!("  Keys:            {}", keys);
+        println!("  Relative axes:   {}", relative);
+        println!("  Absolute axes:   {}", absolute);
+        println!("  Leds:            {}", leds);
+        println!("  Switches:        {}", switches);
+        println!("");
+    }
+}
+
+/// List info about devices
+pub fn print_device_list() -> anyhow::Result<()> {
+    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    devices.sort();
+
+    let mut table: Vec<Vec<String>> = vec![];
+
+    table.push(vec![
+        "PATH".into(),
+        "NAME".into(),
+        "IS_KEYBOARD".into(),
+        "IS_MOUSE".into(),
+        "TYPE".into(),
+        "VENDOR".into(),
+        "PRODUCT".into(),
+    ]);
+
+    for device in devices {
+        table.push(vec![
+            device.path.display().to_string(),
+            device.device_name().to_string(),
+            format!("{}", device.is_keyboard()),
+            format!("{}", device.is_mouse()),
+            device.bus_type().to_string(),
+            format!("0x{:x}", device.vendor()),
+            format!("0x{:x}", device.product()),
+        ]);
+    }
+
+    print_table(table);
+
+    Ok(())
+}
+
+/// Show device details
+pub fn print_device_details() -> anyhow::Result<()> {
+    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    devices.sort();
+
+    for device in devices {
+        device.print_details();
+    }
+
+    Ok(())
 }
 
 pub const SEPARATOR: &str = "------------------------------------------------------------------------------";
