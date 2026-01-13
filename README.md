@@ -500,26 +500,34 @@ Note how Alt-f and Alt-b work in all apps, but the definition of Alt-f is slight
 
 Much like [`application`](#application), you may specify `{keymap,modmap}.device.{not,only}` in your configuration for device-specific remapping. Consistent with the global `--device` flag, device-matching strings may be any of:
 
-- the full path of the device
-- the filename of the device
-- the device name
-- a substring of the device name
+- The full path of the device (e.g. /dev/input/event0)
+- The filename of the device (e.g. event0)
+- The device name
+- A substring of the device name
+- The vendor and/or product id (e.g. ids:0x3f0:0x24)
 
-To determine the names and paths of your devices, examine `xremap`'s log output at startup.
+To determine the names and paths of your devices, examine `xremap`'s log output at startup. To get
+further info run: `xremap --list-devices` or even `xremap --device-details`.
 
 ```yml
-device:
-  not: '/dev/input/event0'
-  # or
-  not: ['event0', ...]
-  # or
-  only: 'Some Cool Device Name'
-  # or
-  only: ['Cool Device', ...]
-  # etc...
+keymap:
+  - device:
+      not: "/dev/input/event0"
+      not: "/dev/input/by-id/Cool_Device" # Symlink to device. Since v0.14.8
+      # not: [event0, event1]
+      # only: 'Some Cool Device Name'
+      # only: ['Cool Device', 'Another Device']
+      # only: [ids:0x3f0:0x24]
+    remap:
+      W: UP
 ```
 
 Unlike for `application`, regexs are not supported for `device`.
+
+If both `not` and `only` is specified, then `only` is used for matching, and `not` has no effect.
+
+Vendor and product ids must be given in hexadecimal, with or without '0x' prefix. It's possible to only
+match on vendor id with: `ids:0x3f0:0`, and only on product id with `ids:0:0x24`.
 
 ### mode
 
@@ -652,10 +660,16 @@ Options:
           Choose the name of the created output device. Default is 'xremap' or 'xremap pid=xx'
 
       --vendor <VENDOR>
-          Choose the vendor value of the created output device. Default is: 0x1234
+          Choose the vendor value of the created output device. Must be given in hexadecimal with or without a prefix '0x'. Default is: 0x1234
 
       --product <PRODUCT>
-          Choose the product value of the created output device. Default is: 0x5678
+          Choose the product value of the created output device. Must be given in hexadecimal with or without a prefix '0x'. Default is: 0x5678
+
+      --list-devices
+          List info about devices
+
+      --device-details
+          Show device details
 
       --completions <SHELL>
           Generate shell completions
@@ -672,6 +686,8 @@ Options:
   -V, --version
           Print version
 ```
+
+The arguments to `--device` and `--ignore` are described [here](#device).
 
 ## Running xremap as a daemon
 
