@@ -113,7 +113,7 @@ uinput
 Then add udev rule.
 
 ```bash
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-input.rules
+echo 'KERNEL=="uinput", RUN+="/usr/bin/setfacl -m g:input:rw /dev/%k"' | sudo tee /etc/udev/rules.d/99-input.rules
 ```
 
 Then reboot the machine.
