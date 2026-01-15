@@ -1,19 +1,31 @@
 # Running xremap without sudo
 
-Installation:
-
 1. Your normal user should be able to use `evdev` and `uinput`.
 2. If you want to use application-specific remappings on GNOME Wayland you need to follow the instructions at the bottom.
 
-Run this command, when you stop the command everything will be back to normal.
+After following the instructions below, run this command:
 
 ```
 xremap config.yml
 ```
 
+When you stop the command everything will go back to normal.
+
+### Pro
+
+- If you launch programs from xremap they will run as your normal user.
+
+### Con
+
+- You have opened your user account up to keylogging. Which is a security risk, that you must consider.
+- The remapping remains active when the computer is locked.
+- The remapping is also active for other users that are logged in at the same time. If they activate keymappings, that launch programs, they will launch as your user.
+
 ## Setup input and output permissions
 
-In Ubuntu, this can be configured by running the following commands and rebooting your machine.
+### Ubuntu
+
+Run the following commands and rebooting your machine.
 
 ```bash
 sudo gpasswd -a YOUR_USER input
@@ -22,7 +34,7 @@ echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rule
 
 ### Arch Linux
 
-The following can be used on Arch.
+Check whether `uinput` is loaded:
 
 ```bash
 lsmod | grep uinput
@@ -96,7 +108,11 @@ Rebuild with `nixos-rebuild switch`. Note you may also need to reboot your machi
 ### Other platforms
 
 In other platforms, you might need to create an `input` group first
-and run `echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules` as well.
+and run:
+
+```sh
+echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | sudo tee /etc/udev/rules.d/input.rules
+```
 
 If you do this, in some environments, `--watch` may fail to recognize new devices due to temporary permission issues.
 Using `sudo` might be more useful in such cases.
@@ -110,4 +126,4 @@ switching OFF to ON.
 
 ### Other desktop environments
 
-These should work without extra work.
+Supported desktops should work without extra work.

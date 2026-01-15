@@ -1,21 +1,36 @@
 # Running xremap with sudo
 
-When you run with sudo you don't need to setup extra permissions. But if you want to use
-application-specific remappings, there are extra steps to take depending on which desktop environment you use.
+### Pro
 
-See the following instructions for your environment to make `application`-specific remapping work.
+- It's the easiest way to getting started with `xremap`. You don't need to add any permissions to your normal user.
 
-Run this command, when you stop the command everything will be back to normal.
+### Con
+
+- If you want to use application-specific remappings there are extra steps to take.
+- If you launch programs from xremap they will run as `root`, not as your own normal user. It's considered a security risk to do so.
+- If the config file can be edited by other users than `root`, they can effectively run any command as `root` by changing your config file.
+
+## Without application-specific remapping
+
+It's plain and simple:
 
 ```
 sudo xremap config.yml
 ```
 
-## X11
+## With application-specific remapping
 
-If you use `sudo` to run `xremap`, you may need to run `xhost +SI:localuser:root` if you see `No protocol specified`.
+### X11
 
-## GNOME Wayland
+Run this command:
+
+```
+sudo xremap config.yml
+```
+
+You may need to run `xhost +SI:localuser:root` if you see `No protocol specified`.
+
+### GNOME Wayland
 
 Install xremap's GNOME Shell extension from [this link](https://extensions.gnome.org/extension/5060/xremap/),
 switching OFF to ON.
@@ -30,14 +45,50 @@ Update `/usr/share/dbus-1/session.conf` as follows, and reboot your machine.
      <!-- Allow everything to be received -->
 ```
 
-## KDE-Plasma Wayland
+Then run:
 
-Xremap cannot be run as root. Follow the instructions above to run xremap without sudo.
+```
+sudo -E xremap config.yml
+```
 
-## Niri
+If you don't like transferring all the environment variables to root you could try the alternative below.
 
-If you use `sudo` to run `xremap`, you need to ensure that the `NIRI_SOCKET` env var is available to xremap:
+### KDE-Plasma Wayland
+
+Xremap cannot be run as root. [There are other ways to run xremap](./README.md)
+
+### Niri, Sway and COSMIC Wayland
+
+Run this command:
+
+```
+sudo -E xremap config.yml
+```
+
+This transfers all the environment variables to the root user, so it knows how to connect to your desktop session.
+
+Whether there's a drawback to doing this is unknown, and you can opt for just transferring the minimal environment variables. Shown below.
+
+#### Alternative for Niri
 
 ```bash
 sudo NIRI_SOCKET="$NIRI_SOCKET" xremap config.yml
+```
+
+#### Alternative for Sway
+
+```sh
+sudo env WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" SWAYSOCK="$SWAYSOCK" xremap config.yml
+```
+
+#### Alternative for COSMIC Wayland
+
+```sh
+sudo env WAYLAND_DISPLAY="$WAYLAND_DISPLAY" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" xremap config.yml
+```
+
+#### Alternative for GNOME Wayland
+
+```sh
+sudo env DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" xremap config.yml
 ```

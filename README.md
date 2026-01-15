@@ -12,7 +12,8 @@
 - [Usage](#Usage)
 - [Configuration](#Configuration)
 - [Commandline arguments](#Commandline-arguments)
-- [Running xremap as a daemon](#Running-xremap-as-a-daemon)
+- [Documentation](doc/README.md)
+- [Troubleshooting](doc/troubleshooting.md)
 - [Maintainers](#Maintainers)
 - [License](#License)
 
@@ -52,11 +53,11 @@ cargo install xremap --features kde     # KDE-Plasma Wayland
 cargo install xremap --features wlroots # Sway, Wayfire, etc.
 cargo install xremap --features hypr    # Hyprland
 cargo install xremap --features niri    # Niri
-cargo install xremap --features cosmic  # Cosmic
+cargo install xremap --features cosmic  # COSMIC Wayland
 cargo install xremap                    # Others
 ```
 
-You may also need to install `libx11-dev` to run the `xremap` binary for X11.
+You may also need to install `libx11-dev` to run `xremap` for X11.
 
 ### Arch Linux
 
@@ -74,6 +75,8 @@ If you are using Fedora, xremap can be installed via this [Fedora Copr](https://
 
 Write [a config file](#Configuration) directly, or generate it with
 [xremap-ruby](https://github.com/xremap/xremap-ruby) or [xremap-python](https://github.com/xremap/xremap-python).
+
+If something isn't working take a look at the [troubleshooting section](doc/troubleshooting.md)
 
 ### Run with sudo
 
@@ -349,6 +352,22 @@ niri msg windows
 ```
 
 Locate `App ID` in the output.
+
+#### All desktops
+
+If none of the above methods work, you can make a config file with:
+
+```yml
+keymap:
+  - window:
+      not: []
+    application:
+      not: []
+    remap:
+      capslock: []
+```
+
+When you press capslock xremap looks up the information and prints it to the console.
 
 #### application-specific key overrides
 
