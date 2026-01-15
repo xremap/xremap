@@ -75,42 +75,42 @@ impl WMClient {
 #[cfg(feature = "gnome")]
 mod gnome_client;
 #[cfg(feature = "gnome")]
-pub fn build_client() -> WMClient {
+pub fn build_client(_redact: bool) -> WMClient {
     WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()))
 }
 
 #[cfg(feature = "kde")]
 mod kde_client;
 #[cfg(feature = "kde")]
-pub fn build_client() -> WMClient {
-    WMClient::new("KDE", Box::new(kde_client::KdeClient::new()))
+pub fn build_client(redact: bool) -> WMClient {
+    WMClient::new("KDE", Box::new(kde_client::KdeClient::new(redact)))
 }
 
 #[cfg(feature = "hypr")]
 mod hypr_client;
 #[cfg(feature = "hypr")]
-pub fn build_client() -> WMClient {
+pub fn build_client(_redact: bool) -> WMClient {
     WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()))
 }
 
 #[cfg(feature = "x11")]
 mod x11_client;
 #[cfg(feature = "x11")]
-pub fn build_client() -> WMClient {
+pub fn build_client(_redact: bool) -> WMClient {
     WMClient::new("X11", Box::new(x11_client::X11Client::new()))
 }
 
 #[cfg(feature = "wlroots")]
 mod wlroots_client;
 #[cfg(feature = "wlroots")]
-pub fn build_client() -> WMClient {
+pub fn build_client(_redact: bool) -> WMClient {
     WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()))
 }
 
 #[cfg(feature = "niri")]
 mod niri_client;
 #[cfg(feature = "niri")]
-pub fn build_client() -> WMClient {
+pub fn build_client(_redact: bool) -> WMClient {
     WMClient::new("Niri", Box::new(niri_client::NiriClient::new()))
 }
 
@@ -119,7 +119,7 @@ mod cosmic_client;
 #[cfg(feature = "cosmic")]
 mod cosmic_protocols;
 #[cfg(feature = "cosmic")]
-pub fn build_client() -> WMClient {
+pub fn build_client(_redact: bool) -> WMClient {
     WMClient::new("Cosmic", Box::new(cosmic_client::CosmicClient::new()))
 }
 
@@ -142,6 +142,6 @@ mod null_client;
     feature = "niri",
     feature = "cosmic"
 )))]
-pub fn build_client() -> WMClient {
+pub fn build_client(_redact: bool) -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))
 }

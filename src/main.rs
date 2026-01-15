@@ -109,6 +109,9 @@ struct Args {
     /// Show device details
     #[arg(long)]
     device_details: bool,
+    /// Redact sensitive information from window captions
+    #[arg(long)]
+    redact: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -140,6 +143,7 @@ fn main() -> anyhow::Result<()> {
         vendor,
         list_devices,
         device_details,
+        redact,
     } = Args::parse();
 
     if let Some(shell) = completions {
@@ -195,7 +199,7 @@ fn main() -> anyhow::Result<()> {
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let config_watcher = config_watcher(watch_config, &config_paths).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client());
+    let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client(redact));
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device = match output_device(
