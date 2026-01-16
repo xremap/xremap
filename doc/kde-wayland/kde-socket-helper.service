@@ -1,0 +1,19 @@
+[Unit]
+Description=Xremap KDE Socket Helper
+Wants=graphical.target
+After=graphical.target
+
+[Service]
+Type=simple
+User=parallels
+ExecStart=/usr/local/bin/kde-socket-helper
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

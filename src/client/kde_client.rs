@@ -1,6 +1,8 @@
 use futures::executor::block_on;
 use log::{debug, warn};
 use std::env::temp_dir;
+use std::io::{BufRead, BufReader};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
@@ -11,12 +13,132 @@ use zbus::{interface, Connection};
 
 use crate::client::Client;
 
+enum Inner {
+    Socket(SocketClient),
+    Dbus(DbusClient),
+}
+
 const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
 const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
+const KDE_SOCKET_ENV: &str = "KDE_SOCKET";
+const DEFAULT_KDE_SOCKET: &str = "/run/xremap/kde.sock";
 
-pub struct KdeClient {
+// Socket client for custom Unix socket communication
+struct SocketClient {
     active_window: Arc<Mutex<ActiveWindow>>,
-    redact: bool,
+}
+
+impl SocketClient {
+    fn new(redact: bool) -> Result<Self, ConnectionError> {
+        let socket_path = std::env::var(KDE_SOCKET_ENV)
+            .unwrap_or_else(|_| DEFAULT_KDE_SOCKET.to_string());
+
+        debug!("Connecting to KDE socket: {}", socket_path);
+
+        let active_window = Arc::new(Mutex::new(ActiveWindow {
+            title: String::new(),
+            res_name: String::new(),
+            res_class: String::new(),
+        }));
+
+        let active_window_clone = Arc::clone(&active_window);
+
+        // Spawn thread to read from socket
+        thread::spawn(move || {
+            Self::listen_on_socket(&socket_path, active_window_clone, redact);
+        });
+
+        Ok(Self { active_window })
+    }
+
+    fn listen_on_socket(socket_path: &str, active_window: Arc<Mutex<ActiveWindow>>, redact: bool) {
+        loop {
+            // Wait for socket to exist
+            let path = Path::new(socket_path);
+            while !path.exists() {
+                thread::sleep(Duration::from_secs(1));
+            }
+
+            // Connect to socket
+            match UnixStream::connect(socket_path) {
+                Ok(stream) => {
+                    debug!("Connected to KDE socket");
+                    let reader = BufReader::new(&stream);
+
+                    for line in reader.lines() {
+                        match line {
+                            Ok(text) => {
+                                if let Some((caption, class, name)) = Self::parse_window_info(&text) {
+                                    let mut aw = active_window.lock().unwrap();
+                                    aw.title = caption;
+                                    aw.res_class = class;
+                                    aw.res_name = name;
+                                    // Print in same format as D-Bus version (for readability)
+                                    let caption_display = if redact { "[redacted]" } else { &aw.title };
+                                    println!("active window: caption: '{}', class: '{}', name: '{}'",
+                                             caption_display, aw.res_class, aw.res_name);
+                                }
+                            }
+                            Err(e) => {
+                                debug!("Error reading from socket: {:?}", e);
+                                break;
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    debug!("Failed to connect to KDE socket: {:?}, retrying...", e);
+                    thread::sleep(Duration::from_secs(1));
+                }
+            }
+        }
+    }
+
+    // Parse JSON format from helper: {"caption": "...", "class": "...", "app_id": "..."}
+    fn parse_window_info(text: &str) -> Option<(String, String, String)> {
+        // Helper sends JSON
+        match serde_json::from_str::<serde_json::Value>(text) {
+            Ok(obj) => {
+                let caption = obj.get("caption")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let class = obj.get("class")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let name = obj.get("app_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                Some((caption, class, name))
+            }
+            Err(_) => None,
+        }
+    }
+
+    fn supported(&self) -> bool {
+        true
+    }
+
+    fn current_window(&self) -> Option<String> {
+        let aw = self.active_window.lock().ok()?;
+        if aw.title.is_empty() {
+            None
+        } else {
+            Some(aw.title.clone())
+        }
+    }
+
+    fn current_application(&self) -> Option<String> {
+        let aw = self.active_window.lock().ok()?;
+        if aw.res_class.is_empty() {
+            None
+        } else {
+            Some(aw.res_class.clone())
+        }
+    }
 }
 
 struct KwinScriptTempFile(PathBuf);
@@ -126,14 +248,14 @@ fn load_kwin_script() -> Result<(), ConnectionError> {
     Ok(())
 }
 
-impl KdeClient {
-    pub fn new(redact: bool) -> KdeClient {
+impl DbusClient {
+    pub fn new(redact: bool) -> Self {
         let active_window = Arc::new(Mutex::new(ActiveWindow {
             title: String::new(),
             res_name: String::new(),
             res_class: String::new(),
         }));
-        KdeClient { active_window, redact }
+        DbusClient { active_window, redact }
     }
 
     fn connect(&mut self) -> Result<(), ConnectionError> {
@@ -171,7 +293,7 @@ impl KdeClient {
     }
 }
 
-impl Client for KdeClient {
+impl Client for DbusClient {
     fn supported(&mut self) -> bool {
         let conn_res = self.connect();
         if let Err(err) = &conn_res {
@@ -187,6 +309,48 @@ impl Client for KdeClient {
     fn current_application(&mut self) -> Option<String> {
         let aw = self.active_window.lock().ok()?;
         Some(aw.res_class.clone())
+    }
+}
+
+// New KdeClient that wraps either SocketClient or DbusClient
+pub struct KdeClient {
+    inner: Inner,
+}
+
+impl KdeClient {
+    pub fn new(redact: bool) -> Self {
+        let inner = if std::env::var(KDE_SOCKET_ENV).is_ok() {
+            debug!("KDE_SOCKET env var set, using socket mode");
+            Inner::Socket(SocketClient::new(redact).expect("Failed to create socket client"))
+        } else {
+            debug!("KDE_SOCKET env var not set, using DBus mode");
+            Inner::Dbus(DbusClient::new(redact))
+        };
+
+        KdeClient { inner }
+    }
+}
+
+impl Client for KdeClient {
+    fn supported(&mut self) -> bool {
+        match &mut self.inner {
+            Inner::Socket(client) => client.supported(),
+            Inner::Dbus(client) => client.supported(),
+        }
+    }
+
+    fn current_window(&mut self) -> Option<String> {
+        match &mut self.inner {
+            Inner::Socket(client) => client.current_window(),
+            Inner::Dbus(client) => client.current_window(),
+        }
+    }
+
+    fn current_application(&mut self) -> Option<String> {
+        match &mut self.inner {
+            Inner::Socket(client) => client.current_application(),
+            Inner::Dbus(client) => client.current_application(),
+        }
     }
 }
 
@@ -214,6 +378,12 @@ struct ActiveWindow {
     res_class: String,
     res_name: String,
     title: String,
+}
+
+// DBus-based client (original implementation)
+struct DbusClient {
+    active_window: Arc<Mutex<ActiveWindow>>,
+    redact: bool,
 }
 
 struct ActiveWindowInterface {
