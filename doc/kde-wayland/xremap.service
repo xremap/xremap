@@ -1,0 +1,19 @@
+[Unit]
+Description=Xremap (run as xremap user)
+After=default.target yourusername-user@yourusername.service kde-socket-helper.service systemd-udev-trigger.service systemd-udev-settle.service
+
+[Service]
+Type=simple
+User=xremap
+Group=input
+ExecStart=/usr/bin/xremap --watch=config /etc/xremap/config.yml
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=RUST_LOG=warn
+Environment=KDE_SOCKET=/run/xremap/kde.sock
+SupplementaryGroups=input
+
+[Install]
+WantedBy=default.target
