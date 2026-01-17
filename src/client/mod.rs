@@ -16,16 +16,18 @@ pub struct WMClient {
     supported: Option<bool>,
     last_application: String,
     last_window: String,
+    log_window_changes: bool,
 }
 
 impl WMClient {
-    pub fn new(name: &str, client: Box<dyn Client>) -> WMClient {
+    pub fn new(name: &str, client: Box<dyn Client>, log_window_changes: bool) -> WMClient {
         WMClient {
             name: name.to_string(),
             client,
             supported: None,
             last_application: String::new(),
             last_window: String::new(),
+            log_window_changes,
         }
     }
 
@@ -45,7 +47,9 @@ impl WMClient {
         if let Some(window) = &result {
             if &self.last_window != window {
                 self.last_window = window.clone();
-                println!("window: {window}");
+                if self.log_window_changes {
+                    println!("window: {window}");
+                }
             }
         }
         result
@@ -58,7 +62,9 @@ impl WMClient {
         if let Some(application) = &result {
             if &self.last_application != application {
                 self.last_application = application.clone();
-                println!("application: {application}");
+                if self.log_window_changes {
+                    println!("application: {application}");
+                }
             }
         }
         result
@@ -75,43 +81,43 @@ impl WMClient {
 #[cfg(feature = "gnome")]
 mod gnome_client;
 #[cfg(feature = "gnome")]
-pub fn build_client(_redact: bool) -> WMClient {
-    WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()))
+pub fn build_client(_log_window_changes: bool) -> WMClient {
+    WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()), _log_window_changes)
 }
 
 #[cfg(feature = "kde")]
 mod kde_client;
 #[cfg(feature = "kde")]
-pub fn build_client(redact: bool) -> WMClient {
-    WMClient::new("KDE", Box::new(kde_client::KdeClient::new(redact)))
+pub fn build_client(log_window_changes: bool) -> WMClient {
+    WMClient::new("KDE", Box::new(kde_client::KdeClient::new(log_window_changes)), log_window_changes)
 }
 
 #[cfg(feature = "hypr")]
 mod hypr_client;
 #[cfg(feature = "hypr")]
-pub fn build_client(_redact: bool) -> WMClient {
-    WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()))
+pub fn build_client(_log_window_changes: bool) -> WMClient {
+    WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()), _log_window_changes)
 }
 
 #[cfg(feature = "x11")]
 mod x11_client;
 #[cfg(feature = "x11")]
-pub fn build_client(_redact: bool) -> WMClient {
-    WMClient::new("X11", Box::new(x11_client::X11Client::new()))
+pub fn build_client(_log_window_changes: bool) -> WMClient {
+    WMClient::new("X11", Box::new(x11_client::X11Client::new()), _log_window_changes)
 }
 
 #[cfg(feature = "wlroots")]
 mod wlroots_client;
 #[cfg(feature = "wlroots")]
-pub fn build_client(_redact: bool) -> WMClient {
-    WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()))
+pub fn build_client(_log_window_changes: bool) -> WMClient {
+    WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()), _log_window_changes)
 }
 
 #[cfg(feature = "niri")]
 mod niri_client;
 #[cfg(feature = "niri")]
-pub fn build_client(_redact: bool) -> WMClient {
-    WMClient::new("Niri", Box::new(niri_client::NiriClient::new()))
+pub fn build_client(_log_window_changes: bool) -> WMClient {
+    WMClient::new("Niri", Box::new(niri_client::NiriClient::new()), _log_window_changes)
 }
 
 #[cfg(feature = "cosmic")]
@@ -119,8 +125,8 @@ mod cosmic_client;
 #[cfg(feature = "cosmic")]
 mod cosmic_protocols;
 #[cfg(feature = "cosmic")]
-pub fn build_client(_redact: bool) -> WMClient {
-    WMClient::new("Cosmic", Box::new(cosmic_client::CosmicClient::new()))
+pub fn build_client(_log_window_changes: bool) -> WMClient {
+    WMClient::new("Cosmic", Box::new(cosmic_client::CosmicClient::new()), _log_window_changes)
 }
 
 #[cfg(not(any(
@@ -142,6 +148,6 @@ mod null_client;
     feature = "niri",
     feature = "cosmic"
 )))]
-pub fn build_client(_redact: bool) -> WMClient {
-    WMClient::new("none", Box::new(null_client::NullClient))
+pub fn build_client(_log_window_changes: bool) -> WMClient {
+    WMClient::new("none", Box::new(null_client::NullClient), _log_window_changes)
 }

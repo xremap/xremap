@@ -29,7 +29,7 @@ struct SocketClient {
 }
 
 impl SocketClient {
-    fn new(redact: bool) -> Result<Self, ConnectionError> {
+    fn new(log_window_changes: bool) -> Result<Self, ConnectionError> {
         let socket_path = std::env::var(KDE_SOCKET_ENV)
             .unwrap_or_else(|_| DEFAULT_KDE_SOCKET.to_string());
 
@@ -45,13 +45,13 @@ impl SocketClient {
 
         // Spawn thread to read from socket
         thread::spawn(move || {
-            Self::listen_on_socket(&socket_path, active_window_clone, redact);
+            Self::listen_on_socket(&socket_path, active_window_clone, log_window_changes);
         });
 
         Ok(Self { active_window })
     }
 
-    fn listen_on_socket(socket_path: &str, active_window: Arc<Mutex<ActiveWindow>>, redact: bool) {
+    fn listen_on_socket(socket_path: &str, active_window: Arc<Mutex<ActiveWindow>>, log_window_changes: bool) {
         loop {
             // Wait for socket to exist
             let path = Path::new(socket_path);
@@ -70,13 +70,14 @@ impl SocketClient {
                             Ok(text) => {
                                 if let Some((caption, class, name)) = Self::parse_window_info(&text) {
                                     let mut aw = active_window.lock().unwrap();
-                                    aw.title = caption;
-                                    aw.res_class = class;
-                                    aw.res_name = name;
+                                    aw.title = caption.clone();
+                                    aw.res_class = class.clone();
+                                    aw.res_name = name.clone();
                                     // Print in same format as D-Bus version (for readability)
-                                    let caption_display = if redact { "[redacted]" } else { &aw.title };
-                                    println!("active window: caption: '{}', class: '{}', name: '{}'",
-                                             caption_display, aw.res_class, aw.res_name);
+                                    if log_window_changes {
+                                        println!("active window: caption: '{}', class: '{}', name: '{}'",
+                                                 caption, class, name);
+                                    }
                                 }
                             }
                             Err(e) => {
@@ -249,25 +250,25 @@ fn load_kwin_script() -> Result<(), ConnectionError> {
 }
 
 impl DbusClient {
-    pub fn new(redact: bool) -> Self {
+    pub fn new(log_window_changes: bool) -> Self {
         let active_window = Arc::new(Mutex::new(ActiveWindow {
             title: String::new(),
             res_name: String::new(),
             res_class: String::new(),
         }));
-        DbusClient { active_window, redact }
+        DbusClient { active_window, log_window_changes }
     }
 
     fn connect(&mut self) -> Result<(), ConnectionError> {
         load_kwin_script()?;
 
         let active_window = Arc::clone(&self.active_window);
-        let redact = self.redact;
+        let log_window_changes = self.log_window_changes;
         let (tx, rx) = channel();
 
         std::thread::spawn(move || {
             let connect = move || -> Result<Connection, anyhow::Error> {
-                let awi = ActiveWindowInterface { active_window, redact };
+                let awi = ActiveWindowInterface { active_window, log_window_changes };
 
                 let connection = Builder::session()?
                     .name("com.k0kubun.Xremap")?
@@ -318,13 +319,13 @@ pub struct KdeClient {
 }
 
 impl KdeClient {
-    pub fn new(redact: bool) -> Self {
+    pub fn new(log_window_changes: bool) -> Self {
         let inner = if std::env::var(KDE_SOCKET_ENV).is_ok() {
             debug!("KDE_SOCKET env var set, using socket mode");
-            Inner::Socket(SocketClient::new(redact).expect("Failed to create socket client"))
+            Inner::Socket(SocketClient::new(log_window_changes).expect("Failed to create socket client"))
         } else {
             debug!("KDE_SOCKET env var not set, using DBus mode");
-            Inner::Dbus(DbusClient::new(redact))
+            Inner::Dbus(DbusClient::new(log_window_changes))
         };
 
         KdeClient { inner }
@@ -383,20 +384,21 @@ struct ActiveWindow {
 // DBus-based client (original implementation)
 struct DbusClient {
     active_window: Arc<Mutex<ActiveWindow>>,
-    redact: bool,
+    log_window_changes: bool,
 }
 
 struct ActiveWindowInterface {
     active_window: Arc<Mutex<ActiveWindow>>,
-    redact: bool,
+    log_window_changes: bool,
 }
 
 #[interface(name = "com.k0kubun.Xremap")]
 impl ActiveWindowInterface {
     fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
-        // I want to always print this, since it is the only way to know what the resource class of applications is.
-        let caption_display = if self.redact { "[redacted]".to_string() } else { caption.clone() };
-        println!("active window: caption: '{caption_display}', class: '{res_class}', name: '{res_name}'");
+        // Print when log_window_changes is enabled to help identify application resource classes
+        if self.log_window_changes {
+            println!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
+        }
         let mut aw = self.active_window.lock().unwrap();
         aw.title = caption;
         aw.res_class = res_class;
