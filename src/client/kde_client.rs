@@ -16,7 +16,7 @@ const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
 
 pub struct KdeClient {
     active_window: Arc<Mutex<ActiveWindow>>,
-    redact: bool,
+    log_window_changes: bool,
 }
 
 struct KwinScriptTempFile(PathBuf);
@@ -127,25 +127,25 @@ fn load_kwin_script() -> Result<(), ConnectionError> {
 }
 
 impl KdeClient {
-    pub fn new(redact: bool) -> KdeClient {
+    pub fn new(log_window_changes: bool) -> KdeClient {
         let active_window = Arc::new(Mutex::new(ActiveWindow {
             title: String::new(),
             res_name: String::new(),
             res_class: String::new(),
         }));
-        KdeClient { active_window, redact }
+        KdeClient { active_window, log_window_changes }
     }
 
     fn connect(&mut self) -> Result<(), ConnectionError> {
         load_kwin_script()?;
 
         let active_window = Arc::clone(&self.active_window);
-        let redact = self.redact;
+        let log_window_changes = self.log_window_changes;
         let (tx, rx) = channel();
 
         std::thread::spawn(move || {
             let connect = move || -> Result<Connection, anyhow::Error> {
-                let awi = ActiveWindowInterface { active_window, redact };
+                let awi = ActiveWindowInterface { active_window, log_window_changes };
 
                 let connection = Builder::session()?
                     .name("com.k0kubun.Xremap")?
@@ -222,15 +222,16 @@ struct ActiveWindow {
 
 struct ActiveWindowInterface {
     active_window: Arc<Mutex<ActiveWindow>>,
-    redact: bool,
+    log_window_changes: bool,
 }
 
 #[interface(name = "com.k0kubun.Xremap")]
 impl ActiveWindowInterface {
     fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
-        // I want to always print this, since it is the only way to know what the resource class of applications is.
-        let caption_display = if self.redact { "[redacted]".to_string() } else { caption.clone() };
-        println!("active window: caption: '{caption_display}', class: '{res_class}', name: '{res_name}'");
+        // Print when log_window_changes is enabled to help identify application resource classes
+        if self.log_window_changes {
+            println!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
+        }
         let mut aw = self.active_window.lock().unwrap();
         aw.title = caption;
         aw.res_class = res_class;

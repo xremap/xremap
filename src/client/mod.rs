@@ -51,16 +51,18 @@ pub struct WMClient {
     supported: Option<bool>,
     last_application: String,
     last_window: String,
+    log_window_changes: bool,
 }
 
 impl WMClient {
-    pub fn new(name: &str, client: Box<dyn Client>) -> WMClient {
+    pub fn new(name: &str, client: Box<dyn Client>, log_window_changes: bool) -> WMClient {
         WMClient {
             name: name.to_string(),
             client,
             supported: None,
             last_application: String::new(),
             last_window: String::new(),
+            log_window_changes,
         }
     }
 
@@ -80,7 +82,9 @@ impl WMClient {
         if let Some(window) = &result {
             if &self.last_window != window {
                 self.last_window = window.clone();
-                debug!("window: {window}");
+                if self.log_window_changes {
+                    println!("window: {window}");
+                }
             }
         }
         result
@@ -93,7 +97,9 @@ impl WMClient {
         if let Some(application) = &result {
             if &self.last_application != application {
                 self.last_application = application.clone();
-                debug!("application: {application}");
+                if self.log_window_changes {
+                    println!("application: {application}");
+                }
             }
         }
         result
