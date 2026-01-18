@@ -125,6 +125,15 @@ pub fn build_client() -> WMClient {
     WMClient::new("Cosmic", Box::new(cosmic_client::CosmicClient::new()))
 }
 
+#[cfg(feature = "socket")]
+mod socket_client;
+#[cfg(feature = "socket")]
+mod socket_monitor;
+#[cfg(feature = "socket")]
+pub fn build_client() -> WMClient {
+    WMClient::new("Socket", Box::new(socket_client::SocketClient::new()))
+}
+
 #[cfg(not(any(
     feature = "gnome",
     feature = "x11",
@@ -132,7 +141,8 @@ pub fn build_client() -> WMClient {
     feature = "kde",
     feature = "wlroots",
     feature = "niri",
-    feature = "cosmic"
+    feature = "cosmic",
+    feature = "socket"
 )))]
 mod null_client;
 #[cfg(not(any(
@@ -142,7 +152,8 @@ mod null_client;
     feature = "kde",
     feature = "wlroots",
     feature = "niri",
-    feature = "cosmic"
+    feature = "cosmic",
+    feature = "socket"
 )))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))

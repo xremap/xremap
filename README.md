@@ -54,6 +54,7 @@ cargo install xremap --features wlroots # Sway, Wayfire, etc.
 cargo install xremap --features hypr    # Hyprland
 cargo install xremap --features niri    # Niri
 cargo install xremap --features cosmic  # COSMIC Wayland
+cargo install xremap --features socket  # Socket client with logind session monitor
 cargo install xremap                    # Others
 ```
 
