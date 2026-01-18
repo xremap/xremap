@@ -179,7 +179,7 @@ pub fn print_open_windows() -> anyhow::Result<()> {
 
     // This must be done to connect.
     if !wmclient.client.supported() {
-        eprintln!("Client is not supported: {}", wmclient.name);
+        eprintln!("{} is not supported.", wmclient.name);
         return Ok(());
     }
 

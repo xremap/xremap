@@ -112,6 +112,7 @@ struct Args {
     /// Show device details
     #[arg(long)]
     device_details: bool,
+    /// List open windows. Use this to get app_class and title. It only works for COSMIC. Since v0.14.10.
     #[arg(long)]
     list_windows: bool,
 }

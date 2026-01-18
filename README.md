@@ -354,6 +354,14 @@ niri msg windows
 
 Locate `App ID` in the output.
 
+#### COSMIC Wayland
+
+```
+xremap --list-windows
+```
+
+This only works on COSMIC
+
 #### All desktops
 
 If none of the above methods work, you can make a config file with:
@@ -564,6 +572,9 @@ Options:
 
       --device-details
           Show device details
+
+      --list-windows
+          List open windows. Use this to get app_class and title. It only works for COSMIC. Since v0.14.10
 
       --completions <SHELL>
           Generate shell completions
