@@ -1,4 +1,5 @@
-use crate::client::Client;
+use crate::client::{Client, WindowInfo};
+use anyhow::bail;
 use niri_ipc::{socket::Socket, Request, Response};
 
 /// Client for the Niri scrollable Wayland compositor.
@@ -63,5 +64,9 @@ impl Client for NiriClient {
             // Prefer app_id, but fallback to window title if app_id is not available
             win.app_id.or_else(|| win.title.clone())
         })
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        bail!("window_list not implemented for NIRI")
     }
 }

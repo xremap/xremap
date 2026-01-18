@@ -1,4 +1,4 @@
-use crate::client::Client;
+use crate::client::{Client, WindowInfo};
 
 pub struct NullClient;
 
@@ -12,5 +12,9 @@ impl Client for NullClient {
 
     fn current_application(&mut self) -> Option<String> {
         None
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        Ok(vec![])
     }
 }

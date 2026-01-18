@@ -1,4 +1,5 @@
-use crate::client::Client;
+use crate::client::{Client, WindowInfo};
+use anyhow::bail;
 use hyprland::{data::Client as HyprClient, prelude::*};
 pub struct HyprlandClient;
 
@@ -28,5 +29,9 @@ impl Client for HyprlandClient {
             }
         }
         None
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        bail!("window_list not implemented for hyprland")
     }
 }

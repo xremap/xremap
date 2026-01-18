@@ -1,4 +1,5 @@
-use crate::client::Client;
+use crate::client::{Client, WindowInfo};
+use anyhow::bail;
 use futures::executor::block_on;
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -159,6 +160,10 @@ impl Client for GnomeClient {
             Ok(v) if v == "Ok" => Ok(true),
             _ => Err(anyhow::format_err!(response)),
         }
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        bail!("window_list not implemented for GNOME")
     }
 }
 

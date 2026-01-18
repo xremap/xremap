@@ -1,6 +1,5 @@
+use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
-
-use anyhow::{Context, Result};
 use wayland_client::{
     backend::ObjectId,
     event_created_child,
@@ -8,13 +7,12 @@ use wayland_client::{
     protocol::wl_registry,
     Connection, Dispatch, EventQueue, Proxy, QueueHandle,
 };
-
 use wayland_protocols_wlr::foreign_toplevel::v1::client::{
     zwlr_foreign_toplevel_handle_v1::{Event as HandleEvent, State as HandleState, ZwlrForeignToplevelHandleV1},
     zwlr_foreign_toplevel_manager_v1::{Event as ManagerEvent, ZwlrForeignToplevelManagerV1},
 };
 
-use crate::client::Client;
+use crate::client::{Client, WindowInfo};
 
 #[derive(Default, Debug)]
 struct State {
@@ -92,6 +90,10 @@ impl Client for WlRootsClient {
 
         let id = self.state.active_window.as_ref()?;
         self.state.windows.get(id).cloned()
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        bail!("window_list not implemented for wlroot")
     }
 }
 
