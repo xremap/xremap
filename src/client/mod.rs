@@ -1,4 +1,13 @@
+use crate::util::print_table;
 use log::debug;
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct WindowInfo {
+    // The order of fields matters because they define sort order.
+    pub app_class: Option<String>,
+    pub title: Option<String>,
+    pub win_id: Option<String>,
+}
 
 pub trait Client {
     fn supported(&mut self) -> bool;
@@ -10,6 +19,8 @@ pub trait Client {
         // Err(...) means there was an error running the command
         Ok(false)
     }
+    /// Return a list of open windows
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>>;
 }
 
 pub struct WMClient {
@@ -71,6 +82,10 @@ impl WMClient {
             return self.client.run(command);
         }
         Ok(false)
+    }
+
+    pub fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        self.client.window_list()
     }
 }
 
@@ -157,4 +172,39 @@ mod null_client;
 )))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))
+}
+
+pub fn print_open_windows() -> anyhow::Result<()> {
+    let mut wmclient = build_client();
+
+    // This must be done to connect.
+    if !wmclient.client.supported() {
+        eprintln!("Client is not supported: {}", wmclient.name);
+        return Ok(());
+    }
+
+    let mut windows = wmclient.window_list()?;
+
+    windows.sort();
+
+    let mut table: Vec<Vec<String>> = vec![];
+
+    table.push(vec!["APP_CLASS".into(), "TITLE".into(), "WIN_ID".into()]);
+
+    for WindowInfo {
+        app_class,
+        win_id,
+        title,
+    } in windows
+    {
+        table.push(vec![
+            app_class.unwrap_or_default(),
+            title.unwrap_or_default(),
+            win_id.unwrap_or_default(),
+        ]);
+    }
+
+    print_table(table);
+
+    Ok(())
 }

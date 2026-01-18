@@ -1,3 +1,5 @@
+use crate::client::{Client, WindowInfo};
+use anyhow::bail;
 use futures::executor::block_on;
 use log::{debug, warn};
 use std::env::temp_dir;
@@ -8,8 +10,6 @@ use std::thread;
 use std::time::Duration;
 use zbus::connection::Builder;
 use zbus::{interface, Connection};
-
-use crate::client::Client;
 
 const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
 const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
@@ -185,6 +185,10 @@ impl Client for KdeClient {
     fn current_application(&mut self) -> Option<String> {
         let aw = self.active_window.lock().ok()?;
         Some(aw.res_class.clone())
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        bail!("window_list not implemented for KDE")
     }
 }
 
