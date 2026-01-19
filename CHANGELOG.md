@@ -1,3 +1,7 @@
+## v0.14.10
+
+- Add socket client with logind session monitor. Default socket path: /run/xremap/{uid}/xremap.sock
+
 ## v0.14.9
 
 - Add CLI arguments -list-devices and --device-details https://github.com/xremap/xremap/pull/815

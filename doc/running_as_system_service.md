@@ -27,6 +27,25 @@ sudo useradd --no-create-home --shell /bin/false --user-group --groups input --s
 Note: The `xremap` user should only be used for this one purpose, to preserve security separation. Do not add your own user to the
 `xremap` group either for the same reason.
 
+## Best security: create xremap-{username} groups
+
+The "socket" feature variant of xremap monitors logind to select the socket path based on the active seated user session. The socket path (`/run/xremap/{uid}/xremap.sock` by default) will be created with permissions that restrict socket access to xremap and the `{uid}` user. Currently this only works with GNOME, although other desktop environments could and should make use of the same socket protocol.
+
+```sh
+# Add a xremap-{username} group for each user that will use xremap.
+# Replace {usernameN} with the username.
+sudo groupadd --system xremap-{username1}
+sudo groupadd --system xremap-{username2}
+sudo groupadd --system xremap-{username3}
+
+# Add each user to its respective xremap-{username} group
+sudo usermod --append --groups xremap-{username1} {username1}
+sudo usermod --append --groups xremap-{username2} {username2}
+sudo usermod --append --groups xremap-{username3} {username3}
+```
+
+Note: xremap will be enabled for all users, even those not having a `xremap-{username}` group, but application- and window-specific mappings will not function for users with no corresponding `xremap-{username}` group.
+
 ## Place your config file a central location
 
 Create a folder for configuration:
@@ -48,7 +67,7 @@ sudo chmod 644 /etc/xremap/config.yml
 
 Create a service file here: `/etc/systemd/system/xremap.service`
 
-```toml
+```ini
 [Unit]
 Description=Xremap
 After=default.target
@@ -58,6 +77,17 @@ ExecStart=/usr/bin/xremap --watch=device /etc/xremap/config.yml
 Restart=always
 StandardOutput=journal
 StandardError=journal
+User=xremap
+Group=xremap
+SupplementaryGroups=input
+RuntimeDirectory=xremap
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+
+# Add two lines for each xremap-{username} group created above, replacing
+# {username} and {uid} for each. Otherwise, comment or remove these lines.
+ExecStartPre=install --directory --mode 2770 --owner xremap --group xremap-{username} /run/xremap/{uid}
+SupplementaryGroups=xremap-{username}
 
 [Install]
 WantedBy=default.target
@@ -99,18 +129,9 @@ sudo systemctl enable xremap.service
 
 #### Create special service
 
-Ensure you are using xremap v0.14.6 or later.
+Ensure you are using xremap v0.14.10 or later.
 
-Then add the extra lines to `xremap.service` under the `[Service]` section:
-
-```toml
-Environment=GNOME_SOCKET=/run/xremap/gnome.sock
-RuntimeDirectory=xremap
-RuntimeDirectoryMode=0755
-RuntimeDirectoryPreserve=yes
-```
-
-The GNOME extension is configured to use `/run/xremap/gnome.sock` by default, but it can be changed.
+The GNOME extension is configured to use `/run/xremap/{uid}/xremap.sock` by default. The socket path can be changed with environment variables: set `XREMAP_SOCKET` in _xremap.service_, and for the GNOME extension, set `XREMAP_GNOME_SOCKET` in `~/.config/environment.d/99-xremap.conf` or `/etc/environment.d/90-xremap.conf`.
 
 #### Install GNOME extension or login again
 
