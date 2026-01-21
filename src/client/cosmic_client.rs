@@ -1,36 +1,36 @@
-use crate::client::{
-    cosmic_protocols::toplevel_info::v1::client::{
-        zcosmic_toplevel_handle_v1::{self, State::Activated, ZcosmicToplevelHandleV1},
-        zcosmic_toplevel_info_v1::{self, ZcosmicToplevelInfoV1},
-    },
-    Client,
+use crate::client::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_handle_v1::{
+    self, State::Activated, ZcosmicToplevelHandleV1,
 };
+use crate::client::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_info_v1::{
+    self, ZcosmicToplevelInfoV1,
+};
+use crate::client::{Client, WindowInfo};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
-use wayland_client::{
-    backend::ObjectId,
-    event_created_child,
-    globals::{registry_queue_init, GlobalListContents},
-    protocol::wl_registry::{self, WlRegistry},
-    Connection, Dispatch, EventQueue, Proxy, QueueHandle,
-};
+use wayland_client::backend::ObjectId;
+use wayland_client::globals::{registry_queue_init, GlobalListContents};
+use wayland_client::protocol::wl_registry::{self, WlRegistry};
+use wayland_client::{event_created_child, Connection, Dispatch, EventQueue, Proxy, QueueHandle};
 
-// wayland-client api:      https://docs.rs/wayland-client/latest/wayland_client/
-// toplevel info protocol:  https://wayland.app/protocols/cosmic-toplevel-info-unstable-v1
+// wayland-client api:          https://docs.rs/wayland-client/latest/wayland_client/
+// toplevel info protocol:      https://wayland.app/protocols/cosmic-toplevel-info-unstable-v1
+// toplevel manager protocol:   https://wayland.app/protocols/cosmic-toplevel-management-unstable-v1
 
 // Cosmic protocols are included in a subfolder, and they come from the official repo.
 // The official repo isn't released to crates.io, so the protocols have be included as is.
 // The version of wayland_client that is already used by xremap corresponds to this commit:
 // https://github.com/pop-os/cosmic-protocols/tree/5b939bff8ff7d3e57a36fa3968d8ad2768f0afd2
 
-struct Window {
+#[derive(Debug)]
+struct CosmicWindow {
+    handle: ZcosmicToplevelHandleV1,
     app_id: Option<String>,
     title: Option<String>,
 }
 
 #[derive(Default)]
 struct State {
-    windows: HashMap<ObjectId, Window>,
+    windows: HashMap<ObjectId, CosmicWindow>,
     active_window: Option<ObjectId>,
 }
 
@@ -63,7 +63,7 @@ impl CosmicClient {
         Ok(())
     }
 
-    fn get_focused_window<'a>(&'a mut self) -> Result<Option<&'a Window>> {
+    fn get_focused_window<'a>(&'a mut self) -> Result<Option<&'a CosmicWindow>> {
         Ok(self.get_focused_objectid()?.and_then(|id| self.state.windows.get(&id)))
     }
 
@@ -76,7 +76,7 @@ impl CosmicClient {
     fn sync_state_with_server(&mut self) -> Result<()> {
         self.queue
             .as_mut()
-            .expect("Must be connected")
+            .ok_or_else(|| anyhow::format_err!("Must be connected."))?
             .roundtrip(&mut self.state)?;
 
         Ok(())
@@ -113,6 +113,23 @@ impl Client for CosmicClient {
             }
         }
     }
+
+    fn window_list(&mut self) -> Result<Vec<WindowInfo>> {
+        self.sync_state_with_server()?;
+
+        let windows: Vec<WindowInfo> = self
+            .state
+            .windows
+            .iter()
+            .map(|(_, CosmicWindow { handle, app_id, title })| WindowInfo {
+                win_id: Some(format!("{}", handle.id())),
+                app_class: app_id.clone(),
+                title: title.clone(),
+            })
+            .collect();
+
+        Ok(windows)
+    }
 }
 
 impl Dispatch<WlRegistry, GlobalListContents> for State {
@@ -140,11 +157,12 @@ impl Dispatch<ZcosmicToplevelInfoV1, ()> for State {
 
         match event {
             Toplevel { toplevel } => {
-                let info = Window {
+                let info = CosmicWindow {
+                    handle: toplevel,
                     app_id: None,
                     title: None,
                 };
-                state.windows.insert(toplevel.id(), info);
+                state.windows.insert(info.handle.id(), info);
             }
             Finished => {}
         }

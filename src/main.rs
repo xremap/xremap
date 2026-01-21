@@ -1,3 +1,4 @@
+use crate::client::print_open_windows;
 use crate::config::Config;
 use crate::device::{
     device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
@@ -91,7 +92,9 @@ struct Args {
     /// from the subsequent files be merged into the first configuration file.
     #[arg(required_unless_present = "completions",
         required_unless_present = "list_devices",
-        required_unless_present = "device_details", num_args = 1..)]
+        required_unless_present = "device_details",
+        required_unless_present = "list_windows",
+        num_args = 1..)]
     configs: Vec<PathBuf>,
     /// Choose the vendor value of the created output device.
     /// Must be given in hexadecimal with or without a prefix '0x'.
@@ -109,6 +112,9 @@ struct Args {
     /// Show device details
     #[arg(long)]
     device_details: bool,
+    /// List open windows. Use this to get app_class and title. It only works for COSMIC. Since v0.14.10.
+    #[arg(long)]
+    list_windows: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -140,6 +146,7 @@ fn main() -> anyhow::Result<()> {
         vendor,
         list_devices,
         device_details,
+        list_windows,
     } = Args::parse();
 
     if let Some(shell) = completions {
@@ -155,6 +162,10 @@ fn main() -> anyhow::Result<()> {
     if list_devices {
         print_device_list()?;
         return Ok(());
+    }
+
+    if list_windows {
+        return print_open_windows();
     }
 
     if let Some(output_device_name) = output_device_name {

@@ -6,6 +6,7 @@ use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::path::Path;
 use std::time::Duration;
 
+use crate::client::WindowInfo;
 use crate::client::{Client, WMClient};
 use crate::device::InputDeviceInfo;
 use crate::{
@@ -47,6 +48,10 @@ impl Client for StaticClient {
 
     fn current_application(&mut self) -> Option<String> {
         self.current_application.clone()
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        Ok(vec![])
     }
 }
 

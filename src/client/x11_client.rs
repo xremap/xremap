@@ -1,4 +1,4 @@
-use crate::client::Client;
+use crate::client::{Client, WindowInfo};
 use anyhow::{bail, Result};
 use std::env;
 use x11rb::connection::Connection;
@@ -88,6 +88,10 @@ impl Client for X11Client {
                 return current_application_fallback(self);
             }
         }
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        bail!("window_list not implemented for X11")
     }
 }
 

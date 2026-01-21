@@ -1,15 +1,15 @@
-use anyhow::{Result, anyhow};
-use crate::client::Client;
-use log::{debug};
+use super::socket_monitor::SessionMonitor;
+use crate::client::{Client, WindowInfo};
+use anyhow::{anyhow, bail, Result};
+use log::debug;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
-use std::path::{Path};
-use std::sync::Arc;
 use std::os::unix::net::UnixStream;
+use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
-use super::socket_monitor::SessionMonitor;
-use tokio::runtime::{Builder,Runtime};
+use tokio::runtime::{Builder, Runtime};
 
 // This client supports a line-based socket protocol where a message is
 // sent over the socket as a single line of JSON followed by a newline ('\n'),
@@ -109,6 +109,10 @@ impl Client for SocketClient {
             Ok(v) if v == "Ok" => Ok(true),
             _ => Err(anyhow::format_err!(response)),
         }
+    }
+
+    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+        bail!("window_list not implemented for socket")
     }
 }
 
