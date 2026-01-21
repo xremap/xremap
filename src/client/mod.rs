@@ -8,6 +8,28 @@ pub struct WindowInfo {
     pub title: Option<String>,
     pub win_id: Option<String>,
 }
+#[cfg(feature = "cosmic")]
+mod cosmic_client;
+#[cfg(feature = "cosmic")]
+mod cosmic_protocols;
+#[cfg(feature = "gnome")]
+mod gnome_client;
+#[cfg(feature = "hypr")]
+mod hypr_client;
+#[cfg(feature = "kde")]
+mod kde_client;
+#[cfg(feature = "niri")]
+mod niri_client;
+#[cfg(feature = "socket")]
+mod socket_client;
+#[cfg(feature = "socket")]
+mod socket_monitor;
+#[cfg(feature = "wlroots")]
+mod wlroots_client;
+#[cfg(feature = "x11")]
+mod x11_client;
+
+mod null_client;
 
 pub trait Client {
     fn supported(&mut self) -> bool;
@@ -89,89 +111,36 @@ impl WMClient {
     }
 }
 
-#[cfg(feature = "gnome")]
-mod gnome_client;
-#[cfg(feature = "gnome")]
 pub fn build_client() -> WMClient {
-    WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()))
-}
+    let clients: Vec<WMClient> = vec![
+        #[cfg(feature = "gnome")]
+        WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new())),
+        #[cfg(feature = "kde")]
+        WMClient::new("KDE", Box::new(kde_client::KdeClient::new())),
+        #[cfg(feature = "hypr")]
+        WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new())),
+        #[cfg(feature = "x11")]
+        WMClient::new("X11", Box::new(x11_client::X11Client::new())),
+        #[cfg(feature = "wlroots")]
+        WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new())),
+        #[cfg(feature = "niri")]
+        WMClient::new("Niri", Box::new(niri_client::NiriClient::new())),
+        #[cfg(feature = "cosmic")]
+        WMClient::new("COSMIC", Box::new(cosmic_client::CosmicClient::new())),
+        #[cfg(feature = "socket")]
+        WMClient::new("Socket", Box::new(socket_client::SocketClient::new())),
+    ];
 
-#[cfg(feature = "kde")]
-mod kde_client;
-#[cfg(feature = "kde")]
-pub fn build_client() -> WMClient {
-    WMClient::new("KDE", Box::new(kde_client::KdeClient::new()))
-}
-
-#[cfg(feature = "hypr")]
-mod hypr_client;
-#[cfg(feature = "hypr")]
-pub fn build_client() -> WMClient {
-    WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()))
-}
-
-#[cfg(feature = "x11")]
-mod x11_client;
-#[cfg(feature = "x11")]
-pub fn build_client() -> WMClient {
-    WMClient::new("X11", Box::new(x11_client::X11Client::new()))
-}
-
-#[cfg(feature = "wlroots")]
-mod wlroots_client;
-#[cfg(feature = "wlroots")]
-pub fn build_client() -> WMClient {
-    WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()))
-}
-
-#[cfg(feature = "niri")]
-mod niri_client;
-#[cfg(feature = "niri")]
-pub fn build_client() -> WMClient {
-    WMClient::new("Niri", Box::new(niri_client::NiriClient::new()))
-}
-
-#[cfg(feature = "cosmic")]
-mod cosmic_client;
-#[cfg(feature = "cosmic")]
-mod cosmic_protocols;
-#[cfg(feature = "cosmic")]
-pub fn build_client() -> WMClient {
-    WMClient::new("Cosmic", Box::new(cosmic_client::CosmicClient::new()))
-}
-
-#[cfg(feature = "socket")]
-mod socket_client;
-#[cfg(feature = "socket")]
-mod socket_monitor;
-#[cfg(feature = "socket")]
-pub fn build_client() -> WMClient {
-    WMClient::new("Socket", Box::new(socket_client::SocketClient::new()))
-}
-
-#[cfg(not(any(
-    feature = "gnome",
-    feature = "x11",
-    feature = "hypr",
-    feature = "kde",
-    feature = "wlroots",
-    feature = "niri",
-    feature = "cosmic",
-    feature = "socket"
-)))]
-mod null_client;
-#[cfg(not(any(
-    feature = "gnome",
-    feature = "x11",
-    feature = "hypr",
-    feature = "kde",
-    feature = "wlroots",
-    feature = "niri",
-    feature = "cosmic",
-    feature = "socket"
-)))]
-pub fn build_client() -> WMClient {
-    WMClient::new("none", Box::new(null_client::NullClient))
+    if clients.len() == 0 {
+        WMClient::new("none", Box::new(null_client::NullClient))
+    } else if clients.len() == 1 {
+        clients.into_iter().next().unwrap()
+    } else {
+        // Shouldn't use panic, but this cannot happen for users,
+        // because two features would previously conflict already at
+        // compile-time, with multiple declarations of `build_client`.
+        panic!("There is no way to run with multiple clients enabled.")
+    }
 }
 
 pub fn print_open_windows() -> anyhow::Result<()> {
