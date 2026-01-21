@@ -576,6 +576,9 @@ Options:
       --list-windows
           List open windows. Use this to get app_class and title. It only works for COSMIC. Since v0.14.10
 
+      --no-window-logging
+          Suppress logging of window title and application changes. Default is false. Since v0.14.10
+
       --completions <SHELL>
           Generate shell completions
 

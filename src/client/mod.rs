@@ -1,13 +1,5 @@
 use crate::util::print_table;
-use log::debug;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct WindowInfo {
-    // The order of fields matters because they define sort order.
-    pub app_class: Option<String>,
-    pub title: Option<String>,
-    pub win_id: Option<String>,
-}
 #[cfg(feature = "cosmic")]
 mod cosmic_client;
 #[cfg(feature = "cosmic")]
@@ -31,6 +23,14 @@ mod x11_client;
 
 mod null_client;
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct WindowInfo {
+    // The order of fields matters because they define sort order.
+    pub app_class: Option<String>,
+    pub title: Option<String>,
+    pub win_id: Option<String>,
+}
+
 pub trait Client {
     fn supported(&mut self) -> bool;
     fn current_application(&mut self) -> Option<String>;
@@ -51,16 +51,18 @@ pub struct WMClient {
     supported: Option<bool>,
     last_application: String,
     last_window: String,
+    log_window_changes: bool,
 }
 
 impl WMClient {
-    pub fn new(name: &str, client: Box<dyn Client>) -> WMClient {
+    pub fn new(name: &str, client: Box<dyn Client>, log_window_changes: bool) -> WMClient {
         WMClient {
             name: name.to_string(),
             client,
             supported: None,
             last_application: String::new(),
             last_window: String::new(),
+            log_window_changes,
         }
     }
 
@@ -80,7 +82,9 @@ impl WMClient {
         if let Some(window) = &result {
             if &self.last_window != window {
                 self.last_window = window.clone();
-                debug!("window: {window}");
+                if self.log_window_changes {
+                    println!("window: {window}");
+                }
             }
         }
         result
@@ -93,7 +97,9 @@ impl WMClient {
         if let Some(application) = &result {
             if &self.last_application != application {
                 self.last_application = application.clone();
-                debug!("application: {application}");
+                if self.log_window_changes {
+                    println!("application: {application}");
+                }
             }
         }
         result
@@ -111,28 +117,28 @@ impl WMClient {
     }
 }
 
-pub fn build_client() -> WMClient {
+pub fn build_client(log_window_changes: bool) -> WMClient {
     let clients: Vec<WMClient> = vec![
         #[cfg(feature = "gnome")]
-        WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new())),
+        WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()), log_window_changes),
         #[cfg(feature = "kde")]
-        WMClient::new("KDE", Box::new(kde_client::KdeClient::new())),
+        WMClient::new("KDE", Box::new(kde_client::KdeClient::new(log_window_changes)), log_window_changes),
         #[cfg(feature = "hypr")]
-        WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new())),
+        WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()), log_window_changes),
         #[cfg(feature = "x11")]
-        WMClient::new("X11", Box::new(x11_client::X11Client::new())),
+        WMClient::new("X11", Box::new(x11_client::X11Client::new()), log_window_changes),
         #[cfg(feature = "wlroots")]
-        WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new())),
+        WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()), log_window_changes),
         #[cfg(feature = "niri")]
-        WMClient::new("Niri", Box::new(niri_client::NiriClient::new())),
+        WMClient::new("Niri", Box::new(niri_client::NiriClient::new()), log_window_changes),
         #[cfg(feature = "cosmic")]
-        WMClient::new("COSMIC", Box::new(cosmic_client::CosmicClient::new())),
+        WMClient::new("COSMIC", Box::new(cosmic_client::CosmicClient::new()), log_window_changes),
         #[cfg(feature = "socket")]
-        WMClient::new("Socket", Box::new(socket_client::SocketClient::new())),
+        WMClient::new("Socket", Box::new(socket_client::SocketClient::new()), log_window_changes),
     ];
 
     if clients.len() == 0 {
-        WMClient::new("none", Box::new(null_client::NullClient))
+        WMClient::new("none", Box::new(null_client::NullClient), log_window_changes)
     } else if clients.len() == 1 {
         clients.into_iter().next().unwrap()
     } else {
@@ -144,7 +150,7 @@ pub fn build_client() -> WMClient {
 }
 
 pub fn print_open_windows() -> anyhow::Result<()> {
-    let mut wmclient = build_client();
+    let mut wmclient = build_client(false);
 
     // This must be done to connect.
     if !wmclient.client.supported() {

@@ -902,7 +902,7 @@ pub fn assert_actions_with_current_application(
         timer,
         &config.default_mode,
         Duration::from_micros(0),
-        WMClient::new("static", Box::new(StaticClient { current_application })),
+        WMClient::new("static", Box::new(StaticClient { current_application }), false),
     );
     let mut actual: Vec<Action> = vec![];
 
