@@ -133,7 +133,10 @@ impl KdeClient {
             res_name: String::new(),
             res_class: String::new(),
         }));
-        KdeClient { active_window, log_window_changes }
+        KdeClient {
+            active_window,
+            log_window_changes,
+        }
     }
 
     fn connect(&mut self) -> Result<(), ConnectionError> {
@@ -145,7 +148,10 @@ impl KdeClient {
 
         std::thread::spawn(move || {
             let connect = move || -> Result<Connection, anyhow::Error> {
-                let awi = ActiveWindowInterface { active_window, log_window_changes };
+                let awi = ActiveWindowInterface {
+                    active_window,
+                    log_window_changes,
+                };
 
                 let connection = Builder::session()?
                     .name("com.k0kubun.Xremap")?
@@ -228,7 +234,7 @@ struct ActiveWindowInterface {
 #[interface(name = "com.k0kubun.Xremap")]
 impl ActiveWindowInterface {
     fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
-        // Print when log_window_changes is enabled to help identify application resource classes
+        // Print when log_window_changes is enabled to help identify application resource classes.
         if self.log_window_changes {
             println!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
         }
