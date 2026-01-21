@@ -137,7 +137,7 @@ pub fn build_client(log_window_changes: bool) -> WMClient {
     ];
 
     if clients.len() == 0 {
-        WMClient::new("none", Box::new(null_client::NullClient), false)
+        WMClient::new("none", Box::new(null_client::NullClient), log_window_changes)
     } else if clients.len() == 1 {
         clients.into_iter().next().unwrap()
     } else {
