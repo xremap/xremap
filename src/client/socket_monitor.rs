@@ -1,12 +1,12 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use futures_util::stream::StreamExt;
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Mutex,OnceLock};
-use zbus::{Connection, MatchRule, Message, MessageStream};
+use std::sync::{Mutex, OnceLock};
 use zbus::fdo::DBusProxy;
 use zbus::zvariant::{OwnedObjectPath, Value};
+use zbus::{Connection, MatchRule, Message, MessageStream};
 
 pub struct SessionMonitor {
     socket_path: String,
@@ -21,7 +21,7 @@ impl SessionMonitor {
             socket_path,
             sessions: Mutex::new(Sessions::new()),
             connection: OnceLock::new(),
-            proxy: OnceLock::new()
+            proxy: OnceLock::new(),
         }
     }
 
@@ -58,8 +58,8 @@ impl SessionMonitor {
                     if let Err(handle_err) = self.handle_message(&message).await {
                         warn!("Could not handle {:?}: {}", message, handle_err)
                     }
-                },
-                Err(why) => warn!("Message fail: {}", why)
+                }
+                Err(why) => warn!("Message fail: {}", why),
             };
         }
         Ok(())
@@ -69,18 +69,16 @@ impl SessionMonitor {
         let header = message.header();
         let member = match header.member() {
             Some(m) => m,
-            None => return Ok(()),  // ignore null member
+            None => return Ok(()), // ignore null member
         };
         match member.as_str() {
             "SessionNew" => {
-                let (session_id, session_path): (String, OwnedObjectPath) =
-                    message.body().deserialize()?;
+                let (session_id, session_path): (String, OwnedObjectPath) = message.body().deserialize()?;
                 self.handle_new_session(&session_id, &session_path).await?;
             }
             "PropertiesChanged" => {
                 let header = message.header();
-                let path_ref = header.path()
-                    .ok_or_else(|| anyhow::anyhow!("No path in message"))?;
+                let path_ref = header.path().ok_or_else(|| anyhow::anyhow!("No path in message"))?;
                 let session_path: OwnedObjectPath = path_ref.clone().into();
                 let body = message.body();
                 let (_name, changed, _invalidated): (String, HashMap<String, Value<'_>>, Vec<String>) =
@@ -88,8 +86,7 @@ impl SessionMonitor {
                 self.handle_properties_changed(session_path, changed).await;
             }
             "SessionRemoved" => {
-                let (session_id, session_path): (String, OwnedObjectPath) =
-                    message.body().deserialize()?;
+                let (session_id, session_path): (String, OwnedObjectPath) = message.body().deserialize()?;
                 let (session, active) = self.sessions.lock().unwrap().remove(&session_path);
                 if session.is_some() || active.is_some() {
                     self.remove_properties_changed_match_rule(&session_path).await?;
@@ -100,16 +97,12 @@ impl SessionMonitor {
                     }
                 }
             }
-            sig => warn!("Ignored message: {}", sig)
+            sig => warn!("Ignored message: {}", sig),
         };
         Ok(())
     }
 
-    async fn handle_new_session(
-        &self,
-        session_id: &String,
-        session_path: &OwnedObjectPath,
-    ) -> Result<()> {
+    async fn handle_new_session(&self, session_id: &String, session_path: &OwnedObjectPath) -> Result<()> {
         let connection = self.connection.get().ok_or(anyhow!("not connected"))?;
         let session_proxy = SessionProxy::builder(&connection).path(session_path)?.build().await?;
         let (seat_id, _seat_path) = session_proxy.seat().await?;
@@ -126,15 +119,14 @@ impl SessionMonitor {
         let active_str = if is_active { " active" } else { "" };
         info!("Monitoring{} session {} (uid={}, seat={})", active_str, session_id, uid, seat_id);
         self.add_properties_changed_match_rule(&session_path).await?;
-        self.sessions.lock().unwrap().insert(session_path.clone(), session, is_active);
+        self.sessions
+            .lock()
+            .unwrap()
+            .insert(session_path.clone(), session, is_active);
         Ok(())
     }
 
-    async fn handle_properties_changed(
-        &self,
-        session_path: OwnedObjectPath,
-        changed: HashMap<String, Value<'_>>,
-    ) {
+    async fn handle_properties_changed(&self, session_path: OwnedObjectPath, changed: HashMap<String, Value<'_>>) {
         if let Some(Value::Bool(is_active)) = changed.get("Active") {
             let mut sessions = self.sessions.lock().unwrap();
             if *is_active {
@@ -164,25 +156,22 @@ impl SessionMonitor {
                 id: session_id.clone(),
                 user_socket: user_socket_path(&self.socket_path, uid),
             };
-            self.sessions.lock().unwrap().insert(session_path.clone(), session, is_active);
+            self.sessions
+                .lock()
+                .unwrap()
+                .insert(session_path.clone(), session, is_active);
             self.add_properties_changed_match_rule(&session_path).await?
         }
         Ok(())
     }
 
-    async fn add_properties_changed_match_rule(
-        &self,
-        session_path: &OwnedObjectPath,
-    ) -> Result<()> {
+    async fn add_properties_changed_match_rule(&self, session_path: &OwnedObjectPath) -> Result<()> {
         let proxy = self.proxy.get().ok_or(anyhow!("not connected"))?;
         let rule = session_changed_rule(session_path)?;
         Ok(proxy.add_match_rule(rule).await?)
     }
 
-    async fn remove_properties_changed_match_rule(
-        &self,
-        session_path: &OwnedObjectPath,
-    ) -> Result<()> {
+    async fn remove_properties_changed_match_rule(&self, session_path: &OwnedObjectPath) -> Result<()> {
         let proxy = self.proxy.get().ok_or(anyhow!("not connected"))?;
         let rule = session_changed_rule(session_path)?;
         Ok(proxy.remove_match_rule(rule).await?)
