@@ -1,6 +1,6 @@
 [package]
 name = "xremap"
-version = "0.14.9"
+version = "0.14.10"
 edition = "2021"
 description = "Dynamic key remapp for X and Wayland"
 license = "MIT"
@@ -15,6 +15,7 @@ derive-where = "1.6.0"
 env_logger = "0.10.2"
 evdev = "0.13.2"
 fork = "0.6"
+futures-util = {version = "0.3", optional = true}
 indoc = "2.0"
 lazy_static = "1.5.0"
 log = "0.4.28"
@@ -28,7 +29,7 @@ serde_yaml = "0.9"
 wayland-client = { version = "0.30", optional = true }
 wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = true }
 x11rb = { version = "0.13.2", optional = true }
-zbus = { version = "5.12.0", optional = true }
+zbus = { version = "5.12.0", optional = true, features = ["tokio"] }
 hyprland = { version = "0.3.13", optional = true }
 toml = "0.9.10"
 udev = { version = "0.9.3", optional = true }
@@ -36,6 +37,7 @@ futures = "0.3.31"
 wayland-protocols = { version = "0.30.0", features = ["client"], optional = true }
 wayland-scanner = { version = "0.30.0", optional = true }
 wayland-backend = { version = "0.1.0", optional = true }
+tokio = { version = "1.49.0", optional = true, features = ["full"] }
 
 [dev-dependencies]
 fastrand = "2.3.0"
@@ -50,6 +52,7 @@ udev = ["dep:udev"]
 niri = ["niri-ipc"]
 device-test = []
 cosmic = [ "wayland-client","wayland-scanner","wayland-backend"]
+socket = ["futures-util", "tokio", "zbus"]
 
 [profile.release]
 codegen-units = 1

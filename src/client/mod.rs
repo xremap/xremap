@@ -1,3 +1,5 @@
+use log::debug;
+
 pub trait Client {
     fn supported(&mut self) -> bool;
     fn current_application(&mut self) -> Option<String>;
@@ -45,7 +47,7 @@ impl WMClient {
         if let Some(window) = &result {
             if &self.last_window != window {
                 self.last_window = window.clone();
-                println!("window: {window}");
+                debug!("window: {window}");
             }
         }
         result
@@ -58,7 +60,7 @@ impl WMClient {
         if let Some(application) = &result {
             if &self.last_application != application {
                 self.last_application = application.clone();
-                println!("application: {application}");
+                debug!("application: {application}");
             }
         }
         result
@@ -123,6 +125,15 @@ pub fn build_client() -> WMClient {
     WMClient::new("Cosmic", Box::new(cosmic_client::CosmicClient::new()))
 }
 
+#[cfg(feature = "socket")]
+mod socket_client;
+#[cfg(feature = "socket")]
+mod socket_monitor;
+#[cfg(feature = "socket")]
+pub fn build_client() -> WMClient {
+    WMClient::new("Socket", Box::new(socket_client::SocketClient::new()))
+}
+
 #[cfg(not(any(
     feature = "gnome",
     feature = "x11",
@@ -130,7 +141,8 @@ pub fn build_client() -> WMClient {
     feature = "kde",
     feature = "wlroots",
     feature = "niri",
-    feature = "cosmic"
+    feature = "cosmic",
+    feature = "socket"
 )))]
 mod null_client;
 #[cfg(not(any(
@@ -140,7 +152,8 @@ mod null_client;
     feature = "kde",
     feature = "wlroots",
     feature = "niri",
-    feature = "cosmic"
+    feature = "cosmic",
+    feature = "socket"
 )))]
 pub fn build_client() -> WMClient {
     WMClient::new("none", Box::new(null_client::NullClient))
