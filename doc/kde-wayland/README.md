@@ -313,29 +313,17 @@ Create or copy your xremap configuration:
 ```bash
 # Example configuration with application-specific remapping
 sudo tee /etc/xremap/config.yml > /dev/null << 'EOF'
-# Global key remapping (works in all apps)
-modmap:
-  - name: Global remaps
-    remap:
-      CapsLock: Esc
-
 # Application-specific remapping
 keymap:
   - name: Konsole-specific bindings
     application:
-      only: konsole
+      only: org.kde.konsole
     remap:
-      Super-v: C-S-v  # Paste in Konsole only
-
-  - name: VSCodium-specific bindings
-    application:
-      only: codium
-    remap:
-      Super-Shift-e: C-e  # End of line in VSCodium only
+      Super-v: C-Shift-v  # Paste in Konsole only
 
   - name: Copy shortcut (all apps except Konsole)
     application:
-      not: konsole
+      not: org.kde.konsole
     remap:
       Super-c: C-c  # Copy in all apps except Konsole
 EOF
@@ -478,28 +466,6 @@ keymap:
       Esc: { set_mode: default }
 ```
 
-### Redacting Window Titles
-
-For privacy, you can redact window titles in logs:
-
-```bash
-# Edit xremap.service to add --redact flag
-sudo systemctl edit xremap.service
-```
-
-Add to the `[Service]` section:
-```ini
-ExecStart=/usr/bin/xremap --watch=config --redact /etc/xremap/config.yml
-```
-
-Restart the service:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart xremap.service
-```
-
-Now logs will show: `active window: caption: '[REDACTED]', class: '...', name: '...'`
-
 ---
 
 ## Verification
@@ -641,7 +607,7 @@ ls -la /run/xremap/kde.sock
    ```
 
 2. Verify config matches class name exactly:
-   - Konsole: `org.kde.konsole` or `konsole`
+   - Konsole: `org.kde.konsole`
    - VSCodium: `codium`
    - Firefox: `firefox`
    - Chrome: `google-chrome`
