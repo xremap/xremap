@@ -1,6 +1,11 @@
 ## v0.14.10
 
-- Add socket client with logind session monitor. Default socket path: /run/xremap/{uid}/xremap.sock
+- Update readme installation instructions https://github.com/xremap/xremap/pull/822
+- Add socket client with logind session monitor https://github.com/xremap/xremap/pull/827
+- Add --list-windows cmdline argument (only for COSMIC) https://github.com/xremap/xremap/pull/825
+- Add support for multiple features during development https://github.com/xremap/xremap/pull/826
+- Fix tokio only in socket feature https://github.com/xremap/xremap/pull/828
+- Add --no-window-logging commandline argument https://github.com/xremap/xremap/pull/829
 
 ## v0.14.9
 
