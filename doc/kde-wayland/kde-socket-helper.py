@@ -79,6 +79,35 @@ class DBusHelper:
             self._bus = dbus.SessionBus()
         return self._bus
     
+    def reset_bus(self):
+        """Reset the bus connection to get a fresh one."""
+        self._bus = None
+    
+    def is_service_available(self, service: str = 'org.kde.KWin') -> bool:
+        """Check if a D-Bus service is available."""
+        try:
+            self.bus.get_object(service, '/Scripting')
+            return True
+        except dbus.exceptions.DBusException:
+            return False
+    
+    def wait_for_service(self, service: str = 'org.kde.KWin', 
+                         max_retries: int = 30, retry_delay: float = 2.0) -> bool:
+        """Wait for a D-Bus service to become available."""
+        for attempt in range(1, max_retries + 1):
+            if self.is_service_available(service):
+                log.info(f"KWin service is available (attempt {attempt})")
+                return True
+            
+            if attempt < max_retries:
+                log.info(f"Waiting for KWin... (attempt {attempt}/{max_retries})")
+                time.sleep(retry_delay)
+                # Reset bus to get fresh state
+                self.reset_bus()
+        
+        log.error(f"KWin service not available after {max_retries} attempts")
+        return False
+    
     def call(self, object_path: str, interface: str, method_name: str,
              signature: str = '', args: tuple = (), 
              service: str = 'org.kde.KWin') -> Any:
@@ -261,14 +290,28 @@ class KdeSocketHelper:
 
     def _load_script(self) -> Optional[int]:
         """Load the script into KWin, return script ID or None."""
+        # Try single-argument version first (just the path)
+        try:
+            script_id = self.dbus.call_kwin_scripting(
+                'loadScript', 's', (self.kwin_script_path,)
+            )
+            log.debug("loadScript succeeded with single argument (path only)")
+            return int(script_id)
+        except dbus.exceptions.DBusException as e:
+            log.debug(f"Single-argument loadScript failed: {e}")
+        
+        # Try two-argument version (path + name)
         try:
             script_id = self.dbus.call_kwin_scripting(
                 'loadScript', 'ss', (self.kwin_script_path, SCRIPT_NAME)
             )
+            log.debug("loadScript succeeded with two arguments (path + name)")
             return int(script_id)
         except dbus.exceptions.DBusException as e:
-            log.error(f"loadScript failed: {e}")
-            return None
+            log.debug(f"Two-argument loadScript failed: {e}")
+        
+        log.error("All loadScript attempts failed")
+        return None
 
     def _try_run_script(self, script_id: int) -> bool:
         """Try to run script at the expected Plasma 6 path."""
@@ -304,14 +347,14 @@ class KdeSocketHelper:
         """Load KWin script using D-Bus, with retries for boot-time availability."""
         self.kwin_script_path = self._write_script_file()
 
+        # First, wait for KWin to be available (important at boot time)
+        log.info("Waiting for KWin to become available...")
+        if not self.dbus.wait_for_service('org.kde.KWin', max_retries=30, retry_delay=2.0):
+            log.error("KWin never became available")
+            return False
+
         for attempt in range(1, max_retries + 1):
             try:
-                # Verify KWin is available
-                try:
-                    self.dbus.bus.get_object('org.kde.KWin', '/Scripting')
-                except dbus.exceptions.DBusException as e:
-                    raise RuntimeError(f"Could not connect to KWin Scripting: {e}")
-
                 # Unload existing script and load new one
                 self._unload_existing_script()
                 script_id = self._load_script()
