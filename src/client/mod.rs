@@ -1,12 +1,5 @@
 use crate::util::print_table;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct WindowInfo {
-    // The order of fields matters because they define sort order.
-    pub app_class: Option<String>,
-    pub title: Option<String>,
-    pub win_id: Option<String>,
-}
 #[cfg(feature = "cosmic")]
 mod cosmic_client;
 #[cfg(feature = "cosmic")]
@@ -29,6 +22,14 @@ mod wlroots_client;
 mod x11_client;
 
 mod null_client;
+
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct WindowInfo {
+    // The order of fields matters because they define sort order.
+    pub app_class: Option<String>,
+    pub title: Option<String>,
+    pub win_id: Option<String>,
+}
 
 pub trait Client {
     fn supported(&mut self) -> bool;
