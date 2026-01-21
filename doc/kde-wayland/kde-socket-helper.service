@@ -1,11 +1,10 @@
 [Unit]
 Description=Xremap KDE Socket Helper
-Wants=graphical.target
-After=graphical.target
+After=graphical-session.target
+Requires=graphical-session.target
 
 [Service]
 Type=simple
-User=parallels
 ExecStart=/usr/local/bin/kde-socket-helper
 Restart=always
 RestartSec=5
@@ -16,4 +15,4 @@ StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
