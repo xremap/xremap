@@ -8,5 +8,9 @@ Restart=always
 StandardOutput=journal
 StandardError=journal
 
+MemoryHigh=8M
+MemoryMax=16M
+IPAddressDeny=any
+
 [Install]
 WantedBy=default.target
