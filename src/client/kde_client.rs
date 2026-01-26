@@ -139,7 +139,7 @@ impl KdeClient {
         }
     }
 
-    fn connect(&mut self) -> Result<(), ConnectionError> {
+    fn connect(&mut self) -> anyhow::Result<()> {
         let active_window = Arc::clone(&self.active_window);
         let log_window_changes = self.log_window_changes;
         let (tx, rx) = channel();
@@ -159,9 +159,7 @@ impl KdeClient {
                 Ok(block_on(connection)?)
             };
 
-            let result = connect().map_err(|_| ConnectionError::ServerSession);
-
-            match result {
+            match connect() {
                 Ok(_) => {
                     tx.send(Ok(())).unwrap();
                     loop {
@@ -176,7 +174,7 @@ impl KdeClient {
         rx.recv().unwrap()?;
 
         // The script sends a message right away, so it's started after the server.
-        load_kwin_script()?;
+        load_kwin_script().map_err(|err| anyhow::format_err!("{err:?}"))?;
 
         // Busy wait 100ms, so the first use returns a valid value.
         // Testing shows it takes around 10ms to get a response.
@@ -240,8 +238,7 @@ enum ConnectionError {
 
     IsScriptLoadedCall,
     InvalidIsScriptLoadedResult,
-
-    ServerSession,
+    // ServerSession,
 }
 
 struct ActiveWindow {
