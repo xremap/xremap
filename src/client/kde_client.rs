@@ -34,26 +34,30 @@ impl Drop for KwinScriptTempFile {
 }
 
 trait KWinScripting {
-    fn load_script(&self, path: &Path) -> Result<i32, ConnectionError>;
+    fn load_script(&self, path: &Path) -> anyhow::Result<i32>;
     fn unload_script(&self) -> Result<bool, ConnectionError>;
-    fn start_script(&self, script_obj_id: i32) -> Result<(), ConnectionError>;
-    fn is_script_loaded(&self) -> Result<bool, ConnectionError>;
+    fn start_script(&self, script_obj_id: i32) -> anyhow::Result<()>;
+    fn is_script_loaded(&self) -> anyhow::Result<bool>;
 }
 
 impl KWinScripting for Connection {
-    fn load_script(&self, path: &Path) -> Result<i32, ConnectionError> {
-        block_on(self.call_method(
-            Some("org.kde.KWin"),
-            "/Scripting",
-            Some("org.kde.kwin.Scripting"),
-            "loadScript",
-            // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
-            &(path.to_str().ok_or(ConnectionError::TempPathNotValidUtf8)?, KWIN_SCRIPT_PLUGIN_NAME),
-        ))
-        .map_err(|_| ConnectionError::LoadScriptCall)?
+    fn load_script(&self, path: &Path) -> anyhow::Result<i32> {
+        Ok(block_on(
+            self.call_method(
+                Some("org.kde.KWin"),
+                "/Scripting",
+                Some("org.kde.kwin.Scripting"),
+                "loadScript",
+                // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
+                &(
+                    path.to_str()
+                        .ok_or(anyhow::format_err!("Temp-path must be valid utf-8"))?,
+                    KWIN_SCRIPT_PLUGIN_NAME,
+                ),
+            ),
+        )?
         .body()
-        .deserialize::<i32>()
-        .map_err(|_| ConnectionError::InvalidLoadScriptResult)
+        .deserialize::<i32>()?)
     }
 
     fn unload_script(&self) -> Result<bool, ConnectionError> {
@@ -71,7 +75,7 @@ impl KWinScripting for Connection {
         .map_err(|_| ConnectionError::InvalidUnloadScriptResult)
     }
 
-    fn start_script(&self, script_obj_id: i32) -> Result<(), ConnectionError> {
+    fn start_script(&self, script_obj_id: i32) -> anyhow::Result<()> {
         for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
             if block_on(self.call_method(
                 Some("org.kde.KWin"),
@@ -85,30 +89,28 @@ impl KWinScripting for Connection {
                 return Ok(());
             }
         }
-        Err(ConnectionError::StartScriptCall)
+        Err(anyhow::format_err!("Could not start KWIN script."))
     }
 
-    fn is_script_loaded(&self) -> Result<bool, ConnectionError> {
-        block_on(self.call_method(
+    fn is_script_loaded(&self) -> anyhow::Result<bool> {
+        Ok(block_on(self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "isScriptLoaded",
             &KWIN_SCRIPT_PLUGIN_NAME,
-        ))
-        .map_err(|_| ConnectionError::IsScriptLoadedCall)?
+        ))?
         .body()
-        .deserialize::<bool>()
-        .map_err(|_| ConnectionError::InvalidIsScriptLoadedResult)
+        .deserialize::<bool>()?)
     }
 }
 
-fn load_kwin_script() -> Result<(), ConnectionError> {
-    let dbus = block_on(Connection::session()).map_err(|_| ConnectionError::ClientSession)?;
+fn load_kwin_script() -> anyhow::Result<()> {
+    let dbus = block_on(Connection::session())?;
     if !dbus.is_script_loaded()? {
         let init_script = || {
             let temp_file_path = KwinScriptTempFile::new();
-            std::fs::write(&temp_file_path.0, KWIN_SCRIPT).map_err(|_| ConnectionError::WriteScriptToTempFile)?;
+            std::fs::write(&temp_file_path.0, KWIN_SCRIPT)?;
             let script_obj_id = dbus.load_script(&temp_file_path.0)?;
             dbus.start_script(script_obj_id)?;
             Ok(())
@@ -224,21 +226,8 @@ impl Client for KdeClient {
 
 #[derive(Debug)]
 enum ConnectionError {
-    TempPathNotValidUtf8,
-    WriteScriptToTempFile,
-    ClientSession,
-
-    LoadScriptCall,
-    InvalidLoadScriptResult,
-
     UnloadScriptCall,
     InvalidUnloadScriptResult,
-
-    StartScriptCall,
-
-    IsScriptLoadedCall,
-    InvalidIsScriptLoadedResult,
-    // ServerSession,
 }
 
 struct ActiveWindow {
