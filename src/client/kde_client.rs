@@ -176,7 +176,28 @@ impl KdeClient {
         rx.recv().unwrap()?;
 
         // The script sends a message right away, so it's started after the server.
-        load_kwin_script()
+        load_kwin_script()?;
+
+        // Busy wait 100ms, so the first use returns a valid value.
+        // Testing shows it takes around 10ms to get a response.
+        // Notes on correctness:
+        //  The lock is just created, so this thread cannot hold the lock already.
+        //  `try_lock` doesn't block if the lock is wrongfully held indefinitely by
+        //  the other thread, so we are guaranteed to timeout as expected.
+        for i in 0..10 {
+            if let Ok(aw) = self.active_window.try_lock() {
+                if !aw.title.is_empty() {
+                    debug!("Connected to KDE within: {}ms", i * 10);
+                    return Ok(());
+                }
+            }
+
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        debug!("Connection to KDE was not established within 100ms");
+
+        Ok(())
     }
 }
 
