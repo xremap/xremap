@@ -1,5 +1,5 @@
 use crate::client::{Client, WindowInfo};
-use anyhow::bail;
+use anyhow::{bail, Result};
 use futures::executor::block_on;
 use log::{debug, warn};
 use std::env::temp_dir;
@@ -34,14 +34,14 @@ impl Drop for KwinScriptTempFile {
 }
 
 trait KWinScripting {
-    fn load_script(&self, path: &Path) -> anyhow::Result<i32>;
-    fn unload_script(&self) -> anyhow::Result<bool>;
-    fn start_script(&self, script_obj_id: i32) -> anyhow::Result<()>;
-    fn is_script_loaded(&self) -> anyhow::Result<bool>;
+    fn load_script(&self, path: &Path) -> Result<i32>;
+    fn unload_script(&self) -> Result<bool>;
+    fn start_script(&self, script_obj_id: i32) -> Result<()>;
+    fn is_script_loaded(&self) -> Result<bool>;
 }
 
 impl KWinScripting for Connection {
-    fn load_script(&self, path: &Path) -> anyhow::Result<i32> {
+    fn load_script(&self, path: &Path) -> Result<i32> {
         Ok(block_on(
             self.call_method(
                 Some("org.kde.KWin"),
@@ -60,20 +60,19 @@ impl KWinScripting for Connection {
         .deserialize::<i32>()?)
     }
 
-    fn unload_script(&self) -> anyhow::Result<bool> {
+    fn unload_script(&self) -> Result<bool> {
         Ok(block_on(self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "unloadScript",
-            // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
             &KWIN_SCRIPT_PLUGIN_NAME,
         ))?
         .body()
         .deserialize::<bool>()?)
     }
 
-    fn start_script(&self, script_obj_id: i32) -> anyhow::Result<()> {
+    fn start_script(&self, script_obj_id: i32) -> Result<()> {
         for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
             if block_on(self.call_method(
                 Some("org.kde.KWin"),
@@ -90,7 +89,7 @@ impl KWinScripting for Connection {
         Err(anyhow::format_err!("Could not start KWIN script."))
     }
 
-    fn is_script_loaded(&self) -> anyhow::Result<bool> {
+    fn is_script_loaded(&self) -> Result<bool> {
         Ok(block_on(self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
@@ -103,7 +102,7 @@ impl KWinScripting for Connection {
     }
 }
 
-fn load_kwin_script() -> anyhow::Result<()> {
+fn load_kwin_script() -> Result<()> {
     let dbus = block_on(Connection::session())?;
     if !dbus.is_script_loaded()? {
         let init_script = || {
@@ -139,13 +138,13 @@ impl KdeClient {
         }
     }
 
-    fn connect(&mut self) -> anyhow::Result<()> {
+    fn connect(&mut self) -> Result<()> {
         let active_window = Arc::clone(&self.active_window);
         let log_window_changes = self.log_window_changes;
         let (tx, rx) = channel();
 
         std::thread::spawn(move || {
-            let connect = move || -> Result<Connection, anyhow::Error> {
+            let connect = move || -> Result<Connection> {
                 let awi = ActiveWindowInterface {
                     active_window,
                     log_window_changes,
@@ -174,7 +173,7 @@ impl KdeClient {
         rx.recv().unwrap()?;
 
         // The script sends a message right away, so it's started after the server.
-        load_kwin_script().map_err(|err| anyhow::format_err!("{err:?}"))?;
+        load_kwin_script()?;
 
         // Busy wait 100ms, so the first use returns a valid value.
         // Testing shows it takes around 10ms to get a response.
@@ -217,7 +216,7 @@ impl Client for KdeClient {
         Some(aw.res_class.clone())
     }
 
-    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+    fn window_list(&mut self) -> Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for KDE")
     }
 }
