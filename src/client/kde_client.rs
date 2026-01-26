@@ -35,7 +35,7 @@ impl Drop for KwinScriptTempFile {
 
 trait KWinScripting {
     fn load_script(&self, path: &Path) -> anyhow::Result<i32>;
-    fn unload_script(&self) -> Result<bool, ConnectionError>;
+    fn unload_script(&self) -> anyhow::Result<bool>;
     fn start_script(&self, script_obj_id: i32) -> anyhow::Result<()>;
     fn is_script_loaded(&self) -> anyhow::Result<bool>;
 }
@@ -60,19 +60,17 @@ impl KWinScripting for Connection {
         .deserialize::<i32>()?)
     }
 
-    fn unload_script(&self) -> Result<bool, ConnectionError> {
-        block_on(self.call_method(
+    fn unload_script(&self) -> anyhow::Result<bool> {
+        Ok(block_on(self.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "unloadScript",
             // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
             &KWIN_SCRIPT_PLUGIN_NAME,
-        ))
-        .map_err(|_| ConnectionError::UnloadScriptCall)?
+        ))?
         .body()
-        .deserialize::<bool>()
-        .map_err(|_| ConnectionError::InvalidUnloadScriptResult)
+        .deserialize::<bool>()?)
     }
 
     fn start_script(&self, script_obj_id: i32) -> anyhow::Result<()> {
@@ -222,12 +220,6 @@ impl Client for KdeClient {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for KDE")
     }
-}
-
-#[derive(Debug)]
-enum ConnectionError {
-    UnloadScriptCall,
-    InvalidUnloadScriptResult,
 }
 
 struct ActiveWindow {
