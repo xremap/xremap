@@ -1,5 +1,5 @@
 use crate::client::{Client, WindowInfo};
-use anyhow::bail;
+use anyhow::{bail, Result};
 use futures::executor::block_on;
 use log::{debug, warn};
 use std::env::temp_dir;
@@ -33,89 +33,79 @@ impl Drop for KwinScriptTempFile {
     }
 }
 
-trait KWinScripting {
-    fn load_script(&self, path: &Path) -> Result<i32, ConnectionError>;
-    fn unload_script(&self) -> Result<bool, ConnectionError>;
-    fn start_script(&self, script_obj_id: i32) -> Result<(), ConnectionError>;
-    fn is_script_loaded(&self) -> Result<bool, ConnectionError>;
-}
-
-impl KWinScripting for Connection {
-    fn load_script(&self, path: &Path) -> Result<i32, ConnectionError> {
-        block_on(self.call_method(
+fn load_script(conn: &Connection, path: &Path) -> Result<i32> {
+    Ok(block_on(
+        conn.call_method(
             Some("org.kde.KWin"),
             "/Scripting",
             Some("org.kde.kwin.Scripting"),
             "loadScript",
             // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
-            &(path.to_str().ok_or(ConnectionError::TempPathNotValidUtf8)?, KWIN_SCRIPT_PLUGIN_NAME),
-        ))
-        .map_err(|_| ConnectionError::LoadScriptCall)?
-        .body()
-        .deserialize::<i32>()
-        .map_err(|_| ConnectionError::InvalidLoadScriptResult)
-    }
-
-    fn unload_script(&self) -> Result<bool, ConnectionError> {
-        block_on(self.call_method(
-            Some("org.kde.KWin"),
-            "/Scripting",
-            Some("org.kde.kwin.Scripting"),
-            "unloadScript",
-            // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
-            &KWIN_SCRIPT_PLUGIN_NAME,
-        ))
-        .map_err(|_| ConnectionError::UnloadScriptCall)?
-        .body()
-        .deserialize::<bool>()
-        .map_err(|_| ConnectionError::InvalidUnloadScriptResult)
-    }
-
-    fn start_script(&self, script_obj_id: i32) -> Result<(), ConnectionError> {
-        for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
-            if block_on(self.call_method(
-                Some("org.kde.KWin"),
-                script_obj_path_fn(script_obj_id).as_str(),
-                Some("org.kde.kwin.Script"),
-                "run",
-                &(),
-            ))
-            .is_ok()
-            {
-                return Ok(());
-            }
-        }
-        Err(ConnectionError::StartScriptCall)
-    }
-
-    fn is_script_loaded(&self) -> Result<bool, ConnectionError> {
-        block_on(self.call_method(
-            Some("org.kde.KWin"),
-            "/Scripting",
-            Some("org.kde.kwin.Scripting"),
-            "isScriptLoaded",
-            &KWIN_SCRIPT_PLUGIN_NAME,
-        ))
-        .map_err(|_| ConnectionError::IsScriptLoadedCall)?
-        .body()
-        .deserialize::<bool>()
-        .map_err(|_| ConnectionError::InvalidIsScriptLoadedResult)
-    }
+            &(
+                path.to_str()
+                    .ok_or(anyhow::format_err!("Temp-path must be valid utf-8"))?,
+                KWIN_SCRIPT_PLUGIN_NAME,
+            ),
+        ),
+    )?
+    .body()
+    .deserialize::<i32>()?)
 }
 
-fn load_kwin_script() -> Result<(), ConnectionError> {
-    let dbus = block_on(Connection::session()).map_err(|_| ConnectionError::ClientSession)?;
-    if !dbus.is_script_loaded()? {
+fn unload_script(conn: &Connection) -> Result<bool> {
+    Ok(block_on(conn.call_method(
+        Some("org.kde.KWin"),
+        "/Scripting",
+        Some("org.kde.kwin.Scripting"),
+        "unloadScript",
+        &KWIN_SCRIPT_PLUGIN_NAME,
+    ))?
+    .body()
+    .deserialize::<bool>()?)
+}
+
+fn start_script(conn: &Connection, script_obj_id: i32) -> Result<()> {
+    for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
+        if block_on(conn.call_method(
+            Some("org.kde.KWin"),
+            script_obj_path_fn(script_obj_id).as_str(),
+            Some("org.kde.kwin.Script"),
+            "run",
+            &(),
+        ))
+        .is_ok()
+        {
+            return Ok(());
+        }
+    }
+    Err(anyhow::format_err!("Could not start KWIN script."))
+}
+
+fn is_script_loaded(conn: &Connection) -> Result<bool> {
+    Ok(block_on(conn.call_method(
+        Some("org.kde.KWin"),
+        "/Scripting",
+        Some("org.kde.kwin.Scripting"),
+        "isScriptLoaded",
+        &KWIN_SCRIPT_PLUGIN_NAME,
+    ))?
+    .body()
+    .deserialize::<bool>()?)
+}
+
+fn load_kwin_script() -> Result<()> {
+    let conn = block_on(Connection::session())?;
+    if !is_script_loaded(&conn)? {
         let init_script = || {
             let temp_file_path = KwinScriptTempFile::new();
-            std::fs::write(&temp_file_path.0, KWIN_SCRIPT).map_err(|_| ConnectionError::WriteScriptToTempFile)?;
-            let script_obj_id = dbus.load_script(&temp_file_path.0)?;
-            dbus.start_script(script_obj_id)?;
+            std::fs::write(&temp_file_path.0, KWIN_SCRIPT)?;
+            let script_obj_id = load_script(&conn, &temp_file_path.0)?;
+            start_script(&conn, script_obj_id)?;
             Ok(())
         };
         if let Err(err) = init_script() {
             debug!("Trying to unload kwin-script plugin ('{KWIN_SCRIPT_PLUGIN_NAME}').");
-            match dbus.unload_script() {
+            match unload_script(&conn, ) {
                 Err(err) => debug!("Error unloading plugin ('{err:?}'). It may still be loaded and could cause future runs of xremap to fail."),
                 Ok(unloaded) if unloaded => debug!("Successfully unloaded plugin."),
                 Ok(_) => debug!("Plugin was not loaded in the first place."),
@@ -139,15 +129,13 @@ impl KdeClient {
         }
     }
 
-    fn connect(&mut self) -> Result<(), ConnectionError> {
-        load_kwin_script()?;
-
+    fn connect(&mut self) -> Result<()> {
         let active_window = Arc::clone(&self.active_window);
         let log_window_changes = self.log_window_changes;
         let (tx, rx) = channel();
 
         std::thread::spawn(move || {
-            let connect = move || -> Result<Connection, anyhow::Error> {
+            let connect = move || -> Result<Connection> {
                 let awi = ActiveWindowInterface {
                     active_window,
                     log_window_changes,
@@ -161,9 +149,7 @@ impl KdeClient {
                 Ok(block_on(connection)?)
             };
 
-            let result = connect().map_err(|_| ConnectionError::ServerSession);
-
-            match result {
+            match connect() {
                 Ok(_) => {
                     tx.send(Ok(())).unwrap();
                     loop {
@@ -173,7 +159,33 @@ impl KdeClient {
                 Err(err) => tx.send(Err(err)).unwrap(),
             }
         });
-        rx.recv().unwrap()
+
+        // Wait for server to start
+        rx.recv().unwrap()?;
+
+        // The script sends a message right away, so it's started after the server.
+        load_kwin_script()?;
+
+        // Busy wait 100ms, so the first use returns a valid value.
+        // Testing shows it takes around 10ms to get a response.
+        // Notes on correctness:
+        //  The lock is just created, so this thread cannot hold the lock already.
+        //  `try_lock` doesn't block if the lock is wrongfully held indefinitely by
+        //  the other thread, so we are guaranteed to timeout as expected.
+        for i in 0..10 {
+            if let Ok(aw) = self.active_window.try_lock() {
+                if !aw.title.is_empty() {
+                    debug!("Connected to KDE within: {}ms", i * 10);
+                    return Ok(());
+                }
+            }
+
+            thread::sleep(Duration::from_millis(10));
+        }
+
+        debug!("Connection to KDE was not established within 100ms");
+
+        Ok(())
     }
 }
 
@@ -195,29 +207,9 @@ impl Client for KdeClient {
         Some(aw.res_class.clone())
     }
 
-    fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
+    fn window_list(&mut self) -> Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for KDE")
     }
-}
-
-#[derive(Debug)]
-enum ConnectionError {
-    TempPathNotValidUtf8,
-    WriteScriptToTempFile,
-    ClientSession,
-
-    LoadScriptCall,
-    InvalidLoadScriptResult,
-
-    UnloadScriptCall,
-    InvalidUnloadScriptResult,
-
-    StartScriptCall,
-
-    IsScriptLoadedCall,
-    InvalidIsScriptLoadedResult,
-
-    ServerSession,
 }
 
 struct ActiveWindow {
