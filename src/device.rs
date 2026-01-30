@@ -309,7 +309,7 @@ impl InputDevice {
         self.device.fetch_events()
     }
 
-    fn device_name(&self) -> &str {
+    pub fn device_name(&self) -> &str {
         self.device.name().unwrap_or("<Unnamed device>")
     }
 
