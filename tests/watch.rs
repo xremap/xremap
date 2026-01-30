@@ -45,6 +45,10 @@ pub fn e2e_disconnecting_device_in_watch_mode() -> anyhow::Result<()> {
 
     ctrl.close_input_device()?;
 
+    // Give time to handle the event, otherwise it's a race-condition whether
+    //  kill or handling-disconnect happens first.
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
     let output = ctrl.kill_for_output()?;
 
     assert!(output.stdout.contains("Found a removed device. Reselecting devices."));
