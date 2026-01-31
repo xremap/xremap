@@ -429,9 +429,8 @@ fn test_yaml_shared_data_anchor() {
 }
 
 #[test]
-#[should_panic]
 fn test_yaml_fail_on_data_outside_of_config_model() {
-    yaml_assert_parse(indoc! {"
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
     terminals: &terminals
       - Gnome-terminal
       - Kitty
@@ -446,6 +445,10 @@ fn test_yaml_fail_on_data_outside_of_config_model() {
         application:
           only: Google-chrome
     "})
+    .unwrap_err()
+    .to_string();
+
+    assert!(errmsg.contains("unknown field `terminals`"));
 }
 
 #[test]
@@ -729,9 +732,8 @@ fn test_toml_shared_data_anchor() {
 }
 
 #[test]
-#[should_panic]
 fn test_toml_fail_on_data_outside_of_config_model() {
-    toml_assert_parse(indoc! {"
+    let errmsg = toml::from_str::<Config>(indoc! {"
     terminals = [ \"Gnome-terminal\", \"Kitty\" ]
 
     [[modmap]]
@@ -748,6 +750,10 @@ fn test_toml_fail_on_data_outside_of_config_model() {
     [modmap.application]
     only = \"Google-chrome\"
     "})
+    .unwrap_err()
+    .to_string();
+
+    assert!(errmsg.contains("unknown field `terminals`"));
 }
 
 #[test]
