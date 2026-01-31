@@ -43,3 +43,22 @@ fn test_custom_start_mode() {
         ],
     )
 }
+
+#[test]
+fn test_unspecified_mode_matches_all_modes() {
+    assert_actions(
+        indoc! {"
+        default_mode: unused_mode
+        keymap:
+            - remap:
+                A: B
+        "},
+        vec![Event::key_press(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}

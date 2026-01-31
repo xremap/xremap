@@ -21,14 +21,14 @@ pub fn key_press(key: KeyCode) -> InputEvent {
     InputEvent::new(EventType::KEY.0, key.code(), 1)
 }
 
-pub fn get_raw_device_pair() -> anyhow::Result<(Device, VirtualDevice)> {
+pub fn get_raw_device_pair() -> anyhow::Result<(Device, VirtualDeviceInfo)> {
     let dev_info = get_virtual_device(get_random_device_name())?;
 
     let mut input = Device::open(&dev_info.path)?;
 
     input.grab()?;
 
-    Ok((input, dev_info.device))
+    Ok((input, dev_info))
 }
 
 pub struct VirtualDeviceInfo {
@@ -45,10 +45,10 @@ pub fn get_virtual_device(name: impl Into<String>) -> anyhow::Result<VirtualDevi
     let name = name.into();
 
     let mut keys: AttributeSet<KeyCode> = AttributeSet::new();
-    for code in 1..59 {
+    for code in KeyCode::KEY_RESERVED.code()..KeyCode::BTN_TRIGGER_HAPPY40.code() {
         let key = KeyCode::new(code);
         let name = format!("{:?}", key);
-        if name.starts_with("KEY_") {
+        if name.starts_with("KEY_") || name.starts_with("BTN_") {
             keys.insert(key);
         }
     }
@@ -130,7 +130,15 @@ where
     match result {
         Ok(_) => panic!("\nExpected an error.\n"),
         Err(e) => {
-            assert!(e.to_string().contains(expected));
+            if !e.to_string().contains(expected) {
+                panic!("Should contain: {expected}\nError: {}", e.to_string());
+            }
         }
+    }
+}
+
+pub fn assert_str_contains(expected: &str, str: &str) {
+    if !str.to_string().contains(expected) {
+        panic!("Should contain: {expected}\n{str}");
     }
 }
