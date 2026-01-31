@@ -188,10 +188,6 @@ impl EventHandler {
         // The solution used here is to send two events for each relative event :
         // one for the press "event" and one for the "unpress" event.
 
-        // These consts are used because 'RELEASE'/'PRESS' are better than '0'/'1' at indicating a button release/press.
-        const RELEASE: i32 = 0;
-        const PRESS: i32 = 1;
-
         // All relative events (except maybe those i haven't found information about (REL_DIAL, REL_MISC and REL_RESERVED))
         // can have either a positive value or a negative value.
         // A negative value is associated with a different action than the positive value.
@@ -292,7 +288,7 @@ impl EventHandler {
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
     fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut [(Key, i32)]) {
-        // Not handling multi-purpose keysfor now; too complicated
+        // Not handling multi-purpose keys for now; too complicated
         if events.len() != 1 || value != events[0].1 {
             return;
         }
@@ -874,7 +870,7 @@ impl MultiPurposeKeyState {
         }
     }
 
-    // Other keys where pressed, so the multipurpose key
+    // Other keys were pressed, so the multipurpose key
     // should emit presses of its held-value.
     fn force_held(&mut self) -> Vec<(Key, i32)> {
         let press = match self.alone_timeout_at {
