@@ -913,7 +913,7 @@ fn test_keymap_modifier_spuriously_pressed() {
 }
 
 pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
-    assert_actions_with_current_application(config_yaml, None, events, actions);
+    EventHandlerForTest::new_with_current_application(config_yaml, None).assert(events, actions);
 }
 
 pub fn assert_actions_with_current_application(
@@ -922,18 +922,37 @@ pub fn assert_actions_with_current_application(
     events: Vec<Event>,
     actions: Vec<Action>,
 ) {
-    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
-    let mut config: Config = serde_yaml::from_str(config_yaml).unwrap();
-    config.keymap_table = build_keymap_table(&config.keymap);
-    let mut event_handler = EventHandler::new(
-        timer,
-        &config.default_mode,
-        Duration::from_micros(0),
-        WMClient::new("static", Box::new(StaticClient { current_application }), false),
-    );
-    let mut actual: Vec<Action> = vec![];
+    EventHandlerForTest::new_with_current_application(config_yaml, current_application).assert(events, actions);
+}
 
-    actual.append(&mut event_handler.on_events(&events, &config).unwrap());
+pub struct EventHandlerForTest {
+    event_handler: EventHandler,
+    config: Config,
+}
 
-    assert_eq!(format!("{actions:?}"), format!("{:?}", actual));
+impl EventHandlerForTest {
+    pub fn new(config_yaml: &str) -> Self {
+        Self::new_with_current_application(config_yaml, None)
+    }
+
+    pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
+        let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
+        let mut config: Config = serde_yaml::from_str(config_yaml).unwrap();
+        config.keymap_table = build_keymap_table(&config.keymap);
+        let event_handler = EventHandler::new(
+            timer,
+            &config.default_mode,
+            Duration::from_micros(0),
+            WMClient::new("static", Box::new(StaticClient { current_application }), false),
+        );
+
+        Self { event_handler, config }
+    }
+
+    pub fn assert(&mut self, events: Vec<Event>, actions: Vec<Action>) {
+        assert_eq!(
+            format!("{actions:?}"),
+            format!("{:?}", self.event_handler.on_events(&events, &self.config).unwrap())
+        );
+    }
 }
