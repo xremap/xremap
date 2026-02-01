@@ -1,6 +1,9 @@
 #![cfg(feature = "device-test")]
 
-use crate::common::{assert_err, assert_err_contains, xremap_controller::XremapController};
+use crate::common::xremap_controller::{InputDeviceFilter, XremapController};
+use crate::common::{assert_err, assert_err_contains, assert_str_contains};
+use anyhow::Result;
+use indoc::indoc;
 
 mod common;
 
@@ -18,7 +21,9 @@ pub fn e2e_keeps_running() -> anyhow::Result<()> {
 pub fn e2e_get_device_that_xremap_never_opens() -> anyhow::Result<()> {
     // Fails and exits without opening a VirtualDevice
     let mut ctrl = XremapController::builder()
-        .custom_input_device("match_nothing")
+        .input_device(InputDeviceFilter::CustomFilter {
+            filter: "match_nothing".into(),
+        })
         .not_open_for_fetch()
         .build()?;
 
@@ -54,4 +59,26 @@ pub fn e2e_wait_for_output_with_nocapture() -> anyhow::Result<()> {
     assert_err("Can't get output when configured for nocapture.", ctrl.wait_for_output());
 
     ctrl.kill()
+}
+
+#[test]
+pub fn e2e_error_in_config_file_cur() -> Result<()> {
+    let ctrl = XremapController::builder()
+        .config(indoc! {"
+                keymap:
+                    - remap:
+                        CustomKey: asdf
+                "})?
+        .input_device(InputDeviceFilter::NoFilter)
+        .not_open_for_fetch()
+        .build()?;
+
+    let output = ctrl.wait_for_output()?;
+
+    assert_str_contains(
+        "Failed to load config '/tmp/xremap_config.yml': keymap[0].remap: unknown key 'CustomKey' at line 3 column 9",
+        &output.stderr,
+    );
+
+    Ok(())
 }

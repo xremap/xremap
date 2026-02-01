@@ -1,9 +1,6 @@
 use crate::Config;
 use indoc::indoc;
 
-extern crate serde_yaml;
-extern crate toml;
-
 #[test]
 fn test_yaml_modmap_basic() {
     yaml_assert_parse(indoc! {"
@@ -95,12 +92,78 @@ fn test_yaml_modmap_multi_purpose_key_multi_key() {
             alone_timeout_millis: 500
     "})
 }
+
+#[test]
+fn test_yaml_modmap_multi_purpose_key_with_invalid_key() {
+    // This fails silently.
+    let _errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    modmap:
+      - remap:
+          Space:
+            alone: A
+            held: SomeCustomKey
+        "
+    });
+}
+
 #[test]
 fn test_yaml_virtual_modifiers() {
     yaml_assert_parse(indoc! {"
     virtual_modifiers:
       - CapsLock
     "})
+}
+
+#[test]
+fn test_yaml_fail_on_modifier_missing_sidedness() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        modmap:
+          - remap:
+              WIN: Control_L
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(&errmsg, "modmap[0].remap: unknown key 'WIN' at line 3 column 7");
+}
+
+#[test]
+fn test_yaml_fail_on_modifier_in_modmap_match() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        modmap:
+          - remap:
+              C-COMMA: Control_L-C
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(&errmsg, "modmap[0].remap: unknown key 'C-COMMA' at line 3 column 7");
+}
+
+#[test]
+fn test_yaml_invalid_virtual_modifiers_1() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        virtual_modifiers:
+            - WIN
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(&errmsg, "unknown key 'WIN'");
+}
+
+#[test]
+fn test_yaml_invalid_virtual_modifiers_2() {
+    // Fails silently
+    serde_yaml::from_str::<Config>(indoc! {"
+        virtual_modifiers:
+            - WIN_L
+        "
+    })
+    .unwrap();
 }
 
 #[test]
@@ -112,6 +175,59 @@ fn test_yaml_modmap_press_release_key() {
             press: { launch: ["wmctrl", "-x", "-a", "code.Code"] }
             release: { launch: ["wmctrl", "-x", "-a", "nocturn.Nocturn"] }
     "#})
+}
+
+#[test]
+fn test_yaml_press_release_key_wrongly_used_in_keymap() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        keymap:
+          - remap:
+              CapsLock:
+                press: esc
+                release: esc
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(
+        &errmsg,
+        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+    );
+}
+
+#[test]
+fn test_yaml_modifier_is_missing_sidedness() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        keymap:
+          - remap:
+              CapsLock: ctrl
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(
+        &errmsg,
+        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+    );
+}
+
+#[test]
+fn test_yaml_key_is_unknown() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        keymap:
+          - remap:
+              CapsLock: escape
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(
+        &errmsg,
+        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+    );
 }
 
 #[test]
@@ -198,6 +314,58 @@ fn test_yaml_keymap_remap_timeout_as_sequence() {
 }
 
 #[test]
+fn test_yaml_keymap_remap_timeout_key_invalid() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    keymap:
+      - remap:
+          C-x:
+            timeout_key: invalid_key
+            remap:
+              s: C-w
+    "})
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(
+        &errmsg,
+        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+    );
+}
+
+#[test]
+fn test_yaml_keymap_remap_timeout_invalid() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    keymap:
+      - remap:
+          C-x:
+            timeout_millis: k
+            remap:
+              s: C-w
+    "})
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(
+        &errmsg,
+        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+    );
+}
+
+#[test]
+fn test_yaml_keymap_remap_property_invalid() {
+    // Fails silently
+    serde_yaml::from_str::<Config>(indoc! {"
+    keymap:
+      - remap:
+          C-x:
+            not_valid_property: k
+            remap:
+              s: C-w
+    "})
+    .ok();
+}
+
+#[test]
 fn test_yaml_keymap_launch() {
     yaml_assert_parse(indoc! {r#"
     keymap:
@@ -261,9 +429,8 @@ fn test_yaml_shared_data_anchor() {
 }
 
 #[test]
-#[should_panic]
 fn test_yaml_fail_on_data_outside_of_config_model() {
-    yaml_assert_parse(indoc! {"
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
     terminals: &terminals
       - Gnome-terminal
       - Kitty
@@ -278,6 +445,10 @@ fn test_yaml_fail_on_data_outside_of_config_model() {
         application:
           only: Google-chrome
     "})
+    .unwrap_err()
+    .to_string();
+
+    assert!(errmsg.contains("unknown field `terminals`"));
 }
 
 #[test]
@@ -561,9 +732,8 @@ fn test_toml_shared_data_anchor() {
 }
 
 #[test]
-#[should_panic]
 fn test_toml_fail_on_data_outside_of_config_model() {
-    toml_assert_parse(indoc! {"
+    let errmsg = toml::from_str::<Config>(indoc! {"
     terminals = [ \"Gnome-terminal\", \"Kitty\" ]
 
     [[modmap]]
@@ -580,6 +750,10 @@ fn test_toml_fail_on_data_outside_of_config_model() {
     [modmap.application]
     only = \"Google-chrome\"
     "})
+    .unwrap_err()
+    .to_string();
+
+    assert!(errmsg.contains("unknown field `terminals`"));
 }
 
 #[test]

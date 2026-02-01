@@ -1,36 +1,46 @@
-use anyhow::bail;
+use crate::common::{get_random_device_name, get_virtual_device, wait_for_device, wait_for_grabbed, VirtualDeviceInfo};
+use anyhow::{bail, Result};
 use evdev::{Device, FetchEventsSynced, InputEvent};
 use nix::sys::select::{select, FdSet};
 use nix::sys::time::TimeValLike;
 use std::cell::Cell;
 use std::iter::repeat_with;
 use std::os::unix::io::AsRawFd;
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;
 use xremap::device::SEPARATOR;
 use xremap::util::until;
 
-use crate::common::{get_random_device_name, get_virtual_device, wait_for_device, wait_for_grabbed, VirtualDeviceInfo};
+pub enum InputDeviceFilter {
+    NoFilter,
+    RandomName,
+    CustomFilter { filter: String },
+}
 
 pub struct XremapBuilder {
     nocapture_: bool,
     log_level_: String,
     // None means open a new input device
-    custom_input_device_: Option<String>,
+    custom_input_device_: InputDeviceFilter,
+    ignore_device_: Option<String>,
     open_for_fetch_: bool,
     watch_: bool,
+    config_file: Option<String>,
 }
 
 impl XremapBuilder {
     fn new() -> Self {
         Self {
             nocapture_: false,
-            log_level_: "info".into(),
-            custom_input_device_: None,
+            log_level_: "debug".into(),
+            custom_input_device_: InputDeviceFilter::RandomName,
+            ignore_device_: None,
             // If output from xremap isn't grabbed, the events
             // goes to the 'host', so disable with care.
             open_for_fetch_: true,
             watch_: false,
+            config_file: None,
         }
     }
 
@@ -44,8 +54,13 @@ impl XremapBuilder {
         self
     }
 
-    pub fn custom_input_device(&mut self, name: impl Into<String>) -> &mut Self {
-        self.custom_input_device_ = Some(name.into());
+    pub fn input_device(&mut self, filter: InputDeviceFilter) -> &mut Self {
+        self.custom_input_device_ = filter;
+        self
+    }
+
+    pub fn ignore_device(&mut self, name: impl Into<String>) -> &mut Self {
+        self.ignore_device_ = Some(name.into());
         self
     }
 
@@ -53,9 +68,20 @@ impl XremapBuilder {
         self.open_for_fetch_ = false;
         self
     }
+
     pub fn watch(&mut self, value: bool) -> &mut Self {
         self.watch_ = value;
         self
+    }
+
+    pub fn config(&mut self, config: &str) -> Result<&mut Self> {
+        let config_file = std::env::temp_dir().join("xremap_config.yml");
+
+        self.config_file = Some(config_file.to_string_lossy().into());
+
+        std::fs::write(&config_file, config)?;
+
+        Ok(self)
     }
 
     pub fn build(&mut self) -> anyhow::Result<XremapController> {
@@ -80,7 +106,7 @@ pub struct XremapController {
     // Output from xremap's perspective
     output_device_name: String,
     output_device: Option<Device>,
-    device_filter: String,
+    device_filter: Option<String>,
 }
 
 impl XremapController {
@@ -93,15 +119,29 @@ impl XremapController {
     }
 
     fn from_builder(def: &XremapBuilder) -> anyhow::Result<Self> {
-        let mut command = Command::new("target/debug/xremap");
+        let path = match std::env::var("CARGO_TARGET_DIR") {
+            Ok(path) => PathBuf::from(path).join("debug/xremap"),
+            Err(_) => PathBuf::from("target/debug/xremap"),
+        };
+
+        let mut command = Command::new(path);
 
         let output_device_name =
             format!("test output device {}", repeat_with(fastrand::alphanumeric).take(10).collect::<String>());
 
         let builder = command
             .env("RUST_LOG", &def.log_level_)
-            .args(vec!["--output-device-name", &output_device_name])
-            .arg("tests/common/config-test.yml");
+            .args(vec!["--output-device-name", &output_device_name]);
+
+        match &def.config_file {
+            Some(config) => {
+                println!("Using custom config: {:?}", config);
+                builder.arg(config);
+            }
+            None => {
+                builder.arg("tests/common/config-test.yml");
+            }
+        };
 
         if !def.nocapture_ {
             // Can remove these to get stdio from xremap
@@ -118,35 +158,33 @@ impl XremapController {
             builder.arg("--watch");
         }
 
-        let device_filter = match def.custom_input_device_.clone() {
-            Some(name) => name,
-            None => {
+        let device_filter = match &def.custom_input_device_ {
+            InputDeviceFilter::NoFilter => {
+                // When no device filter the test can't run
+                // in parallel with other tests.
+                None
+            }
+            InputDeviceFilter::RandomName => {
                 // Use a unique device for xremap to grab
                 // so test cases can run in parallel.
                 let name = get_random_device_name();
 
                 input_device = Some(get_virtual_device(&name)?);
 
-                name
+                Some(name)
             }
+            InputDeviceFilter::CustomFilter { filter } => Some(filter.clone()),
         };
 
-        // There must always be a device filter, otherwise
-        // would test cases try to grab physical devices.
-        builder.arg("--device").arg(&device_filter);
+        if let Some(device_filter) = &device_filter {
+            builder.arg("--device").arg(device_filter);
+        }
+
+        if let Some(ignore_device) = &def.ignore_device_ {
+            builder.arg("--ignore").arg(ignore_device);
+        }
 
         let child = builder.spawn()?;
-
-        match &input_device {
-            None => {
-                println!("No input device configured for xremap.");
-            }
-            Some(input_device) => {
-                wait_for_grabbed(&input_device.path)?;
-
-                println!("Input device grabbed by xremap");
-            }
-        }
 
         let mut ctrl = Self {
             child: Cell::new(Some(child)),
@@ -157,6 +195,17 @@ impl XremapController {
             device_filter,
         };
 
+        match &ctrl.input_device {
+            None => {
+                println!("No input device configured for xremap.");
+            }
+            Some(input_device) => {
+                wait_for_grabbed(&input_device.path)?;
+
+                println!("Input device grabbed by xremap");
+            }
+        }
+
         // Default is to grab the device xremap opens to avoid
         // possibly destructive events to be send to the 'host'.
         if def.open_for_fetch_ {
@@ -166,7 +215,7 @@ impl XremapController {
         Ok(ctrl)
     }
 
-    pub fn get_input_device_name<'a>(&'a mut self) -> &'a str {
+    pub fn get_input_device_name<'a>(&'a mut self) -> &'a Option<String> {
         &self.device_filter
     }
 
@@ -174,6 +223,8 @@ impl XremapController {
         if self.input_device.is_some() {
             bail!("Input device already opened.")
         }
+
+        println!("Preparing new input device for xremap, that is already running.");
 
         let dev_info = get_virtual_device(name)?;
 
@@ -288,9 +339,9 @@ impl XremapController {
         } else {
             // To make debugging easier always print output.
             println!("{SEPARATOR}");
-            println!("stdout: {stdout}");
+            println!("stdout:\n{stdout}");
             println!("{SEPARATOR}");
-            println!("stderr: {stderr}");
+            println!("stderr:\n{stderr}");
             println!("{SEPARATOR}");
         }
 
@@ -319,7 +370,11 @@ impl XremapController {
                 child.kill()?;
 
                 println!("Xremap killed");
+            } else {
+                println!("Xremap already stopped when attempting to kill.");
             }
+        } else {
+            println!("Some sort of shutdown has already been requested.");
         }
 
         Ok(())

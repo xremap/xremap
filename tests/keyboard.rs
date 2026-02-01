@@ -1,8 +1,7 @@
 #![cfg(feature = "device-test")]
 
-use evdev::KeyCode;
-
 use crate::common::{final_event_state, key_press, xremap_controller::XremapController};
+use evdev::KeyCode;
 
 mod common;
 

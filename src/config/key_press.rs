@@ -89,7 +89,7 @@ fn test_parse_key_press() {
     );
 
     // All keys are accepted as modifiers, because it's not possible to know
-    // if the key is listed in virtual_modifers at this point.
+    // if the key is listed in virtual_modifiers at this point.
     assert_eq!(
         parse_key_press("Enter-2").unwrap(),
         KeyPress {

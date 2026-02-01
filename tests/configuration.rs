@@ -1,13 +1,15 @@
 #![cfg(feature = "device-test")]
 
-use crate::common::xremap_controller::XremapController;
+use crate::common::xremap_controller::{InputDeviceFilter, XremapController};
 
 mod common;
 
 #[test]
 pub fn e2e_device_filter_does_not_match() -> anyhow::Result<()> {
     let ctrl = XremapController::builder()
-        .custom_input_device("match_nothing")
+        .input_device(InputDeviceFilter::CustomFilter {
+            filter: "match_nothing".into(),
+        })
         .not_open_for_fetch()
         .build()?;
 
