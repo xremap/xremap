@@ -73,7 +73,7 @@ try the instructions for sudo/GNOME [here](./running_with_sudo.md#gnome-wayland)
 This might be due to the version you use. Only the latest wayland version of COSMIC
 is supported.
 
-For older versions of COSMIC you could try the GNOME extension, but whether it works in unknown.
+For older versions of COSMIC you can use x11 to get application-specific remappings.
 
 ### Info about your desktop
 
