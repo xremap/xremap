@@ -1,3 +1,10 @@
+## v0.14.11
+
+- KDE: Fix bug, so first use of application-specific remappings works https://github.com/xremap/xremap/pull/832
+- Doc: Deny networking and add resource limits via systemd xremap.service https://github.com/xremap/xremap/pull/830
+- Chore: Add tests https://github.com/xremap/xremap/pull/837
+- Chore: Fix flacky tests https://github.com/xremap/xremap/pull/836
+
 ## v0.14.10
 
 - Update readme installation instructions https://github.com/xremap/xremap/pull/822
