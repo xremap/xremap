@@ -95,20 +95,21 @@ fn dbus_is_script_loaded(conn: &Connection) -> Result<bool> {
     .deserialize::<bool>()?)
 }
 
+fn run_script(conn: &Connection, script: &str) -> Result<()> {
+    let temp_file_path = KwinScriptTempFile::new();
+    std::fs::write(&temp_file_path.0, script)?;
+    let script_obj_id = dbus_load_script(&conn, &temp_file_path.0)?;
+    dbus_run_script(&conn, script_obj_id)?;
+    Ok(())
+}
+
 /// Note: Unload is not really usable.
 ///     This fails: load plugin-script, load adhoc script, unload plugin-script, load plugin-script
 ///     so it's fragile if other things use adhoc scripts.
 fn ensure_script_loaded() -> Result<()> {
     let conn = block_on(Connection::session())?;
     if !dbus_is_script_loaded(&conn)? {
-        let init_script = || {
-            let temp_file_path = KwinScriptTempFile::new();
-            std::fs::write(&temp_file_path.0, KWIN_SCRIPT)?;
-            let script_obj_id = dbus_load_script(&conn, &temp_file_path.0)?;
-            dbus_run_script(&conn, script_obj_id)?;
-            Ok(())
-        };
-        if let Err(err) = init_script() {
+        if let Err(err) = run_script(&conn, KWIN_SCRIPT) {
             debug!("Trying to unload kwin-script plugin ('{KWIN_SCRIPT_PLUGIN_NAME}').");
             match dbus_unload_script(&conn, ) {
                 Err(err) => debug!("Error unloading plugin ('{err:?}'). It may still be loaded and could cause future runs of xremap to fail."),
