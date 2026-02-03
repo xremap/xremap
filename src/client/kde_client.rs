@@ -64,6 +64,8 @@ fn unload_script(conn: &Connection) -> Result<bool> {
     .deserialize::<bool>()?)
 }
 
+// Tries both /99 for kde5 and /Scripting/Script99 for kde6
+// and squash any errors.
 fn start_script(conn: &Connection, script_obj_id: i32) -> Result<()> {
     for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
         if block_on(conn.call_method(
@@ -78,7 +80,7 @@ fn start_script(conn: &Connection, script_obj_id: i32) -> Result<()> {
             return Ok(());
         }
     }
-    Err(anyhow::format_err!("Could not start KWIN script."))
+    Err(anyhow::format_err!("Could not start KWIN script, with id: {script_obj_id}"))
 }
 
 fn is_script_loaded(conn: &Connection) -> Result<bool> {
@@ -93,6 +95,9 @@ fn is_script_loaded(conn: &Connection) -> Result<bool> {
     .deserialize::<bool>()?)
 }
 
+/// Note: Unload is not really usable.
+///     This fails: load plugin-script, load adhoc script, unload plugin-script, load plugin-script
+///     so it's fragile if other things use adhoc scripts.
 fn load_kwin_script() -> Result<()> {
     let conn = block_on(Connection::session())?;
     if !is_script_loaded(&conn)? {
