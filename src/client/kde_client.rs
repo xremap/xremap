@@ -33,7 +33,7 @@ impl Drop for KwinScriptTempFile {
     }
 }
 
-fn load_script(conn: &Connection, path: &Path) -> Result<i32> {
+fn dbus_load_script(conn: &Connection, path: &Path) -> Result<i32> {
     Ok(block_on(
         conn.call_method(
             Some("org.kde.KWin"),
@@ -52,7 +52,7 @@ fn load_script(conn: &Connection, path: &Path) -> Result<i32> {
     .deserialize::<i32>()?)
 }
 
-fn unload_script(conn: &Connection) -> Result<bool> {
+fn dbus_unload_script(conn: &Connection) -> Result<bool> {
     Ok(block_on(conn.call_method(
         Some("org.kde.KWin"),
         "/Scripting",
@@ -66,7 +66,7 @@ fn unload_script(conn: &Connection) -> Result<bool> {
 
 // Tries both /99 for kde5 and /Scripting/Script99 for kde6
 // and squash any errors.
-fn start_script(conn: &Connection, script_obj_id: i32) -> Result<()> {
+fn dbus_run_script(conn: &Connection, script_obj_id: i32) -> Result<()> {
     for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
         if block_on(conn.call_method(
             Some("org.kde.KWin"),
@@ -83,7 +83,7 @@ fn start_script(conn: &Connection, script_obj_id: i32) -> Result<()> {
     Err(anyhow::format_err!("Could not start KWIN script, with id: {script_obj_id}"))
 }
 
-fn is_script_loaded(conn: &Connection) -> Result<bool> {
+fn dbus_is_script_loaded(conn: &Connection) -> Result<bool> {
     Ok(block_on(conn.call_method(
         Some("org.kde.KWin"),
         "/Scripting",
@@ -98,19 +98,19 @@ fn is_script_loaded(conn: &Connection) -> Result<bool> {
 /// Note: Unload is not really usable.
 ///     This fails: load plugin-script, load adhoc script, unload plugin-script, load plugin-script
 ///     so it's fragile if other things use adhoc scripts.
-fn load_kwin_script() -> Result<()> {
+fn ensure_script_loaded() -> Result<()> {
     let conn = block_on(Connection::session())?;
-    if !is_script_loaded(&conn)? {
+    if !dbus_is_script_loaded(&conn)? {
         let init_script = || {
             let temp_file_path = KwinScriptTempFile::new();
             std::fs::write(&temp_file_path.0, KWIN_SCRIPT)?;
-            let script_obj_id = load_script(&conn, &temp_file_path.0)?;
-            start_script(&conn, script_obj_id)?;
+            let script_obj_id = dbus_load_script(&conn, &temp_file_path.0)?;
+            dbus_run_script(&conn, script_obj_id)?;
             Ok(())
         };
         if let Err(err) = init_script() {
             debug!("Trying to unload kwin-script plugin ('{KWIN_SCRIPT_PLUGIN_NAME}').");
-            match unload_script(&conn, ) {
+            match dbus_unload_script(&conn, ) {
                 Err(err) => debug!("Error unloading plugin ('{err:?}'). It may still be loaded and could cause future runs of xremap to fail."),
                 Ok(unloaded) if unloaded => debug!("Successfully unloaded plugin."),
                 Ok(_) => debug!("Plugin was not loaded in the first place."),
@@ -169,7 +169,7 @@ impl KdeClient {
         rx.recv().unwrap()?;
 
         // The script sends a message right away, so it's started after the server.
-        load_kwin_script()?;
+        ensure_script_loaded()?;
 
         // Busy wait 100ms, so the first use returns a valid value.
         // Testing shows it takes around 10ms to get a response.
