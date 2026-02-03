@@ -9,7 +9,7 @@ mod gnome_client;
 #[cfg(feature = "hypr")]
 mod hypr_client;
 #[cfg(feature = "kde")]
-mod kde_client;
+mod kde;
 #[cfg(feature = "niri")]
 mod niri_client;
 #[cfg(feature = "socket")]
@@ -122,7 +122,7 @@ pub fn build_client(log_window_changes: bool) -> WMClient {
         #[cfg(feature = "gnome")]
         WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()), log_window_changes),
         #[cfg(feature = "kde")]
-        WMClient::new("KDE", Box::new(kde_client::KdeClient::new(log_window_changes)), log_window_changes),
+        WMClient::new("KDE", Box::new(kde::KdeClient::new(log_window_changes)), log_window_changes),
         #[cfg(feature = "hypr")]
         WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()), log_window_changes),
         #[cfg(feature = "x11")]
