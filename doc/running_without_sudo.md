@@ -1,6 +1,7 @@
 # Running xremap without sudo
 
-1. Your normal user should be able to use `evdev` and `uinput`.
+1. Your normal user should be able to use `evdev` and `uinput`. `evdev` is the mechanism to work
+   with input devices. And `uinput` is the mechanism to make artificial input devices.
 2. If you want to use application-specific remappings on GNOME Wayland you need to follow the instructions at the bottom.
 
 After following the instructions below, run this command:
@@ -23,63 +24,58 @@ When you stop the command everything will go back to normal.
 
 ## Setup input and output permissions
 
-### Ubuntu
+### Input permission
 
-Run the following commands and rebooting your machine.
+Add your user to the `input` group:
 
 ```bash
 sudo gpasswd -a YOUR_USER input
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
 ```
 
-### Arch Linux
+### Output permission
 
-Check whether `uinput` is loaded:
+Give members of the input group permission to make output devices:
 
 ```bash
-lsmod | grep uinput
+echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess", MODE:="0660", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/99-input.rules
 ```
 
-If this module is not loaded, add to `/etc/modules-load.d/uinput.conf`:
+There has been other recommendations for this setting, see below if the above doesn't work.
+
+### Module to output artificial events
+
+Check whether `uinput` module is loaded:
 
 ```bash
-uinput
+ls -l /dev/uinput
 ```
 
-Then add udev rule.
-
-```bash
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-input.rules
-```
-
-Then reboot the machine.
-
-### Debian
-
-Make sure `uinput` is loaded same as in Arch:
-
-```
-lsmod | grep uinput
-```
-
-If it shows up empty:
+If it shows up empty, load the module automatically:
 
 ```bash
 echo uinput | sudo tee /etc/modules-load.d/uinput.conf
 ```
 
-Add your user to the `input` group and add the same udev rule as in Ubuntu:
+### Reboot or try to run right away without reboot
 
-```bash
-sudo gpasswd -a YOUR_USER input
-echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/input.rules
-```
+Reboot is likely the only way to make changes take effect.
 
-Reboot the machine afterwards or try:
+But you can try to make it work right away, by loading uinput module:
 
 ```bash
 sudo modprobe uinput
+```
+
+Reload permissions of input/output devices:
+
+```bash
 sudo udevadm control --reload-rules && sudo udevadm trigger
+```
+
+Run in a subshell, where you will have your new groups available:
+
+```bash
+su $USER
 ```
 
 ### NixOS
@@ -116,6 +112,20 @@ echo 'KERNEL=="event*", NAME="input/%k", MODE="660", GROUP="input"' | sudo tee /
 
 If you do this, in some environments, `--watch` may fail to recognize new devices due to temporary permission issues.
 Using `sudo` might be more useful in such cases.
+
+### Alternatives for uinput module permissions
+
+Note: A reboot is necessary to test whether it works.
+
+In addition to the configuration recommended above are two other possibilities that work on most platforms:
+
+```bash
+echo 'KERNEL=="uinput", GROUP="input", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/99-input.rules
+```
+
+```bash
+echo 'KERNEL=="uinput", RUN+="/usr/bin/setfacl -m g:input:rw /dev/%k"' | sudo tee /etc/udev/rules.d/99-input.rules
+```
 
 ## Application-specific remappings
 
