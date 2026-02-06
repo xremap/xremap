@@ -1,3 +1,7 @@
+## v0.14.12
+
+- hypr: bump hyprland dependency to fix socket error https://github.com/xremap/xremap/pull/839
+
 ## v0.14.11
 
 - KDE: Fix bug, so first use of application-specific remappings works https://github.com/xremap/xremap/pull/832
