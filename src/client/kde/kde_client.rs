@@ -1,7 +1,8 @@
+use super::adhoc_script_handler::AdhocScriptHandler;
 use crate::client::{Client, WindowInfo};
 use anyhow::{bail, Result};
 use futures::executor::block_on;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
@@ -12,11 +13,13 @@ use zbus::connection::Builder;
 use zbus::{interface, Connection};
 
 const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
+const KWIN_ONEOFF_SCRIPT: &str = include_str!("kwin-script-one-off.js");
 const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
 
 pub struct KdeClient {
     active_window: Arc<Mutex<ActiveWindow>>,
     log_window_changes: bool,
+    adhoc_script_handler: AdhocScriptHandler,
 }
 
 struct KwinScriptTempFile(PathBuf);
@@ -132,6 +135,7 @@ impl KdeClient {
         KdeClient {
             active_window,
             log_window_changes,
+            adhoc_script_handler: AdhocScriptHandler::new(),
         }
     }
 
@@ -169,8 +173,14 @@ impl KdeClient {
         // Wait for server to start
         rx.recv().unwrap()?;
 
-        // The script sends a message right away, so it's started after the server.
+        // Is only loaded if not already running.
         ensure_script_loaded()?;
+
+        // The script sends a message right away, so it's started after the server.
+        if let Err(err) = self.adhoc_script_handler.run_script(KWIN_ONEOFF_SCRIPT) {
+            // To avoid the risk of breaking change, the error is just printed.
+            error!("{err:?}")
+        }
 
         // Busy wait 100ms, so the first use returns a valid value.
         // Testing shows it takes around 10ms to get a response.
