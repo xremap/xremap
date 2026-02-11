@@ -26,8 +26,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_with = { version = "3.8", features = ["chrono"] }
 serde_yaml = "0.9"
-wayland-client = { version = "0.30", optional = true }
-wayland-protocols-wlr = { version = "0.1", features = ["client"], optional = true }
+wayland-client = { version = "0.31.12", optional = true }
+wayland-protocols-wlr = { version = "0.3.10", features = ["client"], optional = true }
 x11rb = { version = "0.13.2", optional = true }
 zbus = { version = "5.12.0", optional = true }
 hyprland = { version = "0.4.0-beta.3", optional = true }
@@ -35,8 +35,8 @@ toml = "0.9.10"
 udev = { version = "0.9.3", optional = true }
 futures = "0.3.31"
 wayland-protocols = { version = "0.32.10", features = ["client"], optional = true }
-wayland-scanner = { version = "0.30.0", optional = true }
-wayland-backend = { version = "0.1.0", optional = true }
+wayland-scanner = { version = "0.31.8", optional = true }
+wayland-backend = { version = "0.3.12", optional = true }
 tokio = { version = "1.49.0", optional = true, features = ["full"] }
 
 [dev-dependencies]
