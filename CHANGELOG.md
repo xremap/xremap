@@ -1,3 +1,11 @@
+## v0.14.13
+
+Release with only changes to dependencies.
+
+- Update wayland crates (#845)
+- Update all minor versions (#844)
+- Update readme (#840)
+
 ## v0.14.12
 
 - hypr: bump hyprland dependency to fix socket error https://github.com/xremap/xremap/pull/839
