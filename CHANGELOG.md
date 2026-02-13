@@ -1,3 +1,9 @@
+## v0.14.14
+
+- Config for throttling emit of events (#851)
+- Update gitHub actions (#847)
+- KDE: Fix kde client so it connects at first attempt (second fix) (#846)
+
 ## v0.14.13
 
 Release with only changes to dependencies.
