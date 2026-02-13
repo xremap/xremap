@@ -25,12 +25,10 @@ jobs:
         feature: [x11, gnome, kde, hypr, wlroots, niri, cosmic, socket]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
-          profile: minimal
-          override: true
-          target: ${{ matrix.arch }}-unknown-linux-musl
+          targets: ${{ matrix.arch }}-unknown-linux-musl
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5
         with:
           key: ubuntu-latest-${{ matrix.arch }}-${{ matrix.feature }}
@@ -57,12 +55,10 @@ jobs:
         feature: [udev]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
           toolchain: stable
-          profile: minimal
-          override: true
-          target: x86_64-unknown-linux-gnu
+          targets: x86_64-unknown-linux-gnu
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5
         with:
           key: ubuntu-latest-glibc-${{ matrix.feature }}
@@ -77,11 +73,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
-          profile: minimal
           toolchain: stable
-          override: true
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5
         with:
           key: ubuntu-latest
@@ -99,11 +93,9 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
-          profile: minimal
           toolchain: stable
-          override: true
 
       # Fetch x86_64 binary
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
@@ -160,11 +152,9 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
         with:
-          profile: minimal
           toolchain: stable
-          override: true
       - uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5
         with:
           key: ubuntu-latest
