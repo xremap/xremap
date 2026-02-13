@@ -12,7 +12,7 @@ on:
       - synchronize
       - reopened
   schedule:
-    - cron: '00 15 * * *' # 7:00 PST (-8), 8:00 PDT (-7)
+    - cron: "00 15 * * *" # 7:00 PST (-8), 8:00 PDT (-7)
 env:
   CARGO_TERM_COLOR: always
 jobs:
@@ -105,24 +105,40 @@ jobs:
           override: true
 
       # Fetch x86_64 binary
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-x11,     path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-gnome,   path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-kde,     path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-hypr,    path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-wlroots, path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-niri,    path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-cosmic,  path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-x86_64-socket,   path: package/ } }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-x11, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-gnome, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-kde, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-hypr, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-wlroots, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-niri, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-cosmic, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-x86_64-socket, path: package/ }
 
       # Fetch aarch64 binary
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-x11,     path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-gnome,   path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-kde,     path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-hypr,    path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-wlroots, path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-niri,    path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-cosmic,  path: package/ } }
-      - { uses: actions/download-artifact@v4, with: { name: xremap-aarch64-socket,   path: package/ } }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-x11, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-gnome, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-kde, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-hypr, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-wlroots, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-niri, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-cosmic, path: package/ }
+      - uses: actions/download-artifact@v4,
+        with: { name: xremap-aarch64-socket, path: package/ }
 
       # Release binary
       - name: Release
