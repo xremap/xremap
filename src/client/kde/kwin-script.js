@@ -11,7 +11,7 @@ function notifyActiveWindow(client) {
         "NotifyActiveWindow",
         "caption" in client ? client.caption : "",
         "resourceClass" in client ? client.resourceClass : "",
-        "resourceName" in client ? client.resourceName : ""
+        "resourceName" in client ? client.resourceName : "",
     );
 }
 
@@ -22,10 +22,3 @@ if (workspace.windowList) {
     // kde 5
     workspace.clientActivated.connect(notifyActiveWindow);
 }
-
-// Send info about current window right away
-let active_window = workspace.activeClient
-  ? workspace.activeClient
-  : workspace.activeWindow;
-
-notifyActiveWindow(active_window);
