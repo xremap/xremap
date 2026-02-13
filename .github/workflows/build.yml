@@ -131,8 +131,11 @@ jobs:
       # Release binary
       - name: Release
         run: |
+          set -e
           export VERSION=$(echo "$GITHUB_REF" | sed -e 's!refs/tags/!!')
-          curl -L "https://github.com/tcnksm/ghr/releases/download/${GHR_VERSION}/ghr_${GHR_VERSION}_linux_amd64.tar.gz" | tar xvz
+          curl -L "https://github.com/tcnksm/ghr/releases/download/${GHR_VERSION}/ghr_${GHR_VERSION}_linux_amd64.tar.gz" -o ghr.tar.gz
+          printf "%s\n" "bdf8f7134ac5362c18debf34e10fd50b5141d9d7ae4d9f3863b67236a31012eb  ghr.tar.gz" | sha256sum -c --strict
+          tar xvzf ghr.tar.gz
           "ghr_${GHR_VERSION}_linux_amd64/ghr" -u xremap -r xremap -replace -n "$VERSION" "$VERSION" package/
         env:
           GHR_VERSION: v0.17.0
