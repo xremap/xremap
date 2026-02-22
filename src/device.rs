@@ -24,29 +24,6 @@ use udev::DeviceType;
 
 use crate::util::{evdev_enums_to_string, print_table};
 
-static MOUSE_BTNS: [&str; 20] = [
-    "BTN_MISC",
-    "BTN_0",
-    "BTN_1",
-    "BTN_2",
-    "BTN_3",
-    "BTN_4",
-    "BTN_5",
-    "BTN_6",
-    "BTN_7",
-    "BTN_8",
-    "BTN_9",
-    "BTN_MOUSE",
-    "BTN_LEFT",
-    "BTN_RIGHT",
-    "BTN_MIDDLE",
-    "BTN_SIDE",
-    "BTN_EXTRA",
-    "BTN_FORWARD",
-    "BTN_BACK",
-    "BTN_TASK",
-];
-
 pub static mut DEVICE_NAME: Option<String> = None;
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
@@ -60,7 +37,7 @@ pub fn output_device(
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
         let name = format!("{key:?}");
-        if name.starts_with("KEY_") || MOUSE_BTNS.contains(&&*name) {
+        if name.starts_with("KEY_") || name.starts_with("BTN_") {
             keys.insert(key);
         }
     }
