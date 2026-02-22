@@ -912,6 +912,34 @@ fn test_keymap_modifier_spuriously_pressed() {
     )
 }
 
+#[test]
+fn test_keymap_modifiers_are_released_in_order_of_pressed() {
+    assert_actions(
+        indoc! {"
+        keymap:
+            - remap:
+                c_l-w_l-s: k
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_LEFTMETA),
+            Event::key_press(Key::KEY_S),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTMETA, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTMETA, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTMETA, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
 pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     EventHandlerForTest::new_with_current_application(config_yaml, None).assert(events, actions);
 }
