@@ -850,9 +850,13 @@ impl MultiPurposeKeyState {
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
             None => {
-                let mut keys = self.held.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                keys.into_iter().map(|key| (key, REPEAT)).collect()
+                if !self.held_down {
+                    vec![] // still delay the press
+                } else {
+                    let mut keys = self.held.clone().into_vec();
+                    keys.sort_by(modifiers_first);
+                    keys.into_iter().map(|key| (key, REPEAT)).collect()
+                }
             }
         }
     }

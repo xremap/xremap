@@ -183,6 +183,25 @@ fn test_multipurpose_is_repeated_after_timeout() {
 }
 
 #[test]
+fn test_free_hold_does_not_repeat_hold_action_before_decision() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                CAPSLOCK:
+                    held: SHIFT_L
+                    alone: X
+                    free_hold: true
+        "},
+        vec![
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
+            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat)),
+        ],
+        vec![],
+    );
+}
+
+#[test]
 fn test_free_hold_repeats_hold_action_after_decision() {
     assert_actions(
         indoc! {"
