@@ -142,6 +142,7 @@ modmap:
       KEY_XXX4:
         held: KEY_YYY # Required, also accepts arrays
         alone: KEY_ZZZ # Required, also accepts arrays
+        hold_threshold_millis: 100 # Optional, defaults to 0
         alone_timeout_millis: 1000 # Optional, defaults to 1000
       # Hook `keymap` action on key press/release events.
       KEY_XXX5:
@@ -181,7 +182,7 @@ sudo RUST_LOG=debug xremap config.yml
 
 Then press the key you want to know the name of.
 
-### Multi-purpose key with alone_timeout_millis
+#### Multi-purpose key with alone_timeout_millis
 
 To make `capslock` also work as `esc`, if it's pressed and released within a timeout:
 
@@ -203,7 +204,7 @@ It works like this:
 The alone-action is emitted as press and release right away. The held-action will emit press when it's triggered and
 wait to release until the trigger key is released.
 
-### Multi-purpose key with free hold
+#### Multi-purpose key with free hold
 
 To use `space` as `shift` when it's held down, but remain `space` if it's not interrupted by another key:
 
@@ -225,7 +226,25 @@ This allows a key to be held indefinitely without triggering its `held` state, w
 
 A drawback of this configuration is, that `space` can't be used for repeating spaces when held down, because that now has new meaning.
 
+Another drawback is that fast writing (e.g. `a`, `space`, `l`) can emit `aL`. One has to release `space` before typing `l` to get `a l`. This can be fixed with `hold_threshold_millis`.
+
 `free_hold` is logically the same as having an infinite `alone_timeout_millis`.
+
+#### Multi-purpose key with hold_threshold_millis
+
+```yml
+modmap:
+  - remap:
+      Space:
+        held: Shift_L
+        alone: Space
+        hold_threshold_millis: 200
+        free_hold: true
+```
+
+This will emit the alone-action, `space`, when it's interrupted by another key before
+timeout of `hold_threshold_millis`. This allows `space` to function normally when typing fast. And only after
+the timeout will it work as `shift`.
 
 ### keymap
 
