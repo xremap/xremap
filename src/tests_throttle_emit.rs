@@ -129,3 +129,36 @@ fn test_press_mod_then_release_key_without_delay() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_both_press_and_release_delays_after_mod() -> Result<()> {
+    let mut handler = get_handler();
+
+    assert!(!has_delay(&mut handler, KeyCode::KEY_LEFTCTRL, PRESS)?);
+    assert!(has_delay(&mut handler, KeyCode::KEY_V, PRESS)?);
+    assert!(has_delay(&mut handler, KeyCode::KEY_V, RELEASE)?);
+
+    Ok(())
+}
+
+#[test]
+fn test_two_different_keys_pressed_around_mod_press() -> Result<()> {
+    let mut handler = get_handler();
+
+    assert!(!has_delay(&mut handler, KeyCode::KEY_A, PRESS)?);
+    assert!(has_delay(&mut handler, KeyCode::KEY_LEFTCTRL, PRESS)?);
+    assert!(has_delay(&mut handler, KeyCode::KEY_B, PRESS)?);
+
+    Ok(())
+}
+
+#[test]
+fn test_two_different_keys_pressed_around_mod_release() -> Result<()> {
+    let mut handler = get_handler();
+
+    assert!(!has_delay(&mut handler, KeyCode::KEY_A, PRESS)?);
+    assert!(has_delay(&mut handler, KeyCode::KEY_LEFTCTRL, RELEASE)?);
+    assert!(has_delay(&mut handler, KeyCode::KEY_B, PRESS)?);
+
+    Ok(())
+}
