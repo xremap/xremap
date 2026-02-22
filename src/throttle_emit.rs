@@ -30,9 +30,9 @@ impl ThrottleEmit {
     pub fn sleep_if_needed(&mut self, key: KeyCode, value: i32) {
         if MODIFIER_KEYS.contains(&key) {
             if value == PRESS || value == RELEASE {
-                self.last_mod = Instant::now();
+                self.sleep(self.last_key_press.elapsed());
 
-                self.sleep(self.last_key_press.elapsed())
+                self.last_mod = Instant::now();
             }
         } else {
             if value == RELEASE {
@@ -43,10 +43,10 @@ impl ThrottleEmit {
                     }
                 }
             } else if value == PRESS {
+                self.sleep(self.last_mod.elapsed());
+
                 self.last_key_press = Instant::now();
                 self.last_specific_key_press.insert(key.0, Instant::now());
-
-                self.sleep(self.last_mod.elapsed())
             }
         };
     }
