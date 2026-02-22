@@ -1,16 +1,24 @@
+## v0.14.15
+
+- Add tap preferred to multi-purpose key https://github.com/xremap/xremap/pull/857
+- fix: free_hold should not emit repeats before decision https://github.com/xremap/xremap/pull/856
+- Make modifiers deterministic for test cases https://github.com/xremap/xremap/pull/855
+- Fix: Add all buttons to output device https://github.com/xremap/xremap/pull/854
+- Fix throttle so it handles more than one delay. https://github.com/xremap/xremap/pull/853
+
 ## v0.14.14
 
-- Config for throttling emit of events (#851)
-- Update gitHub actions (#847)
-- KDE: Fix kde client so it connects at first attempt (second fix) (#846)
+- Config for throttling emit of events https://github.com/xremap/xremap/pull/851
+- Update gitHub actions https://github.com/xremap/xremap/pull/847
+- KDE: Fix kde client so it connects at first attempt (second fix) https://github.com/xremap/xremap/pull/846
 
 ## v0.14.13
 
 Release with only changes to dependencies.
 
-- Update wayland crates (#845)
-- Update all minor versions (#844)
-- Update readme (#840)
+- Update wayland crates https://github.com/xremap/xremap/pull/845
+- Update all minor versions https://github.com/xremap/xremap/pull/844
+- Update readme https://github.com/xremap/xremap/pull/840
 
 ## v0.14.12
 
