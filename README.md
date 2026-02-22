@@ -183,31 +183,49 @@ Then press the key you want to know the name of.
 
 ### Multi-purpose key with alone_timeout_millis
 
-If you specify a map containing `held` and `alone`, you can use the key for two purposes. By default, the behavior is determined by a timeout:
-
-- If the key is pressed and released within `alone_timeout_millis` (default: 1000) without any other key being pressed, it's considered `alone`.
-- If the key is held down longer than the timeout, it's considered `held`.
-
-This can be problematic if you want to use a key as a modifier, as you might trigger the `held` action by simply holding the key for too long.
-
-### Multi-purpose key with free hold
-
-The `free_hold: true` option provides a different behavior for these multi-purpose keys. When enabled:
-
-- The `held` action is _only_ triggered when another key is pressed while the multi-purpose key is being held down. The timeout is ignored for the `held` action.
-- If the key is released without any other key being pressed, it triggers the `alone` action, regardless of how long it was held.
-
-This allows a key to be held indefinitely without triggering its `held` state, which is ideal for keys that also serve as modifiers. For example, you can make the `Space` key act as `Shift` when held and combined with another key, but still type a regular `Space` when tapped.
+To make `capslock` also work as `esc`, if it's pressed and released within a timeout:
 
 ```yml
 modmap:
-  - name: Space as Shift
-    remap:
+  - remap:
+      Capslock:
+        held: Capslock
+        alone: esc
+        alone_timeout_millis: 200 # Optional, defaults to 1000
+```
+
+It works like this:
+
+- If the key is pressed and released within `alone_timeout_millis` without other keys being pressed, it's considered `alone`.
+- If another key is pressed before timeout, it's considered `held`.
+- If the timeout is reached without other things happening, it's considered `held`.
+
+The alone-action is emitted as press and release right away. The held-action will emit press when it's triggered and
+wait to release until the trigger key is released.
+
+### Multi-purpose key with free hold
+
+To use `space` as `shift` when it's held down, but remain `space` if it's not interrupted by another key:
+
+```yml
+modmap:
+  - remap:
       Space:
         held: Shift_L
         alone: Space
         free_hold: true # Optional, defaults to false.
 ```
+
+There's no timeout in this case (i.e. `alone_timeout_millis` is ignored).
+
+- The `held` action is triggered when another key is pressed while the multi-purpose key is being held down.
+- If the key is released without others key being pressed, it triggers the `alone` action.
+
+This allows a key to be held indefinitely without triggering its `held` state, which is ideal for keys that also serve as modifiers. In this case, you make the `Space` key act as `Shift` when held and another key is pressed, but still type a regular `Space` when tapped.
+
+A drawback of this configuration is, that `space` can't be used for repeating spaces when held down, because that now has new meaning.
+
+`free_hold` is logically the same as having an infinite `alone_timeout_millis`.
 
 ### keymap
 
