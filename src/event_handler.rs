@@ -11,7 +11,7 @@ use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::{config, Config};
 use evdev::KeyCode as Key;
 use lazy_static::lazy_static;
-use log::debug;
+use log::{debug, warn};
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::cmp::Ordering;
@@ -319,24 +319,43 @@ impl EventHandler {
                 .map(|modmap_key| (modmap_key, value))
                 .collect(),
             ModmapAction::MultiPurposeKey(MultiPurposeKey {
-                held,
-                alone,
-                alone_timeout,
+                hold,
+                tap,
+                hold_threshold,
+                tap_timeout,
                 free_hold,
             }) => {
                 match value {
                     PRESS => {
+                        // Move this to input validation.
+                        let hold_threshold = if hold_threshold <= tap_timeout {
+                            hold_threshold
+                        } else {
+                            warn!("hold_threshold_millis must be smaller than tap_timeout_millis. Setting hold_threshold_millis to tap_timeout_millis: {:?}", tap_timeout);
+                            tap_timeout
+                        };
+
                         self.multi_purpose_keys.insert(
                             key,
                             MultiPurposeKeyState {
-                                held,
-                                alone,
-                                alone_timeout_at: if free_hold {
-                                    None
+                                hold,
+                                tap,
+                                hold_threshold_at: if hold_threshold == Duration::ZERO {
+                                    Instant::now()
                                 } else {
-                                    Some(Instant::now() + alone_timeout)
+                                    Instant::now() + hold_threshold
                                 },
-                                held_down: false,
+                                tap_timeout_at: if free_hold {
+                                    // An approximation of never.
+                                    Instant::now() + Duration::from_secs_f32(1e10)
+                                } else {
+                                    Instant::now() + tap_timeout
+                                },
+                                state: if hold_threshold == Duration::ZERO {
+                                    MultiPurposeKeyStateEnum::HoldPreferred
+                                } else {
+                                    MultiPurposeKeyStateEnum::TapPreferred
+                                },
                             },
                         );
                         return Ok(vec![]); // delay the press
@@ -401,7 +420,7 @@ impl EventHandler {
         if flush {
             let mut flushed: Vec<(Key, i32)> = vec![];
             for (_, state) in self.multi_purpose_keys.iter_mut() {
-                flushed.extend(state.force_held());
+                flushed.extend(state.interrupted_by_press());
             }
 
             // filter out key presses that are part of the flushed events
@@ -825,82 +844,111 @@ pub const REPEAT: i32 = 2;
 
 // ---
 
+#[derive(Debug, PartialEq)]
+enum MultiPurposeKeyStateEnum {
+    // If released then the tab-action is emitted
+    // If interrupted then the tab-action is emitted
+    // If timeout go to HoldPreferred state
+    TapPreferred,
+    // If released then the tab-action is emitted
+    // If interrupted then the hold-action is emitted
+    // If timeout then hold-action is emitted
+    HoldPreferred,
+    // Tab-action has been pressed and released.
+    TapChosen,
+    // Hold-action has been pressed, but has not been released yet.
+    HoldDown,
+}
+
 #[derive(Debug)]
 struct MultiPurposeKeyState {
-    held: Keys,
-    alone: Keys,
-    // Some if the first press is still delayed, None if already considered held.
-    alone_timeout_at: Option<Instant>,
-    // Whether the multipurpose key is considered to be held down, and key presses has been emitted.
-    held_down: bool,
+    hold: Keys,
+    tap: Keys,
+    hold_threshold_at: Instant,
+    tap_timeout_at: Instant,
+    state: MultiPurposeKeyStateEnum,
 }
 
 impl MultiPurposeKeyState {
     fn repeat(&mut self) -> Vec<(Key, i32)> {
-        match self.alone_timeout_at {
-            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => {
-                vec![] // still delay the press
+        if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
+            // Timeout. Setting state before going into the switch is necessary
+            self.state = MultiPurposeKeyStateEnum::HoldPreferred;
+        }
+
+        match self.state {
+            MultiPurposeKeyStateEnum::TapPreferred => {
+                vec![] // still delay repeat
             }
-            Some(_) => {
+            MultiPurposeKeyStateEnum::HoldPreferred if Instant::now() < self.tap_timeout_at => {
+                vec![] // still delay repeat
+            }
+            MultiPurposeKeyStateEnum::HoldPreferred => {
                 // timeout
-                self.alone_timeout_at = None;
-                self.held_down = true;
-                let mut keys = self.held.clone().into_vec();
+                self.state = MultiPurposeKeyStateEnum::HoldDown;
+                let mut keys = self.hold.clone().into_vec();
                 keys.sort_by(modifiers_first);
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
-            None => {
-                if !self.held_down {
-                    vec![] // still delay the press
-                } else {
-                    let mut keys = self.held.clone().into_vec();
-                    keys.sort_by(modifiers_first);
-                    keys.into_iter().map(|key| (key, REPEAT)).collect()
-                }
+            MultiPurposeKeyStateEnum::HoldDown => {
+                let mut keys = self.hold.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                keys.into_iter().map(|key| (key, REPEAT)).collect()
+            }
+            MultiPurposeKeyStateEnum::TapChosen => {
+                vec![] // tap-action already released, so ignores repeat
             }
         }
     }
 
-    fn release(&self) -> Vec<(Key, i32)> {
-        match self.alone_timeout_at {
-            Some(alone_timeout_at) if Instant::now() < alone_timeout_at => self.press_and_release(&self.alone),
-            Some(_) => self.press_and_release(&self.held),
-            None => match self.held_down {
-                true => {
-                    let mut release_keys = self.held.clone().into_vec();
-                    release_keys.sort_by(modifiers_last);
-                    release_keys.into_iter().map(|key| (key, RELEASE)).collect()
-                }
-                false => self.press_and_release(&self.alone),
-            },
+    /// This function consumes the MultiPurposeKeyStateEnum, so there's no need to set self.state
+    fn release(mut self) -> Vec<(Key, i32)> {
+        if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
+            // Timeout. Setting state before going into the switch is necessary
+            self.state = MultiPurposeKeyStateEnum::HoldPreferred;
+        }
+
+        match self.state {
+            MultiPurposeKeyStateEnum::TapPreferred => {
+                // Before hold_threshold_at timeout
+                self.press_and_release(&self.tap)
+            }
+            MultiPurposeKeyStateEnum::HoldPreferred if Instant::now() < self.tap_timeout_at => {
+                self.press_and_release(&self.tap)
+            }
+            MultiPurposeKeyStateEnum::HoldPreferred => self.press_and_release(&self.hold),
+            MultiPurposeKeyStateEnum::HoldDown => {
+                let mut release_keys = self.hold.clone().into_vec();
+                release_keys.sort_by(modifiers_last);
+                release_keys.into_iter().map(|key| (key, RELEASE)).collect()
+            }
+            MultiPurposeKeyStateEnum::TapChosen => {
+                vec![] // nothing to release
+            }
         }
     }
 
     // Other keys were pressed, so the multipurpose key
     // should emit presses of its held-value.
-    fn force_held(&mut self) -> Vec<(Key, i32)> {
-        let press = match self.alone_timeout_at {
-            Some(_) => {
-                self.alone_timeout_at = None;
-                self.held_down = true;
-                true
-            }
-            None => {
-                if !self.held_down {
-                    self.held_down = true;
-                    true
-                } else {
-                    false
-                }
-            }
-        };
+    fn interrupted_by_press(&mut self) -> Vec<(Key, i32)> {
+        if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
+            // Timeout. Setting state before going into the switch is necessary
+            self.state = MultiPurposeKeyStateEnum::HoldPreferred;
+        }
 
-        if press {
-            let mut keys = self.held.clone().into_vec();
-            keys.sort_by(modifiers_first);
-            keys.into_iter().map(|key| (key, PRESS)).collect()
-        } else {
-            vec![]
+        match self.state {
+            MultiPurposeKeyStateEnum::TapPreferred => {
+                self.state = MultiPurposeKeyStateEnum::TapChosen;
+                self.press_and_release(&self.tap)
+            }
+            MultiPurposeKeyStateEnum::HoldPreferred => {
+                self.state = MultiPurposeKeyStateEnum::HoldDown;
+
+                let mut keys = self.hold.clone().into_vec();
+                keys.sort_by(modifiers_first);
+                keys.into_iter().map(|key| (key, PRESS)).collect()
+            }
+            MultiPurposeKeyStateEnum::HoldDown | MultiPurposeKeyStateEnum::TapChosen => vec![],
         }
     }
 

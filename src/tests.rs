@@ -24,7 +24,8 @@ use crate::{
 ///     Virtual modifiers
 ///     Disguised events output
 ///     Disguised events input (i.e. transformation of relative event to pseudo keys)
-///     Multipurpose keys
+///     Multipurpose keys (tap-preferred)
+///     Multipurpose keys (hold-preferred)
 ///     PressRelease keys
 ///     Relative events/Mouse click
 ///     Modmap key-to-key

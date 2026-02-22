@@ -48,6 +48,8 @@ mod tests_modmap_keys;
 #[cfg(test)]
 mod tests_modmap_mul_purpose;
 #[cfg(test)]
+mod tests_modmap_mul_purpose_tap_preferred;
+#[cfg(test)]
 mod tests_modmap_press_release_key;
 #[cfg(test)]
 mod tests_nested_remap;
