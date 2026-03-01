@@ -42,7 +42,7 @@ jobs:
         working-directory: target/${{ matrix.arch }}-unknown-linux-musl/release
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
           name: xremap-${{ matrix.arch }}-${{ matrix.feature }}
           path: target/${{ matrix.arch }}-unknown-linux-musl/release/xremap-linux-${{ matrix.arch }}-${{ matrix.feature }}.zip
