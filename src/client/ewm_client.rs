@@ -23,9 +23,9 @@ impl EwmClient {
     }
 
     fn get_window_info(&self) -> Option<EwmWindowInfo> {
-        println!("json for ewm before...");
+        // println!("json for ewm before...");
         let output = match Command::new("emacsclient")
-            .arg("--timeout=3")
+            .arg("--timeout=5")
             .arg("--eval")
             .arg("(ewm-get-window-info-json)")
             .output()
@@ -62,7 +62,7 @@ impl EwmClient {
                 return None;
             }
         };
-        println!("json for ewm {json_str}");
+        // println!("json for ewm {json_str}");
 
         match serde_json::from_str::<EwmWindowInfo>(&json_str) {
             Ok(info) => Some(info),
@@ -78,7 +78,7 @@ impl Client for EwmClient {
     fn supported(&mut self) -> bool {
         // Check if emacsclient can connect to a running Emacs server
         Command::new("emacsclient")
-            .arg("--timeout=1")
+            .arg("--timeout=5")
             .arg("--eval")
             .arg("t")
             .output()
@@ -89,17 +89,17 @@ impl Client for EwmClient {
     fn current_window(&mut self) -> Option<String> {
         let title = self.get_window_info().and_then(|info| info.title);
 
-        if let Some(title) = &title {
-            println!("current_window for ewm {title}");
-        }
+        // if let Some(title) = &title {
+        //     println!("current_window for ewm {title}");
+        // }
         title
     }
 
     fn current_application(&mut self) -> Option<String> {
         let app = self.get_window_info().and_then(|info| info.app);
-        if let Some(title) = &app {
-            println!("current_app for ewm {title}");
-        }
+        // if let Some(title) = &app {
+        //     println!("current_app for ewm {title}");
+        // }
         app
     }
 
