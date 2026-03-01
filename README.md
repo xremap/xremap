@@ -55,6 +55,7 @@ cargo install xremap --features hypr    # Hyprland
 cargo install xremap --features niri    # Niri
 cargo install xremap --features cosmic  # COSMIC Wayland
 cargo install xremap --features socket  # Socket client with logind session monitor
+cargo install xremap --features ewm     # EWM (experimental)
 cargo install xremap                    # Others
 ```
 
@@ -657,7 +658,7 @@ The arguments to `--device` and `--ignore` are described [here](#device).
 
 - @k0kubun
 - @N4tus (KDE client)
-- @jixiuf (wlroots client)
+- @jixiuf (ewm/wlroots client)
 - @saurabhsharan (Niri client)
 - @hpccc53 (Cosmic client)
 

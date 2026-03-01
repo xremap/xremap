@@ -1,3 +1,7 @@
+## v0.15.16
+
+- Add EWM client(https://codeberg.org/ezemtsov/ewm.git)
+
 ## v0.14.15
 
 - Add tap preferred to multi-purpose key https://github.com/xremap/xremap/pull/857
