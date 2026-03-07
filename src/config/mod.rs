@@ -41,7 +41,7 @@ pub struct Config {
     pub keymap: Vec<Keymap>,
     #[serde(default = "default_mode")]
     pub default_mode: String,
-    #[serde(deserialize_with = "deserialize_virtual_modifiers", default = "Vec::new")]
+    #[serde(deserialize_with = "deserialize_keys", default = "Vec::new")]
     pub virtual_modifiers: Vec<Key>,
     #[serde(default)]
     pub keypress_delay_ms: u64,
@@ -131,7 +131,7 @@ fn default_mode() -> String {
     "default".to_string()
 }
 
-fn deserialize_virtual_modifiers<'de, D>(deserializer: D) -> Result<Vec<Key>, D::Error>
+fn deserialize_keys<'de, D>(deserializer: D) -> Result<Vec<Key>, D::Error>
 where
     D: Deserializer<'de>,
 {
