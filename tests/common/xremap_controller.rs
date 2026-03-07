@@ -75,7 +75,9 @@ impl XremapBuilder {
     }
 
     pub fn config(&mut self, config: &str) -> Result<&mut Self> {
-        let config_file = std::env::temp_dir().join("xremap_config.yml");
+        let filename =
+            format!("xremap_config_{}.yml", repeat_with(fastrand::alphanumeric).take(10).collect::<String>());
+        let config_file = std::env::temp_dir().join(filename);
 
         self.config_file = Some(config_file.to_string_lossy().into());
 
