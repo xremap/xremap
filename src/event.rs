@@ -1,14 +1,15 @@
 use evdev::{EventType, InputEvent, KeyCode as Key};
 
 use crate::device::InputDeviceInfo;
+use std::rc::Rc;
 
 // Input to EventHandler. This should only contain things that are easily testable.
 #[derive(Debug)]
 pub enum Event {
     // InputEvent (EventType::KEY) sent from evdev
-    KeyEvent(InputDeviceInfo, KeyEvent),
+    KeyEvent(Rc<InputDeviceInfo>, KeyEvent),
     // InputEvent (EventType::Relative) sent from evdev
-    RelativeEvent(InputDeviceInfo, RelativeEvent),
+    RelativeEvent(Rc<InputDeviceInfo>, RelativeEvent),
     // Any other InputEvent type sent from evdev
     OtherEvents(InputEvent),
     // Timer for nested override reached its timeout
@@ -54,7 +55,7 @@ pub enum KeyValue {
 }
 impl Event {
     // Convert evdev's raw InputEvent to xremap's internal Event
-    pub fn new(device: InputDeviceInfo, event: InputEvent) -> Event {
+    pub fn new(device: Rc<InputDeviceInfo>, event: InputEvent) -> Event {
         let event = match event.event_type() {
             EventType::KEY => Event::KeyEvent(device, KeyEvent::new_with(event.code(), event.value())),
             EventType::RELATIVE => Event::RelativeEvent(device, RelativeEvent::new_with(event.code(), event.value())),

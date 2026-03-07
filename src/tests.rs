@@ -4,6 +4,7 @@ use evdev::KeyCode as Key;
 use indoc::indoc;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::Duration;
 
 use crate::client::WindowInfo;
@@ -56,13 +57,13 @@ impl Client for StaticClient {
     }
 }
 
-pub fn get_input_device_info() -> InputDeviceInfo {
-    InputDeviceInfo {
+pub fn get_input_device_info() -> Rc<InputDeviceInfo> {
+    Rc::new(InputDeviceInfo {
         name: "Some Device".into(),
         path: PathBuf::from("/dev/input/event0"),
         vendor: 0x1234,
         product: 0x5678,
-    }
+    })
 }
 
 #[test]
@@ -595,12 +596,12 @@ fn test_device_override() {
     assert_actions(
         config,
         vec![Event::KeyEvent(
-            InputDeviceInfo {
+            Rc::new(InputDeviceInfo {
                 name: "Some Device".into(),
                 path: PathBuf::from("/dev/input/event0"),
                 vendor: 0x1234,
                 product: 0x5678,
-            },
+            }),
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
         vec![
@@ -616,12 +617,12 @@ fn test_device_override() {
     assert_actions(
         config,
         vec![Event::KeyEvent(
-            InputDeviceInfo {
+            Rc::new(InputDeviceInfo {
                 name: "Other Device".into(),
                 path: PathBuf::from("/dev/input/event1"),
                 vendor: 0x1234,
                 product: 0x5678,
-            },
+            }),
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
         vec![

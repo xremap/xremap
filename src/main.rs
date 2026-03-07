@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::Duration;
 
 mod action;
@@ -333,7 +334,7 @@ fn handle_input_events(
         Ok(events) => Ok(events.collect()),
     }?;
 
-    let info = input_device.to_info();
+    let info = Rc::new(input_device.to_info());
     let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
     handle_events(handler, dispatcher, config, input_events)?;
     Ok(device_exists)
