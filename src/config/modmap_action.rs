@@ -41,6 +41,8 @@ pub struct MultiPurposeKey {
     pub tap_timeout: Duration,
     #[serde(default = "default_free_hold")]
     pub free_hold: bool,
+    #[serde(default)]
+    pub interruptable: Interruptable,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -70,6 +72,32 @@ impl Keys {
             Keys::Key(key) => vec![key],
             Keys::Keys(keys) => keys,
         }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum Interruptable {
+    All(bool),
+    Only { only: Keys },
+    Not { not: Keys },
+}
+
+impl Interruptable {
+    pub fn is_interrupted_by(&self, key: Key) -> bool {
+        match self {
+            Interruptable::All(all) => *all,
+            Interruptable::Only { only: Keys::Key(only) } => key == *only,
+            Interruptable::Only { only: Keys::Keys(only) } => only.iter().any(|k| key == *k),
+            Interruptable::Not { not: Keys::Key(not) } => key != *not,
+            Interruptable::Not { not: Keys::Keys(not) } => not.iter().all(|k| key != *k),
+        }
+    }
+}
+
+impl Default for Interruptable {
+    fn default() -> Self {
+        Interruptable::All(true)
     }
 }
 

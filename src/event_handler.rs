@@ -4,7 +4,7 @@ use crate::config::application::OnlyOrNot;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
-use crate::config::modmap_action::{Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
+use crate::config::modmap_action::{Interruptable, Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
@@ -324,6 +324,7 @@ impl EventHandler {
                 hold_threshold,
                 tap_timeout,
                 free_hold,
+                interruptable,
             }) => {
                 match value {
                     PRESS => {
@@ -340,6 +341,7 @@ impl EventHandler {
                             MultiPurposeKeyState {
                                 hold,
                                 tap,
+                                interruptable,
                                 hold_threshold_at: if hold_threshold == Duration::ZERO {
                                     Instant::now()
                                 } else {
@@ -409,18 +411,17 @@ impl EventHandler {
     }
 
     fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
-        let mut flush = false;
-        for (_, value) in key_values.iter() {
+        let mut pressed = vec![];
+        for (key, value) in key_values.iter() {
             if *value == PRESS {
-                flush = true;
-                break;
+                pressed.push(*key);
             }
         }
 
-        if flush {
+        if !pressed.is_empty() {
             let mut flushed: Vec<(Key, i32)> = vec![];
             for (_, state) in self.multi_purpose_keys.iter_mut() {
-                flushed.extend(state.interrupted_by_press());
+                flushed.extend(state.interrupted_by_press(&*pressed));
             }
 
             // filter out key presses that are part of the flushed events
@@ -864,6 +865,7 @@ enum MultiPurposeKeyStateEnum {
 struct MultiPurposeKeyState {
     hold: Keys,
     tap: Keys,
+    interruptable: Interruptable,
     hold_threshold_at: Instant,
     tap_timeout_at: Instant,
     state: MultiPurposeKeyStateEnum,
@@ -929,8 +931,12 @@ impl MultiPurposeKeyState {
     }
 
     // Other keys were pressed, so the multipurpose key
-    // should emit presses of its held-value.
-    fn interrupted_by_press(&mut self) -> Vec<(Key, i32)> {
+    // should emit presses of its held-value if it can be interrupted by those keys.
+    fn interrupted_by_press(&mut self, pressed: &[Key]) -> Vec<(Key, i32)> {
+        if !pressed.iter().any(|key| self.interruptable.is_interrupted_by(*key)) {
+            return vec![];
+        }
+
         if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
             // Timeout. Setting state before going into the switch is necessary
             self.state = MultiPurposeKeyStateEnum::HoldPreferred;
