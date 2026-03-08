@@ -247,6 +247,40 @@ This will emit the alone-action, `space`, when it's interrupted by another key b
 timeout of `hold_threshold_millis`. This allows `space` to function normally when typing fast. And only after
 the timeout will it work as `shift`.
 
+#### Multi-purpose key with `interruptable`
+
+You may not want tapping a multi-purpose key to always be interrupted by all types of input events.
+For example, if you're using `--mouse`, it can be difficult to use the `alone` version of a
+multi-purpose key while the mouse is moving. You may also have problems tapping multi-purpose keys
+if you're pressing a lot of keys at once.
+
+You can control which keys can interrupt the `alone` press of a multi-purpose key using the
+`interruptable` field:
+
+```yml
+modmap:
+  - remap:
+      Ctrl_L:
+        held: Ctrl_L
+        alone: Backspace
+        interruptable:
+          # ignore mouse movement when using --mouse
+          not: [XRIGHTCURSOR, XLEFTCURSOR, XDOWNCURSOR, XUPCURSOR]
+      Alt_L:
+        held: Alt_L
+        alone: Space
+        alone_timeout_millis: 200
+        interruptable:
+          # only allow alt+tab to interrupt tapping alt
+          only: Tab
+```
+
+Input events that would interrupt the `alone` press of these multi-purpose keys will be handled as
+normal but without interrupting the key press.
+
+You can set `interruptable: false` to completely disable interruption. The default value when the
+field is not present is `interruptable: true`.
+
 ### keymap
 
 `keymap` is for remapping a sequence of key combinations to another sequence of key combinations or other actions.
