@@ -1,3 +1,9 @@
+## v0.14.18
+
+- Add experimental double tap and chords https://github.com/xremap/xremap/pull/869
+- Add a config field to control which keys can interrupt pressing a multi-purpose key https://github.com/xremap/xremap/pull/868
+- Update some crates.
+
 ## v0.14.16/v0.14.17
 
 - Add EWM client(https://codeberg.org/ezemtsov/ewm.git)
