@@ -1,13 +1,10 @@
+use super::deserialize_keys;
+use super::keymap_action::{Actions, KeymapAction};
 use crate::config::key::deserialize_key;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, DurationMilliSeconds};
 use std::time::Duration;
-
-use super::{
-    deserialize_virtual_modifiers,
-    keymap_action::{Actions, KeymapAction},
-};
 
 // Values in `modmap.remap`
 #[derive(Clone, Debug, Deserialize)]
@@ -56,13 +53,13 @@ pub struct PressReleaseKey {
     #[serde(default, deserialize_with = "deserialize_actions")]
     pub release: Vec<KeymapAction>,
 }
-// Used only for deserializing Vec<Keys>
+// Used only for deserializing
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Keys {
     #[serde(deserialize_with = "deserialize_key")]
     Key(Key),
-    #[serde(deserialize_with = "deserialize_virtual_modifiers")]
+    #[serde(deserialize_with = "deserialize_keys")]
     Keys(Vec<Key>),
 }
 

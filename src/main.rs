@@ -4,7 +4,10 @@ use crate::device::{
     device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
 };
 use crate::event_handler::EventHandler;
+use crate::operator_handler::OperatorHandler;
+use crate::operators::get_operator_handler;
 use crate::throttle_emit::ThrottleEmit;
+use crate::timeout_manager::TimeoutManager;
 use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
@@ -22,6 +25,7 @@ use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::Duration;
 
 mod action;
@@ -29,8 +33,13 @@ mod action_dispatcher;
 mod client;
 mod config;
 mod device;
+mod emit_handler;
 mod event;
 mod event_handler;
+mod operator_double_tap;
+mod operator_handler;
+mod operator_sim;
+mod operators;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -54,10 +63,17 @@ mod tests_modmap_press_release_key;
 #[cfg(test)]
 mod tests_nested_remap;
 #[cfg(test)]
+mod tests_operator_double_tap;
+#[cfg(test)]
+mod tests_operator_handler;
+#[cfg(test)]
+mod tests_operator_sim;
+#[cfg(test)]
 mod tests_throttle_emit;
 #[cfg(test)]
 mod tests_virtual_modifier;
 mod throttle_emit;
+mod timeout_manager;
 mod util;
 
 #[derive(Parser, Debug)]
@@ -205,6 +221,9 @@ fn main() -> anyhow::Result<()> {
     let watch_devices = watch.contains(&WatchTargets::Device);
     let watch_config = watch.contains(&WatchTargets::Config);
 
+    let timeout_manager = Rc::new(TimeoutManager::new());
+    let timeout_manager_fd = timeout_manager.get_timer_fd();
+
     // Event listeners
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
@@ -235,17 +254,37 @@ fn main() -> anyhow::Result<()> {
         Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
     };
 
+    let mut operator_handler = get_operator_handler(&config, timeout_manager.clone());
+
     let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 
     // Main loop
     loop {
         match 'event_loop: loop {
-            let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd)?;
+            let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd, timeout_manager_fd)?;
             if readable_fds.contains(timer_fd) {
-                if let Err(error) =
-                    handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::OverrideTimeout])
-                {
+                if let Err(error) = handle_events(
+                    &mut handler,
+                    &mut dispatcher,
+                    &config,
+                    vec![Event::OverrideTimeout],
+                    &mut operator_handler,
+                ) {
                     println!("Error on remap timeout: {error}")
+                }
+            }
+
+            if readable_fds.contains(timeout_manager_fd) {
+                if timeout_manager.need_timeout()? {
+                    if let Err(error) = handle_events(
+                        &mut handler,
+                        &mut dispatcher,
+                        &mut config,
+                        vec![Event::Tick],
+                        &mut operator_handler,
+                    ) {
+                        println!("Error on timeout: {error}")
+                    }
                 }
             }
 
@@ -254,7 +293,7 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
 
-                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &mut config)? {
+                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &config, &mut operator_handler)? {
                     println!("Found a removed device. Reselecting devices.");
                     break 'event_loop ReloadEvent::ReloadDevices;
                 }
@@ -304,9 +343,11 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     watchers: &[&Inotify],
     timer_fd: RawFd,
+    timeout_manager_fd: RawFd,
 ) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
     read_fds.insert(timer_fd);
+    read_fds.insert(timeout_manager_fd);
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
@@ -322,7 +363,8 @@ fn handle_input_events(
     input_device: &mut InputDevice,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
-    config: &mut Config,
+    config: &Config,
+    operator_handler: &mut Option<OperatorHandler>,
 ) -> anyhow::Result<bool> {
     let mut device_exists = true;
     let events = match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
@@ -333,8 +375,10 @@ fn handle_input_events(
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => Ok(events.collect()),
     }?;
-    let input_events = events.iter().map(|e| Event::new(input_device.to_info(), *e)).collect();
-    handle_events(handler, dispatcher, config, input_events)?;
+
+    let info = Rc::new(input_device.to_info());
+    let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
+    handle_events(handler, dispatcher, config, input_events, operator_handler)?;
     Ok(device_exists)
 }
 
@@ -342,9 +386,13 @@ fn handle_input_events(
 fn handle_events(
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
-    config: &mut Config,
-    events: Vec<Event>,
+    config: &Config,
+    mut events: Vec<Event>,
+    operator_handler: &mut Option<OperatorHandler>,
 ) -> anyhow::Result<()> {
+    if let Some(handler) = operator_handler {
+        events = handler.map_events(events);
+    };
     let actions = handler
         .on_events(&events, config)
         .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;

@@ -52,6 +52,8 @@ multi-purpose keys are handled.
 
 Multi-purpose keys can interrupt each other. But that's complicated, and is it good or bad?
 
+## Examples
+
 ### Example: Tap-preferred
 
 This configuration is like zmk's tap-preferred hold-tap and qmk's default tap-hold. Except the

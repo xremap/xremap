@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
+pub mod inputevent_formatter;
 pub mod xremap_controller;
 
+use crate::common::inputevent_formatter::get_pretty_events;
 use evdev::uinput::VirtualDevice;
 use evdev::{AttributeSet, BusType, Device, EventType, InputEvent, InputId, KeyCode, SwitchCode};
 use std::iter::repeat_with;
@@ -141,4 +143,10 @@ pub fn assert_str_contains(expected: &str, str: &str) {
     if !str.to_string().contains(expected) {
         panic!("Should contain: {expected}\n{str}");
     }
+}
+
+pub fn assert_events(actual: impl AsRef<Vec<InputEvent>>, expected: &str) {
+    let actual = get_pretty_events(actual.as_ref());
+
+    assert_eq!(actual, expected);
 }

@@ -1,5 +1,8 @@
 pub mod application;
 pub mod device;
+mod expmap;
+pub mod expmap_operator;
+mod expmap_simkey;
 mod key;
 pub mod key_press;
 pub mod keymap;
@@ -14,6 +17,7 @@ mod tests;
 extern crate serde_yaml;
 extern crate toml;
 
+use crate::config::expmap::Expmap;
 use evdev::KeyCode as Key;
 use keymap::Keymap;
 use modmap::Modmap;
@@ -36,12 +40,14 @@ use self::{
 pub struct Config {
     // Config interface
     #[serde(default = "Vec::new")]
+    pub experimental_map: Vec<Expmap>,
+    #[serde(default = "Vec::new")]
     pub modmap: Vec<Modmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
     #[serde(default = "default_mode")]
     pub default_mode: String,
-    #[serde(deserialize_with = "deserialize_virtual_modifiers", default = "Vec::new")]
+    #[serde(deserialize_with = "deserialize_keys", default = "Vec::new")]
     pub virtual_modifiers: Vec<Key>,
     #[serde(default)]
     pub keypress_delay_ms: u64,
@@ -131,7 +137,7 @@ fn default_mode() -> String {
     "default".to_string()
 }
 
-fn deserialize_virtual_modifiers<'de, D>(deserializer: D) -> Result<Vec<Key>, D::Error>
+fn deserialize_keys<'de, D>(deserializer: D) -> Result<Vec<Key>, D::Error>
 where
     D: Deserializer<'de>,
 {

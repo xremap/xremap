@@ -75,10 +75,7 @@ pub fn e2e_error_in_config_file() -> Result<()> {
 
     let output = ctrl.wait_for_output()?;
 
-    assert_str_contains(
-        "Failed to load config '/tmp/xremap_config.yml': keymap[0].remap: unknown key 'CustomKey' at line 3 column 9",
-        &output.stderr,
-    );
+    assert_str_contains("keymap[0].remap: unknown key 'CustomKey' at line 3 column 9", &output.stderr);
 
     Ok(())
 }

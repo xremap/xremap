@@ -101,6 +101,9 @@ impl EventHandler {
 
                 Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
                 Event::OverrideTimeout => self.timeout_override()?,
+                Event::Tick => {
+                    // Can be ignored. It's for operators.
+                }
             };
         }
         // if there is at least one mouse movement event, sending all of them as one MouseMovementEventCollection

@@ -3,7 +3,8 @@ use evdev::InputEvent;
 use evdev::KeyCode as Key;
 use indoc::indoc;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
-use std::path::Path;
+use std::path::PathBuf;
+use std::rc::Rc;
 use std::time::Duration;
 
 use crate::client::WindowInfo;
@@ -56,13 +57,13 @@ impl Client for StaticClient {
     }
 }
 
-pub fn get_input_device_info<'a>() -> InputDeviceInfo<'a> {
-    InputDeviceInfo {
-        name: "Some Device",
-        path: Path::new("/dev/input/event0"),
+pub fn get_input_device_info() -> Rc<InputDeviceInfo> {
+    Rc::new(InputDeviceInfo {
+        name: "Some Device".into(),
+        path: PathBuf::from("/dev/input/event0"),
         vendor: 0x1234,
         product: 0x5678,
-    }
+    })
 }
 
 #[test]
@@ -595,12 +596,12 @@ fn test_device_override() {
     assert_actions(
         config,
         vec![Event::KeyEvent(
-            InputDeviceInfo {
-                name: "Some Device",
-                path: Path::new("/dev/input/event0"),
+            Rc::new(InputDeviceInfo {
+                name: "Some Device".into(),
+                path: PathBuf::from("/dev/input/event0"),
                 vendor: 0x1234,
                 product: 0x5678,
-            },
+            }),
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
         vec![
@@ -616,12 +617,12 @@ fn test_device_override() {
     assert_actions(
         config,
         vec![Event::KeyEvent(
-            InputDeviceInfo {
-                name: "Other Device",
-                path: Path::new("/dev/input/event1"),
+            Rc::new(InputDeviceInfo {
+                name: "Other Device".into(),
+                path: PathBuf::from("/dev/input/event1"),
                 vendor: 0x1234,
                 product: 0x5678,
-            },
+            }),
             KeyEvent::new(Key::KEY_A, KeyValue::Press),
         )],
         vec![
@@ -939,6 +940,13 @@ fn test_keymap_modifiers_are_released_in_order_of_pressed() {
             Action::Delay(Duration::from_nanos(0)),
         ],
     )
+}
+
+pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {
+    let actual = actual.as_ref();
+    let expected = expected.as_ref();
+
+    assert_eq!(format!("{actual:?}"), format!("{:?}", expected));
 }
 
 pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {

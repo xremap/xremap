@@ -1,60 +1,62 @@
-use evdev::{EventType, InputEvent, KeyCode as Key};
-
 use crate::device::InputDeviceInfo;
+use evdev::{EventType, InputEvent, KeyCode as Key};
+use std::rc::Rc;
 
 // Input to EventHandler. This should only contain things that are easily testable.
-#[derive(Debug)]
-pub enum Event<'a> {
+#[derive(Debug, Clone)]
+pub enum Event {
     // InputEvent (EventType::KEY) sent from evdev
-    KeyEvent(InputDeviceInfo<'a>, KeyEvent),
+    KeyEvent(Rc<InputDeviceInfo>, KeyEvent),
     // InputEvent (EventType::Relative) sent from evdev
-    RelativeEvent(InputDeviceInfo<'a>, RelativeEvent),
+    RelativeEvent(Rc<InputDeviceInfo>, RelativeEvent),
     // Any other InputEvent type sent from evdev
     OtherEvents(InputEvent),
     // Timer for nested override reached its timeout
     OverrideTimeout,
+    // Ticks for operators
+    Tick,
 }
 
-impl<'a> Event<'a> {
+impl Event {
     #[cfg(test)]
-    pub fn key_release(code: Key) -> Event<'a> {
+    pub fn key_release(code: Key) -> Event {
         Event::KeyEvent(crate::tests::get_input_device_info(), KeyEvent::new(code, KeyValue::Release))
     }
     #[cfg(test)]
-    pub fn key_press(code: Key) -> Event<'a> {
+    pub fn key_press(code: Key) -> Event {
         Event::KeyEvent(crate::tests::get_input_device_info(), KeyEvent::new(code, KeyValue::Press))
     }
     #[cfg(test)]
-    pub fn key_repeat(code: Key) -> Event<'a> {
+    pub fn key_repeat(code: Key) -> Event {
         Event::KeyEvent(crate::tests::get_input_device_info(), KeyEvent::new(code, KeyValue::Repeat))
     }
     #[cfg(test)]
-    pub fn relative(code: u16, value: i32) -> Event<'a> {
+    pub fn relative(code: u16, value: i32) -> Event {
         Event::RelativeEvent(crate::tests::get_input_device_info(), RelativeEvent { code, value })
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KeyEvent {
     pub key: Key,
     value: KeyValue,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RelativeEvent {
     pub code: u16,
     pub value: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum KeyValue {
     Press,
     Release,
     Repeat,
 }
-impl<'a> Event<'a> {
+impl Event {
     // Convert evdev's raw InputEvent to xremap's internal Event
-    pub fn new(device: InputDeviceInfo, event: InputEvent) -> Event {
+    pub fn new(device: Rc<InputDeviceInfo>, event: InputEvent) -> Event {
         let event = match event.event_type() {
             EventType::KEY => Event::KeyEvent(device, KeyEvent::new_with(event.code(), event.value())),
             EventType::RELATIVE => Event::RelativeEvent(device, RelativeEvent::new_with(event.code(), event.value())),
