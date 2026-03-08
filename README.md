@@ -275,8 +275,11 @@ modmap:
           only: Tab
 ```
 
-You can also set `interruptable: false` to ignore all input events. The default value when the field
-is not present is `interruptable: true`.
+Input events that would interrupt the `alone` press of these multi-purpose keys will be handled as
+normal but without interrupting the key press.
+
+You can set `interruptable: false` to completely disable interruption. The default value when the
+field is not present is `interruptable: true`.
 
 ### keymap
 
