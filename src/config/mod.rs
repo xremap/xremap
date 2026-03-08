@@ -1,5 +1,8 @@
 pub mod application;
 pub mod device;
+mod expmap;
+pub mod expmap_operator;
+mod expmap_simkey;
 mod key;
 pub mod key_press;
 pub mod keymap;
@@ -14,6 +17,7 @@ mod tests;
 extern crate serde_yaml;
 extern crate toml;
 
+use crate::config::expmap::Expmap;
 use evdev::KeyCode as Key;
 use keymap::Keymap;
 use modmap::Modmap;
@@ -35,6 +39,8 @@ use self::{
 #[serde(deny_unknown_fields)]
 pub struct Config {
     // Config interface
+    #[serde(default = "Vec::new")]
+    pub experimental_map: Vec<Expmap>,
     #[serde(default = "Vec::new")]
     pub modmap: Vec<Modmap>,
     #[serde(default = "Vec::new")]

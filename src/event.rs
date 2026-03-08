@@ -1,10 +1,9 @@
-use evdev::{EventType, InputEvent, KeyCode as Key};
-
 use crate::device::InputDeviceInfo;
+use evdev::{EventType, InputEvent, KeyCode as Key};
 use std::rc::Rc;
 
 // Input to EventHandler. This should only contain things that are easily testable.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Event {
     // InputEvent (EventType::KEY) sent from evdev
     KeyEvent(Rc<InputDeviceInfo>, KeyEvent),
@@ -14,6 +13,8 @@ pub enum Event {
     OtherEvents(InputEvent),
     // Timer for nested override reached its timeout
     OverrideTimeout,
+    // Ticks for operators
+    Tick,
 }
 
 impl Event {
@@ -35,19 +36,19 @@ impl Event {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KeyEvent {
     pub key: Key,
     value: KeyValue,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RelativeEvent {
     pub code: u16,
     pub value: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum KeyValue {
     Press,
     Release,

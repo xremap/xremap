@@ -942,6 +942,13 @@ fn test_keymap_modifiers_are_released_in_order_of_pressed() {
     )
 }
 
+pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {
+    let actual = actual.as_ref();
+    let expected = expected.as_ref();
+
+    assert_eq!(format!("{actual:?}"), format!("{:?}", expected));
+}
+
 pub fn assert_actions(config_yaml: &str, events: Vec<Event>, actions: Vec<Action>) {
     EventHandlerForTest::new_with_current_application(config_yaml, None).assert(events, actions);
 }

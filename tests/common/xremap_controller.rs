@@ -1,6 +1,8 @@
-use crate::common::{get_random_device_name, get_virtual_device, wait_for_device, wait_for_grabbed, VirtualDeviceInfo};
+use crate::common::{
+    get_random_device_name, get_virtual_device, key_press, wait_for_device, wait_for_grabbed, VirtualDeviceInfo,
+};
 use anyhow::{bail, Result};
-use evdev::{Device, FetchEventsSynced, InputEvent};
+use evdev::{Device, EventType, FetchEventsSynced, InputEvent, KeyCode as Key};
 use nix::sys::select::{select, FdSet};
 use nix::sys::time::TimeValLike;
 use std::cell::Cell;
@@ -8,7 +10,7 @@ use std::iter::repeat_with;
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use xremap::device::SEPARATOR;
 use xremap::util::until;
 
@@ -295,6 +297,43 @@ impl XremapController {
         }
 
         Ok(device.fetch_events()?)
+    }
+
+    pub fn fetch_until_key(&mut self, key: Key) -> anyhow::Result<Vec<InputEvent>> {
+        let start = Instant::now();
+
+        let mut done = false;
+        let mut result: Vec<InputEvent> = vec![];
+
+        loop {
+            if done {
+                break;
+            }
+
+            if Instant::now().duration_since(start) > Duration::from_secs(1) {
+                break;
+            }
+
+            let events = self.fetch_events()?;
+
+            for event in events {
+                if event.event_type() == EventType::KEY && event.code() == key.0 {
+                    done = true;
+                }
+
+                result.push(event);
+            }
+        }
+
+        Ok(result)
+    }
+
+    pub fn fetch(&mut self) -> anyhow::Result<Vec<InputEvent>> {
+        // Sync key
+        self.emit_events(&vec![key_press(Key::KEY_MOVE)])?;
+
+        // Fetch until sync key.
+        Ok(self.fetch_until_key(Key::KEY_MOVE)?)
     }
 
     pub fn kill_for_output(&mut self) -> anyhow::Result<Output> {
