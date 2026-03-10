@@ -36,6 +36,13 @@ keypress_delay_ms: 10
 `10 ms` is good default value, but try `100 ms` to be certain if this is the cause of your problems.
 But don't go larger, because your keyboard will become very slow/unresponsive.
 
+Another way to slow events down is:
+
+```yml
+throttle_ms: 10
+# Rest of you config file
+```
+
 ### Application-specific remappings don't work
 
 #### How to check if they work
