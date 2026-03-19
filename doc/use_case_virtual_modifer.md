@@ -1,4 +1,4 @@
-# Use normal key a modifier
+# Use normal key as modifier
 
 To use a normal key like `Capslock` as a modifier it needs
 to be declared in `virtual_modifiers`, which also means its normal behavior is suppressed.
@@ -79,4 +79,48 @@ keymap:
       # etc
 ```
 
-Note: When using a key with repeat-action like `tab` as virtual modifier. Then does the repeat action not work.
+### Using a more normal key, like `tab`
+
+Capslock is a little special. It doesn't have a repeat-action, and its
+action can be moved from press of `capslock` to release of `capslock` without
+loss of convenience.
+
+`tab` is an example of a key with repeat-action, and its action can't be moved from press to release,
+without loss of convenience. Fx `alt-tab` will change window when tab is released, which is
+inconvenient. `tab` also becomes fragile when `alt-tab` is typed fast, because `alt` can be released before
+`tab` is released, which will look like `tab`, because it's `alt:1 alt:0 tab:1 tab:0`.
+
+**Repeating `tab` with key combo**
+
+It's possible to repeat `tab`, by emitting `tab` when pressing a combo, fx `tab-q`.
+
+**Repeating `tab` with double tap**
+
+```yml
+experimental_map:
+  - remap:
+      tab:
+        double: BTN_TRIGGER_HAPPY1
+
+modmap:
+  - remap:
+      tab:
+        alone: BTN_TRIGGER_HAPPY1
+        held: tab
+
+virtual_modifiers:
+  - tab
+
+keymap:
+  - remap:
+      BTN_TRIGGER_HAPPY1: tab
+      tab-H: left
+```
+
+**Convenient `alt-tab`**
+
+Not currently possible in xremap, but is theoretically possible:
+
+1. A timeout could emit a normal `tab`, so it functions normally, just after a timeout.
+2. `tab` pressed when other keys are held, will make it function normally, not as virtual
+   modifier. This way will `alt-tab` work completely normal, because `alt` is pressed before `tab`.
