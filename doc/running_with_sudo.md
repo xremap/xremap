@@ -10,9 +10,29 @@
 - If you launch programs from xremap they will run as `root`, not as your own normal user. It's considered a security risk to do so.
 - If the config file can be edited by other users than `root`, they can effectively run any command as `root` by changing your config file.
 
-## Without application-specific remapping
+### Module to output artificial events
 
-It's plain and simple:
+Check whether `uinput` module is loaded:
+
+```bash
+ls -l /dev/uinput
+```
+
+If it shows up empty, make the module load automatically:
+
+```bash
+echo uinput | sudo tee /etc/modules-load.d/uinput.conf
+```
+
+### Reboot or try to run right away without rebooting
+
+It might work right away, if you load the uinput module:
+
+```bash
+sudo modprobe uinput
+```
+
+Then start xremap:
 
 ```
 sudo xremap config.yml

@@ -82,13 +82,11 @@ If something isn't working take a look at the [troubleshooting section](doc/trou
 
 ### Run with sudo
 
-Start `xremap` by running:
+First perform these installation instructions: [Running xremap with sudo](doc/running_with_sudo.md)
 
 ```
 sudo xremap config.yml
 ```
-
-To use application-specific remappings follow these instructions: [Running xremap with sudo](doc/running_with_sudo.md)
 
 ### Run without sudo
 
