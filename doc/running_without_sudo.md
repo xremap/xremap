@@ -50,13 +50,13 @@ Check whether `uinput` module is loaded:
 ls -l /dev/uinput
 ```
 
-If it shows up empty, load the module automatically:
+If it shows up empty, make the module load automatically:
 
 ```bash
 echo uinput | sudo tee /etc/modules-load.d/uinput.conf
 ```
 
-### Reboot or try to run right away without reboot
+### Reboot or try to run right away without rebooting
 
 Reboot is likely the only way to make changes take effect.
 

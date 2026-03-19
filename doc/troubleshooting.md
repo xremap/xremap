@@ -91,3 +91,25 @@ echo XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP
 echo WAYLAND_DISPLAY=$WAYLAND_DISPLAY
 echo XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR
 ```
+
+### Error: Failed to prepare an output device: No such device
+
+Check whether `uinput` module is loaded:
+
+```bash
+ls -l /dev/uinput
+```
+
+If it shows up empty, make the module load automatically:
+
+```bash
+echo uinput | sudo tee /etc/modules-load.d/uinput.conf
+```
+
+Load right away:
+
+```bash
+sudo modprobe uinput
+```
+
+If it doesn't work reboot is needed.
