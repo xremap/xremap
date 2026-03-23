@@ -60,6 +60,8 @@ cargo install xremap                    # Others
 
 You may also need to install `libx11-dev` to run `xremap` for X11.
 
+You may find a list of supported compositors for wlroots [here](https://wayland.app/protocols/wlr-foreign-toplevel-management-unstable-v1#compositor-support).
+
 ### Arch Linux
 
 If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
