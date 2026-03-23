@@ -4,8 +4,6 @@ use crate::util::print_table;
 mod cosmic_client;
 #[cfg(feature = "cosmic")]
 mod cosmic_protocols;
-#[cfg(feature = "ewm")]
-mod ewm_client;
 #[cfg(feature = "gnome")]
 mod gnome_client;
 #[cfg(feature = "hypr")]
@@ -137,8 +135,6 @@ pub fn build_client(log_window_changes: bool) -> WMClient {
         WMClient::new("COSMIC", Box::new(cosmic_client::CosmicClient::new()), log_window_changes),
         #[cfg(feature = "socket")]
         WMClient::new("Socket", Box::new(socket_client::SocketClient::new()), log_window_changes),
-        #[cfg(feature = "ewm")]
-        WMClient::new("EWM", Box::new(ewm_client::EwmClient::new()), log_window_changes),
     ];
 
     if clients.len() == 0 {

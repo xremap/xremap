@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
-        feature: [x11, gnome, kde, hypr, wlroots, niri, cosmic, socket,ewm]
+        feature: [x11, gnome, kde, hypr, wlroots, niri, cosmic, socket]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
       - uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
@@ -109,8 +109,6 @@ jobs:
         with: { name: xremap-x86_64-cosmic, path: package/ }
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with: { name: xremap-x86_64-socket, path: package/ }
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
-        with: { name: xremap-x86_64-ewm, path: package/ }
 
       # Fetch aarch64 binary
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
@@ -129,8 +127,6 @@ jobs:
         with: { name: xremap-aarch64-cosmic, path: package/ }
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with: { name: xremap-aarch64-socket, path: package/ }
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
-        with: { name: xremap-aarch64-ewm, path: package/ }
 
       # Release binary
       - name: Release

@@ -1,3 +1,6 @@
+## v0.14.19
+- remove experimental ewm client ( EWM support wlroots now).
+
 ## v0.14.18
 
 - Add experimental double tap and chords https://github.com/xremap/xremap/pull/869
