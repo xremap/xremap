@@ -1,4 +1,9 @@
 ## v0.14.19
+
+- Bump deps https://github.com/xremap/xremap/pull/880
+- Support dynamic window title changes in KWin script https://github.com/xremap/xremap/pull/878
+- Update readme https://github.com/xremap/xremap/pull/879, https://github.com/xremap/xremap/pull/876, https://github.com/xremap/xremap/pull/871
+- add a link about supported compositor for wlroots
 - remove experimental ewm client ( EWM support wlroots now).
 
 ## v0.14.18
