@@ -364,14 +364,14 @@ you pressed <kbd>C-Shift-n</kbd>, it will automatically be remapped to
 `application` can be used for both `modmap` and `keymap`, which allows you to specify application-specific remapping.
 
 ```yml
-application:
-  not: Application
-  # or
-  not: [Application, ...]
-  # or
-  only: Application
-  # or
-  only: [Application, ...]
+keymap:
+  - application:
+      not: firefox
+      #not: [firefox, ...]
+      #only: firefox
+      #only: [firefox, ...]
+    remap:
+      capslock: KEY_A
 ```
 
 The application name can be specified as a normal string to exactly match the name,
@@ -486,7 +486,7 @@ further info run: `xremap --list-devices` or even `xremap --device-details`.
 keymap:
   - device:
       not: "/dev/input/event0"
-      not: "/dev/input/by-id/Cool_Device" # Symlink to device. Since v0.14.8
+      # not: "/dev/input/by-id/Cool_Device" # Symlink to device. Since v0.14.8
       # not: [event0, event1]
       # only: 'Some Cool Device Name'
       # only: ['Cool Device', 'Another Device']
@@ -685,7 +685,21 @@ Options:
           Print version
 ```
 
-The arguments to `--device` and `--ignore` are described [here](#device).
+### Device/ignore
+
+The arguments to `--device` and `--ignore` are described [here](#device). When using
+`--device`, only the devices you specify will be used. To select more than one device separate them
+by `,` or use `--device` for each:
+
+```sh
+xremap --device "first device,second device" config.yml
+```
+
+or:
+
+```sh
+xremap --device "first device" --device "second device" config.yml
+```
 
 ## Maintainers
 
