@@ -685,7 +685,21 @@ Options:
           Print version
 ```
 
-The arguments to `--device` and `--ignore` are described [here](#device).
+### Device/ignore
+
+The arguments to `--device` and `--ignore` are described [here](#device). When using
+`--device`, only the devices you specify will be used. To select more than one device separate them
+by `,` or use `--device` for each:
+
+```sh
+xremap --device "first device,second device" config.yml
+```
+
+or:
+
+```sh
+xremap --device "first device" --device "second device" config.yml
+```
 
 ## Maintainers
 
