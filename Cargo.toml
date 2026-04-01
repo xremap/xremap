@@ -14,7 +14,7 @@ clap_complete = "4.3.2"
 derive-where = "1.6.0"
 env_logger = "0.11.10"
 evdev = "0.13.2"
-fork = "0.6"
+fork = "0.7"
 futures-util = {version = "0.3", optional = true}
 indoc = "2.0"
 lazy_static = "1.5.0"
