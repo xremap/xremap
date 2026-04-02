@@ -108,36 +108,29 @@ impl EventHandler {
                     Event::KeyEvent(device, key_event) => {
                         self.on_key_event(key_event.key, key_event.value(), &device, config)?;
                     }
-                    _ => {}
-                }
-            }
+                    Event::RelativeEvent(device, relative_event) => {
+                        let key = Key(relative_event.to_disguised_key());
 
-            match event {
-                Event::KeyEvent(_, _) => {
-                    // already handled
-                }
-                Event::RelativeEvent(device, relative_event) => {
-                    let key = Key(relative_event.to_disguised_key());
+                        // Send as disguised-event
+                        let was_remapped = self.on_key_event(key, PRESS, &device, config)?;
 
-                    // Send as disguised-event
-                    let was_remapped = self.on_key_event(key, PRESS, device, config)?;
-
-                    if !was_remapped {
-                        let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
-                        if relative_event.code <= 2 {
-                            mouse_movement_collection.push(action);
-                        } else {
-                            self.send_action(Action::RelativeEvent(action));
+                        if !was_remapped {
+                            let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
+                            if relative_event.code <= 2 {
+                                mouse_movement_collection.push(action);
+                            } else {
+                                self.send_action(Action::RelativeEvent(action));
+                            }
                         }
                     }
-                }
 
-                Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
-                Event::OverrideTimeout => self.timeout_override()?,
-                Event::Tick => {
-                    // Can be ignored. It's for operators.
+                    Event::OtherEvents(event) => self.send_action(Action::InputEvent(event)),
+                    Event::OverrideTimeout => self.timeout_override()?,
+                    Event::Tick => {
+                        // Can be ignored. It's for operators.
+                    }
                 }
-            };
+            }
         }
         // if there is at least one mouse movement event, sending all of them as one MouseMovementEventCollection
         if !mouse_movement_collection.is_empty() {
