@@ -98,7 +98,11 @@ impl EventHandler {
                 Event::KeyEvent(device, key_event) => {
                     debug!("=> {}: {:?}", key_event.value(), &key_event.key);
 
-                    self.on_key_event(key_event, config, device)?;
+                    // Apply modmap
+                    let modmap_events = self.apply_modmap(config, key_event.key, key_event.value(), device)?;
+
+                    // key_event is a dummy
+                    self.on_key_event(key_event, modmap_events, config, device)?;
                 }
                 Event::RelativeEvent(device, relative_event) => {
                     self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
@@ -126,15 +130,13 @@ impl EventHandler {
     fn on_key_event(
         &mut self,
         event: &KeyEvent,
+        modmap_events: Vec<(Key, i32)>,
         config: &Config,
         device: &InputDeviceInfo,
     ) -> Result<bool, Box<dyn Error>> {
-        // Apply modmap
-        let key_values = self.apply_modmap(config, event.key, event.value(), device)?;
-
         let mut send_original_relative_event = false;
         // Apply keymap
-        for (key, value) in key_values.into_iter() {
+        for (key, value) in modmap_events.into_iter() {
             if config.virtual_modifiers.contains(&key) {
                 self.update_modifier(key, value);
                 continue;
@@ -177,8 +179,11 @@ impl EventHandler {
     ) -> Result<(), Box<dyn Error>> {
         let key = event.to_disguised_key();
 
+        // Apply modmap
+        let modmap_events = self.apply_modmap(config, Key(key), PRESS, device)?;
+
         // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-        match self.on_key_event(&KeyEvent::new_with(key, PRESS), config, device)? {
+        match self.on_key_event(&KeyEvent::new_with(key, PRESS), modmap_events, config, device)? {
             // the boolean value is from a variable at the end of on_key_event from event_handler,
             // used to indicate whether the event got through unchanged.
             true => {
