@@ -175,10 +175,7 @@ impl EventHandler {
                 }
             }
             // checking if there's a "disguised" key version of a relative event,
-            // (scancodes equal to and over DISGUISED_EVENT_OFFSETTER are only "disguised" custom events)
-            // and also if it's the same "key" and value as the one that came in.
             if key.code() >= DISGUISED_EVENT_OFFSETTER && (key.code(), value) == (key_event.code(), key_event.value()) {
-                // if it is, setting send_original_relative_event to true to later tell on_relative_event to send the original event.
                 send_original_relative_event = true;
                 continue;
             }
@@ -188,8 +185,6 @@ impl EventHandler {
         match event {
             Event::RelativeEvent(_, relative_event) => {
                 match send_original_relative_event {
-                    // the boolean value is from a variable at the end of on_key_event from event_handler,
-                    // used to indicate whether the event got through unchanged.
                     true => {
                         // Sending the original RELATIVE event if the "press" version of the "fake" KEY event got through on_key_event unchanged.
                         let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
