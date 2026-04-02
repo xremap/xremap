@@ -115,18 +115,17 @@ impl EventHandler {
             // Apply keymap
             match event {
                 Event::KeyEvent(device, _) => {
-                    self.on_key_event(modmap_events, device, config)?;
+                    for (key, value) in modmap_events.into_iter() {
+                        self.on_key_event(key, value, device, config)?;
+                    }
                 }
                 Event::RelativeEvent(device, relative_event) => {
-                    let key = relative_event.to_disguised_key();
-                    // hacky, but this is actually just the events, that needs to be processed.
-                    // And now modmap doesn't create the disguised-press. Much easier to understand.
-                    let modmap_events = vec![(Key(key), PRESS)];
+                    let key = Key(relative_event.to_disguised_key());
 
                     // Send as disguised-event
-                    let send_original_relative_event = self.on_key_event(modmap_events, device, config)?;
+                    let was_remapped = self.on_key_event(key, PRESS, device, config)?;
 
-                    if send_original_relative_event {
+                    if !was_remapped {
                         let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
                         if relative_event.code <= 2 {
                             mouse_movement_collection.push(action);
@@ -157,36 +156,36 @@ impl EventHandler {
     // Handle EventType::KEY
     fn on_key_event(
         &mut self,
-        modmap_events: Vec<(Key, i32)>,
+        key: Key,
+        value: i32,
         device: &Rc<InputDeviceInfo>,
         config: &Config,
     ) -> Result<bool, Box<dyn Error>> {
         // Apply keymap
-        for (key, value) in modmap_events.into_iter() {
-            if config.virtual_modifiers.contains(&key) {
-                self.update_modifier(key, value);
-                continue;
-            } else if MODIFIER_KEYS.contains(&key) {
-                self.update_modifier(key, value);
-            } else if is_pressed(value) {
-                if self.escape_next_key {
-                    self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, &key, device)? {
-                    self.dispatch_actions(&actions, &key)?;
-                    continue;
-                } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device)? {
-                    self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
-                    continue;
-                }
-            }
-            // It's the only event, so can return early.
-            if key.code() >= DISGUISED_EVENT_OFFSETTER {
+        if config.virtual_modifiers.contains(&key) {
+            self.update_modifier(key, value);
+            return Ok(true);
+        } else if MODIFIER_KEYS.contains(&key) {
+            self.update_modifier(key, value);
+        } else if is_pressed(value) {
+            if self.escape_next_key {
+                self.escape_next_key = false
+            } else if let Some(actions) = self.find_keymap(config, &key, device)? {
+                self.dispatch_actions(&actions, &key)?;
+                return Ok(true);
+            } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device)? {
+                self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
                 return Ok(true);
             }
-            self.send_key(&key, value);
         }
 
-        Ok(false)
+        if key.code() >= DISGUISED_EVENT_OFFSETTER {
+            Ok(false)
+        } else {
+            self.send_key(&key, value);
+
+            Ok(true)
+        }
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
