@@ -1,3 +1,9 @@
+## v0.15.0
+
+Upgrade guide: https://github.com/xremap/xremap/blob/master/UPGRADE.md
+
+- Break: Mouse movement does not interrupt multipurpose key by default https://github.com/xremap/xremap/pull/890
+
 ## v0.14.19
 
 - Bump deps https://github.com/xremap/xremap/pull/880
