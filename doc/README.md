@@ -28,4 +28,4 @@ You can choose between the following ways to run xremap. They are ordered by the
 
 ### Upgrade guide
 
-- [Upgrade to v.0.15.0](upgrade_to_v0.15.md)
+- [Upgrade to v.0.15.0](../UPGRADE.md#Upgrade-to-v0.15)
