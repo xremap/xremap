@@ -1,3 +1,4 @@
+use crate::config::validation::validate_config_file;
 use crate::Config;
 use indoc::indoc;
 
@@ -107,6 +108,72 @@ fn test_yaml_modmap_multi_purpose_key_with_invalid_key() {
 }
 
 #[test]
+fn test_yaml_modmap_relative_events_are_invalid_1() {
+    assert_invalid_config(
+        indoc! {"
+        modmap:
+          - remap:
+              XUPSCROLL: KEY_A
+        "
+        },
+        "Relative mouse events can't be used in modmap",
+    )
+}
+
+#[test]
+fn test_yaml_modmap_relative_events_are_invalid_2() {
+    assert_invalid_config(
+        indoc! {"
+        modmap:
+          - remap:
+              KEY_A: XUPSCROLL
+        "
+        },
+        "Relative mouse events can't be used in modmap",
+    )
+}
+
+#[test]
+fn test_yaml_modmap_relative_events_are_invalid_3() {
+    assert_invalid_config(
+        indoc! {"
+        modmap:
+          - remap:
+              Space:
+                alone: A
+                held: XUPSCROLL
+        "
+        },
+        "Relative mouse events can't be used in modmap",
+    )
+}
+
+#[test]
+fn test_yaml_modmap_any_key_is_not_valid() {
+    assert_invalid_config(
+        indoc! {"
+        modmap:
+          - remap:
+              any: a
+        "},
+        "Any-key can't be used in modmap",
+    )
+}
+
+#[test]
+fn test_yaml_keymap_can_not_emit_relative_events_cur() {
+    assert_invalid_config(
+        indoc! {"
+        keymap:
+          - remap:
+              KEY_A: XUPSCROLL
+        "
+        },
+        "Relative mouse events can't be used as output",
+    )
+}
+
+#[test]
 fn test_yaml_virtual_modifiers() {
     yaml_assert_parse(indoc! {"
     virtual_modifiers:
@@ -157,13 +224,28 @@ fn test_yaml_invalid_virtual_modifiers_1() {
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_2() {
-    // Fails silently
-    serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
         virtual_modifiers:
             - WIN_L
         "
     })
-    .unwrap();
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(errmsg, "Can't use 'WIN_L' as virtual modifier");
+}
+
+#[test]
+fn test_yaml_invalid_virtual_modifiers_3() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        virtual_modifiers:
+            - XUPSCROLL
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(errmsg, "Can't use a relative-event (XUPSCROLL) as virtual modifier");
 }
 
 #[test]
@@ -777,4 +859,12 @@ fn yaml_assert_parse(yaml: &str) {
     if let Err(e) = result {
         panic!("{}", e)
     }
+}
+
+fn assert_invalid_config(config: &str, expected: &str) {
+    let errmsg = validate_config_file(&serde_yaml::from_str::<Config>(config).unwrap())
+        .unwrap_err()
+        .to_string();
+
+    assert_eq!(&errmsg, expected);
 }

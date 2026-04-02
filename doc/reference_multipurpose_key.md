@@ -72,6 +72,8 @@ modmap:
 
 Tap is preferred for `200ms`, then `shift_l` is pressed and hold.
 
+Working since v0.14.15
+
 ### Example: Hold-preferred
 
 This configuration is like zmk's hold-preferred hold-tap and qmk's "hold on other key press".

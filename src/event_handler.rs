@@ -4,7 +4,7 @@ use crate::config::application::OnlyOrNot;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
-use crate::config::modmap_action::{Interruptable, Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
+use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
@@ -17,6 +17,7 @@ use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 // This const is a value used to offset RELATIVE events' scancodes
@@ -91,20 +92,44 @@ impl EventHandler {
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
-            match event {
-                Event::KeyEvent(device, key_event) => {
-                    self.on_key_event(key_event, config, device)?;
-                }
-                Event::RelativeEvent(device, relative_event) => {
-                    self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
-                }
+            self.application_cache = None; // expire cache
+            self.title_cache = None; // expire cache
 
-                Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
-                Event::OverrideTimeout => self.timeout_override()?,
-                Event::Tick => {
-                    // Can be ignored. It's for operators.
+            if let Event::KeyEvent(_, key_event) = event {
+                debug!("=> {}: {:?}", key_event.value(), &key_event.key);
+            }
+
+            // Apply modmap
+            let modmap_events = self.apply_modmap(config, event)?;
+
+            // Apply keymap
+            for event in modmap_events.into_iter() {
+                match event {
+                    Event::KeyEvent(device, key_event) => {
+                        self.on_key_event(key_event.key, key_event.value(), &device, config)?;
+                    }
+                    Event::RelativeEvent(device, relative_event) => {
+                        let key = Key(relative_event.to_disguised_key());
+
+                        // Send as disguised-event
+                        let was_remapped = self.on_key_event(key, PRESS, &device, config)?;
+
+                        if !was_remapped {
+                            if relative_event.code <= 2 {
+                                mouse_movement_collection.push(relative_event);
+                            } else {
+                                self.send_action(Action::RelativeEvent(relative_event));
+                            }
+                        }
+                    }
+
+                    Event::OtherEvents(event) => self.send_action(Action::InputEvent(event)),
+                    Event::OverrideTimeout => self.timeout_override()?,
+                    Event::Tick => {
+                        // Can be ignored. It's for operators.
+                    }
                 }
-            };
+            }
         }
         // if there is at least one mouse movement event, sending all of them as one MouseMovementEventCollection
         if !mouse_movement_collection.is_empty() {
@@ -120,140 +145,36 @@ impl EventHandler {
     // Handle EventType::KEY
     fn on_key_event(
         &mut self,
-        event: &KeyEvent,
+        key: Key,
+        value: i32,
+        device: &Rc<InputDeviceInfo>,
         config: &Config,
-        device: &InputDeviceInfo,
     ) -> Result<bool, Box<dyn Error>> {
-        self.application_cache = None; // expire cache
-        self.title_cache = None; // expire cache
-        let key = Key::new(event.code());
-
-        if key.code() < DISGUISED_EVENT_OFFSETTER {
-            debug!("=> {}: {:?}", event.value(), &key);
-        }
-
-        // Apply modmap
-        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, device) {
-            self.dispatch_keys(key_action, key, event.value())?
-        } else {
-            vec![(key, event.value())]
-        };
-        self.maintain_pressed_keys(key, event.value(), &mut key_values);
-        if !self.multi_purpose_keys.is_empty() {
-            key_values = self.flush_timeout_keys(key_values);
-        }
-
-        let mut send_original_relative_event = false;
         // Apply keymap
-        for (key, value) in key_values.into_iter() {
-            if config.virtual_modifiers.contains(&key) {
-                self.update_modifier(key, value);
-                continue;
-            } else if MODIFIER_KEYS.contains(&key) {
-                self.update_modifier(key, value);
-            } else if is_pressed(value) {
-                if self.escape_next_key {
-                    self.escape_next_key = false
-                } else if let Some(actions) = self.find_keymap(config, &key, device)? {
-                    self.dispatch_actions(&actions, &key)?;
-                    continue;
-                } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device)? {
-                    self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
-                    continue;
-                }
+        if config.virtual_modifiers.contains(&key) {
+            self.update_modifier(key, value);
+            return Ok(true);
+        } else if MODIFIER_KEYS.contains(&key) {
+            self.update_modifier(key, value);
+        } else if is_pressed(value) {
+            if self.escape_next_key {
+                self.escape_next_key = false
+            } else if let Some(actions) = self.find_keymap(config, &key, device)? {
+                self.dispatch_actions(&actions, &key)?;
+                return Ok(true);
+            } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device)? {
+                self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
+                return Ok(true);
             }
-            // checking if there's a "disguised" key version of a relative event,
-            // (scancodes equal to and over DISGUISED_EVENT_OFFSETTER are only "disguised" custom events)
-            // and also if it's the same "key" and value as the one that came in.
-            if key.code() >= DISGUISED_EVENT_OFFSETTER && (key.code(), value) == (event.code(), event.value()) {
-                // if it is, setting send_original_relative_event to true to later tell on_relative_event to send the original event.
-                send_original_relative_event = true;
-                continue;
-            }
+        }
+
+        if key.code() >= DISGUISED_EVENT_OFFSETTER {
+            Ok(false)
+        } else {
             self.send_key(&key, value);
+
+            Ok(true)
         }
-
-        // Using the Ok() to send a boolean to on_relative_event, which will be used to decide whether to send the original relative event.
-        // (True = send the original relative event, false = don't send it.)
-        Ok(send_original_relative_event)
-    }
-
-    // Handle EventType::RELATIVE
-    fn on_relative_event(
-        &mut self,
-        event: &RelativeEvent,
-        mouse_movement_collection: &mut Vec<RelativeEvent>,
-        config: &Config,
-        device: &InputDeviceInfo,
-    ) -> Result<(), Box<dyn Error>> {
-        // Because a "full" RELATIVE event is only one event,
-        // it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
-        // The solution used here is to send two events for each relative event :
-        // one for the press "event" and one for the "unpress" event.
-
-        // All relative events (except maybe those i haven't found information about (REL_DIAL, REL_MISC and REL_RESERVED))
-        // can have either a positive value or a negative value.
-        // A negative value is associated with a different action than the positive value.
-        // Specifically, negative values are associated with the opposite of the action that would emit a positive value.
-        // For example, a positive value for a scroll event (REL_WHEEL) comes from an upscroll, while a negative value comes from a downscroll.
-        let key = match event.value {
-            // Positive and negative values can be really high because the events are relative,
-            // so their values are variable, meaning we have to match with all positive/negative values.
-            // Not sure if there is any relative event with a fixed value.
-            1..=i32::MAX => (event.code * 2) + DISGUISED_EVENT_OFFSETTER,
-            // While some events may appear to have a fixed value,
-            // events like scrolling will have higher values with more "agressive" scrolling.
-
-            // *2 to create a "gap" between events (since multiplying by two means that all resulting values will be even, the odd numbers between will be missing),
-            // +1 if the event has a negative value to "fill" the gap (since adding one shifts the parity from even to odd),
-            // and adding DISGUISED_EVENT_OFFSETTER,
-            // so that the total as a keycode corresponds to one of the custom aliases that
-            // are created in config::key::parse_key specifically for these "disguised" relative events.
-            i32::MIN..=-1 => (event.code * 2) + 1 + DISGUISED_EVENT_OFFSETTER,
-
-            0 => {
-                println!("This event has a value of zero : {event:?}");
-                // A value of zero would be unexpected for a relative event,
-                // since changing something by zero is kinda useless.
-                // Just in case it can actually happen (and also because match arms need the same output type),
-                // we'll just act like the value of the event was a positive.
-                (event.code * 2) + DISGUISED_EVENT_OFFSETTER
-            }
-        };
-
-        // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-        match self.on_key_event(&KeyEvent::new_with(key, PRESS), config, device)? {
-            // the boolean value is from a variable at the end of on_key_event from event_handler,
-            // used to indicate whether the event got through unchanged.
-            true => {
-                // Sending the original RELATIVE event if the "press" version of the "fake" KEY event got through on_key_event unchanged.
-                let action = RelativeEvent::new_with(event.code, event.value);
-                if event.code <= 2 {
-                    // If it's a mouse movement event (event.code <= 2),
-                    // it is added to mouse_movement_collection to later be sent alongside all other mouse movement event,
-                    // as a single MouseMovementEventCollection instead of potentially multiple RelativeEvent .
-
-                    // Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
-                    // which the OS handles differently from two unseparated mouse movement events.
-                    // For example, a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
-                    // will move the mouse cursor by a different amount than a REL_X followed by a REL_Y followed by a SYNCHRONIZATION.
-
-                    // ¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
-                    // ²Mouse movement along the X (horizontal) axis.
-                    // ³Mouse movement along the Y (vertical) axis.
-                    mouse_movement_collection.push(action);
-                } else {
-                    // Otherwise, the event is directly sent as a relative event, to be dispatched like other events.
-                    self.send_action(Action::RelativeEvent(action));
-                }
-            }
-            false => {}
-        }
-
-        // Sending the "unpressed" version of the "fake" KEY event.
-        self.on_key_event(&KeyEvent::new_with(key, RELEASE), config, device)?;
-
-        Ok(())
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
@@ -293,6 +214,7 @@ impl EventHandler {
     fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut [(Key, i32)]) {
         // Not handling multi-purpose keys for now; too complicated
         if events.len() != 1 || value != events[0].1 {
+            // When multiple keys are emitted, then it also comes here which makes it fail.
             return;
         }
 
@@ -311,17 +233,17 @@ impl EventHandler {
 
     fn dispatch_keys(
         &mut self,
-        key_action: ModmapAction,
+        key_action: ModmapOperator,
         key: Key,
         value: i32,
     ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
         let keys = match key_action {
-            ModmapAction::Keys(modmap_keys) => modmap_keys
+            ModmapOperator::Keys(modmap_keys) => modmap_keys
                 .into_vec()
                 .into_iter()
                 .map(|modmap_key| (modmap_key, value))
                 .collect(),
-            ModmapAction::MultiPurposeKey(MultiPurposeKey {
+            ModmapOperator::MultiPurposeKey(MultiPurposeKey {
                 hold,
                 tap,
                 hold_threshold,
@@ -380,7 +302,7 @@ impl EventHandler {
                 // fallthrough on state discrepancy
                 vec![(key, value)]
             }
-            ModmapAction::PressReleaseKey(PressReleaseKey {
+            ModmapOperator::PressReleaseKey(PressReleaseKey {
                 skip_key_event,
                 press,
                 repeat,
@@ -413,6 +335,9 @@ impl EventHandler {
         Ok(keys)
     }
 
+    // Typically only receives one key as argument. It can be more, when also matched
+    // in modmap. But that's probably not a meaningful use case, should probably
+    // interrupt before modmap, rather than after.
     fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
         let mut pressed = vec![];
         for (key, value) in key_values.iter() {
@@ -432,6 +357,8 @@ impl EventHandler {
                 .iter()
                 .filter_map(|(k, v)| (*v == PRESS).then_some(*k))
                 .collect();
+            // There's generally no protection against spurious press, so
+            // it's probably also not needed here.
             let key_values: Vec<(Key, i32)> = key_values
                 .into_iter()
                 .filter(|(key, value)| !(*value == PRESS && flushed_presses.contains(key)))
@@ -444,7 +371,52 @@ impl EventHandler {
         }
     }
 
-    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
+    fn apply_modmap(&mut self, config: &Config, event: &Event) -> Result<Vec<Event>, Box<dyn Error>> {
+        match event {
+            Event::KeyEvent(device, key_event) => {
+                let key = key_event.key;
+                let value = key_event.value();
+
+                let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, &device) {
+                    self.dispatch_keys(key_action, key, value)?
+                } else {
+                    vec![(key, value)]
+                };
+                self.maintain_pressed_keys(key, value, &mut key_values);
+                if !self.multi_purpose_keys.is_empty() {
+                    key_values = self.flush_timeout_keys(key_values);
+                }
+
+                let events: Vec<_> = key_values
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                Ok(events)
+            }
+            Event::RelativeEvent(device, relative_event) => {
+                // Can't use `flush_timeout_keys`, because it would also emit the disguised key.
+                let pressed = vec![Key(relative_event.to_disguised_key())];
+
+                let mut events = vec![];
+                for (_, state) in self.multi_purpose_keys.iter_mut() {
+                    events.extend(state.interrupted_by_press(&pressed));
+                }
+
+                let mut events: Vec<_> = events
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                events.push(event.clone());
+
+                Ok(events)
+            }
+            event => Ok(vec![event.clone()]),
+        }
+    }
+
+    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapOperator> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(window_matcher) = &modmap.window {

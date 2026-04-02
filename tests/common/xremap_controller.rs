@@ -1,5 +1,6 @@
 use crate::common::{
-    get_random_device_name, get_virtual_device, key_press, wait_for_device, wait_for_grabbed, VirtualDeviceInfo,
+    get_random_device_name, get_virtual_device, key_press, key_release, wait_for_device, wait_for_grabbed,
+    VirtualDeviceInfo,
 };
 use anyhow::{bail, Result};
 use evdev::{Device, EventType, FetchEventsSynced, InputEvent, KeyCode as Key};
@@ -317,7 +318,7 @@ impl XremapController {
             let events = self.fetch_events()?;
 
             for event in events {
-                if event.event_type() == EventType::KEY && event.code() == key.0 {
+                if event.event_type() == EventType::KEY && event.code() == key.0 && event.value() == 0 {
                     done = true;
                 }
 
@@ -330,7 +331,7 @@ impl XremapController {
 
     pub fn fetch(&mut self) -> anyhow::Result<Vec<InputEvent>> {
         // Sync key
-        self.emit_events(&vec![key_press(Key::KEY_MOVE)])?;
+        self.emit_events(&vec![key_press(Key::KEY_MOVE), key_release(Key::KEY_MOVE)])?;
 
         // Fetch until sync key.
         Ok(self.fetch_until_key(Key::KEY_MOVE)?)

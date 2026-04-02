@@ -1,7 +1,6 @@
 use crate::action::Action;
-use crate::event::Event;
-use crate::event::{KeyEvent, KeyValue};
-use crate::tests::{assert_actions, get_input_device_info, EventHandlerForTest};
+use crate::event::{Event, KeyEvent, KeyValue};
+use crate::tests::{assert_actions, EventHandlerForTest};
 use evdev::KeyCode as Key;
 use indoc::indoc;
 use std::thread::sleep;
@@ -17,10 +16,7 @@ fn test_multipurpose_is_not_emitted_on_press() {
                     held: A
                     alone: B
         "},
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press),
-        )],
+        vec![Event::key_press(Key::KEY_CAPSLOCK)],
         vec![],
     );
 }
@@ -37,10 +33,10 @@ fn test_multipurpose_is_interrupted() {
                     alone: CAPSLOCK
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
@@ -48,6 +44,55 @@ fn test_multipurpose_is_interrupted() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
         ],
+    );
+}
+
+#[test]
+fn test_two_multipurpose_keys_are_interrupted() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                CAPSLOCK:
+                    held: SHIFT_L
+                    alone: CAPSLOCK
+                    interruptable: { only: A}
+                ScrollLock:
+                    held: CTRL_L
+                    alone: ScrollLock
+                    interruptable: { only: B}
+        "},
+        vec![
+            Event::key_press(Key::KEY_SCROLLLOCK),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            // 2nd pressed is the 1st interrupted
+            Event::key_press(Key::KEY_B),
+            Event::key_press(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+        ],
+    );
+}
+
+#[test]
+fn test_multipurpose_key_interruptable_evaluated_after_modmap_lookup() {
+    // Not interrupted. It's unexpected because it happens after modmap dispatch.
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                A: B
+                CAPSLOCK:
+                    held: SHIFT_L
+                    alone: CAPSLOCK
+                    interruptable: { only: A}
+        "},
+        vec![Event::key_press(Key::KEY_CAPSLOCK), Event::key_press(Key::KEY_A)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press))],
     );
 }
 
@@ -63,8 +108,8 @@ fn test_multipurpose_released_without_interuption() {
                     alone: CAPSLOCK
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
@@ -85,8 +130,8 @@ fn test_multipurpose_is_repeated_in_hold_preferred_state() {
                     alone: CAPSLOCK
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_repeat(Key::KEY_CAPSLOCK),
         ],
         vec![],
     )
@@ -103,21 +148,12 @@ fn test_multipurpose_released_after_timeout() {
                     alone_timeout_millis: 10
         "});
 
-    handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press),
-        )],
-        vec![],
-    );
+    handler.assert(vec![Event::key_press(Key::KEY_CAPSLOCK)], vec![]);
 
     sleep(Duration::from_millis(20)); // To ensure the hold-action is taken.
 
     handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release),
-        )],
+        vec![Event::key_release(Key::KEY_CAPSLOCK)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
@@ -137,21 +173,12 @@ fn test_multipurpose_is_repeated_after_timeout() {
                     alone_timeout_millis: 10
         "});
 
-    handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press),
-        )],
-        vec![],
-    );
+    handler.assert(vec![Event::key_press(Key::KEY_CAPSLOCK)], vec![]);
 
     sleep(Duration::from_millis(20)); // To ensure the hold-action is taken.
 
     handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat),
-        )],
+        vec![Event::key_repeat(Key::KEY_CAPSLOCK)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
@@ -160,10 +187,7 @@ fn test_multipurpose_is_repeated_after_timeout() {
 
     // Repeat while hold down.
     handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat),
-        )],
+        vec![Event::key_repeat(Key::KEY_CAPSLOCK)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Repeat)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Repeat)),
@@ -171,10 +195,7 @@ fn test_multipurpose_is_repeated_after_timeout() {
     );
 
     handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release),
-        )],
+        vec![Event::key_release(Key::KEY_CAPSLOCK)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
@@ -194,8 +215,8 @@ fn test_free_hold_does_not_repeat_hold_action_before_decision() {
                     free_hold: true
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_repeat(Key::KEY_CAPSLOCK),
         ],
         vec![],
     );
@@ -213,9 +234,9 @@ fn test_free_hold_repeats_hold_action_after_decision() {
                     free_hold: true
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_repeat(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Press)),
@@ -237,10 +258,10 @@ fn test_multipurpose_press_all_keys_then_release_all_keys_1() {
                     alone: A
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_1, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_1, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_1),
+            Event::key_release(Key::KEY_1),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Press)),
@@ -265,12 +286,12 @@ fn test_multipurpose_press_all_keys_then_release_all_keys_2() {
                     alone: A
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_1, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_2, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_2, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_1, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_1),
+            Event::key_press(Key::KEY_2),
+            Event::key_release(Key::KEY_2),
+            Event::key_release(Key::KEY_1),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Press)),
@@ -297,8 +318,8 @@ fn test_multipurpose_press_all_keys_then_release_all_keys_3() {
                     alone: [A, B]
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
@@ -320,9 +341,9 @@ fn test_key_release_will_not_trigger_held() {
                 alone: Y
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_1, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_1),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Release)),
@@ -349,10 +370,10 @@ fn test_the_multipurpose_output_is_used_in_keymap_1() {
                 X: KEY_1
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Press)),
@@ -382,8 +403,8 @@ fn test_the_multipurpose_output_is_used_in_keymap_2() {
                 Y: KEY_1
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Press)),
@@ -411,10 +432,10 @@ fn test_the_multipurpose_output_is_used_in_keymap_3() {
                 Y: KEY_1
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_A),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
@@ -444,10 +465,10 @@ fn test_the_multipurpose_output_is_used_in_keymap_4() {
                 Y: KEY_1
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_LEFTCTRL),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -472,10 +493,10 @@ fn test_alone_is_not_optional() {
                 held: X
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
@@ -497,8 +518,8 @@ fn test_held_is_not_optional() {
                 alone: X
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
@@ -519,10 +540,10 @@ fn test_output_key_used_as_trigger() {
                 alone: Y
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_X, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_X),
+            Event::key_release(Key::KEY_X),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Press)),
@@ -543,10 +564,10 @@ fn test_modifiers_are_sorted_first_and_last_held() {
                 alone: A
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -572,8 +593,8 @@ fn test_modifiers_are_sorted_first_and_last_alone() {
                 alone: [X, Control_L, Y]
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -596,10 +617,7 @@ fn test_spurious_release_multipurpose_key() {
                 held: A
                 alone: B
         "},
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release),
-        )],
+        vec![Event::key_release(Key::KEY_CAPSLOCK)],
         vec![Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release))],
     );
 }
@@ -614,10 +632,99 @@ fn test_spurious_repeat_multipurpose_key() {
                 held: A
                 alone: B
         "},
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat),
-        )],
+        vec![Event::key_repeat(Key::KEY_CAPSLOCK)],
         vec![Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat))],
+    );
+}
+
+#[test]
+fn test_multipurpose_key_never_pressed_but_released() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A:
+                    held: C
+                    alone: D
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_multipurpose_hold_by_interrupt_then_mode_change() {
+    // This fails (fatally) because `maintain_pressed_keys` is executed
+    // after `flush_timeout_keys`, so the 'subtitute-key' isn't recorded
+    // on emit/interrupt. It's also not recorded on press, because there
+    // is emit suppresed.
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: E
+            - remap:
+                A:
+                    held: C
+                    alone: D
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_K),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_E, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_multipurpose_hold_by_timeout_then_mode_change() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: E
+            - remap:
+                A:
+                    held: C
+                    alone: D
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_repeat(Key::KEY_A),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_E, KeyValue::Release)),
+        ],
     );
 }

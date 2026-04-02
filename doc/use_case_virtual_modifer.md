@@ -40,9 +40,6 @@ modmap:
       Capslock:
         alone: esc
         held: Capslock
-        # Ignore mouse movement when using --mouse
-        interruptable:
-          not: [XRIGHTCURSOR, XLEFTCURSOR, XDOWNCURSOR, XUPCURSOR]
 
 virtual_modifiers:
   - Capslock
@@ -53,7 +50,10 @@ keymap:
       # etc
 ```
 
-Note: It can be troublesome when `esc` isn't emitted before it is released.
+Note:
+
+- It can be troublesome when `esc` isn't emitted before it is released.
+- Works for v0.15.0 [See example prior to that](https://github.com/xremap/xremap/blob/f8451418a425fc91451f692d490fc32114b85eb1/doc/use_case_virtual_modifer.md#restoring-the-normal-function)
 
 It's also possible to emit the virtual modifier key itself, but it's more complicated:
 
@@ -64,9 +64,6 @@ modmap:
         # Emitted when physically released alone.
         alone: BTN_TRIGGER_HAPPY1
         held: Capslock
-        # Ignore mouse movement when using --mouse
-        interruptable:
-          not: [XRIGHTCURSOR, XLEFTCURSOR, XDOWNCURSOR, XUPCURSOR]
 
 virtual_modifiers:
   - Capslock
@@ -78,6 +75,8 @@ keymap:
       Capslock-H: left
       # etc
 ```
+
+Note: Works for v0.15.0 [See example prior to that](https://github.com/xremap/xremap/blob/f8451418a425fc91451f692d490fc32114b85eb1/doc/use_case_virtual_modifer.md#restoring-the-normal-function)
 
 ### Using a more normal key, like `tab`
 
@@ -116,6 +115,8 @@ keymap:
       BTN_TRIGGER_HAPPY1: tab
       tab-H: left
 ```
+
+Note: Working since v0.14.18
 
 **Convenient `alt-tab`**
 

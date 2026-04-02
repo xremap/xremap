@@ -1,7 +1,7 @@
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::OnlyOrNot;
 use crate::config::key::deserialize_key;
-use crate::config::modmap_action::ModmapAction;
+use crate::config::modmap_operator::ModmapOperator;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -15,7 +15,7 @@ pub struct Modmap {
     #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
-    pub remap: HashMap<Key, ModmapAction>,
+    pub remap: HashMap<Key, ModmapOperator>,
     pub application: Option<OnlyOrNot>,
     pub window: Option<OnlyOrNot>,
     pub device: Option<Device>,
@@ -26,10 +26,10 @@ pub struct Modmap {
 #[derive(Deserialize, Eq, Hash, PartialEq)]
 pub struct KeyWrapper(#[serde(deserialize_with = "deserialize_key")] pub Key);
 
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<Key, ModmapAction>, D::Error>
+fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<Key, ModmapOperator>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let v = HashMap::<KeyWrapper, ModmapAction>::deserialize(deserializer)?;
+    let v = HashMap::<KeyWrapper, ModmapOperator>::deserialize(deserializer)?;
     Ok(v.into_iter().map(|(KeyWrapper(k), v)| (k, v)).collect())
 }

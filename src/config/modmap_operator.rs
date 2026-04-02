@@ -1,6 +1,6 @@
 use super::deserialize_keys;
 use super::keymap_action::{Actions, KeymapAction};
-use crate::config::key::deserialize_key;
+use crate::config::key::{deserialize_key, parse_key};
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use serde_with::{serde_as, DurationMilliSeconds};
@@ -9,7 +9,7 @@ use std::time::Duration;
 // Values in `modmap.remap`
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub enum ModmapAction {
+pub enum ModmapOperator {
     Keys(Keys),
     MultiPurposeKey(MultiPurposeKey),
     PressReleaseKey(PressReleaseKey),
@@ -94,7 +94,15 @@ impl Interruptable {
 
 impl Default for Interruptable {
     fn default() -> Self {
-        Interruptable::All(true)
+        Interruptable::Not {
+            // Multipurpose key is not interrupted by mouse movement by default.
+            not: Keys::Keys(vec![
+                parse_key("XRIGHTCURSOR").unwrap(),
+                parse_key("XLEFTCURSOR").unwrap(),
+                parse_key("XDOWNCURSOR").unwrap(),
+                parse_key("XUPCURSOR").unwrap(),
+            ]),
+        }
     }
 }
 

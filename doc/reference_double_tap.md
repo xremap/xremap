@@ -19,6 +19,8 @@ experimental_map:
         timeout: 200 # Optional. Default is 200ms.
 ```
 
+Working since v0.14.18
+
 More examples below.
 
 ### Description
