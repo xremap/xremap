@@ -115,11 +115,20 @@ impl EventHandler {
             match event {
                 Event::KeyEvent(_, _) => {
                     // key_event, mouse_movement_collection are dummies
-                    self.on_key_event(event, modmap_events, &mut mouse_movement_collection, config)?;
+                    self.on_key_event(event, modmap_events, config)?;
                 }
-                Event::RelativeEvent(_, _) => {
-                    // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-                    self.on_key_event(&event, modmap_events, &mut mouse_movement_collection, config)?;
+                Event::RelativeEvent(_, relative_event) => {
+                    // Send as disguised-event
+                    let send_original_relative_event = self.on_key_event(&event, modmap_events, config)?;
+
+                    if send_original_relative_event {
+                        let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
+                        if relative_event.code <= 2 {
+                            mouse_movement_collection.push(action);
+                        } else {
+                            self.send_action(Action::RelativeEvent(action));
+                        }
+                    }
                 }
 
                 Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
@@ -145,9 +154,8 @@ impl EventHandler {
         &mut self,
         event: &Event,
         modmap_events: Vec<(Key, i32)>,
-        mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<bool, Box<dyn Error>> {
         let (device, modmap_events) = match event {
             Event::KeyEvent(device, _) => (device, modmap_events),
             Event::RelativeEvent(device, relative_event) => {
@@ -160,7 +168,6 @@ impl EventHandler {
             _ => unreachable!(),
         };
 
-        let mut send_original_relative_event = false;
         // Apply keymap
         for (key, value) in modmap_events.into_iter() {
             if config.virtual_modifiers.contains(&key) {
@@ -179,46 +186,14 @@ impl EventHandler {
                     continue;
                 }
             }
-            // checking if there's a "disguised" key version of a relative event,
+            // It's the only event, so can return early.
             if key.code() >= DISGUISED_EVENT_OFFSETTER {
-                send_original_relative_event = true;
-                continue;
+                return Ok(true);
             }
             self.send_key(&key, value);
         }
 
-        match event {
-            Event::RelativeEvent(_, relative_event) => {
-                match send_original_relative_event {
-                    true => {
-                        // Sending the original RELATIVE event if the "press" version of the "fake" KEY event got through on_key_event unchanged.
-                        let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
-                        if relative_event.code <= 2 {
-                            // If it's a mouse movement event (event.code <= 2),
-                            // it is added to mouse_movement_collection to later be sent alongside all other mouse movement event,
-                            // as a single MouseMovementEventCollection instead of potentially multiple RelativeEvent .
-
-                            // Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
-                            // which the OS handles differently from two unseparated mouse movement events.
-                            // For example, a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
-                            // will move the mouse cursor by a different amount than a REL_X followed by a REL_Y followed by a SYNCHRONIZATION.
-
-                            // ¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
-                            // ²Mouse movement along the X (horizontal) axis.
-                            // ³Mouse movement along the Y (vertical) axis.
-                            mouse_movement_collection.push(action);
-                        } else {
-                            // Otherwise, the event is directly sent as a relative event, to be dispatched like other events.
-                            self.send_action(Action::RelativeEvent(action));
-                        }
-                    }
-                    false => {}
-                }
-            }
-            _ => {}
-        };
-
-        Ok(())
+        Ok(false)
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
