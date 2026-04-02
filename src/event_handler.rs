@@ -17,6 +17,7 @@ use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 // This const is a value used to offset RELATIVE events' scancodes
@@ -113,13 +114,17 @@ impl EventHandler {
 
             // Apply keymap
             match event {
-                Event::KeyEvent(_, _) => {
-                    // key_event, mouse_movement_collection are dummies
-                    self.on_key_event(event, modmap_events, config)?;
+                Event::KeyEvent(device, _) => {
+                    self.on_key_event(modmap_events, device, config)?;
                 }
-                Event::RelativeEvent(_, relative_event) => {
+                Event::RelativeEvent(device, relative_event) => {
+                    let key = relative_event.to_disguised_key();
+                    // hacky, but this is actually just the events, that needs to be processed.
+                    // And now modmap doesn't create the disguised-press. Much easier to understand.
+                    let modmap_events = vec![(Key(key), PRESS)];
+
                     // Send as disguised-event
-                    let send_original_relative_event = self.on_key_event(&event, modmap_events, config)?;
+                    let send_original_relative_event = self.on_key_event(modmap_events, device, config)?;
 
                     if send_original_relative_event {
                         let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
@@ -152,22 +157,10 @@ impl EventHandler {
     // Handle EventType::KEY
     fn on_key_event(
         &mut self,
-        event: &Event,
         modmap_events: Vec<(Key, i32)>,
+        device: &Rc<InputDeviceInfo>,
         config: &Config,
     ) -> Result<bool, Box<dyn Error>> {
-        let (device, modmap_events) = match event {
-            Event::KeyEvent(device, _) => (device, modmap_events),
-            Event::RelativeEvent(device, relative_event) => {
-                let key = relative_event.to_disguised_key();
-                // hacky, but this is actually just the events, that needs to be processed.
-                // And now modmap doesn't create the disguised-press. Much easier to understand.
-                let modmap_events = vec![(Key(key), PRESS)];
-                (device, modmap_events)
-            }
-            _ => unreachable!(),
-        };
-
         // Apply keymap
         for (key, value) in modmap_events.into_iter() {
             if config.virtual_modifiers.contains(&key) {
