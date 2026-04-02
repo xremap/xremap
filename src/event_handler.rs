@@ -366,30 +366,33 @@ impl EventHandler {
     }
 
     fn apply_modmap(&mut self, config: &Config, event: &Event) -> Result<Vec<Event>, Box<dyn Error>> {
-        let (device, key, value) = match event {
-            Event::KeyEvent(device, key_event) => (device, key_event.key, key_event.value()),
+        match event {
+            Event::KeyEvent(device, key_event) => {
+                let key = key_event.key;
+                let value = key_event.value();
+
+                let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, &device) {
+                    self.dispatch_keys(key_action, key, value)?
+                } else {
+                    vec![(key, value)]
+                };
+                self.maintain_pressed_keys(key, value, &mut key_values);
+                if !self.multi_purpose_keys.is_empty() {
+                    key_values = self.flush_timeout_keys(key_values);
+                }
+
+                let events: Vec<_> = key_values
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                Ok(events)
+            }
             // Completely invariant on relative events (and others).
             // Later interuption of multi purpose key can be introduced, when
             // the coupling between modmap/keymap is gone.
-            event => return Ok(vec![event.clone()]),
-        };
-
-        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, &device) {
-            self.dispatch_keys(key_action, key, value)?
-        } else {
-            vec![(key, value)]
-        };
-        self.maintain_pressed_keys(key, value, &mut key_values);
-        if !self.multi_purpose_keys.is_empty() {
-            key_values = self.flush_timeout_keys(key_values);
+            event => Ok(vec![event.clone()]),
         }
-
-        let events: Vec<_> = key_values
-            .into_iter()
-            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-            .collect();
-
-        Ok(events)
     }
 
     fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapOperator> {
