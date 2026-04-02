@@ -105,7 +105,17 @@ impl EventHandler {
                     self.on_key_event(key_event, modmap_events, config, device)?;
                 }
                 Event::RelativeEvent(device, relative_event) => {
-                    self.on_relative_event(relative_event, &mut mouse_movement_collection, config, device)?
+                    // Apply modmap
+                    let modmap_events =
+                        self.apply_modmap(config, Key(relative_event.to_disguised_key()), PRESS, device)?;
+
+                    self.on_relative_event(
+                        relative_event,
+                        modmap_events,
+                        &mut mouse_movement_collection,
+                        config,
+                        device,
+                    )?
                 }
 
                 Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
@@ -173,14 +183,12 @@ impl EventHandler {
     fn on_relative_event(
         &mut self,
         event: &RelativeEvent,
+        modmap_events: Vec<(Key, i32)>,
         mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
         device: &InputDeviceInfo,
     ) -> Result<(), Box<dyn Error>> {
         let key = event.to_disguised_key();
-
-        // Apply modmap
-        let modmap_events = self.apply_modmap(config, Key(key), PRESS, device)?;
 
         // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
         match self.on_key_event(&KeyEvent::new_with(key, PRESS), modmap_events, config, device)? {
