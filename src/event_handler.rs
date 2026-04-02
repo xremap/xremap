@@ -17,6 +17,7 @@ use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 // This const is a value used to offset RELATIVE events' scancodes
@@ -111,9 +112,9 @@ impl EventHandler {
 
             // Apply keymap
             match event {
-                Event::KeyEvent(device, key_event) => {
+                Event::KeyEvent(_, _) => {
                     // key_event is a dummy
-                    self.on_key_event(key_event, modmap_events, config, device)?;
+                    self.on_key_event(event, modmap_events, config)?;
                 }
                 Event::RelativeEvent(device, relative_event) => {
                     //
@@ -122,7 +123,7 @@ impl EventHandler {
                         modmap_events,
                         &mut mouse_movement_collection,
                         config,
-                        device,
+                        device.clone(),
                     )?
                 }
 
@@ -147,11 +148,19 @@ impl EventHandler {
     // Handle EventType::KEY
     fn on_key_event(
         &mut self,
-        event: &KeyEvent,
+        event: &Event,
         modmap_events: Vec<(Key, i32)>,
         config: &Config,
-        device: &InputDeviceInfo,
     ) -> Result<bool, Box<dyn Error>> {
+        let (key_event, device) = match event {
+            Event::KeyEvent(device, key_event) => (key_event.clone(), device),
+            Event::RelativeEvent(device, relative_event) => {
+                let key_event = KeyEvent::new_with(relative_event.to_disguised_key(), PRESS);
+                (key_event, device)
+            }
+            _ => unreachable!(),
+        };
+
         let mut send_original_relative_event = false;
         // Apply keymap
         for (key, value) in modmap_events.into_iter() {
@@ -174,7 +183,7 @@ impl EventHandler {
             // checking if there's a "disguised" key version of a relative event,
             // (scancodes equal to and over DISGUISED_EVENT_OFFSETTER are only "disguised" custom events)
             // and also if it's the same "key" and value as the one that came in.
-            if key.code() >= DISGUISED_EVENT_OFFSETTER && (key.code(), value) == (event.code(), event.value()) {
+            if key.code() >= DISGUISED_EVENT_OFFSETTER && (key.code(), value) == (key_event.code(), key_event.value()) {
                 // if it is, setting send_original_relative_event to true to later tell on_relative_event to send the original event.
                 send_original_relative_event = true;
                 continue;
@@ -194,12 +203,10 @@ impl EventHandler {
         modmap_events: Vec<(Key, i32)>,
         mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
-        device: &InputDeviceInfo,
+        device: Rc<InputDeviceInfo>,
     ) -> Result<(), Box<dyn Error>> {
-        let key = event.to_disguised_key();
-
         // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-        match self.on_key_event(&KeyEvent::new_with(key, PRESS), modmap_events, config, device)? {
+        match self.on_key_event(&Event::RelativeEvent(device, event.clone()), modmap_events, config)? {
             // the boolean value is from a variable at the end of on_key_event from event_handler,
             // used to indicate whether the event got through unchanged.
             true => {
