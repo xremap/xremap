@@ -126,14 +126,13 @@ impl EventHandler {
     ) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         self.title_cache = None; // expire cache
-        let key = Key::new(event.code());
 
-        if key.code() < DISGUISED_EVENT_OFFSETTER {
-            debug!("=> {}: {:?}", event.value(), &key);
+        if event.key.code() < DISGUISED_EVENT_OFFSETTER {
+            debug!("=> {}: {:?}", event.value(), &event.key);
         }
 
         // Apply modmap
-        let key_values = self.apply_modmap(config, key, event.value(), device)?;
+        let key_values = self.apply_modmap(config, event.key, event.value(), device)?;
 
         let mut send_original_relative_event = false;
         // Apply keymap
