@@ -171,3 +171,116 @@ fn test_modmap_emit_is_not_used_in_subsequent_remaps() {
         ],
     )
 }
+
+#[test]
+fn test_modmap_release_is_safe_even_with_mode_change_1() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: B
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_modmap_release_is_safe_even_with_mode_change_2() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: B
+            - remap:
+                A: C
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_modmap_release_is_safe_even_with_mode_change_3() {
+    // fails
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: [B,D]
+            - remap:
+                A: C
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_mode_change_affects_modmap_right_away() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: B
+            - remap:
+                A: C
+        keymap:
+            - remap:
+                C: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+        ],
+    )
+}

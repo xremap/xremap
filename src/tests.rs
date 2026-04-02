@@ -853,6 +853,44 @@ fn test_any_key() {
 }
 
 #[test]
+fn test_any_does_not_work_in_nested_remap() {
+    // This happens because it tries nested with K, and then cancels the nested
+    // remap because K is not mapped there. So it doesn't matter that it's later
+    // tried with any-key.
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              a:
+                - remap:
+                    b: c
+                    any: d
+              k: h
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_press(Key::KEY_K)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_H, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    );
+}
+
+#[test]
+fn test_any_does_not_work_in_modmap_remap() {
+    assert_actions(
+        indoc! {"
+        modmap:
+          - remap:
+              any: a
+        "},
+        vec![Event::key_press(Key::KEY_K)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press))],
+    );
+}
+
+#[test]
 fn test_keymap_with_modifier_alone_is_not_supported() {
     assert_actions(
         indoc! {"

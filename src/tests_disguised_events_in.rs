@@ -9,6 +9,18 @@ use indoc::indoc;
 use std::time::Duration;
 
 #[test]
+fn test_disguised_event_does_not_match() {
+    assert_actions(
+        indoc! {""},
+        vec![Event::relative(RelativeAxisCode::REL_WHEEL.0, 1)],
+        vec![Action::RelativeEvent(RelativeEvent::new_with(
+            RelativeAxisCode::REL_WHEEL.0,
+            1,
+        ))],
+    )
+}
+
+#[test]
 fn test_mapped_disguised_event_from_modmap_is_used_in_keymap() {
     assert_actions(
         indoc! {"
@@ -176,6 +188,72 @@ fn test_disguised_events_and_press_release_key() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
+fn test_disguised_event_mapped_in_nested_remap() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              a:
+                remap:
+                    XUpScroll: d
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::relative(RelativeAxisCode::REL_WHEEL.0, 1),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
+fn test_disguised_event_cancels_nested_remap() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              a:
+                remap:
+                    b: c
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::relative(RelativeAxisCode::REL_WHEEL.0, 1),
+            Event::key_press(Key::KEY_B),
+        ],
+        vec![
+            Action::RelativeEvent(RelativeEvent::new_with(RelativeAxisCode::REL_WHEEL.0, 1)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+        ],
+    )
+}
+
+#[test]
+fn test_disguised_event_cancels_multi_purpose_key() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                a:
+                    alone: b
+                    held: c
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::relative(RelativeAxisCode::REL_WHEEL.0, 1),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::RelativeEvent(RelativeEvent::new_with(RelativeAxisCode::REL_WHEEL.0, 1)),
         ],
     )
 }

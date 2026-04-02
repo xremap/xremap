@@ -48,6 +48,55 @@ fn test_multipurpose_is_interrupted() {
 }
 
 #[test]
+fn test_two_multipurpose_keys_are_interrupted() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                CAPSLOCK:
+                    held: SHIFT_L
+                    alone: CAPSLOCK
+                    interruptable: { only: A}
+                ScrollLock:
+                    held: CTRL_L
+                    alone: ScrollLock
+                    interruptable: { only: B}
+        "},
+        vec![
+            Event::key_press(Key::KEY_SCROLLLOCK),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            // 2nd pressed is the 1st interrupted
+            Event::key_press(Key::KEY_B),
+            Event::key_press(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+        ],
+    );
+}
+
+#[test]
+fn test_multipurpose_key_interruptable_evaluated_after_modmap_lookup() {
+    // Not interrupted. It's unexpected because it happens after modmap dispatch.
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                A: B
+                CAPSLOCK:
+                    held: SHIFT_L
+                    alone: CAPSLOCK
+                    interruptable: { only: A}
+        "},
+        vec![Event::key_press(Key::KEY_CAPSLOCK), Event::key_press(Key::KEY_A)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press))],
+    );
+}
+
+#[test]
 fn test_multipurpose_released_without_interuption() {
     // Alone key is emitted if no other key is pressed before release
     assert_actions(
@@ -585,5 +634,97 @@ fn test_spurious_repeat_multipurpose_key() {
         "},
         vec![Event::key_repeat(Key::KEY_CAPSLOCK)],
         vec![Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat))],
+    );
+}
+
+#[test]
+fn test_multipurpose_key_never_pressed_but_released() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A:
+                    held: C
+                    alone: D
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_multipurpose_hold_by_interrupt_then_mode_change() {
+    // This fails (fatally) because `maintain_pressed_keys` is executed
+    // after `flush_timeout_keys`, so the 'subtitute-key' isn't recorded
+    // on emit/interrupt. It's also not recorded on press, because there
+    // is emit suppresed.
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: E
+            - remap:
+                A:
+                    held: C
+                    alone: D
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_K),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_E, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_multipurpose_hold_by_timeout_then_mode_change() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: other_mode
+              remap:
+                A: E
+            - remap:
+                A:
+                    held: C
+                    alone: D
+        keymap:
+            - remap:
+                M: { set_mode: other_mode }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_repeat(Key::KEY_A),
+            // Change mode
+            Event::key_press(Key::KEY_M),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_E, KeyValue::Release)),
+        ],
     );
 }

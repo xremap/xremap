@@ -243,7 +243,7 @@ impl EventHandler {
         }
 
         // Sending the "unpressed" version of the "fake" KEY event.
-        self.on_key_event(&KeyEvent::new_with(key, RELEASE), config, device)?;
+        let _ignored = self.on_key_event(&KeyEvent::new_with(key, RELEASE), config, device)?;
 
         Ok(())
     }

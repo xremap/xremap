@@ -14,7 +14,6 @@ fn test_press_release() {
             - remap:
                 A:
                     press: C
-                    release: D
         "},
         vec![Event::key_press(Key::KEY_A)],
         vec![
@@ -29,13 +28,13 @@ fn test_press_release() {
 
 #[test]
 fn test_press_release_skip_original_key() {
+    //Note: press release key has no repeat/release actions by default
     assert_actions(
         indoc! {"
         modmap:
             - remap:
                 A:
                     press: C
-                    release: D
                     skip_key_event: true
         "},
         vec![Event::key_press(Key::KEY_A)],
@@ -78,7 +77,6 @@ fn test_press_release_repeat_custom_key() {
             - remap:
                 A:
                     press: C
-                    release: D
                     repeat: E
         "},
         vec![Event::key_press(Key::KEY_A), Event::key_repeat(Key::KEY_A)],
@@ -93,6 +91,30 @@ fn test_press_release_repeat_custom_key() {
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Repeat)),
+        ],
+    )
+}
+
+#[test]
+fn test_press_release_actions_goes_around_keymap() {
+    assert_actions(
+        indoc! {"
+        modmap:
+          - remap:
+              A:
+                press: B
+                skip_key_event: true
+
+        keymap:
+          - remap:
+              B: C
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
         ],
     )
 }
@@ -125,6 +147,57 @@ fn test_press_release_can_escape_next_key() {
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_press_release_emit_modifiers() {
+    assert_actions(
+        indoc! {"
+        modmap:
+          - remap:
+              A:
+                press: LeftCtrl-B
+                skip_key_event: true
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_press_release_lift_extra_modifiers_on_emit() {
+    assert_actions(
+        indoc! {"
+        modmap:
+          - remap:
+              A:
+                press: LeftCtrl-B
+                skip_key_event: true
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTALT),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     )
 }
