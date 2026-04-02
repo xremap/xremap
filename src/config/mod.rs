@@ -18,6 +18,7 @@ extern crate serde_yaml;
 extern crate toml;
 
 use crate::config::expmap::Expmap;
+use crate::event_handler::MODIFIER_KEYS;
 use evdev::KeyCode as Key;
 use keymap::Keymap;
 use modmap::Modmap;
@@ -47,7 +48,7 @@ pub struct Config {
     pub keymap: Vec<Keymap>,
     #[serde(default = "default_mode")]
     pub default_mode: String,
-    #[serde(deserialize_with = "deserialize_keys", default = "Vec::new")]
+    #[serde(deserialize_with = "deserialize_virtual_modifier", default = "Vec::new")]
     pub virtual_modifiers: Vec<Key>,
     #[serde(default)]
     pub keypress_delay_ms: u64,
@@ -145,6 +146,22 @@ where
     let mut keys: Vec<Key> = vec![];
     for key_str in key_strs {
         keys.push(parse_key(&key_str).map_err(serde::de::Error::custom)?);
+    }
+    Ok(keys)
+}
+
+fn deserialize_virtual_modifier<'de, D>(deserializer: D) -> Result<Vec<Key>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let key_strs = Vec::<String>::deserialize(deserializer)?;
+    let mut keys: Vec<Key> = vec![];
+    for key_str in key_strs {
+        let key = parse_key(&key_str).map_err(serde::de::Error::custom)?;
+        if MODIFIER_KEYS.contains(&key) {
+            return Err(serde::de::Error::custom(format!("Can't use '{key_str}' as virtual modifier")));
+        }
+        keys.push(key);
     }
     Ok(keys)
 }

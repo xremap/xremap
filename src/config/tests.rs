@@ -157,13 +157,15 @@ fn test_yaml_invalid_virtual_modifiers_1() {
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_2() {
-    // Fails silently
-    serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
         virtual_modifiers:
             - WIN_L
         "
     })
-    .unwrap();
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(errmsg, "Can't use 'WIN_L' as virtual modifier");
 }
 
 #[test]

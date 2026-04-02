@@ -111,36 +111,6 @@ fn test_virtual_modifier_in_inexact_match() {
 }
 
 #[test]
-fn test_ordinary_modifier_as_virtual() {
-    assert_actions(
-        indoc! {"
-        virtual_modifiers:
-            - WIN_L
-
-        keymap:
-            - remap:
-                WIN_L-A: B
-        "},
-        vec![
-            Event::key_press(Key::KEY_LEFTMETA),
-            Event::key_press(Key::KEY_A),
-            Event::key_release(Key::KEY_A),
-            Event::key_release(Key::KEY_LEFTMETA),
-        ],
-        vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTMETA, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-            Action::Delay(Duration::from_nanos(0)),
-            // Bug: this must not happen, because WIN_L is not released again.
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTMETA, KeyValue::Press)),
-            Action::Delay(Duration::from_nanos(0)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-        ],
-    )
-}
-
-#[test]
 fn test_virtual_modifier_can_be_explicitly_emitted_as_key() {
     assert_actions(
         indoc! {"
