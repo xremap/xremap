@@ -94,21 +94,29 @@ impl EventHandler {
             self.application_cache = None; // expire cache
             self.title_cache = None; // expire cache
 
+            if let Event::KeyEvent(_, key_event) = event {
+                debug!("=> {}: {:?}", key_event.value(), &key_event.key);
+            }
+
+            // Apply modmap
+            let modmap_events = match event {
+                Event::KeyEvent(device, key_event) => {
+                    self.apply_modmap(config, key_event.key, key_event.value(), device)?
+                }
+                Event::RelativeEvent(device, relative_event) => {
+                    self.apply_modmap(config, Key(relative_event.to_disguised_key()), PRESS, device)?
+                }
+                _ => vec![],
+            };
+
+            // Apply keymap
             match event {
                 Event::KeyEvent(device, key_event) => {
-                    debug!("=> {}: {:?}", key_event.value(), &key_event.key);
-
-                    // Apply modmap
-                    let modmap_events = self.apply_modmap(config, key_event.key, key_event.value(), device)?;
-
                     // key_event is a dummy
                     self.on_key_event(key_event, modmap_events, config, device)?;
                 }
                 Event::RelativeEvent(device, relative_event) => {
-                    // Apply modmap
-                    let modmap_events =
-                        self.apply_modmap(config, Key(relative_event.to_disguised_key()), PRESS, device)?;
-
+                    //
                     self.on_relative_event(
                         relative_event,
                         modmap_events,
