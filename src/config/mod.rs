@@ -13,12 +13,14 @@ pub mod modmap_operator;
 pub mod remap;
 #[cfg(test)]
 mod tests;
+mod validation;
 
 extern crate serde_yaml;
 extern crate toml;
 
+use crate::config::expmap::Expmap;
+use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
 use crate::event_handler::MODIFIER_KEYS;
-use crate::{config::expmap::Expmap, event_handler::DISGUISED_EVENT_OFFSETTER};
 use evdev::KeyCode as Key;
 use keymap::Keymap;
 use modmap::Modmap;
@@ -35,6 +37,7 @@ use self::{
     key::parse_key,
     keymap::{build_keymap_table, KeymapEntry},
 };
+pub use validation::validate_config_file;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -114,6 +117,8 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
 
     // Convert keymap for efficient keymap lookup
     config.keymap_table = build_keymap_table(&config.keymap);
+
+    validate_config_file(&config)?;
 
     Ok(config)
 }

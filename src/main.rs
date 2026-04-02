@@ -45,8 +45,6 @@ mod tests;
 #[cfg(test)]
 mod tests_disguised_events_in;
 #[cfg(test)]
-mod tests_disguised_events_out;
-#[cfg(test)]
 mod tests_extra_modifiers;
 #[cfg(test)]
 mod tests_keymap_mark;

@@ -2,7 +2,7 @@ use crate::action::Action;
 use crate::client::WindowInfo;
 use crate::client::{Client, WMClient};
 use crate::config::keymap::build_keymap_table;
-use crate::config::Config;
+use crate::config::{validate_config_file, Config};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
@@ -19,7 +19,6 @@ use std::time::Duration;
 /// With the following definition of specific (ordered by most specific first):
 ///
 ///     Virtual modifiers
-///     Disguised events output
 ///     Disguised events input (i.e. transformation of relative event to pseudo keys)
 ///     Multipurpose keys (tap-preferred)
 ///     Multipurpose keys (hold-preferred)
@@ -859,19 +858,6 @@ fn test_any_does_not_work_in_nested_remap() {
 }
 
 #[test]
-fn test_any_does_not_work_in_modmap_remap() {
-    assert_actions(
-        indoc! {"
-        modmap:
-          - remap:
-              any: a
-        "},
-        vec![Event::key_press(Key::KEY_K)],
-        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press))],
-    );
-}
-
-#[test]
 fn test_keymap_with_modifier_alone_is_not_supported() {
     assert_actions(
         indoc! {"
@@ -973,6 +959,7 @@ impl EventHandlerForTest {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
         let mut config: Config = serde_yaml::from_str(config_yaml).unwrap();
         config.keymap_table = build_keymap_table(&config.keymap);
+        validate_config_file(&config).unwrap();
         let event_handler = EventHandler::new(
             timer,
             &config.default_mode,
