@@ -103,8 +103,10 @@ impl EventHandler {
                 Event::KeyEvent(device, key_event) => {
                     self.apply_modmap(config, key_event.key, key_event.value(), device)?
                 }
-                Event::RelativeEvent(device, relative_event) => {
-                    self.apply_modmap(config, Key(relative_event.to_disguised_key()), PRESS, device)?
+                Event::RelativeEvent(_, _) => {
+                    // Completely invariant on relative events. Later interuption of multi purpose key
+                    // can be introduced, when the coupling between modmap/keymap is gone.
+                    vec![]
                 }
                 _ => vec![],
             };
@@ -146,11 +148,15 @@ impl EventHandler {
         mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
     ) -> Result<(), Box<dyn Error>> {
-        let (key_event, device) = match event {
-            Event::KeyEvent(device, key_event) => (key_event.clone(), device),
+        let (key_event, device, modmap_events) = match event {
+            Event::KeyEvent(device, key_event) => (key_event.clone(), device, modmap_events),
             Event::RelativeEvent(device, relative_event) => {
-                let key_event = KeyEvent::new_with(relative_event.to_disguised_key(), PRESS);
-                (key_event, device)
+                let key = relative_event.to_disguised_key();
+                let key_event = KeyEvent::new_with(key, PRESS);
+                // hacky, but this is actually just the events, that needs to be processed.
+                // And now modmap doesn't create the disguised-press. Much easier to understand.
+                let modmap_events = vec![(Key(key), PRESS)];
+                (key_event, device, modmap_events)
             }
             _ => unreachable!(),
         };

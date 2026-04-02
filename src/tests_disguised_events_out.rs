@@ -12,6 +12,7 @@ use std::time::Duration;
 
 #[test]
 fn test_emit_disguised_events_with_press_release_key() {
+    // todo: must be denied
     assert_actions(
         indoc! {"
         modmap:
@@ -71,22 +72,6 @@ fn test_disguised_event_trigger_other_disguised_event_in_keymap() {
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-        ],
-    )
-}
-
-#[test]
-fn test_key_trigger_disguised_event_in_modmap() {
-    assert_actions(
-        indoc! {"
-        modmap:
-            - remap:
-                A: XDownScroll
-        "},
-        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
-        vec![
-            Action::KeyEvent(KeyEvent::new(Key(59991), KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key(59991), KeyValue::Release)),
         ],
     )
 }

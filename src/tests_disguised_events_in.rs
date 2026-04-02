@@ -167,23 +167,23 @@ fn test_disguised_event_cancels_nested_remap() {
     )
 }
 
-#[test]
-fn test_disguised_event_cancels_multi_purpose_key() {
-    assert_actions(
-        indoc! {"
-        modmap:
-            - remap:
-                a:
-                    alone: b
-                    held: c
-        "},
-        vec![
-            Event::key_press(Key::KEY_A),
-            Event::relative(RelativeAxisCode::REL_WHEEL.0, 1),
-        ],
-        vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
-            Action::RelativeEvent(RelativeEvent::new_with(RelativeAxisCode::REL_WHEEL.0, 1)),
-        ],
-    )
-}
+// #[test]
+// fn test_disguised_event_cancels_multi_purpose_key() {
+//     assert_actions(
+//         indoc! {"
+//         modmap:
+//             - remap:
+//                 a:
+//                     alone: b
+//                     held: c
+//         "},
+//         vec![
+//             Event::key_press(Key::KEY_A),
+//             Event::relative(RelativeAxisCode::REL_WHEEL.0, 1),
+//         ],
+//         vec![
+//             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+//             Action::RelativeEvent(RelativeEvent::new_with(RelativeAxisCode::REL_WHEEL.0, 1)),
+//         ],
+//     )
+// }
