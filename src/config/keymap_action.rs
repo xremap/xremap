@@ -1,15 +1,11 @@
+use crate::config::key::parse_key;
 use crate::config::key_press::KeyPress;
-use std::collections::HashMap;
-
-use crate::config::remap::Remap;
+use crate::config::remap::{Remap, RemapActions};
 use evdev::KeyCode as Key;
-use serde::de;
-use serde::{Deserialize, Deserializer};
+use serde::{de, Deserialize, Deserializer};
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::time::Duration;
-
-use super::key::parse_key;
-use super::remap::RemapActions;
 
 // Values in `keymap.remap`
 #[derive(Clone, Debug, Deserialize)]
@@ -205,10 +201,8 @@ impl Actions {
 
 #[cfg(test)]
 mod tests {
-    use super::KeymapAction;
-    use crate::config::key_press::KeyPress;
-    use crate::config::key_press::Modifier;
-    use crate::config::keymap_action::Actions;
+    use crate::config::key_press::{KeyPress, Modifier};
+    use crate::config::keymap_action::{Actions, KeymapAction};
     use evdev::KeyCode as Key;
 
     #[test]

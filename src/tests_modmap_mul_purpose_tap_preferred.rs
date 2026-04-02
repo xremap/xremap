@@ -1,6 +1,6 @@
 use crate::action::Action;
 use crate::event::{Event, KeyEvent, KeyValue};
-use crate::tests::{assert_actions, get_input_device_info, EventHandlerForTest};
+use crate::tests::{assert_actions, EventHandlerForTest};
 use evdev::KeyCode as Key;
 use indoc::indoc;
 use std::thread::sleep;
@@ -17,10 +17,7 @@ fn test_tap_preferred_is_not_emitted_on_press() {
                     alone: B
                     hold_threshold_millis: 1000
         "},
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press),
-        )],
+        vec![Event::key_press(Key::KEY_CAPSLOCK)],
         vec![],
     );
 }
@@ -37,8 +34,8 @@ fn test_tap_preferred_released_before_timeout() {
                     hold_threshold_millis: 1000
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
@@ -59,12 +56,12 @@ fn test_tap_preferred_interrupted_before_timeout() {
                     hold_threshold_millis: 1000
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_B),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_B),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
@@ -90,9 +87,9 @@ fn test_tap_preferred_interrupted_before_timeout_and_repeated() {
                     hold_threshold_millis: 1000
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_repeat(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
@@ -114,8 +111,8 @@ fn test_tap_preferred_is_not_repeated_before_timeout() {
                     hold_threshold_millis: 1000
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Repeat)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_repeat(Key::KEY_CAPSLOCK),
         ],
         vec![],
     );
@@ -133,21 +130,12 @@ fn test_tap_preferred_released_in_hold_preferred_state() {
                     tap_timeout: 200
         "});
 
-    handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press),
-        )],
-        vec![],
-    );
+    handler.assert(vec![Event::key_press(Key::KEY_CAPSLOCK)], vec![]);
 
     sleep(Duration::from_millis(20)); // To ensure in hold-preferred state.
 
     handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release),
-        )],
+        vec![Event::key_release(Key::KEY_CAPSLOCK)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
@@ -167,21 +155,12 @@ fn test_tap_preferred_interrupted_in_hold_preferred_state() {
                     tap_timeout: 200
         "});
 
-    handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press),
-        )],
-        vec![],
-    );
+    handler.assert(vec![Event::key_press(Key::KEY_CAPSLOCK)], vec![]);
 
     sleep(Duration::from_millis(20)); // To ensure in hold-preferred state.
 
     handler.assert(
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_A, KeyValue::Press),
-        )],
+        vec![Event::key_press(Key::KEY_A)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),

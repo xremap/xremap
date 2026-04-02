@@ -1,7 +1,6 @@
 use crate::action::Action;
-use crate::event::Event;
-use crate::event::{KeyEvent, KeyValue};
-use crate::tests::{assert_actions, get_input_device_info};
+use crate::event::{Event, KeyEvent, KeyValue};
+use crate::tests::assert_actions;
 use evdev::KeyCode as Key;
 use indoc::indoc;
 use std::time::Duration;
@@ -15,8 +14,8 @@ fn test_modmap_one_key() {
               CAPSLOCK: SHIFT_L
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
@@ -35,10 +34,10 @@ fn test_modmap_remap_two_concurrent_keys() {
               CTRL_L: ALT_L
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_release(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_LEFTCTRL),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
@@ -57,10 +56,7 @@ fn test_modmap_only_emits_press_on_press() {
           - remap:
               CAPSLOCK: SHIFT_L
         "},
-        vec![Event::KeyEvent(
-            get_input_device_info(),
-            KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press),
-        )],
+        vec![Event::key_press(Key::KEY_CAPSLOCK)],
         vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press))],
     );
 }
@@ -75,8 +71,8 @@ fn test_modmap_can_emit_several_keys() {
               CAPSLOCK: [SHIFT_L, V]
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
@@ -96,10 +92,10 @@ fn test_modmap_followed_by_same_emit_key() {
               CAPSLOCK: SHIFT_L
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_release(Key::KEY_LEFTSHIFT),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
@@ -119,10 +115,10 @@ fn test_modmap_preceded_by_same_emit_key() {
               CAPSLOCK: SHIFT_L
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_LEFTSHIFT),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
@@ -145,8 +141,8 @@ fn test_modmap_output_is_used_in_keymap() {
               X: KEY_1
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Press)),

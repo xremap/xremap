@@ -1,7 +1,6 @@
 use crate::action::Action;
-use crate::event::Event;
-use crate::event::{KeyEvent, KeyValue};
-use crate::tests::{assert_actions, get_input_device_info};
+use crate::event::{Event, KeyEvent, KeyValue};
+use crate::tests::assert_actions;
 use evdev::KeyCode as Key;
 use indoc::indoc;
 use std::time::Duration;
@@ -19,10 +18,10 @@ fn test_on_left_side() {
                 CONTROL-A: B
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_LEFTCTRL),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -46,10 +45,7 @@ fn test_on_right_side() {
             - remap:
                 A: CONTROL-B
         "},
-        vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-        ],
+        vec![Event::key_press(Key::KEY_A), Event::key_release(Key::KEY_A)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
@@ -71,10 +67,10 @@ fn test_modifier_not_released_in_inexact_match() {
                 A: B
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_LEFTCTRL),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
@@ -99,10 +95,10 @@ fn test_virtual_modifier_is_not_considered_extra() {
                 CAPSLOCK-A: B
         "},
         vec![
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_A, KeyValue::Release)),
-            Event::KeyEvent(get_input_device_info(), KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+            Event::key_release(Key::KEY_CAPSLOCK),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
