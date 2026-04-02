@@ -103,11 +103,18 @@ impl EventHandler {
             let modmap_events = self.apply_modmap(config, event)?;
 
             // Apply keymap
-            match event {
-                Event::KeyEvent(device, _) => {
-                    for (key, value) in modmap_events.into_iter() {
+            for (key, value) in modmap_events.into_iter() {
+                match event {
+                    Event::KeyEvent(device, _) => {
                         self.on_key_event(key, value, device, config)?;
                     }
+                    _ => {}
+                }
+            }
+
+            match event {
+                Event::KeyEvent(_, _) => {
+                    // already handled
                 }
                 Event::RelativeEvent(device, relative_event) => {
                     let key = Key(relative_event.to_disguised_key());
