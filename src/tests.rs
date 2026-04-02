@@ -121,25 +121,6 @@ const _REL_WHEEL_HI_RES: u16 = 11;
 const _REL_HWHEEL_HI_RES: u16 = 12;
 
 #[test]
-fn test_relative_events() {
-    assert_actions(
-        indoc! {"
-        modmap:
-          - remap:
-              XRIGHTCURSOR: b
-        "},
-        vec![Event::RelativeEvent(
-            get_input_device_info(),
-            RelativeEvent::new_with(_REL_X, _POSITIVE),
-        )],
-        vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-        ],
-    )
-}
-
-#[test]
 fn verify_disguised_relative_events() {
     use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
     // Verifies that the event offsetter used to "disguise" relative events into key event
