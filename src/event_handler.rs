@@ -100,17 +100,7 @@ impl EventHandler {
             }
 
             // Apply modmap
-            let modmap_events = match event {
-                Event::KeyEvent(device, key_event) => {
-                    self.apply_modmap(config, key_event.key, key_event.value(), device)?
-                }
-                Event::RelativeEvent(_, _) => {
-                    // Completely invariant on relative events. Later interuption of multi purpose key
-                    // can be introduced, when the coupling between modmap/keymap is gone.
-                    vec![]
-                }
-                _ => vec![],
-            };
+            let modmap_events = self.apply_modmap(config, event)?;
 
             // Apply keymap
             match event {
@@ -376,14 +366,16 @@ impl EventHandler {
         }
     }
 
-    fn apply_modmap(
-        &mut self,
-        config: &Config,
-        key: Key,
-        value: i32,
-        device: &InputDeviceInfo,
-    ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
-        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, device) {
+    fn apply_modmap(&mut self, config: &Config, event: &Event) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
+        let (device, key, value) = match event {
+            Event::KeyEvent(device, key_event) => (device, key_event.key, key_event.value()),
+            // Completely invariant on relative events (and others).
+            // Later interuption of multi purpose key can be introduced, when
+            // the coupling between modmap/keymap is gone.
+            _ => return Ok(vec![]),
+        };
+
+        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, &device) {
             self.dispatch_keys(key_action, key, value)?
         } else {
             vec![(key, value)]
