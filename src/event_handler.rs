@@ -145,7 +145,7 @@ impl EventHandler {
         modmap_events: Vec<(Key, i32)>,
         mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         let (key_event, device) = match event {
             Event::KeyEvent(device, key_event) => (key_event.clone(), device),
             Event::RelativeEvent(device, relative_event) => {
@@ -218,9 +218,7 @@ impl EventHandler {
             _ => {}
         };
 
-        // Using the Ok() to send a boolean to on_relative_event, which will be used to decide whether to send the original relative event.
-        // (True = send the original relative event, false = don't send it.)
-        Ok(send_original_relative_event)
+        Ok(())
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
