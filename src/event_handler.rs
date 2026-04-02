@@ -4,7 +4,7 @@ use crate::config::application::OnlyOrNot;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
-use crate::config::modmap_action::{Interruptable, Keys, ModmapAction, MultiPurposeKey, PressReleaseKey};
+use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiPurposeKey, PressReleaseKey};
 use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
@@ -232,17 +232,17 @@ impl EventHandler {
 
     fn dispatch_keys(
         &mut self,
-        key_action: ModmapAction,
+        key_action: ModmapOperator,
         key: Key,
         value: i32,
     ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
         let keys = match key_action {
-            ModmapAction::Keys(modmap_keys) => modmap_keys
+            ModmapOperator::Keys(modmap_keys) => modmap_keys
                 .into_vec()
                 .into_iter()
                 .map(|modmap_key| (modmap_key, value))
                 .collect(),
-            ModmapAction::MultiPurposeKey(MultiPurposeKey {
+            ModmapOperator::MultiPurposeKey(MultiPurposeKey {
                 hold,
                 tap,
                 hold_threshold,
@@ -301,7 +301,7 @@ impl EventHandler {
                 // fallthrough on state discrepancy
                 vec![(key, value)]
             }
-            ModmapAction::PressReleaseKey(PressReleaseKey {
+            ModmapOperator::PressReleaseKey(PressReleaseKey {
                 skip_key_event,
                 press,
                 repeat,
@@ -392,7 +392,7 @@ impl EventHandler {
         Ok(events)
     }
 
-    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
+    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapOperator> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(window_matcher) = &modmap.window {

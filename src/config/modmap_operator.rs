@@ -9,7 +9,7 @@ use std::time::Duration;
 // Values in `modmap.remap`
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub enum ModmapAction {
+pub enum ModmapOperator {
     Keys(Keys),
     MultiPurposeKey(MultiPurposeKey),
     PressReleaseKey(PressReleaseKey),

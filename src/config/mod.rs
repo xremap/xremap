@@ -8,7 +8,7 @@ pub mod key_press;
 pub mod keymap;
 pub mod keymap_action;
 mod modmap;
-pub mod modmap_action;
+pub mod modmap_operator;
 
 pub mod remap;
 #[cfg(test)]
