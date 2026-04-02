@@ -115,11 +115,10 @@ impl EventHandler {
                         let was_remapped = self.on_key_event(key, PRESS, &device, config)?;
 
                         if !was_remapped {
-                            let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
                             if relative_event.code <= 2 {
-                                mouse_movement_collection.push(action);
+                                mouse_movement_collection.push(relative_event);
                             } else {
-                                self.send_action(Action::RelativeEvent(action));
+                                self.send_action(Action::RelativeEvent(relative_event));
                             }
                         }
                     }
