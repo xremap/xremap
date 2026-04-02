@@ -214,6 +214,7 @@ impl EventHandler {
     fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut [(Key, i32)]) {
         // Not handling multi-purpose keys for now; too complicated
         if events.len() != 1 || value != events[0].1 {
+            // When multiple keys are emitted, then it also comes here which makes it fail.
             return;
         }
 
@@ -334,6 +335,9 @@ impl EventHandler {
         Ok(keys)
     }
 
+    // Typically only receives one key as argument. It can be more, when also matched
+    // in modmap. But that's probably not a meaningful use case, should probably
+    // interrupt before modmap, rather than after.
     fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
         let mut pressed = vec![];
         for (key, value) in key_values.iter() {
@@ -353,6 +357,8 @@ impl EventHandler {
                 .iter()
                 .filter_map(|(k, v)| (*v == PRESS).then_some(*k))
                 .collect();
+            // There's generally no protection against spurious press, so
+            // it's probably also not needed here.
             let key_values: Vec<(Key, i32)> = key_values
                 .into_iter()
                 .filter(|(key, value)| !(*value == PRESS && flushed_presses.contains(key)))

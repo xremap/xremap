@@ -25,3 +25,7 @@ You can choose between the following ways to run xremap. They are ordered by the
 ### Troubleshooting
 
 - [Troubleshooting](troubleshooting.md)
+
+### Upgrade guide
+
+- [Upgrade to v.0.15.0](upgrade_to_v0.15.md)

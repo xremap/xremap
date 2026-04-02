@@ -249,9 +249,7 @@ the timeout will it work as `shift`.
 #### Multi-purpose key with `interruptable`
 
 You may not want tapping a multi-purpose key to always be interrupted by all types of input events.
-For example, if you're using `--mouse`, it can be difficult to use the `alone` version of a
-multi-purpose key while the mouse is moving. You may also have problems tapping multi-purpose keys
-if you're pressing a lot of keys at once.
+You may also have problems tapping multi-purpose keys if you're pressing a lot of keys at once.
 
 You can control which keys can interrupt the `alone` press of a multi-purpose key using the
 `interruptable` field:
@@ -263,22 +261,23 @@ modmap:
         held: Ctrl_L
         alone: Backspace
         interruptable:
-          # ignore mouse movement when using --mouse
+          # Ignore mouse movement when using --mouse
+          # This is the default
           not: [XRIGHTCURSOR, XLEFTCURSOR, XDOWNCURSOR, XUPCURSOR]
       Alt_L:
         held: Alt_L
         alone: Space
         alone_timeout_millis: 200
         interruptable:
-          # only allow alt+tab to interrupt tapping alt
+          # Only allow alt+tab to interrupt tapping alt
           only: Tab
 ```
 
 Input events that would interrupt the `alone` press of these multi-purpose keys will be handled as
 normal but without interrupting the key press.
 
-You can set `interruptable: false` to completely disable interruption. The default value when the
-field is not present is `interruptable: true`.
+You can set `interruptable: false` to completely disable interruption. Or let all keys interrupt
+by setting `interruptable: true`, which also lets mouse wheel and mouse movement interrupt.
 
 ### keymap
 
