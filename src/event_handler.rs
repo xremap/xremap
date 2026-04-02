@@ -17,7 +17,6 @@ use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 // This const is a value used to offset RELATIVE events' scancodes
@@ -116,15 +115,9 @@ impl EventHandler {
                     // key_event, mouse_movement_collection are dummies
                     self.on_key_event(event, modmap_events, &mut mouse_movement_collection, config)?;
                 }
-                Event::RelativeEvent(device, relative_event) => {
-                    //
-                    self.on_relative_event(
-                        relative_event,
-                        modmap_events,
-                        &mut mouse_movement_collection,
-                        config,
-                        device.clone(),
-                    )?
+                Event::RelativeEvent(_, _) => {
+                    // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
+                    self.on_key_event(&event, modmap_events, &mut mouse_movement_collection, config)?;
                 }
 
                 Event::OtherEvents(event) => self.send_action(Action::InputEvent(*event)),
@@ -228,26 +221,6 @@ impl EventHandler {
         // Using the Ok() to send a boolean to on_relative_event, which will be used to decide whether to send the original relative event.
         // (True = send the original relative event, false = don't send it.)
         Ok(send_original_relative_event)
-    }
-
-    // Handle EventType::RELATIVE
-    fn on_relative_event(
-        &mut self,
-        event: &RelativeEvent,
-        modmap_events: Vec<(Key, i32)>,
-        mouse_movement_collection: &mut Vec<RelativeEvent>,
-        config: &Config,
-        device: Rc<InputDeviceInfo>,
-    ) -> Result<(), Box<dyn Error>> {
-        // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-        self.on_key_event(
-            &Event::RelativeEvent(device, event.clone()),
-            modmap_events,
-            mouse_movement_collection,
-            config,
-        )?;
-
-        Ok(())
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
