@@ -17,8 +17,8 @@ mod tests;
 extern crate serde_yaml;
 extern crate toml;
 
-use crate::config::expmap::Expmap;
 use crate::event_handler::MODIFIER_KEYS;
+use crate::{config::expmap::Expmap, event_handler::DISGUISED_EVENT_OFFSETTER};
 use evdev::KeyCode as Key;
 use keymap::Keymap;
 use modmap::Modmap;
@@ -160,6 +160,11 @@ where
         let key = parse_key(&key_str).map_err(serde::de::Error::custom)?;
         if MODIFIER_KEYS.contains(&key) {
             return Err(serde::de::Error::custom(format!("Can't use '{key_str}' as virtual modifier")));
+        }
+        if key.code() >= DISGUISED_EVENT_OFFSETTER {
+            return Err(serde::de::Error::custom(format!(
+                "Can't use a relative-event ({key_str}) as virtual modifier"
+            )));
         }
         keys.push(key);
     }

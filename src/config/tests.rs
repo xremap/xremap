@@ -169,6 +169,19 @@ fn test_yaml_invalid_virtual_modifiers_2() {
 }
 
 #[test]
+fn test_yaml_invalid_virtual_modifiers_3() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+        virtual_modifiers:
+            - XUPSCROLL
+        "
+    })
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(errmsg, "Can't use a relative-event (XUPSCROLL) as virtual modifier");
+}
+
+#[test]
 fn test_yaml_modmap_press_release_key() {
     yaml_assert_parse(indoc! {r#"
     modmap:
