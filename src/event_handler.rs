@@ -113,8 +113,8 @@ impl EventHandler {
             // Apply keymap
             match event {
                 Event::KeyEvent(_, _) => {
-                    // key_event is a dummy
-                    self.on_key_event(event, modmap_events, config)?;
+                    // key_event, mouse_movement_collection are dummies
+                    self.on_key_event(event, modmap_events, &mut mouse_movement_collection, config)?;
                 }
                 Event::RelativeEvent(device, relative_event) => {
                     //
@@ -150,6 +150,7 @@ impl EventHandler {
         &mut self,
         event: &Event,
         modmap_events: Vec<(Key, i32)>,
+        mouse_movement_collection: &mut Vec<RelativeEvent>,
         config: &Config,
     ) -> Result<bool, Box<dyn Error>> {
         let (key_event, device) = match event {
@@ -191,6 +192,39 @@ impl EventHandler {
             self.send_key(&key, value);
         }
 
+        match event {
+            Event::RelativeEvent(_, relative_event) => {
+                match send_original_relative_event {
+                    // the boolean value is from a variable at the end of on_key_event from event_handler,
+                    // used to indicate whether the event got through unchanged.
+                    true => {
+                        // Sending the original RELATIVE event if the "press" version of the "fake" KEY event got through on_key_event unchanged.
+                        let action = RelativeEvent::new_with(relative_event.code, relative_event.value);
+                        if relative_event.code <= 2 {
+                            // If it's a mouse movement event (event.code <= 2),
+                            // it is added to mouse_movement_collection to later be sent alongside all other mouse movement event,
+                            // as a single MouseMovementEventCollection instead of potentially multiple RelativeEvent .
+
+                            // Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
+                            // which the OS handles differently from two unseparated mouse movement events.
+                            // For example, a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
+                            // will move the mouse cursor by a different amount than a REL_X followed by a REL_Y followed by a SYNCHRONIZATION.
+
+                            // ¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
+                            // ²Mouse movement along the X (horizontal) axis.
+                            // ³Mouse movement along the Y (vertical) axis.
+                            mouse_movement_collection.push(action);
+                        } else {
+                            // Otherwise, the event is directly sent as a relative event, to be dispatched like other events.
+                            self.send_action(Action::RelativeEvent(action));
+                        }
+                    }
+                    false => {}
+                }
+            }
+            _ => {}
+        };
+
         // Using the Ok() to send a boolean to on_relative_event, which will be used to decide whether to send the original relative event.
         // (True = send the original relative event, false = don't send it.)
         Ok(send_original_relative_event)
@@ -206,33 +240,12 @@ impl EventHandler {
         device: Rc<InputDeviceInfo>,
     ) -> Result<(), Box<dyn Error>> {
         // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
-        match self.on_key_event(&Event::RelativeEvent(device, event.clone()), modmap_events, config)? {
-            // the boolean value is from a variable at the end of on_key_event from event_handler,
-            // used to indicate whether the event got through unchanged.
-            true => {
-                // Sending the original RELATIVE event if the "press" version of the "fake" KEY event got through on_key_event unchanged.
-                let action = RelativeEvent::new_with(event.code, event.value);
-                if event.code <= 2 {
-                    // If it's a mouse movement event (event.code <= 2),
-                    // it is added to mouse_movement_collection to later be sent alongside all other mouse movement event,
-                    // as a single MouseMovementEventCollection instead of potentially multiple RelativeEvent .
-
-                    // Mouse movement events need to be sent all at once because they would otherwise be separated by a synchronization event¹,
-                    // which the OS handles differently from two unseparated mouse movement events.
-                    // For example, a REL_X event², followed by a SYNCHRONIZATION event, followed by a REL_Y event³, followed by a SYNCHRONIZATION event,
-                    // will move the mouse cursor by a different amount than a REL_X followed by a REL_Y followed by a SYNCHRONIZATION.
-
-                    // ¹Because Xremap usually sends events one by one through evdev's "emit" function, which adds a synchronization event during each call.
-                    // ²Mouse movement along the X (horizontal) axis.
-                    // ³Mouse movement along the Y (vertical) axis.
-                    mouse_movement_collection.push(action);
-                } else {
-                    // Otherwise, the event is directly sent as a relative event, to be dispatched like other events.
-                    self.send_action(Action::RelativeEvent(action));
-                }
-            }
-            false => {}
-        }
+        self.on_key_event(
+            &Event::RelativeEvent(device, event.clone()),
+            modmap_events,
+            mouse_movement_collection,
+            config,
+        )?;
 
         Ok(())
     }
