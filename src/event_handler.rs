@@ -93,6 +93,8 @@ impl EventHandler {
         for event in events {
             match event {
                 Event::KeyEvent(device, key_event) => {
+                    debug!("=> {}: {:?}", key_event.value(), &key_event.key);
+
                     self.on_key_event(key_event, config, device)?;
                 }
                 Event::RelativeEvent(device, relative_event) => {
@@ -126,10 +128,6 @@ impl EventHandler {
     ) -> Result<bool, Box<dyn Error>> {
         self.application_cache = None; // expire cache
         self.title_cache = None; // expire cache
-
-        if event.key.code() < DISGUISED_EVENT_OFFSETTER {
-            debug!("=> {}: {:?}", event.value(), &event.key);
-        }
 
         // Apply modmap
         let key_values = self.apply_modmap(config, event.key, event.value(), device)?;
