@@ -133,15 +133,7 @@ impl EventHandler {
         }
 
         // Apply modmap
-        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, device) {
-            self.dispatch_keys(key_action, key, event.value())?
-        } else {
-            vec![(key, event.value())]
-        };
-        self.maintain_pressed_keys(key, event.value(), &mut key_values);
-        if !self.multi_purpose_keys.is_empty() {
-            key_values = self.flush_timeout_keys(key_values);
-        }
+        let key_values = self.apply_modmap(config, key, event.value(), device)?;
 
         let mut send_original_relative_event = false;
         // Apply keymap
@@ -442,6 +434,26 @@ impl EventHandler {
         } else {
             key_values
         }
+    }
+
+    fn apply_modmap(
+        &mut self,
+        config: &Config,
+        key: Key,
+        value: i32,
+        device: &InputDeviceInfo,
+    ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
+        let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, device) {
+            self.dispatch_keys(key_action, key, value)?
+        } else {
+            vec![(key, value)]
+        };
+        self.maintain_pressed_keys(key, value, &mut key_values);
+        if !self.multi_purpose_keys.is_empty() {
+            key_values = self.flush_timeout_keys(key_values);
+        }
+
+        Ok(key_values)
     }
 
     fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapAction> {
