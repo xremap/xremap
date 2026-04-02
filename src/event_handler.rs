@@ -388,9 +388,24 @@ impl EventHandler {
 
                 Ok(events)
             }
-            // Completely invariant on relative events (and others).
-            // Later interuption of multi purpose key can be introduced, when
-            // the coupling between modmap/keymap is gone.
+            Event::RelativeEvent(device, relative_event) => {
+                // Can't use `flush_timeout_keys`, because it would also emit the disguised key.
+                let pressed = vec![Key(relative_event.to_disguised_key())];
+
+                let mut events = vec![];
+                for (_, state) in self.multi_purpose_keys.iter_mut() {
+                    events.extend(state.interrupted_by_press(&pressed));
+                }
+
+                let mut events: Vec<_> = events
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                events.push(event.clone());
+
+                Ok(events)
+            }
             event => Ok(vec![event.clone()]),
         }
     }
