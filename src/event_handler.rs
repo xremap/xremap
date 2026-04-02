@@ -175,40 +175,7 @@ impl EventHandler {
         config: &Config,
         device: &InputDeviceInfo,
     ) -> Result<(), Box<dyn Error>> {
-        // Because a "full" RELATIVE event is only one event,
-        // it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
-        // The solution used here is to send two events for each relative event :
-        // one for the press "event" and one for the "unpress" event.
-
-        // All relative events (except maybe those i haven't found information about (REL_DIAL, REL_MISC and REL_RESERVED))
-        // can have either a positive value or a negative value.
-        // A negative value is associated with a different action than the positive value.
-        // Specifically, negative values are associated with the opposite of the action that would emit a positive value.
-        // For example, a positive value for a scroll event (REL_WHEEL) comes from an upscroll, while a negative value comes from a downscroll.
-        let key = match event.value {
-            // Positive and negative values can be really high because the events are relative,
-            // so their values are variable, meaning we have to match with all positive/negative values.
-            // Not sure if there is any relative event with a fixed value.
-            1..=i32::MAX => (event.code * 2) + DISGUISED_EVENT_OFFSETTER,
-            // While some events may appear to have a fixed value,
-            // events like scrolling will have higher values with more "agressive" scrolling.
-
-            // *2 to create a "gap" between events (since multiplying by two means that all resulting values will be even, the odd numbers between will be missing),
-            // +1 if the event has a negative value to "fill" the gap (since adding one shifts the parity from even to odd),
-            // and adding DISGUISED_EVENT_OFFSETTER,
-            // so that the total as a keycode corresponds to one of the custom aliases that
-            // are created in config::key::parse_key specifically for these "disguised" relative events.
-            i32::MIN..=-1 => (event.code * 2) + 1 + DISGUISED_EVENT_OFFSETTER,
-
-            0 => {
-                println!("This event has a value of zero : {event:?}");
-                // A value of zero would be unexpected for a relative event,
-                // since changing something by zero is kinda useless.
-                // Just in case it can actually happen (and also because match arms need the same output type),
-                // we'll just act like the value of the event was a positive.
-                (event.code * 2) + DISGUISED_EVENT_OFFSETTER
-            }
-        };
+        let key = event.to_disguised_key();
 
         // Sending a RELATIVE event "disguised" as a "fake" KEY event press to on_key_event.
         match self.on_key_event(&KeyEvent::new_with(key, PRESS), config, device)? {
