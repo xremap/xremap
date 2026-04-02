@@ -91,6 +91,9 @@ impl EventHandler {
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
+            self.application_cache = None; // expire cache
+            self.title_cache = None; // expire cache
+
             match event {
                 Event::KeyEvent(device, key_event) => {
                     debug!("=> {}: {:?}", key_event.value(), &key_event.key);
@@ -126,9 +129,6 @@ impl EventHandler {
         config: &Config,
         device: &InputDeviceInfo,
     ) -> Result<bool, Box<dyn Error>> {
-        self.application_cache = None; // expire cache
-        self.title_cache = None; // expire cache
-
         // Apply modmap
         let key_values = self.apply_modmap(config, event.key, event.value(), device)?;
 
