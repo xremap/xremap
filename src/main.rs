@@ -1,9 +1,10 @@
-use crate::client::{print_open_windows, WMClient};
+use crate::client::print_open_windows;
 use crate::config::Config;
 use crate::device::{
     device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
 };
 use crate::event_handler::EventHandler;
+use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
 use crate::operators::get_operator_handler;
 use crate::throttle_emit::ThrottleEmit;
@@ -12,7 +13,6 @@ use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
-use client::build_client;
 use config::{config_watcher, load_configs};
 use device::InputDevice;
 use event::Event;
@@ -36,6 +36,7 @@ mod device;
 mod emit_handler;
 mod event;
 mod event_handler;
+mod main_controller;
 mod operator_double_tap;
 mod operator_handler;
 mod operator_sim;
@@ -224,7 +225,7 @@ fn main() -> anyhow::Result<()> {
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
 
     // wmclient
-    let mut wmclient = build_client(!no_window_logging);
+    let mut mainctrl = MainController::new(!no_window_logging);
 
     // EventHandler
     let mut handler = EventHandler::new(timer, &config.default_mode, delay);
@@ -261,7 +262,7 @@ fn main() -> anyhow::Result<()> {
                     &config,
                     vec![Event::OverrideTimeout],
                     &mut operator_handler,
-                    &mut wmclient,
+                    &mut mainctrl,
                 ) {
                     println!("Error on remap timeout: {error}")
                 }
@@ -275,7 +276,7 @@ fn main() -> anyhow::Result<()> {
                         &mut config,
                         vec![Event::Tick],
                         &mut operator_handler,
-                        &mut wmclient,
+                        &mut mainctrl,
                     ) {
                         println!("Error on timeout: {error}")
                     }
@@ -293,7 +294,7 @@ fn main() -> anyhow::Result<()> {
                     &mut dispatcher,
                     &config,
                     &mut operator_handler,
-                    &mut wmclient,
+                    &mut mainctrl,
                 )? {
                     println!("Found a removed device. Reselecting devices.");
 
@@ -358,7 +359,7 @@ fn handle_input_events(
     dispatcher: &mut ActionDispatcher,
     config: &Config,
     operator_handler: &mut Option<OperatorHandler>,
-    wmclient: &mut WMClient,
+    mainctrl: &mut MainController,
 ) -> anyhow::Result<bool> {
     let events: Vec<_> = match input_device.fetch_events() {
         Err(err) if err.raw_os_error() == Some(ENODEV) => {
@@ -371,7 +372,7 @@ fn handle_input_events(
 
     let info = Rc::new(input_device.to_info());
     let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
-    handle_events(handler, dispatcher, config, input_events, operator_handler, wmclient)?;
+    handle_events(handler, dispatcher, config, input_events, operator_handler, mainctrl)?;
     Ok(true)
 }
 
@@ -382,16 +383,16 @@ fn handle_events(
     config: &Config,
     mut events: Vec<Event>,
     operator_handler: &mut Option<OperatorHandler>,
-    wmclient: &mut WMClient,
+    mainctrl: &mut MainController,
 ) -> anyhow::Result<()> {
     if let Some(handler) = operator_handler {
         events = handler.map_events(events);
     };
     let actions = handler
-        .on_events(&events, config, wmclient)
+        .on_events(&events, config, mainctrl.wmclient())
         .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
     for action in actions {
-        dispatcher.on_action(action, wmclient)?;
+        dispatcher.on_action(action, mainctrl)?;
     }
     Ok(())
 }

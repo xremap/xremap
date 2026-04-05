@@ -1,4 +1,4 @@
-use crate::client::WMClient;
+use crate::main_controller::MainController;
 use crate::throttle_emit::ThrottleEmit;
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
 use fork::{fork, setsid, Fork};
@@ -31,7 +31,7 @@ impl ActionDispatcher {
     }
 
     // Execute Actions created by EventHandler. This should be the only public method of ActionDispatcher.
-    pub fn on_action(&mut self, action: Action, wmclient: &mut WMClient) -> anyhow::Result<()> {
+    pub fn on_action(&mut self, action: Action, mainctrl: &mut MainController) -> anyhow::Result<()> {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
             Action::RelativeEvent(relative_event) => self.on_relative_event(relative_event)?,
@@ -52,7 +52,7 @@ impl ActionDispatcher {
             }
 
             Action::InputEvent(event) => self.send_event(event)?,
-            Action::Command(command) => match wmclient.run(&command) {
+            Action::Command(command) => match mainctrl.wmclient().run(&command) {
                 Ok(false) => {
                     // could not run command, proceed to fork
                     self.run_command(command);
