@@ -24,7 +24,7 @@ use wayland_client::{event_created_child, Connection, Dispatch, EventQueue, Prox
 #[derive(Debug)]
 struct CosmicWindow {
     handle: ZcosmicToplevelHandleV1,
-    app_id: Option<String>,
+    app_class: Option<String>,
     title: Option<String>,
 }
 
@@ -106,7 +106,7 @@ impl Client for CosmicClient {
 
     fn current_application(&mut self) -> Option<String> {
         match self.get_focused_window() {
-            Ok(window) => window.and_then(|window| window.app_id.clone()),
+            Ok(window) => window.and_then(|window| window.app_class.clone()),
             Err(e) => {
                 eprintln!("Error when fetching app_id: {e:?}");
                 None
@@ -121,11 +121,20 @@ impl Client for CosmicClient {
             .state
             .windows
             .iter()
-            .map(|(_, CosmicWindow { handle, app_id, title })| WindowInfo {
-                win_id: Some(format!("{}", handle.id())),
-                app_class: app_id.clone(),
-                title: title.clone(),
-            })
+            .map(
+                |(
+                    _,
+                    CosmicWindow {
+                        handle,
+                        app_class,
+                        title,
+                    },
+                )| WindowInfo {
+                    win_id: Some(format!("{}", handle.id())),
+                    app_class: app_class.clone(),
+                    title: title.clone(),
+                },
+            )
             .collect();
 
         Ok(windows)
@@ -159,7 +168,7 @@ impl Dispatch<ZcosmicToplevelInfoV1, ()> for State {
             Toplevel { toplevel } => {
                 let info = CosmicWindow {
                     handle: toplevel,
-                    app_id: None,
+                    app_class: None,
                     title: None,
                 };
                 state.windows.insert(info.handle.id(), info);
@@ -199,7 +208,7 @@ impl Dispatch<ZcosmicToplevelHandleV1, ()> for State {
                 state
                     .windows
                     .get_mut(&handle.id())
-                    .map(|window| window.app_id = Some(app_id));
+                    .map(|window| window.app_class = Some(app_id));
             }
             State { state: window_state } => {
                 let (chunks, _) = window_state.as_chunks::<4>();
