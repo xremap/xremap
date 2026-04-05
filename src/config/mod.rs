@@ -92,6 +92,8 @@ fn get_file_ext(filename: &Path) -> ConfigFiletype {
 }
 
 pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Error>> {
+    assert!(!filenames.is_empty(), "config is set, if not completions");
+
     // Assumes filenames is non-empty
     let config_contents = fs::read_to_string(&filenames[0])?;
 
