@@ -20,6 +20,18 @@ pub enum Modifier {
     Key(Key),
 }
 
+impl Modifier {
+    pub fn is_in(&self, modifiers: &Vec<Key>) -> bool {
+        match self {
+            Modifier::Shift => modifiers.contains(&Key::KEY_LEFTSHIFT) || modifiers.contains(&Key::KEY_RIGHTSHIFT),
+            Modifier::Control => modifiers.contains(&Key::KEY_LEFTCTRL) || modifiers.contains(&Key::KEY_RIGHTCTRL),
+            Modifier::Alt => modifiers.contains(&Key::KEY_LEFTALT) || modifiers.contains(&Key::KEY_RIGHTALT),
+            Modifier::Windows => modifiers.contains(&Key::KEY_LEFTMETA) || modifiers.contains(&Key::KEY_RIGHTMETA),
+            Modifier::Key(key) => modifiers.contains(key),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for KeyPress {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

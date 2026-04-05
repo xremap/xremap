@@ -622,7 +622,7 @@ impl EventHandler {
     }
 
     fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
-        if self.mark_set && !self.match_modifier(&Modifier::Shift) {
+        if self.mark_set && !Modifier::Shift.is_in(&self.modifiers) {
             let mut modifiers = key_press.modifiers.clone();
             modifiers.push(Modifier::Shift);
             KeyPress {
@@ -649,7 +649,7 @@ impl EventHandler {
         let missing_modifiers: Vec<Key> = modifiers
             .iter()
             .filter_map(|modifier| {
-                if self.match_modifier(modifier) {
+                if modifier.is_in(&self.modifiers) {
                     None
                 } else {
                     match modifier {
@@ -665,21 +665,6 @@ impl EventHandler {
         (extra_modifiers, missing_modifiers)
     }
 
-    fn match_modifier(&self, modifier: &Modifier) -> bool {
-        match modifier {
-            Modifier::Shift => {
-                self.modifiers.contains(&Key::KEY_LEFTSHIFT) || self.modifiers.contains(&Key::KEY_RIGHTSHIFT)
-            }
-            Modifier::Control => {
-                self.modifiers.contains(&Key::KEY_LEFTCTRL) || self.modifiers.contains(&Key::KEY_RIGHTCTRL)
-            }
-            Modifier::Alt => self.modifiers.contains(&Key::KEY_LEFTALT) || self.modifiers.contains(&Key::KEY_RIGHTALT),
-            Modifier::Windows => {
-                self.modifiers.contains(&Key::KEY_LEFTMETA) || self.modifiers.contains(&Key::KEY_RIGHTMETA)
-            }
-            Modifier::Key(key) => self.modifiers.contains(key),
-        }
-    }
     fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.title_cache.is_none() {
