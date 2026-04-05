@@ -948,6 +948,7 @@ pub fn assert_actions_with_current_application(
 pub struct EventHandlerForTest {
     event_handler: EventHandler,
     config: Config,
+    wmclient: WMClient,
 }
 
 impl EventHandlerForTest {
@@ -960,20 +961,24 @@ impl EventHandlerForTest {
         let mut config: Config = serde_yaml::from_str(config_yaml).unwrap();
         config.keymap_table = build_keymap_table(&config.keymap);
         validate_config_file(&config).unwrap();
-        let event_handler = EventHandler::new(
-            timer,
-            &config.default_mode,
-            Duration::from_micros(0),
-            WMClient::new("static", Box::new(StaticClient { current_application }), false),
-        );
+        let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0));
 
-        Self { event_handler, config }
+        Self {
+            event_handler,
+            config,
+            wmclient: WMClient::new("static", Box::new(StaticClient { current_application }), false),
+        }
     }
 
     pub fn assert(&mut self, events: Vec<Event>, actions: Vec<Action>) {
         assert_eq!(
             format!("{actions:?}"),
-            format!("{:?}", self.event_handler.on_events(&events, &self.config).unwrap())
+            format!(
+                "{:?}",
+                self.event_handler
+                    .on_events(&events, &self.config, &mut self.wmclient)
+                    .unwrap()
+            )
         );
     }
 }

@@ -1,4 +1,4 @@
-use crate::client::print_open_windows;
+use crate::client::{print_open_windows, WMClient};
 use crate::config::Config;
 use crate::device::{
     device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
@@ -222,7 +222,12 @@ fn main() -> anyhow::Result<()> {
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let config_watcher = config_watcher(watch_config, &config_paths).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client(!no_window_logging));
+
+    // wmclient
+    let mut wmclient = build_client(!no_window_logging);
+
+    // EventHandler
+    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device = match output_device(
@@ -256,6 +261,7 @@ fn main() -> anyhow::Result<()> {
                     &config,
                     vec![Event::OverrideTimeout],
                     &mut operator_handler,
+                    &mut wmclient,
                 ) {
                     println!("Error on remap timeout: {error}")
                 }
@@ -269,6 +275,7 @@ fn main() -> anyhow::Result<()> {
                         &mut config,
                         vec![Event::Tick],
                         &mut operator_handler,
+                        &mut wmclient,
                     ) {
                         println!("Error on timeout: {error}")
                     }
@@ -280,7 +287,14 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
 
-                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &config, &mut operator_handler)? {
+                if !handle_input_events(
+                    input_device,
+                    &mut handler,
+                    &mut dispatcher,
+                    &config,
+                    &mut operator_handler,
+                    &mut wmclient,
+                )? {
                     println!("Found a removed device. Reselecting devices.");
 
                     for input_device in input_devices.values_mut() {
@@ -344,6 +358,7 @@ fn handle_input_events(
     dispatcher: &mut ActionDispatcher,
     config: &Config,
     operator_handler: &mut Option<OperatorHandler>,
+    wmclient: &mut WMClient,
 ) -> anyhow::Result<bool> {
     let events: Vec<_> = match input_device.fetch_events() {
         Err(err) if err.raw_os_error() == Some(ENODEV) => {
@@ -356,7 +371,7 @@ fn handle_input_events(
 
     let info = Rc::new(input_device.to_info());
     let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
-    handle_events(handler, dispatcher, config, input_events, operator_handler)?;
+    handle_events(handler, dispatcher, config, input_events, operator_handler, wmclient)?;
     Ok(true)
 }
 
@@ -367,16 +382,16 @@ fn handle_events(
     config: &Config,
     mut events: Vec<Event>,
     operator_handler: &mut Option<OperatorHandler>,
+    wmclient: &mut WMClient,
 ) -> anyhow::Result<()> {
     if let Some(handler) = operator_handler {
         events = handler.map_events(events);
     };
     let actions = handler
-        .on_events(&events, config)
+        .on_events(&events, config, wmclient)
         .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
-    let mut run = |command: &Vec<String>| -> anyhow::Result<bool> { handler.delegate_to_client(&command) };
     for action in actions {
-        dispatcher.on_action(action, &mut run)?;
+        dispatcher.on_action(action, wmclient)?;
     }
     Ok(())
 }
