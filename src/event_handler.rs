@@ -89,6 +89,7 @@ impl EventHandler {
 
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_events(&mut self, events: &Vec<Event>, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
+        debug_assert!(self.actions.is_empty());
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
@@ -544,6 +545,7 @@ impl EventHandler {
     }
 
     fn dispatch_actions(&mut self, actions: &Vec<TaggedAction>, key: &Key) -> Result<(), Box<dyn Error>> {
+        debug_assert!(self.extra_modifiers.len() == 0);
         for action in actions {
             self.dispatch_action(action, key)?;
         }
