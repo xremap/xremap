@@ -31,6 +31,7 @@ use std::time::Duration;
 mod action;
 mod action_dispatcher;
 mod client;
+mod command_runner;
 mod config;
 mod device;
 mod emit_handler;
