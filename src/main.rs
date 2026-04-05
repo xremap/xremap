@@ -148,12 +148,6 @@ enum WatchTargets {
     Config,
 }
 
-// TODO: Unify this with Event
-enum ReloadEvent {
-    ReloadConfig,
-    ReloadDevices,
-}
-
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
@@ -258,7 +252,7 @@ fn main() -> anyhow::Result<()> {
 
     // Main loop
     loop {
-        match 'event_loop: loop {
+        'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd, timeout_manager_fd)?;
             if readable_fds.contains(timer_fd) {
                 if let Err(error) = handle_events(
@@ -293,7 +287,17 @@ fn main() -> anyhow::Result<()> {
 
                 if !handle_input_events(input_device, &mut handler, &mut dispatcher, &config, &mut operator_handler)? {
                     println!("Found a removed device. Reselecting devices.");
-                    break 'event_loop ReloadEvent::ReloadDevices;
+
+                    for input_device in input_devices.values_mut() {
+                        input_device.ungrab();
+                    }
+
+                    input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
+                        Ok(input_devices) => input_devices,
+                        Err(e) => bail!("Failed to prepare input devices: {}", e),
+                    };
+
+                    continue 'event_loop;
                 }
             }
 
@@ -302,27 +306,17 @@ fn main() -> anyhow::Result<()> {
                     handle_device_changes(events, &mut input_devices, &device_filter, &ignore_filter, mouse)?;
                 }
             }
+
             if let Some(inotify) = config_watcher {
                 if let Ok(events) = inotify.read_events() {
                     if !handle_config_changes(events, &config_paths, inotify)? {
-                        break 'event_loop ReloadEvent::ReloadConfig;
+                        if let Ok(c) = load_configs(&config_paths) {
+                            println!("Reloading Config");
+                            config = c;
+                        }
+
+                        continue 'event_loop;
                     }
-                }
-            }
-        } {
-            ReloadEvent::ReloadDevices => {
-                for input_device in input_devices.values_mut() {
-                    input_device.ungrab();
-                }
-                input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
-                    Ok(input_devices) => input_devices,
-                    Err(e) => bail!("Failed to prepare input devices: {}", e),
-                };
-            }
-            ReloadEvent::ReloadConfig => {
-                if let Ok(c) = load_configs(&config_paths) {
-                    println!("Reloading Config");
-                    config = c;
                 }
             }
         }
