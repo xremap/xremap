@@ -5,10 +5,10 @@ use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiPurposeKey, PressReleaseKey};
-use crate::config::remap::Remap;
+use crate::config::nested_remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
-use crate::{config, Config};
+use crate::Config;
 use evdev::KeyCode as Key;
 use lazy_static::lazy_static;
 use log::{debug, warn};
@@ -37,8 +37,6 @@ pub struct EventHandler {
     extra_modifiers: HashSet<Key>,
     // Make sure the original event is released even if remapping changes while holding the key
     pressed_keys: HashMap<Key, Key>,
-    // Client that interacts with the window manager.
-    application_client: WMClient,
     application_cache: Option<String>,
     title_cache: Option<String>,
     // State machine for multi-purpose keys
@@ -67,18 +65,17 @@ struct TaggedAction {
 }
 
 impl EventHandler {
-    pub fn new(timer: TimerFd, mode: &str, keypress_delay: Duration, application_client: WMClient) -> EventHandler {
+    pub fn new(override_timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
         EventHandler {
             modifiers: vec![],
             extra_modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
-            application_client,
             application_cache: None,
             title_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remaps: vec![],
             override_timeout_key: None,
-            override_timer: timer,
+            override_timer,
             mode: mode.to_string(),
             mark_set: false,
             escape_next_key: false,
@@ -88,7 +85,13 @@ impl EventHandler {
     }
 
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
-    pub fn on_events(&mut self, events: &Vec<Event>, config: &Config) -> Result<Vec<Action>, Box<dyn Error>> {
+    pub fn on_events(
+        &mut self,
+        events: &Vec<Event>,
+        config: &Config,
+        wmclient: &mut WMClient,
+    ) -> Result<Vec<Action>, Box<dyn Error>> {
+        debug_assert!(self.actions.is_empty());
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
@@ -100,19 +103,19 @@ impl EventHandler {
             }
 
             // Apply modmap
-            let modmap_events = self.apply_modmap(config, event)?;
+            let modmap_events = self.apply_modmap(config, event, wmclient)?;
 
             // Apply keymap
             for event in modmap_events.into_iter() {
                 match event {
                     Event::KeyEvent(device, key_event) => {
-                        self.on_key_event(key_event.key, key_event.value(), &device, config)?;
+                        self.on_key_event(key_event.key, key_event.value(), &device, config, wmclient)?;
                     }
                     Event::RelativeEvent(device, relative_event) => {
                         let key = Key(relative_event.to_disguised_key());
 
                         // Send as disguised-event
-                        let was_remapped = self.on_key_event(key, PRESS, &device, config)?;
+                        let was_remapped = self.on_key_event(key, PRESS, &device, config, wmclient)?;
 
                         if !was_remapped {
                             if relative_event.code <= 2 {
@@ -138,10 +141,6 @@ impl EventHandler {
         Ok(self.actions.drain(..).collect())
     }
 
-    pub fn delegate_to_client(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
-        self.application_client.run(command)
-    }
-
     // Handle EventType::KEY
     fn on_key_event(
         &mut self,
@@ -149,6 +148,7 @@ impl EventHandler {
         value: i32,
         device: &Rc<InputDeviceInfo>,
         config: &Config,
+        wmclient: &mut WMClient,
     ) -> Result<bool, Box<dyn Error>> {
         // Apply keymap
         if config.virtual_modifiers.contains(&key) {
@@ -159,10 +159,10 @@ impl EventHandler {
         } else if is_pressed(value) {
             if self.escape_next_key {
                 self.escape_next_key = false
-            } else if let Some(actions) = self.find_keymap(config, &key, device)? {
+            } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient)? {
                 self.dispatch_actions(&actions, &key)?;
                 return Ok(true);
-            } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device)? {
+            } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device, wmclient)? {
                 self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
                 return Ok(true);
             }
@@ -371,13 +371,18 @@ impl EventHandler {
         }
     }
 
-    fn apply_modmap(&mut self, config: &Config, event: &Event) -> Result<Vec<Event>, Box<dyn Error>> {
+    fn apply_modmap(
+        &mut self,
+        config: &Config,
+        event: &Event,
+        wmclient: &mut WMClient,
+    ) -> Result<Vec<Event>, Box<dyn Error>> {
         match event {
             Event::KeyEvent(device, key_event) => {
                 let key = key_event.key;
                 let value = key_event.value();
 
-                let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, &device) {
+                let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, &device, wmclient) {
                     self.dispatch_keys(key_action, key, value)?
                 } else {
                     vec![(key, value)]
@@ -416,21 +421,27 @@ impl EventHandler {
         }
     }
 
-    fn find_modmap(&mut self, config: &Config, key: &Key, device: &InputDeviceInfo) -> Option<ModmapOperator> {
+    fn find_modmap(
+        &mut self,
+        config: &Config,
+        key: &Key,
+        device: &InputDeviceInfo,
+        wmclient: &mut WMClient,
+    ) -> Option<ModmapOperator> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(window_matcher) = &modmap.window {
-                    if !self.match_window(window_matcher) {
+                    if !self.match_window(wmclient, window_matcher) {
                         continue;
                     }
                 }
                 if let Some(application_matcher) = &modmap.application {
-                    if !self.match_application(application_matcher) {
+                    if !self.match_application(wmclient, application_matcher) {
                         continue;
                     }
                 }
                 if let Some(device_matcher) = &modmap.device {
-                    if !self.match_device(device_matcher, device) {
+                    if !device_matcher.matches(device) {
                         continue;
                     }
                 }
@@ -450,6 +461,7 @@ impl EventHandler {
         config: &Config,
         key: &Key,
         device: &InputDeviceInfo,
+        wmclient: &mut WMClient,
     ) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
@@ -458,6 +470,7 @@ impl EventHandler {
                 .flat_map(|map| map.get(key).cloned().unwrap_or_default())
                 .collect();
 
+            // Empty if the key isn't defined in any of the nested remaps, that are active.
             if !entries.is_empty() {
                 self.remove_override()?;
 
@@ -503,18 +516,18 @@ impl EventHandler {
                         continue;
                     }
                     if let Some(window_matcher) = &entry.title {
-                        if !self.match_window(window_matcher) {
+                        if !self.match_window(wmclient, window_matcher) {
                             continue;
                         }
                     }
 
                     if let Some(application_matcher) = &entry.application {
-                        if !self.match_application(application_matcher) {
+                        if !self.match_application(wmclient, application_matcher) {
                             continue;
                         }
                     }
                     if let Some(device_matcher) = &entry.device {
-                        if !self.match_device(device_matcher, device) {
+                        if !device_matcher.matches(device) {
                             continue;
                         }
                     }
@@ -543,6 +556,7 @@ impl EventHandler {
     }
 
     fn dispatch_actions(&mut self, actions: &Vec<TaggedAction>, key: &Key) -> Result<(), Box<dyn Error>> {
+        debug_assert!(self.extra_modifiers.len() == 0);
         for action in actions {
             self.dispatch_action(action, key)?;
         }
@@ -619,7 +633,7 @@ impl EventHandler {
     }
 
     fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
-        if self.mark_set && !self.match_modifier(&Modifier::Shift) {
+        if self.mark_set && !Modifier::Shift.is_in(&self.modifiers) {
             let mut modifiers = key_press.modifiers.clone();
             modifiers.push(Modifier::Shift);
             KeyPress {
@@ -646,7 +660,7 @@ impl EventHandler {
         let missing_modifiers: Vec<Key> = modifiers
             .iter()
             .filter_map(|modifier| {
-                if self.match_modifier(modifier) {
+                if modifier.is_in(&self.modifiers) {
                     None
                 } else {
                     match modifier {
@@ -662,25 +676,10 @@ impl EventHandler {
         (extra_modifiers, missing_modifiers)
     }
 
-    fn match_modifier(&self, modifier: &Modifier) -> bool {
-        match modifier {
-            Modifier::Shift => {
-                self.modifiers.contains(&Key::KEY_LEFTSHIFT) || self.modifiers.contains(&Key::KEY_RIGHTSHIFT)
-            }
-            Modifier::Control => {
-                self.modifiers.contains(&Key::KEY_LEFTCTRL) || self.modifiers.contains(&Key::KEY_RIGHTCTRL)
-            }
-            Modifier::Alt => self.modifiers.contains(&Key::KEY_LEFTALT) || self.modifiers.contains(&Key::KEY_RIGHTALT),
-            Modifier::Windows => {
-                self.modifiers.contains(&Key::KEY_LEFTMETA) || self.modifiers.contains(&Key::KEY_RIGHTMETA)
-            }
-            Modifier::Key(key) => self.modifiers.contains(key),
-        }
-    }
-    fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
+    fn match_window(&mut self, wmclient: &mut WMClient, window_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.title_cache.is_none() {
-            match self.application_client.current_window() {
+            match wmclient.current_window() {
                 Some(title) => self.title_cache = Some(title),
                 None => self.title_cache = Some(String::new()),
             }
@@ -697,10 +696,10 @@ impl EventHandler {
         false
     }
 
-    fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
+    fn match_application(&mut self, wmclient: &mut WMClient, application_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.application_cache.is_none() {
-            match self.application_client.current_application() {
+            match wmclient.current_application() {
                 Some(application) => self.application_cache = Some(application),
                 None => self.application_cache = Some(String::new()),
             }
@@ -713,16 +712,6 @@ impl EventHandler {
             if let Some(application_not) = &application_matcher.not {
                 return application_not.iter().all(|m| !m.matches(application));
             }
-        }
-        false
-    }
-
-    fn match_device(&self, device_matcher: &config::device::Device, device: &InputDeviceInfo) -> bool {
-        if let Some(device_only) = &device_matcher.only {
-            return device_only.iter().any(|m| device.matches(m));
-        }
-        if let Some(device_not) = &device_matcher.not {
-            return device_not.iter().all(|m| !device.matches(m));
         }
         false
     }
@@ -847,6 +836,9 @@ struct MultiPurposeKeyState {
 }
 
 impl MultiPurposeKeyState {
+    /// It causes a problem, that repeat is used for timeout. Partially because its interval
+    /// gives low precision. And because the repeat events will stop if another key is pressed. Also
+    /// BTN_RIGHT does not emit repeat events, so mouse buttons can't be remapped this way.   
     fn repeat(&mut self) -> Vec<(Key, i32)> {
         if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
             // Timeout. Setting state before going into the switch is necessary

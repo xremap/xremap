@@ -1,7 +1,7 @@
 use crate::config::key::parse_key;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
-use std::error::{self, Error};
+use std::error::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct KeyPress {
@@ -20,6 +20,18 @@ pub enum Modifier {
     Key(Key),
 }
 
+impl Modifier {
+    pub fn is_in(&self, modifiers: &Vec<Key>) -> bool {
+        match self {
+            Modifier::Shift => modifiers.contains(&Key::KEY_LEFTSHIFT) || modifiers.contains(&Key::KEY_RIGHTSHIFT),
+            Modifier::Control => modifiers.contains(&Key::KEY_LEFTCTRL) || modifiers.contains(&Key::KEY_RIGHTCTRL),
+            Modifier::Alt => modifiers.contains(&Key::KEY_LEFTALT) || modifiers.contains(&Key::KEY_RIGHTALT),
+            Modifier::Windows => modifiers.contains(&Key::KEY_LEFTMETA) || modifiers.contains(&Key::KEY_RIGHTMETA),
+            Modifier::Key(key) => modifiers.contains(key),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for KeyPress {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -30,7 +42,7 @@ impl<'de> Deserialize<'de> for KeyPress {
     }
 }
 
-fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
+fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn Error>> {
     let keys: Vec<&str> = input.split('-').collect();
     if let Some((key, modifier_keys)) = keys.split_last() {
         let mut modifiers = vec![];
@@ -48,23 +60,36 @@ fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn error::Error>> {
 }
 
 fn parse_modifier(modifier: &str) -> Result<Modifier, Box<dyn Error>> {
+    match parse_modifier_alias(modifier) {
+        Some(modifier) => Ok(modifier),
+        None => {
+            // Modifier by the precise key to use
+            parse_key(modifier).map(Modifier::Key)
+        }
+    }
+}
+
+// Modifier that can match both left and right variants.
+pub fn parse_modifier_alias(modifier: &str) -> Option<Modifier> {
     // Everything is case-insensitive
     match &modifier.to_uppercase()[..] {
         // Shift
-        "SHIFT" => Ok(Modifier::Shift),
+        "S" => Some(Modifier::Shift),
+        "SHIFT" => Some(Modifier::Shift),
         // Control
-        "C" => Ok(Modifier::Control),
-        "CTRL" => Ok(Modifier::Control),
-        "CONTROL" => Ok(Modifier::Control),
+        "C" => Some(Modifier::Control),
+        "CTRL" => Some(Modifier::Control),
+        "CONTROL" => Some(Modifier::Control),
         // Alt
-        "M" => Ok(Modifier::Alt),
-        "ALT" => Ok(Modifier::Alt),
+        "A" => Some(Modifier::Alt),
+        "M" => Some(Modifier::Alt),
+        "ALT" => Some(Modifier::Alt),
         // Windows
-        "SUPER" => Ok(Modifier::Windows),
-        "WIN" => Ok(Modifier::Windows),
-        "WINDOWS" => Ok(Modifier::Windows),
-        // else
-        key => parse_key(key).map(Modifier::Key),
+        "SUPER" => Some(Modifier::Windows),
+        "W" => Some(Modifier::Windows),
+        "WIN" => Some(Modifier::Windows),
+        "WINDOWS" => Some(Modifier::Windows),
+        _ => None,
     }
 }
 

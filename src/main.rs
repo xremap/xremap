@@ -4,6 +4,7 @@ use crate::device::{
     device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
 };
 use crate::event_handler::EventHandler;
+use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
 use crate::operators::get_operator_handler;
 use crate::throttle_emit::ThrottleEmit;
@@ -12,7 +13,6 @@ use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
-use client::build_client;
 use config::{config_watcher, load_configs};
 use device::InputDevice;
 use event::Event;
@@ -31,11 +31,13 @@ use std::time::Duration;
 mod action;
 mod action_dispatcher;
 mod client;
+mod command_runner;
 mod config;
 mod device;
 mod emit_handler;
 mod event;
 mod event_handler;
+mod main_controller;
 mod operator_double_tap;
 mod operator_handler;
 mod operator_sim;
@@ -148,12 +150,6 @@ enum WatchTargets {
     Config,
 }
 
-// TODO: Unify this with Event
-enum ReloadEvent {
-    ReloadConfig,
-    ReloadDevices,
-}
-
 fn main() -> anyhow::Result<()> {
     env_logger::init();
 
@@ -162,7 +158,7 @@ fn main() -> anyhow::Result<()> {
         ignore: ignore_filter,
         mouse,
         watch,
-        configs,
+        configs: config_paths,
         completions,
         output_device_name,
         product,
@@ -199,11 +195,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Configuration
-    let config_paths = match configs[..] {
-        [] => panic!("config is set, if not completions"),
-        _ => configs,
-    };
-
     let mut config = match config::load_configs(&config_paths) {
         Ok(config) => config,
         Err(e) => bail!(
@@ -233,7 +224,12 @@ fn main() -> anyhow::Result<()> {
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let config_watcher = config_watcher(watch_config, &config_paths).context("Setting up config watcher")?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay, build_client(!no_window_logging));
+
+    // wmclient
+    let mut mainctrl = MainController::new(!no_window_logging);
+
+    // EventHandler
+    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device = match output_device(
@@ -258,7 +254,7 @@ fn main() -> anyhow::Result<()> {
 
     // Main loop
     loop {
-        match 'event_loop: loop {
+        'event_loop: loop {
             let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd, timeout_manager_fd)?;
             if readable_fds.contains(timer_fd) {
                 if let Err(error) = handle_events(
@@ -267,6 +263,7 @@ fn main() -> anyhow::Result<()> {
                     &config,
                     vec![Event::OverrideTimeout],
                     &mut operator_handler,
+                    &mut mainctrl,
                 ) {
                     println!("Error on remap timeout: {error}")
                 }
@@ -280,6 +277,7 @@ fn main() -> anyhow::Result<()> {
                         &mut config,
                         vec![Event::Tick],
                         &mut operator_handler,
+                        &mut mainctrl,
                     ) {
                         println!("Error on timeout: {error}")
                     }
@@ -291,9 +289,26 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
 
-                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &config, &mut operator_handler)? {
+                if !handle_input_events(
+                    input_device,
+                    &mut handler,
+                    &mut dispatcher,
+                    &config,
+                    &mut operator_handler,
+                    &mut mainctrl,
+                )? {
                     println!("Found a removed device. Reselecting devices.");
-                    break 'event_loop ReloadEvent::ReloadDevices;
+
+                    for input_device in input_devices.values_mut() {
+                        input_device.ungrab();
+                    }
+
+                    input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
+                        Ok(input_devices) => input_devices,
+                        Err(e) => bail!("Failed to prepare input devices: {}", e),
+                    };
+
+                    continue 'event_loop;
                 }
             }
 
@@ -302,35 +317,17 @@ fn main() -> anyhow::Result<()> {
                     handle_device_changes(events, &mut input_devices, &device_filter, &ignore_filter, mouse)?;
                 }
             }
+
             if let Some(inotify) = config_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    if !handle_config_changes(
-                        events,
-                        &mut input_devices,
-                        &device_filter,
-                        &ignore_filter,
-                        mouse,
-                        &config_paths,
-                        inotify,
-                    )? {
-                        break 'event_loop ReloadEvent::ReloadConfig;
+                    if !handle_config_changes(events, &config_paths, inotify)? {
+                        if let Ok(c) = load_configs(&config_paths) {
+                            println!("Reloading Config");
+                            config = c;
+                        }
+
+                        continue 'event_loop;
                     }
-                }
-            }
-        } {
-            ReloadEvent::ReloadDevices => {
-                for input_device in input_devices.values_mut() {
-                    input_device.ungrab();
-                }
-                input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
-                    Ok(input_devices) => input_devices,
-                    Err(e) => bail!("Failed to prepare input devices: {}", e),
-                };
-            }
-            ReloadEvent::ReloadConfig => {
-                if let Ok(c) = load_configs(&config_paths) {
-                    println!("Reloading Config");
-                    config = c;
                 }
             }
         }
@@ -363,21 +360,21 @@ fn handle_input_events(
     dispatcher: &mut ActionDispatcher,
     config: &Config,
     operator_handler: &mut Option<OperatorHandler>,
+    mainctrl: &mut MainController,
 ) -> anyhow::Result<bool> {
-    let mut device_exists = true;
-    let events = match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
-        Err((Some(ENODEV), _)) => {
-            device_exists = false;
-            Ok(Vec::new())
+    let events: Vec<_> = match input_device.fetch_events() {
+        Err(err) if err.raw_os_error() == Some(ENODEV) => {
+            // The device doesn't exist anymore.
+            return Ok(false);
         }
-        Err((_, error)) => Err(error).context("Error fetching input events"),
-        Ok(events) => Ok(events.collect()),
-    }?;
+        events => events.context("Error fetching input events")?,
+    }
+    .collect();
 
     let info = Rc::new(input_device.to_info());
     let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
-    handle_events(handler, dispatcher, config, input_events, operator_handler)?;
-    Ok(device_exists)
+    handle_events(handler, dispatcher, config, input_events, operator_handler, mainctrl)?;
+    Ok(true)
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
@@ -387,16 +384,16 @@ fn handle_events(
     config: &Config,
     mut events: Vec<Event>,
     operator_handler: &mut Option<OperatorHandler>,
+    mainctrl: &mut MainController,
 ) -> anyhow::Result<()> {
     if let Some(handler) = operator_handler {
         events = handler.map_events(events);
     };
     let actions = handler
-        .on_events(&events, config)
+        .on_events(&events, config, mainctrl.wmclient())
         .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
-    let mut run = |command: &Vec<String>| -> anyhow::Result<bool> { handler.delegate_to_client(&command) };
     for action in actions {
-        dispatcher.on_action(action, &mut run)?;
+        dispatcher.on_action(action, mainctrl)?;
     }
     Ok(())
 }
@@ -425,10 +422,6 @@ fn handle_device_changes(
 
 fn handle_config_changes(
     events: Vec<InotifyEvent>,
-    input_devices: &mut HashMap<PathBuf, InputDevice>,
-    device_filter: &[String],
-    ignore_filter: &[String],
-    mouse: bool,
     config_paths: &Vec<PathBuf>,
     inotify: Inotify,
 ) -> anyhow::Result<bool> {
@@ -461,17 +454,5 @@ fn handle_config_changes(
             _ => (),
         }
     }
-    input_devices.extend(events.into_iter().filter_map(|event| {
-        event.name.and_then(|name| {
-            let path = PathBuf::from("/dev/input/").join(name);
-            let mut device = InputDevice::try_from(path).ok()?;
-            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
-                device.print();
-                Some(device.into())
-            } else {
-                None
-            }
-        })
-    }));
     Ok(true)
 }

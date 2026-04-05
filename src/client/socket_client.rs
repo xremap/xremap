@@ -53,8 +53,7 @@ impl SocketClient {
     }
 
     fn get_active_window(&self) -> Result<ActiveWindow> {
-        let json;
-        json = self.call_via_socket("ActiveWindow")?;
+        let json = self.call_via_socket("ActiveWindow")?;
         Ok(serde_json::from_str::<ActiveWindow>(&json)?)
     }
 
@@ -76,15 +75,16 @@ impl SocketClient {
 impl Client for SocketClient {
     fn supported(&mut self) -> bool {
         debug!("Using socket path pattern: {}", self.socket_path);
-        if let Ok(dynamic_components) = Regex::new(r"/(\{uid\}/.+|[^/{]+)$") {
-            let parent_dir = dynamic_components.replace(&self.socket_path, "");
-            let path = Path::new(parent_dir.as_ref());
-            if path.is_dir() {
-                return true;
-            }
+        let regex = Regex::new(r"/(\{uid\}/.+|[^/{]+)$").unwrap();
+
+        let parent_dir = regex.replace(&self.socket_path, "");
+        let path = Path::new(parent_dir.as_ref());
+        if path.is_dir() {
+            true
+        } else {
             println!("Warning: socket directory not found: {}", parent_dir);
+            false
         }
-        false
     }
 
     fn current_window(&mut self) -> Option<String> {

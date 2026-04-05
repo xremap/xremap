@@ -1,3 +1,5 @@
+use super::device::DeviceMatcher;
+use super::key_press::Modifier;
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::OnlyOrNot;
 use crate::config::key_press::KeyPress;
@@ -5,9 +7,6 @@ use crate::config::keymap_action::{Actions, KeymapAction};
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
-
-use super::device::Device;
-use super::key_press::Modifier;
 
 // Config interface
 #[derive(Debug, Deserialize)]
@@ -20,7 +19,7 @@ pub struct Keymap {
     pub remap: HashMap<KeyPress, Vec<KeymapAction>>,
     pub application: Option<OnlyOrNot>,
     pub window: Option<OnlyOrNot>,
-    pub device: Option<Device>,
+    pub device: Option<DeviceMatcher>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
     #[serde(default)]
@@ -45,7 +44,7 @@ pub struct KeymapEntry {
     pub modifiers: Vec<Modifier>,
     pub application: Option<OnlyOrNot>,
     pub title: Option<OnlyOrNot>,
-    pub device: Option<Device>,
+    pub device: Option<DeviceMatcher>,
     pub mode: Option<Vec<String>>,
     pub exact_match: bool,
 }

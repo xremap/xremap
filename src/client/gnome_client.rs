@@ -15,6 +15,7 @@ pub struct GnomeClient {
 
 impl GnomeClient {
     pub fn new() -> GnomeClient {
+        // The socket feature is deprecated here. The socket_client is the one to use instead.
         let socket_path = std::env::var("GNOME_SOCKET").ok().filter(|s| !s.is_empty());
         GnomeClient {
             socket_path,
@@ -31,7 +32,7 @@ impl GnomeClient {
 
     fn get_focused_title(&mut self) -> anyhow::Result<String> {
         let window = self.get_active_window()?;
-        return Ok(window.title);
+        Ok(window.title)
     }
 
     fn get_active_window(&mut self) -> anyhow::Result<ActiveWindow> {
