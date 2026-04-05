@@ -350,11 +350,10 @@ fn handle_input_events(
     config: &Config,
     operator_handler: &mut Option<OperatorHandler>,
 ) -> anyhow::Result<bool> {
-    let mut device_exists = true;
-    let events = match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
+    let events: Vec<_> = match input_device.fetch_events().map_err(|e| (e.raw_os_error(), e)) {
         Err((Some(ENODEV), _)) => {
-            device_exists = false;
-            Ok(Vec::new())
+            // The device doesn't exist anymore.
+            return Ok(false);
         }
         Err((_, error)) => Err(error).context("Error fetching input events"),
         Ok(events) => Ok(events.collect()),
@@ -363,7 +362,7 @@ fn handle_input_events(
     let info = Rc::new(input_device.to_info());
     let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
     handle_events(handler, dispatcher, config, input_events, operator_handler)?;
-    Ok(device_exists)
+    Ok(true)
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
