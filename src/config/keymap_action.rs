@@ -1,11 +1,10 @@
 use crate::config::key::parse_key;
 use crate::config::key_press::KeyPress;
-use crate::config::remap::{Remap, RemapActions};
+use crate::config::nested_remap::{deserialize_nested_remap, Remap};
 use evdev::KeyCode as Key;
 use serde::{de, Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::time::Duration;
 
 // Values in `keymap.remap`
 #[derive(Clone, Debug, Deserialize)]
@@ -19,7 +18,7 @@ pub enum KeymapAction {
     KeyRepeat(Key),
     #[serde(deserialize_with = "deserialize_key_release")]
     KeyRelease(Key),
-    #[serde(deserialize_with = "deserialize_remap")]
+    #[serde(deserialize_with = "deserialize_nested_remap")]
     Remap(Remap),
     #[serde(deserialize_with = "deserialize_launch")]
     Launch(Vec<String>),
@@ -79,26 +78,6 @@ where
         }
     }
     Err(de::Error::custom("not a map with a single \"release\" key"))
-}
-
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<Remap, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let action = RemapActions::deserialize(deserializer)?;
-    Ok(Remap {
-        remap: action.remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect(),
-        timeout: action.timeout_millis.map(Duration::from_millis),
-        timeout_key: if let Some(keys) = action.timeout_key {
-            let parsed_keys: Result<Vec<_>, _> = keys.into_iter().map(|key| parse_key(&key)).collect();
-            match parsed_keys {
-                Ok(parsed_keys) => Some(parsed_keys),
-                Err(e) => return Err(de::Error::custom(e.to_string())),
-            }
-        } else {
-            None
-        },
-    })
 }
 
 fn deserialize_launch<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>

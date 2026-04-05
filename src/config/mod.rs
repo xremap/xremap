@@ -9,8 +9,7 @@ pub mod keymap;
 pub mod keymap_action;
 mod modmap;
 pub mod modmap_operator;
-
-pub mod remap;
+pub mod nested_remap;
 #[cfg(test)]
 mod tests;
 mod validation;
@@ -19,6 +18,8 @@ extern crate serde_yaml;
 extern crate toml;
 
 use crate::config::expmap::Expmap;
+use crate::config::key::parse_key;
+use crate::config::keymap::{build_keymap_table, KeymapEntry};
 use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
 use crate::event_handler::MODIFIER_KEYS;
 use evdev::KeyCode as Key;
@@ -26,17 +27,10 @@ use keymap::Keymap;
 use modmap::Modmap;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use serde::{de::IgnoredAny, Deserialize, Deserializer};
-use std::{
-    collections::HashMap,
-    error, fs,
-    path::{Path, PathBuf},
-    time::SystemTime,
-};
-
-use self::{
-    key::parse_key,
-    keymap::{build_keymap_table, KeymapEntry},
-};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::time::SystemTime;
+use std::{error, fs};
 pub use validation::validate_config_file;
 
 #[derive(Debug, Deserialize)]

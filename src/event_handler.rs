@@ -5,7 +5,7 @@ use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiPurposeKey, PressReleaseKey};
-use crate::config::remap::Remap;
+use crate::config::nested_remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::Config;
