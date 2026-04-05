@@ -193,7 +193,6 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Configuration
-
     let mut config = match config::load_configs(&config_paths) {
         Ok(config) => config,
         Err(e) => bail!(

@@ -32,7 +32,7 @@ impl GnomeClient {
 
     fn get_focused_title(&mut self) -> anyhow::Result<String> {
         let window = self.get_active_window()?;
-        return Ok(window.title);
+        Ok(window.title)
     }
 
     fn get_active_window(&mut self) -> anyhow::Result<ActiveWindow> {

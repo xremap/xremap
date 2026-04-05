@@ -134,7 +134,7 @@ fn get_wm_class(client: &mut X11Client, window: Window) -> Option<String> {
 
 /// Get WM_CLASS by using _NET_ACTIVE_WINDOW
 fn current_application_fallback(client: &mut X11Client) -> Option<String> {
-    let winid = get_focused_window_id(client.connection.as_ref()?, client.screen_num?).ok()?;
+    let winid = get_focused_winid(client.connection.as_ref()?, client.screen_num?).ok()?;
 
     get_wm_class(client, winid)
 }
@@ -173,7 +173,7 @@ fn get_focused_title(client: &X11Client) -> Result<String> {
         .screen_num
         .ok_or_else(|| anyhow::format_err!("Screen_num should be available"))?;
 
-    let winid = get_focused_window_id(conn, screen_num)?;
+    let winid = get_focused_winid(conn, screen_num)?;
 
     let atoms = Atoms::new(&conn)?.reply()?;
 
@@ -196,7 +196,7 @@ fn get_focused_title(client: &X11Client) -> Result<String> {
 
 /// This is a better alternative to the existing function: get_focus_window
 /// Because xproto::get_input_focus is not a reliable way to get focused window.
-fn get_focused_window_id(conn: &RustConnection, screen_num: usize) -> anyhow::Result<u32> {
+fn get_focused_winid(conn: &RustConnection, screen_num: usize) -> anyhow::Result<u32> {
     let root = conn.setup().roots[screen_num].root;
 
     let atoms = Atoms::new(&conn)?.reply()?;

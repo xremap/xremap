@@ -130,7 +130,7 @@ impl Client for CosmicClient {
                         title,
                     },
                 )| WindowInfo {
-                    win_id: Some(format!("{}", handle.id())),
+                    winid: Some(format!("{}", handle.id())),
                     app_class: app_class.clone(),
                     title: title.clone(),
                 },

@@ -1,3 +1,5 @@
+use super::device::Device;
+use super::key_press::Modifier;
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::OnlyOrNot;
 use crate::config::key_press::KeyPress;
@@ -5,9 +7,6 @@ use crate::config::keymap_action::{Actions, KeymapAction};
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
-
-use super::device::Device;
-use super::key_press::Modifier;
 
 // Config interface
 #[derive(Debug, Deserialize)]

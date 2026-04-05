@@ -99,11 +99,11 @@ impl Client for WlRootsClient {
 
 impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for State {
     fn event(
-        _state: &mut Self,
-        _registry: &wl_registry::WlRegistry,
+        _: &mut Self,
+        _: &wl_registry::WlRegistry,
         event: wl_registry::Event,
         _: &GlobalListContents,
-        _connection: &Connection,
+        _: &Connection,
         _: &QueueHandle<State>,
     ) {
         log::trace!("{event:?}");

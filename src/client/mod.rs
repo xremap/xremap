@@ -28,7 +28,7 @@ pub struct WindowInfo {
     // The order of fields matters because they define sort order.
     pub app_class: Option<String>,
     pub title: Option<String>,
-    pub win_id: Option<String>,
+    pub winid: Option<String>,
 }
 
 pub trait Client {
@@ -79,10 +79,10 @@ impl WMClient {
         self.check_supported()?;
 
         let result = self.client.current_window();
-        if let Some(window) = &result {
-            if &self.last_window != window {
-                self.last_window = window.clone();
-                if self.log_window_changes {
+        if self.log_window_changes {
+            if let Some(window) = &result {
+                if &self.last_window != window {
+                    self.last_window = window.clone();
                     println!("window: {window}");
                 }
             }
@@ -94,10 +94,10 @@ impl WMClient {
         self.check_supported()?;
 
         let result = self.client.current_application();
-        if let Some(application) = &result {
-            if &self.last_application != application {
-                self.last_application = application.clone();
-                if self.log_window_changes {
+        if self.log_window_changes {
+            if let Some(application) = &result {
+                if &self.last_application != application {
+                    self.last_application = application.clone();
                     println!("application: {application}");
                 }
             }
@@ -168,14 +168,14 @@ pub fn print_open_windows() -> anyhow::Result<()> {
 
     for WindowInfo {
         app_class,
-        win_id,
+        winid,
         title,
     } in windows
     {
         table.push(vec![
             app_class.unwrap_or_default(),
             title.unwrap_or_default(),
-            win_id.unwrap_or_default(),
+            winid.unwrap_or_default(),
         ]);
     }
 
