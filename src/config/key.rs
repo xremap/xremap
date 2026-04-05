@@ -1,3 +1,4 @@
+use crate::config::key_press::parse_modifier_alias;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
@@ -135,6 +136,11 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         return Ok(key);
     }
 
+    // Give warning if it's nearly correct
+    if parse_modifier_alias(input).is_some() {
+        return Err(format!("Modifiers must have left/right specified when used as key: '{input}'").into());
+    }
+
     Err(format!("unknown key '{input}'").into())
 }
 
@@ -153,5 +159,8 @@ fn test_parse_key() {
     assert_eq!(parse_key("S").unwrap(), Key::KEY_S);
 
     // Modifier without sidedness can't be a key.
-    assert_eq!(parse_key("Shift").unwrap_err().to_string(), "unknown key 'Shift'");
+    assert_eq!(
+        parse_key("Shift").unwrap_err().to_string(),
+        "Modifiers must have left/right specified when used as key: 'Shift'"
+    );
 }

@@ -192,7 +192,10 @@ fn test_yaml_fail_on_modifier_missing_sidedness() {
     .unwrap_err()
     .to_string();
 
-    assert_eq!(&errmsg, "modmap[0].remap: unknown key 'WIN' at line 3 column 7");
+    assert_eq!(
+        &errmsg,
+        "modmap[0].remap: Modifiers must have left/right specified when used as key: 'WIN' at line 3 column 7"
+    );
 }
 
 #[test]
@@ -219,7 +222,7 @@ fn test_yaml_invalid_virtual_modifiers_1() {
     .unwrap_err()
     .to_string();
 
-    assert_eq!(&errmsg, "unknown key 'WIN'");
+    assert_eq!(&errmsg, "Modifiers must have left/right specified when used as key: 'WIN'");
 }
 
 #[test]

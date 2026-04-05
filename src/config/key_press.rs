@@ -70,7 +70,7 @@ fn parse_modifier(modifier: &str) -> Result<Modifier, Box<dyn Error>> {
 }
 
 // Modifier that can match both left and right variants.
-fn parse_modifier_alias(modifier: &str) -> Option<Modifier> {
+pub fn parse_modifier_alias(modifier: &str) -> Option<Modifier> {
     // Everything is case-insensitive
     match &modifier.to_uppercase()[..] {
         // Shift
