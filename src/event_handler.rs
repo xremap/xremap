@@ -67,7 +67,12 @@ struct TaggedAction {
 }
 
 impl EventHandler {
-    pub fn new(timer: TimerFd, mode: &str, keypress_delay: Duration, application_client: WMClient) -> EventHandler {
+    pub fn new(
+        override_timer: TimerFd,
+        mode: &str,
+        keypress_delay: Duration,
+        application_client: WMClient,
+    ) -> EventHandler {
         EventHandler {
             modifiers: vec![],
             extra_modifiers: HashSet::new(),
@@ -78,7 +83,7 @@ impl EventHandler {
             multi_purpose_keys: HashMap::new(),
             override_remaps: vec![],
             override_timeout_key: None,
-            override_timer: timer,
+            override_timer,
             mode: mode.to_string(),
             mark_set: false,
             escape_next_key: false,
