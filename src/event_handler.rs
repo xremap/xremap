@@ -8,7 +8,7 @@ use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiP
 use crate::config::remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
-use crate::{config, Config};
+use crate::Config;
 use evdev::KeyCode as Key;
 use lazy_static::lazy_static;
 use log::{debug, warn};
@@ -431,7 +431,7 @@ impl EventHandler {
                     }
                 }
                 if let Some(device_matcher) = &modmap.device {
-                    if !self.match_device(device_matcher, device) {
+                    if !device_matcher.matches(device) {
                         continue;
                     }
                 }
@@ -516,7 +516,7 @@ impl EventHandler {
                         }
                     }
                     if let Some(device_matcher) = &entry.device {
-                        if !self.match_device(device_matcher, device) {
+                        if !device_matcher.matches(device) {
                             continue;
                         }
                     }
@@ -701,16 +701,6 @@ impl EventHandler {
             if let Some(application_not) = &application_matcher.not {
                 return application_not.iter().all(|m| !m.matches(application));
             }
-        }
-        false
-    }
-
-    fn match_device(&self, device_matcher: &config::device::Device, device: &InputDeviceInfo) -> bool {
-        if let Some(device_only) = &device_matcher.only {
-            return device_only.iter().any(|m| device.matches(m));
-        }
-        if let Some(device_not) = &device_matcher.not {
-            return device_not.iter().all(|m| !device.matches(m));
         }
         false
     }

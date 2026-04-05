@@ -1,4 +1,4 @@
-use super::device::Device;
+use super::device::DeviceMatcher;
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::OnlyOrNot;
 use crate::config::key::deserialize_key;
@@ -17,7 +17,7 @@ pub struct Modmap {
     pub remap: HashMap<Key, ModmapOperator>,
     pub application: Option<OnlyOrNot>,
     pub window: Option<OnlyOrNot>,
-    pub device: Option<Device>,
+    pub device: Option<DeviceMatcher>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
 }
