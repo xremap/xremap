@@ -75,15 +75,16 @@ impl SocketClient {
 impl Client for SocketClient {
     fn supported(&mut self) -> bool {
         debug!("Using socket path pattern: {}", self.socket_path);
-        if let Ok(regex) = Regex::new(r"/(\{uid\}/.+|[^/{]+)$") {
-            let parent_dir = regex.replace(&self.socket_path, "");
-            let path = Path::new(parent_dir.as_ref());
-            if path.is_dir() {
-                return true;
-            }
+        let regex = Regex::new(r"/(\{uid\}/.+|[^/{]+)$").unwrap();
+
+        let parent_dir = regex.replace(&self.socket_path, "");
+        let path = Path::new(parent_dir.as_ref());
+        if path.is_dir() {
+            true
+        } else {
             println!("Warning: socket directory not found: {}", parent_dir);
+            false
         }
-        false
     }
 
     fn current_window(&mut self) -> Option<String> {
