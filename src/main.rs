@@ -304,15 +304,7 @@ fn main() -> anyhow::Result<()> {
             }
             if let Some(inotify) = config_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    if !handle_config_changes(
-                        events,
-                        &mut input_devices,
-                        &device_filter,
-                        &ignore_filter,
-                        mouse,
-                        &config_paths,
-                        inotify,
-                    )? {
+                    if !handle_config_changes(events, &config_paths, inotify)? {
                         break 'event_loop ReloadEvent::ReloadConfig;
                     }
                 }
@@ -425,10 +417,6 @@ fn handle_device_changes(
 
 fn handle_config_changes(
     events: Vec<InotifyEvent>,
-    input_devices: &mut HashMap<PathBuf, InputDevice>,
-    device_filter: &[String],
-    ignore_filter: &[String],
-    mouse: bool,
     config_paths: &Vec<PathBuf>,
     inotify: Inotify,
 ) -> anyhow::Result<bool> {
@@ -461,17 +449,5 @@ fn handle_config_changes(
             _ => (),
         }
     }
-    input_devices.extend(events.into_iter().filter_map(|event| {
-        event.name.and_then(|name| {
-            let path = PathBuf::from("/dev/input/").join(name);
-            let mut device = InputDevice::try_from(path).ok()?;
-            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
-                device.print();
-                Some(device.into())
-            } else {
-                None
-            }
-        })
-    }));
     Ok(true)
 }
