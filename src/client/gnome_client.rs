@@ -15,6 +15,7 @@ pub struct GnomeClient {
 
 impl GnomeClient {
     pub fn new() -> GnomeClient {
+        // The socket feature is deprecated here. The socket_client is the one to use instead.
         let socket_path = std::env::var("GNOME_SOCKET").ok().filter(|s| !s.is_empty());
         GnomeClient {
             socket_path,

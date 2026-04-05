@@ -458,6 +458,7 @@ impl EventHandler {
                 .flat_map(|map| map.get(key).cloned().unwrap_or_default())
                 .collect();
 
+            // Empty if the key isn't defined in any of the nested remaps, that are active.
             if !entries.is_empty() {
                 self.remove_override()?;
 
@@ -847,6 +848,9 @@ struct MultiPurposeKeyState {
 }
 
 impl MultiPurposeKeyState {
+    /// It causes a problem, that repeat is used for timeout. Partially because its interval
+    /// gives low precision. And because the repeat events will stop if another key is pressed. Also
+    /// BTN_RIGHT does not emit repeat events, so mouse buttons can't be remapped this way.   
     fn repeat(&mut self) -> Vec<(Key, i32)> {
         if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
             // Timeout. Setting state before going into the switch is necessary
