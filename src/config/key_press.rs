@@ -74,16 +74,19 @@ pub fn parse_modifier_alias(modifier: &str) -> Option<Modifier> {
     // Everything is case-insensitive
     match &modifier.to_uppercase()[..] {
         // Shift
+        "S" => Some(Modifier::Shift),
         "SHIFT" => Some(Modifier::Shift),
         // Control
         "C" => Some(Modifier::Control),
         "CTRL" => Some(Modifier::Control),
         "CONTROL" => Some(Modifier::Control),
         // Alt
+        "A" => Some(Modifier::Alt),
         "M" => Some(Modifier::Alt),
         "ALT" => Some(Modifier::Alt),
         // Windows
         "SUPER" => Some(Modifier::Windows),
+        "W" => Some(Modifier::Windows),
         "WIN" => Some(Modifier::Windows),
         "WINDOWS" => Some(Modifier::Windows),
         _ => None,
