@@ -161,7 +161,7 @@ fn test_yaml_modmap_any_key_is_not_valid() {
 }
 
 #[test]
-fn test_yaml_keymap_can_not_emit_relative_events_cur() {
+fn test_yaml_keymap_can_not_emit_relative_events() {
     assert_invalid_config(
         indoc! {"
         keymap:

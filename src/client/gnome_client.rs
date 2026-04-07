@@ -1,8 +1,8 @@
+use crate::bridge::ActiveWindow;
 use crate::client::{Client, WindowInfo};
 use anyhow::bail;
 use futures::executor::block_on;
 use log::debug;
-use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -166,12 +166,4 @@ impl Client for GnomeClient {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for GNOME")
     }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ActiveWindow {
-    #[serde(default)]
-    wm_class: String,
-    #[serde(default)]
-    title: String,
 }

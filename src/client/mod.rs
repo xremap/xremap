@@ -1,4 +1,5 @@
 use crate::util::print_table;
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "cosmic")]
 mod cosmic_client;
@@ -23,7 +24,7 @@ mod x11_client;
 
 mod null_client;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct WindowInfo {
     // The order of fields matters because they define sort order.
     pub app_class: Option<String>,
@@ -46,8 +47,8 @@ pub trait Client {
 }
 
 pub struct WMClient {
-    name: String,
-    client: Box<dyn Client>,
+    pub name: String,
+    pub client: Box<dyn Client>,
     supported: Option<bool>,
     last_application: String,
     last_window: String,

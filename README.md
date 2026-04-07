@@ -54,7 +54,7 @@ cargo install xremap --features wlroots # Sway, Wayfire, etc.
 cargo install xremap --features hypr    # Hyprland
 cargo install xremap --features niri    # Niri
 cargo install xremap --features cosmic  # COSMIC Wayland
-cargo install xremap --features socket  # Socket client with logind session monitor
+cargo install xremap --features socket  # Variant for system service
 cargo install xremap                    # Others
 ```
 
@@ -672,6 +672,9 @@ Options:
           Allow remappings to execute programs. Default is ambiguous. Since v0.15.1
 
           [possible values: true, false]
+
+      --bridge
+          Open a bridge from the desktop environment to the xremap system service. Since v0.15.1
 
       --completions <SHELL>
           Generate shell completions

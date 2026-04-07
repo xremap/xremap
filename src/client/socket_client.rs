@@ -1,9 +1,10 @@
 use super::socket_monitor::SessionMonitor;
+use crate::bridge::ActiveWindow;
+use crate::bridge::{Request, Response};
 use crate::client::{Client, WindowInfo};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use log::debug;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
@@ -54,12 +55,39 @@ impl SocketClient {
 
     fn get_active_window(&self) -> Result<ActiveWindow> {
         let json = self.call_via_socket("ActiveWindow")?;
-        Ok(serde_json::from_str::<ActiveWindow>(&json)?)
+        match serde_json::from_str::<Response>(&json) {
+            Ok(response) => match response {
+                Response::ActiveWindow { title, wm_class } => Ok(ActiveWindow { title, wm_class }),
+                Response::Error(message) => bail!(message),
+                response => bail!("Wrong response from client {response:?}"),
+            },
+            Err(_) => {
+                // Fallback to gnome extension
+                Ok(serde_json::from_str::<ActiveWindow>(&json)?)
+            }
+        }
+    }
+
+    fn command(&self, request: Request) -> Result<()> {
+        match self.request_typed(request)? {
+            Response::Ok => Ok(()),
+            response => bail!("Wrong response from client {response:?}"),
+        }
+    }
+
+    fn request_typed(&self, request: Request) -> Result<Response> {
+        let response = self.call_via_socket(request)?;
+        match serde_json::from_str::<Response>(&response)? {
+            // Filter errors to make further processing easier.
+            Response::Error(message) => bail!(message),
+            response => Ok(response),
+        }
     }
 
     fn call_via_socket<T: serde::Serialize>(&self, command: T) -> Result<String> {
         let session = self.monitor.get_active_session().ok_or(anyhow!("no active session"))?;
-        let mut stream = UnixStream::connect(session.user_socket)?;
+        let mut stream = UnixStream::connect(&session.user_socket)
+            .context(format!("Could not connect to socket: {:?}", session.user_socket))?;
         stream.set_write_timeout(Some(Duration::from_millis(500)))?;
         stream.set_read_timeout(Some(Duration::from_millis(500)))?;
         stream.write_all(serde_json::to_string(&command)?.as_bytes())?;
@@ -102,24 +130,14 @@ impl Client for SocketClient {
     }
 
     fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
-        let request = serde_json::json!({"Run": command});
-        let response = self.call_via_socket(&request)?;
-        let parsed = serde_json::from_str::<serde_json::Value>(&response);
-        match parsed {
-            Ok(v) if v == "Ok" => Ok(true),
-            _ => Err(anyhow::format_err!(response)),
-        }
+        self.command(Request::Run(command.clone()))?;
+        Ok(true)
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
-        bail!("window_list not implemented for socket")
+        match self.request_typed(Request::WindowList)? {
+            Response::WindowList(window_list) => Ok(window_list),
+            response => bail!("Wrong response from client {response:?}"),
+        }
     }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ActiveWindow {
-    #[serde(default)]
-    wm_class: String,
-    #[serde(default)]
-    title: String,
 }
