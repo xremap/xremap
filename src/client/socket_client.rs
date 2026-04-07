@@ -68,6 +68,13 @@ impl SocketClient {
         }
     }
 
+    fn command(&self, request: Request) -> Result<()> {
+        match self.request_typed(request)? {
+            Response::Ok => Ok(()),
+            _ => unreachable!(),
+        }
+    }
+
     fn request_typed(&self, request: Request) -> Result<Response> {
         let response = self.call_via_socket(request)?;
         match serde_json::from_str::<Response>(&response)? {
@@ -122,13 +129,8 @@ impl Client for SocketClient {
     }
 
     fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
-        let request = serde_json::json!({"Run": command});
-        let response = self.call_via_socket(&request)?;
-        let parsed = serde_json::from_str::<serde_json::Value>(&response);
-        match parsed {
-            Ok(v) if v == "Ok" => Ok(true),
-            _ => Err(anyhow::format_err!(response)),
-        }
+        self.command(Request::Run(command.clone()))?;
+        Ok(true)
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
