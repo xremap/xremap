@@ -2,7 +2,7 @@ use super::socket_monitor::SessionMonitor;
 use crate::bridge::ActiveWindow;
 use crate::bridge::{Request, Response};
 use crate::client::{Client, WindowInfo};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use log::debug;
 use regex::Regex;
 use std::io::{BufRead, BufReader, Write};
@@ -86,7 +86,8 @@ impl SocketClient {
 
     fn call_via_socket<T: serde::Serialize>(&self, command: T) -> Result<String> {
         let session = self.monitor.get_active_session().ok_or(anyhow!("no active session"))?;
-        let mut stream = UnixStream::connect(session.user_socket)?;
+        let mut stream = UnixStream::connect(&session.user_socket)
+            .context(format!("Could not connect to socket: {:?}", session.user_socket))?;
         stream.set_write_timeout(Some(Duration::from_millis(500)))?;
         stream.set_read_timeout(Some(Duration::from_millis(500)))?;
         stream.write_all(serde_json::to_string(&command)?.as_bytes())?;
