@@ -6,14 +6,23 @@ use std::process::{exit, Command, Stdio};
 pub struct CommandRunner {
     // Whether we've called a sigaction for spawing commands or not
     sigaction_set: bool,
+    allow_launch: bool,
 }
 
 impl CommandRunner {
-    pub fn new() -> Self {
-        Self { sigaction_set: false }
+    pub fn new(allow_launch: bool) -> Self {
+        Self {
+            sigaction_set: false,
+            allow_launch,
+        }
     }
 
     pub fn run(&mut self, command: Vec<String>) {
+        if !self.allow_launch {
+            println!("Launch is not allowed");
+            return;
+        }
+
         if !self.sigaction_set {
             // Avoid defunct processes
             let sig_action = SigAction::new(SigHandler::SigDfl, SaFlags::SA_NOCLDWAIT, SigSet::empty());

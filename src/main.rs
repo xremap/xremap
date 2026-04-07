@@ -140,6 +140,9 @@ struct Args {
     /// Suppress logging of window title and application changes. Default is false. Since v0.14.10.
     #[arg(long)]
     no_window_logging: bool,
+    /// Allow remappings to execute programs. Default is ambiguous. Since v0.15.1
+    #[arg(long)]
+    allow_launch: Option<bool>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -167,6 +170,7 @@ fn main() -> anyhow::Result<()> {
         device_details,
         list_windows,
         no_window_logging,
+        allow_launch,
     } = Args::parse();
 
     if let Some(shell) = completions {
@@ -226,7 +230,8 @@ fn main() -> anyhow::Result<()> {
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
 
     // wmclient
-    let mut mainctrl = MainController::new(!no_window_logging);
+    // Default allow launch (Change to false in a major upgrade)
+    let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
     // EventHandler
     let mut handler = EventHandler::new(timer, &config.default_mode, delay);

@@ -668,6 +668,11 @@ Options:
       --no-window-logging
           Suppress logging of window title and application changes. Default is false. Since v0.14.10
 
+      --allow-launch <ALLOW_LAUNCH>
+          Allow remappings to execute programs. Default is ambiguous. Since v0.15.1
+
+          [possible values: true, false]
+
       --completions <SHELL>
           Generate shell completions
 

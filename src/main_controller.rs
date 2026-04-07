@@ -5,13 +5,15 @@ use log::debug;
 pub struct MainController {
     wmclient: WMClient,
     command_runner: CommandRunner,
+    allow_launch: bool,
 }
 
 impl MainController {
-    pub fn new(log_window_changes: bool) -> Self {
+    pub fn new(log_window_changes: bool, allow_launch: bool) -> Self {
         Self {
             wmclient: build_client(log_window_changes),
-            command_runner: CommandRunner::new(),
+            command_runner: CommandRunner::new(allow_launch),
+            allow_launch,
         }
     }
 
@@ -20,6 +22,11 @@ impl MainController {
     }
 
     pub fn run_command(&mut self, command: Vec<String>) {
+        if !self.allow_launch {
+            println!("Launch is not allowed");
+            return;
+        }
+
         match self.wmclient.run(&command) {
             Ok(false) => {
                 // could not run command, proceed to fork
