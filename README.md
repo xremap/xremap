@@ -673,6 +673,9 @@ Options:
 
           [possible values: true, false]
 
+      --bridge
+          Open a bridge from the desktop environment to the xremap system service. Since v0.15.1
+
       --completions <SHELL>
           Generate shell completions
 

@@ -30,6 +30,7 @@ use std::time::Duration;
 
 mod action;
 mod action_dispatcher;
+mod bridge;
 mod client;
 mod command_runner;
 mod config;
@@ -116,6 +117,7 @@ struct Args {
         required_unless_present = "list_devices",
         required_unless_present = "device_details",
         required_unless_present = "list_windows",
+        required_unless_present = "bridge",
         num_args = 1..)]
     configs: Vec<PathBuf>,
     /// Choose the vendor value of the created output device.
@@ -143,6 +145,9 @@ struct Args {
     /// Allow remappings to execute programs. Default is ambiguous. Since v0.15.1
     #[arg(long)]
     allow_launch: Option<bool>,
+    /// Open a bridge from the desktop environment to the xremap system service. Since v0.15.1
+    #[arg(long)]
+    bridge: bool,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -171,6 +176,7 @@ fn main() -> anyhow::Result<()> {
         list_windows,
         no_window_logging,
         allow_launch,
+        bridge,
     } = Args::parse();
 
     if let Some(shell) = completions {
@@ -190,6 +196,11 @@ fn main() -> anyhow::Result<()> {
 
     if list_windows {
         return print_open_windows();
+    }
+
+    if bridge {
+        // Default deny launch
+        return bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
     }
 
     if let Some(output_device_name) = output_device_name {
