@@ -55,7 +55,17 @@ impl SocketClient {
 
     fn get_active_window(&self) -> Result<ActiveWindow> {
         let json = self.call_via_socket("ActiveWindow")?;
-        Ok(serde_json::from_str::<ActiveWindow>(&json)?)
+        match serde_json::from_str::<Response>(&json) {
+            Ok(response) => match response {
+                Response::ActiveWindow { title, wm_class } => Ok(ActiveWindow { title, wm_class }),
+                Response::Error(message) => bail!(message),
+                _ => unreachable!(),
+            },
+            Err(_) => {
+                // Fallback to gnome extension
+                Ok(serde_json::from_str::<ActiveWindow>(&json)?)
+            }
+        }
     }
 
     fn request_typed(&self, request: Request) -> Result<Response> {
