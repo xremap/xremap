@@ -59,7 +59,7 @@ impl SocketClient {
             Ok(response) => match response {
                 Response::ActiveWindow { title, wm_class } => Ok(ActiveWindow { title, wm_class }),
                 Response::Error(message) => bail!(message),
-                _ => unreachable!(),
+                response => bail!("Wrong response from client {response:?}"),
             },
             Err(_) => {
                 // Fallback to gnome extension
@@ -71,7 +71,7 @@ impl SocketClient {
     fn command(&self, request: Request) -> Result<()> {
         match self.request_typed(request)? {
             Response::Ok => Ok(()),
-            _ => unreachable!(),
+            response => bail!("Wrong response from client {response:?}"),
         }
     }
 
@@ -137,7 +137,7 @@ impl Client for SocketClient {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         match self.request_typed(Request::WindowList)? {
             Response::WindowList(window_list) => Ok(window_list),
-            _ => unreachable!(),
+            response => bail!("Wrong response from client {response:?}"),
         }
     }
 }
