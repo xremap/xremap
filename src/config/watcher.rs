@@ -2,22 +2,28 @@ use crate::config::{load_configs, Config};
 use anyhow::Result;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify, InotifyEvent};
 use nix::sys::select::FdSet;
-use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
+use nix::sys::time::TimeSpec;
+use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct ConfigWatcher {
     files: Vec<PathBuf>,
-    debounce_events: bool,
+    debounce: Option<Duration>,
     timer_fd: RawFd,
-    #[allow(warnings)]
     timer: TimerFd,
     inotify: Inotify,
+    change_pending: bool,
 }
 
 impl ConfigWatcher {
-    pub fn new(watch: bool, files: Vec<PathBuf>) -> Result<(Option<RawFd>, Option<Inotify>, Option<Self>)> {
+    pub fn new(
+        watch: bool,
+        files: Vec<PathBuf>,
+        debounce_ms: u64,
+    ) -> Result<(Option<RawFd>, Option<Inotify>, Option<Self>)> {
         if !watch {
             return Ok((None, None, None));
         }
@@ -33,12 +39,19 @@ impl ConfigWatcher {
 
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
 
+        let debounce = if debounce_ms == 0 {
+            None
+        } else {
+            Some(Duration::from_millis(debounce_ms))
+        };
+
         let this = Self {
             files,
-            debounce_events: false,
+            debounce,
             timer_fd: timer.as_raw_fd(),
             timer,
             inotify,
+            change_pending: false,
         };
 
         Ok((Some(this.timer_fd), Some(this.inotify), Some(this)))
@@ -46,16 +59,22 @@ impl ConfigWatcher {
 
     pub fn handle(&mut self, readable_fds: FdSet) -> Result<Option<Config>> {
         if readable_fds.contains(self.timer_fd) {
-            todo!()
+            return Ok(Some(self.get_config()?));
         }
 
         if let Ok(events) = self.inotify.read_events() {
             if self.config_changed(events)? {
-                if self.debounce_events {
-                    todo!()
-                } else {
-                    return Ok(Some(self.get_config()?));
-                }
+                match self.debounce {
+                    Some(debounce) => {
+                        // Could already be set, but reset is the debounce.
+                        self.change_pending = true;
+                        self.timer
+                            .set(Expiration::OneShot(TimeSpec::from_duration(debounce)), TimerSetTimeFlags::empty())?;
+                    }
+                    None => {
+                        return Ok(Some(self.get_config()?));
+                    }
+                };
             }
         }
 
@@ -63,6 +82,8 @@ impl ConfigWatcher {
     }
 
     fn get_config(&mut self) -> Result<Config> {
+        self.change_pending = false;
+        self.timer.unset()?;
         let result = load_configs(&self.files);
         match &result {
             Ok(_) => {

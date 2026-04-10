@@ -237,7 +237,7 @@ fn main() -> anyhow::Result<()> {
     };
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
-        ConfigWatcher::new(watch_config, config_paths)?;
+        ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms)?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher_inotify.iter()).collect();
 
     // wmclient
