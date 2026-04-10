@@ -29,6 +29,7 @@ pub struct XremapBuilder {
     ignore_device_: Option<String>,
     open_for_fetch_: bool,
     watch_: bool,
+    watch_config_: bool,
     config_file: Option<String>,
 }
 
@@ -43,6 +44,7 @@ impl XremapBuilder {
             // goes to the 'host', so disable with care.
             open_for_fetch_: true,
             watch_: false,
+            watch_config_: false,
             config_file: None,
         }
     }
@@ -75,6 +77,13 @@ impl XremapBuilder {
     pub fn watch(&mut self, value: bool) -> &mut Self {
         self.watch_ = value;
         self
+    }
+
+    pub fn watch_config(&mut self, config: &str) -> Result<&mut Self> {
+        // Custom config file is required, because static config file must not be changed.
+        self.config(config)?;
+        self.watch_config_ = true;
+        Ok(self)
     }
 
     pub fn config(&mut self, config: &str) -> Result<&mut Self> {
@@ -112,6 +121,7 @@ pub struct XremapController {
     output_device_name: String,
     output_device: Option<Device>,
     device_filter: Option<String>,
+    config_file: String,
 }
 
 impl XremapController {
@@ -138,13 +148,16 @@ impl XremapController {
             .env("RUST_LOG", &def.log_level_)
             .args(vec!["--output-device-name", &output_device_name]);
 
-        match &def.config_file {
+        let config_file = match &def.config_file {
             Some(config) => {
                 println!("Using custom config: {:?}", config);
                 builder.arg(config);
+                config
             }
             None => {
-                builder.arg("tests/common/config-test.yml");
+                let config = "tests/common/config-test.yml";
+                builder.arg(config);
+                config
             }
         };
 
@@ -161,6 +174,10 @@ impl XremapController {
 
         if def.watch_ {
             builder.arg("--watch");
+        }
+
+        if def.watch_config_ {
+            builder.arg("--watch=config");
         }
 
         let device_filter = match &def.custom_input_device_ {
@@ -198,6 +215,7 @@ impl XremapController {
             output_device_name,
             output_device: None,
             device_filter,
+            config_file: config_file.to_string(),
         };
 
         match &ctrl.input_device {
@@ -222,6 +240,10 @@ impl XremapController {
 
     pub fn get_input_device_name<'a>(&'a mut self) -> &'a Option<String> {
         &self.device_filter
+    }
+
+    pub fn get_config_file<'a>(&'a mut self) -> &'a str {
+        &self.config_file
     }
 
     pub fn open_input_device(&mut self, name: impl Into<String>) -> anyhow::Result<()> {
