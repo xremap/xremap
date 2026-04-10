@@ -13,6 +13,7 @@ pub mod nested_remap;
 #[cfg(test)]
 mod tests;
 mod validation;
+mod watcher;
 
 extern crate serde_yaml;
 extern crate toml;
@@ -25,13 +26,13 @@ use crate::event_handler::MODIFIER_KEYS;
 use evdev::KeyCode as Key;
 use keymap::Keymap;
 use modmap::Modmap;
-use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use serde::{de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::{error, fs};
 pub use validation::validate_config_file;
+pub use watcher::ConfigWatcher;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -117,22 +118,6 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
     validate_config_file(&config)?;
 
     Ok(config)
-}
-
-pub fn config_watcher(watch: bool, files: &Vec<PathBuf>) -> anyhow::Result<Option<Inotify>> {
-    if watch {
-        let inotify = Inotify::init(InitFlags::IN_NONBLOCK)?;
-        for file in files {
-            inotify.add_watch(
-                file.parent().expect("config file has a parent directory"),
-                AddWatchFlags::IN_CREATE | AddWatchFlags::IN_MOVED_TO,
-            )?;
-            inotify.add_watch(file, AddWatchFlags::IN_MODIFY)?;
-        }
-        Ok(Some(inotify))
-    } else {
-        Ok(None)
-    }
 }
 
 fn default_mode() -> String {

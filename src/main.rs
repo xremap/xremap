@@ -1,5 +1,5 @@
 use crate::client::print_open_windows;
-use crate::config::Config;
+use crate::config::{Config, ConfigWatcher};
 use crate::device::{
     device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
 };
@@ -13,11 +13,10 @@ use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
-use config::{config_watcher, load_configs};
 use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
-use nix::sys::inotify::{AddWatchFlags, Inotify, InotifyEvent};
+use nix::sys::inotify::{Inotify, InotifyEvent};
 use nix::sys::select::select;
 use nix::sys::select::FdSet;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
@@ -237,8 +236,9 @@ fn main() -> anyhow::Result<()> {
         Err(e) => bail!("Failed to prepare input devices: {}", e),
     };
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
-    let config_watcher = config_watcher(watch_config, &config_paths).context("Setting up config watcher")?;
-    let watchers: Vec<_> = device_watcher.iter().chain(config_watcher.iter()).collect();
+    let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
+        ConfigWatcher::new(watch_config, config_paths)?;
+    let watchers: Vec<_> = device_watcher.iter().chain(config_watcher_inotify.iter()).collect();
 
     // wmclient
     // Default allow launch (Change to false in a major upgrade)
@@ -271,7 +271,8 @@ fn main() -> anyhow::Result<()> {
     // Main loop
     loop {
         'event_loop: loop {
-            let readable_fds = select_readable(input_devices.values(), &watchers, timer_fd, timeout_manager_fd)?;
+            let readable_fds =
+                select_readable(input_devices.values(), &watchers, timer_fd, timeout_manager_fd, config_watcher_fd)?;
             if readable_fds.contains(timer_fd) {
                 if let Err(error) = handle_events(
                     &mut handler,
@@ -334,21 +335,16 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
-            if let Some(inotify) = config_watcher {
-                if let Ok(events) = inotify.read_events() {
-                    if !handle_config_changes(events, &config_paths, inotify)? {
-                        match load_configs(&config_paths) {
-                            Ok(c) => {
-                            println!("Reloading Config");
-                            config = c;
-                                continue 'event_loop;
-                            }
-                            Err(_) => {
-                                continue 'event_loop;
-                        }
-                        };
+            if let Some(config_watcher) = config_watcher.as_mut() {
+                match config_watcher.handle(readable_fds) {
+                    Ok(Some(c)) => {
+                        config = c;
+                        continue 'event_loop;
                     }
-                }
+                    _ => {
+                        continue 'event_loop;
+                    }
+                };
             }
         }
     }
@@ -359,10 +355,12 @@ fn select_readable<'a>(
     watchers: &[&Inotify],
     timer_fd: RawFd,
     timeout_manager_fd: RawFd,
+    config_watcher_fd: Option<RawFd>,
 ) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
     read_fds.insert(timer_fd);
     read_fds.insert(timeout_manager_fd);
+    config_watcher_fd.map(|fd| read_fds.insert(fd));
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
@@ -438,41 +436,4 @@ fn handle_device_changes(
         })
     }));
     Ok(())
-}
-
-fn handle_config_changes(
-    events: Vec<InotifyEvent>,
-    config_paths: &Vec<PathBuf>,
-    inotify: Inotify,
-) -> anyhow::Result<bool> {
-    //Re-add AddWatchFlags if config file has been deleted then recreated or overwritten by renaming another file to its own name
-    for event in &events {
-        if event
-            .mask
-            .intersects(AddWatchFlags::IN_CREATE | AddWatchFlags::IN_MOVED_TO)
-        {
-            for config_path in config_paths {
-                if config_path.file_name().unwrap_or_default() == event.name.clone().unwrap_or_default() {
-                    inotify.add_watch(config_path, AddWatchFlags::IN_MODIFY)?;
-                }
-            }
-        }
-    }
-    for event in &events {
-        match (event.mask, &event.name) {
-            // Dir events
-            (_, Some(name))
-                if config_paths
-                    .iter()
-                    .any(|p| name == p.file_name().expect("Config path has a file name")) =>
-            {
-                return Ok(false)
-            }
-            // File events
-            (mask, _) if mask.contains(AddWatchFlags::IN_MODIFY) => return Ok(false),
-            // Unrelated
-            _ => (),
-        }
-    }
-    Ok(true)
 }
