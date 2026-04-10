@@ -39,6 +39,22 @@ The delay is only added if needed. That is there's no delay if the time has alre
 The logic is choosen to allow applications enough time to register the exact modifiers pressed when
 a key is pressed, and keep to key pressed enough time.
 
+### config_watch_debounce_ms
+
+```yml
+config_watch_debounce_ms: 20 # Default is '0'
+# Rest of your config file
+```
+
+When using `--watch=config` to watch configuration files for changes, a delay can be needed to ignore
+some of the file-change events. This can help an error where the old configuration is unloaded
+when a configuration file with errors is saved.
+
+By waiting for the inactivity to have remained e.g. `20ms` will only that final event
+be used and therefore are all the 'wrong' events just ignored.
+
+Since version 0.15.1.
+
 ### Shared data field
 
 You can declare data that does not directly go into the config under the `shared` field.  
