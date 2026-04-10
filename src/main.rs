@@ -337,12 +337,16 @@ fn main() -> anyhow::Result<()> {
             if let Some(inotify) = config_watcher {
                 if let Ok(events) = inotify.read_events() {
                     if !handle_config_changes(events, &config_paths, inotify)? {
-                        if let Ok(c) = load_configs(&config_paths) {
+                        match load_configs(&config_paths) {
+                            Ok(c) => {
                             println!("Reloading Config");
                             config = c;
+                                continue 'event_loop;
+                            }
+                            Err(_) => {
+                                continue 'event_loop;
                         }
-
-                        continue 'event_loop;
+                        };
                     }
                 }
             }
