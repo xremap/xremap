@@ -29,6 +29,7 @@ pub struct XremapBuilder {
     ignore_device_: Option<String>,
     open_for_fetch_: bool,
     watch_: bool,
+    watch_config_: bool,
     config_file: Option<String>,
 }
 
@@ -43,6 +44,7 @@ impl XremapBuilder {
             // goes to the 'host', so disable with care.
             open_for_fetch_: true,
             watch_: false,
+            watch_config_: false,
             config_file: None,
         }
     }
@@ -75,6 +77,13 @@ impl XremapBuilder {
     pub fn watch(&mut self, value: bool) -> &mut Self {
         self.watch_ = value;
         self
+    }
+
+    pub fn watch_config(&mut self, config: &str) -> Result<&mut Self> {
+        // Custom config file is required, because static config file must not be changed.
+        self.config(config)?;
+        self.watch_config_ = true;
+        Ok(self)
     }
 
     pub fn config(&mut self, config: &str) -> Result<&mut Self> {
@@ -165,6 +174,10 @@ impl XremapController {
 
         if def.watch_ {
             builder.arg("--watch");
+        }
+
+        if def.watch_config_ {
+            builder.arg("--watch=config");
         }
 
         let device_filter = match &def.custom_input_device_ {
