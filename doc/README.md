@@ -15,6 +15,7 @@ You can choose between the following ways to run xremap. They are ordered by the
 
 ### Configuration file reference
 
+- [Configuration options](reference_config_options.md)
 - [Multi-purpose key (alias: tap-hold key)](reference_multipurpose_key.md)
 
 ### Experimental features
