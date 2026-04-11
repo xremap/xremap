@@ -1,3 +1,11 @@
+## v0.15.1
+
+- Add ready and config-fail notifications https://github.com/xremap/xremap/pull/897
+- Debounce option for config watching https://github.com/xremap/xremap/pull/896
+- Add bridge for system service https://github.com/xremap/xremap/pull/894
+- Add allow_launch commandline argument https://github.com/xremap/xremap/pull/893
+- Add more modifier aliases to be consistent https://github.com/xremap/xremap/pull/892
+
 ## v0.15.0
 
 Upgrade guide: https://github.com/xremap/xremap/blob/master/UPGRADE.md
