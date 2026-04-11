@@ -54,6 +54,8 @@ pub struct Config {
     pub throttle_ms: u64,
     #[serde(default)]
     pub config_watch_debounce_ms: u64,
+    #[serde(default)]
+    pub notifications: bool,
 
     // Data is not used by any part of the application.
     // but can be used with Anchors and Aliases

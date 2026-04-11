@@ -16,7 +16,7 @@ experimental_map:
   - remap:
       LeftMeta:
         double: mute
-        timeout: 200 # Optional. Default is 200ms.
+        timeout: 200 # Optional. Default is 200. Meaning 200ms.
 ```
 
 Working since v0.14.18
@@ -68,7 +68,7 @@ experimental_map:
   - remap:
       btn_right:
         double: R
-        timeout: 200 # Optional. Default is 200ms.
+        timeout: 200 # Optional. Default is 200. Meaning 200ms.
 ```
 
 To use mouse buttons xremap must be started with the `--mouse` argument.

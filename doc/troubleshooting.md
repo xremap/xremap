@@ -30,7 +30,7 @@ This might be caused by key events emitted to fast by xremap. You can add a dela
 
 ```yml
 keypress_delay_ms: 10
-# Rest of you config file
+# Rest of your config file
 ```
 
 `10 ms` is good default value, but try `100 ms` to be certain if this is the cause of your problems.
@@ -40,7 +40,7 @@ Another way to slow events down is:
 
 ```yml
 throttle_ms: 10
-# Rest of you config file
+# Rest of your config file
 ```
 
 ### Application-specific remappings don't work
@@ -113,3 +113,15 @@ sudo modprobe uinput
 ```
 
 If it doesn't work reboot is needed.
+
+### Error running command: ["notify-send", "-a", "xremap", "Ready"]
+
+When xremap sends notifications it uses a binary called `notify-send`. It's installed on most distros, but
+if it's not, here are examples of how to install:
+
+```sh
+sudo apt install libnotify-bin
+sudo dnf install notify-send
+sudo pacman --sync libnotify
+sudo zypper install libnotify-tools
+```

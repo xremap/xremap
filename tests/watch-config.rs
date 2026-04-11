@@ -1,12 +1,12 @@
 #![cfg(feature = "device-test")]
 
-use crate::common::{assert_events, key_press, key_release, xremap_controller::XremapController};
+use crate::common::{assert_events, containsn, key_press, key_release, xremap_controller::XremapController};
 use evdev::KeyCode;
 use indoc::indoc;
 mod common;
 
 #[test]
-pub fn e2e_watch_config_cur() -> anyhow::Result<()> {
+pub fn e2e_watch_config() -> anyhow::Result<()> {
     let mut ctrl = XremapController::builder().watch_config("")?.build()?;
 
     std::fs::write(
@@ -36,7 +36,7 @@ pub fn e2e_watch_config_cur() -> anyhow::Result<()> {
 }
 
 #[test]
-pub fn e2e_old_config_remains_active_when_error_cur() -> anyhow::Result<()> {
+pub fn e2e_old_config_remains_active_when_error() -> anyhow::Result<()> {
     let mut ctrl = XremapController::builder()
         .watch_config(indoc! {"
               config_watch_debounce_ms: 10
@@ -90,7 +90,7 @@ pub fn e2e_old_config_remains_active_when_error_cur() -> anyhow::Result<()> {
 }
 
 #[test]
-pub fn e2e_config_watch_is_debounced_cur() -> anyhow::Result<()> {
+pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
     let mut ctrl = XremapController::builder()
         .watch_config("config_watch_debounce_ms: 10")?
         .build()?;
@@ -120,10 +120,35 @@ pub fn e2e_config_watch_is_debounced_cur() -> anyhow::Result<()> {
         "},
     );
 
-    let stdout = ctrl.kill_for_output()?.stdout.replacen("Reloading Config", "", 1);
+    let stdout = ctrl.kill_for_output()?.stdout;
 
-    // Only reloaded once
-    assert!(!stdout.contains("Reloading Config"));
+    assert!(containsn(1, &stdout, "Reloading Config"));
+
+    Ok(())
+}
+
+#[test]
+pub fn e2e_config_watch_with_notifications() -> anyhow::Result<()> {
+    let config = indoc! {"
+            notifications: true
+            config_watch_debounce_ms: 10
+        "};
+
+    let mut ctrl = XremapController::builder().watch_config(config)?.build()?;
+
+    std::fs::write(&ctrl.get_config_file(), "failed_config")?;
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+
+    std::fs::write(&ctrl.get_config_file(), config)?;
+
+    std::thread::sleep(std::time::Duration::from_millis(20));
+
+    let stdout = ctrl.kill_for_output()?.stdout;
+
+    assert!(containsn(2, &stdout, r#"["notify-send", "-a", "xremap", "Ready"]"#));
+    assert!(containsn(1, &stdout, r#"["notify-send", "-a", "xremap", "Config error""#));
+    assert!(containsn(1, &stdout, "Reloading Config"));
 
     Ok(())
 }

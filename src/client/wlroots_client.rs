@@ -58,6 +58,7 @@ impl Client for WlRootsClient {
             }
         }
     }
+
     fn current_window(&mut self) -> Option<String> {
         let queue = self.queue.as_mut()?;
 

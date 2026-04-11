@@ -150,3 +150,30 @@ pub fn assert_events(actual: impl AsRef<Vec<InputEvent>>, expected: &str) {
 
     assert_eq!(actual, expected);
 }
+
+pub fn containsn(count: u64, hackstack: &str, needle: &str) -> bool {
+    let mut hackstack = hackstack.to_string();
+
+    for _ in 0..count {
+        if !hackstack.contains(needle) {
+            return false;
+        }
+
+        hackstack = hackstack.replacen(needle, "", 1);
+    }
+
+    !hackstack.contains(needle)
+}
+
+#[test]
+pub fn test_containsn() {
+    assert!(containsn(0, "", "foo"));
+    assert!(!containsn(1, "", "foo"));
+    assert!(!containsn(2, "", "foo"));
+    assert!(!containsn(0, "foo", "foo"));
+    assert!(containsn(1, "foo", "foo"));
+    assert!(!containsn(2, "foo", "foo"));
+    assert!(!containsn(0, "foo foo", "foo"));
+    assert!(!containsn(1, "foo foo", "foo"));
+    assert!(containsn(2, "foo foo", "foo"));
+}

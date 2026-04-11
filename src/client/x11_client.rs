@@ -56,6 +56,7 @@ impl Client for X11Client {
         return self.connection.is_some();
         // TODO: Test XGetInputFocus and focused_window > 0?
     }
+
     fn current_window(&mut self) -> Option<String> {
         self.connect();
 

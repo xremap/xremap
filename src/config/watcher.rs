@@ -1,4 +1,5 @@
 use crate::config::{load_configs, Config};
+use crate::main_controller::MainController;
 use anyhow::Result;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify, InotifyEvent};
 use nix::sys::select::FdSet;
@@ -12,6 +13,7 @@ use std::time::Duration;
 pub struct ConfigWatcher {
     files: Vec<PathBuf>,
     debounce: Option<Duration>,
+    notifications: bool,
     timer_fd: RawFd,
     timer: TimerFd,
     inotify: Inotify,
@@ -23,6 +25,7 @@ impl ConfigWatcher {
         watch: bool,
         files: Vec<PathBuf>,
         debounce_ms: u64,
+        notifications: bool,
     ) -> Result<(Option<RawFd>, Option<Inotify>, Option<Self>)> {
         if !watch {
             return Ok((None, None, None));
@@ -48,6 +51,7 @@ impl ConfigWatcher {
         let this = Self {
             files,
             debounce,
+            notifications,
             timer_fd: timer.as_raw_fd(),
             timer,
             inotify,
@@ -57,9 +61,9 @@ impl ConfigWatcher {
         Ok((Some(this.timer_fd), Some(this.inotify), Some(this)))
     }
 
-    pub fn handle(&mut self, readable_fds: FdSet) -> Result<Option<Config>> {
+    pub fn handle(&mut self, readable_fds: FdSet, mainctrl: &mut MainController) -> Result<Option<Config>> {
         if readable_fds.contains(self.timer_fd) {
-            return Ok(Some(self.get_config()?));
+            return Ok(Some(self.get_config(mainctrl)?));
         }
 
         if let Ok(events) = self.inotify.read_events() {
@@ -72,7 +76,7 @@ impl ConfigWatcher {
                             .set(Expiration::OneShot(TimeSpec::from_duration(debounce)), TimerSetTimeFlags::empty())?;
                     }
                     None => {
-                        return Ok(Some(self.get_config()?));
+                        return Ok(Some(self.get_config(mainctrl)?));
                     }
                 };
             }
@@ -81,7 +85,7 @@ impl ConfigWatcher {
         Ok(None)
     }
 
-    fn get_config(&mut self) -> Result<Config> {
+    fn get_config(&mut self, mainctrl: &mut MainController) -> Result<Config> {
         self.change_pending = false;
         self.timer.unset()?;
         let result = load_configs(&self.files);
@@ -89,7 +93,11 @@ impl ConfigWatcher {
             Ok(_) => {
                 println!("Reloading Config");
             }
-            Err(_) => {}
+            Err(err) => {
+                if self.notifications {
+                    mainctrl.show_popup("Config error", Some(&err.to_string()));
+                }
+            }
         }
 
         result.map_err(|err| anyhow::format_err!("{err}"))

@@ -136,6 +136,8 @@ pub fn build_client(log_window_changes: bool) -> WMClient {
         WMClient::new("COSMIC", Box::new(cosmic_client::CosmicClient::new()), log_window_changes),
         #[cfg(feature = "socket")]
         WMClient::new("Socket", Box::new(socket_client::SocketClient::new()), log_window_changes),
+        #[cfg(feature = "device-test")]
+        WMClient::new("DeviceTest", Box::new(null_client::DeviceTestClient), log_window_changes),
     ];
 
     if clients.len() == 0 {

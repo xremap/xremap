@@ -38,4 +38,21 @@ impl MainController {
             }
         }
     }
+
+    pub fn show_popup(&mut self, title: &str, msg: Option<&str>) {
+        match msg {
+            Some(msg) => {
+                self.run_command(vec![
+                    "notify-send".into(),
+                    "-a".into(),
+                    "xremap".into(),
+                    title.into(),
+                    msg.into(),
+                ]);
+            }
+            None => {
+                self.run_command(vec!["notify-send".into(), "-a".into(), "xremap".into(), title.into()]);
+            }
+        };
+    }
 }

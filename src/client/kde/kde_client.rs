@@ -213,6 +213,7 @@ impl Client for KdeClient {
         }
         conn_res.is_ok()
     }
+
     fn current_window(&mut self) -> Option<String> {
         let aw = self.active_window.lock().ok()?;
         Some(aw.title.clone())
