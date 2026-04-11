@@ -237,7 +237,7 @@ fn main() -> anyhow::Result<()> {
     };
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
-        ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms)?;
+        ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
     let watchers: Vec<_> = device_watcher.iter().chain(config_watcher_inotify.iter()).collect();
 
     // wmclient
@@ -270,6 +270,10 @@ fn main() -> anyhow::Result<()> {
 
     // Main loop
     loop {
+        if config.notifications {
+            mainctrl.show_popup("Ready", None);
+        }
+
         'event_loop: loop {
             let readable_fds =
                 select_readable(input_devices.values(), &watchers, timer_fd, timeout_manager_fd, config_watcher_fd)?;
@@ -336,10 +340,10 @@ fn main() -> anyhow::Result<()> {
             }
 
             if let Some(config_watcher) = config_watcher.as_mut() {
-                match config_watcher.handle(readable_fds) {
+                match config_watcher.handle(readable_fds, &mut mainctrl) {
                     Ok(Some(c)) => {
                         config = c;
-                        continue 'event_loop;
+                        break 'event_loop;
                     }
                     _ => {
                         continue 'event_loop;

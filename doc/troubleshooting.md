@@ -113,3 +113,15 @@ sudo modprobe uinput
 ```
 
 If it doesn't work reboot is needed.
+
+### Error running command: ["notify-send", "-a", "xremap", "Ready"]
+
+When xremap sends notifications it uses a binary called `notify-send`. It's installed on most distros, but
+if it's not, here are examples of how to install:
+
+```sh
+sudo apt install libnotify-bin
+sudo dnf install notify-send
+sudo pacman --sync libnotify
+sudo zypper install libnotify-tools
+```
