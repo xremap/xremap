@@ -13,6 +13,7 @@ impl Client for HyprlandClient {
     fn supported(&mut self) -> bool {
         true
     }
+
     fn current_window(&mut self) -> Option<String> {
         if let Ok(win_opt) = HyprClient::get_active() {
             if let Some(win) = win_opt {
