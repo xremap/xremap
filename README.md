@@ -132,7 +132,6 @@ is supported only in `modmap` since `keymap` handles modifier keys differently.
 ```yml
 modmap:
   - name: Name # Optional
-    exact_match: false # Optional, defaults to false
     remap: # Required
       # Replace a key with another
       KEY_XXX1: KEY_YYY # Required
