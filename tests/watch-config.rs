@@ -1,6 +1,6 @@
 #![cfg(feature = "device-test")]
 
-use crate::common::{assert_events, key_press, key_release, xremap_controller::XremapController};
+use crate::common::{assert_events, containsn, key_press, key_release, xremap_controller::XremapController};
 use evdev::KeyCode;
 use indoc::indoc;
 mod common;
@@ -120,10 +120,9 @@ pub fn e2e_config_watch_is_debounced_cur() -> anyhow::Result<()> {
         "},
     );
 
-    let stdout = ctrl.kill_for_output()?.stdout.replacen("Reloading Config", "", 1);
+    let stdout = ctrl.kill_for_output()?.stdout;
 
-    // Only reloaded once
-    assert!(!stdout.contains("Reloading Config"));
+    assert!(containsn(1, &stdout, "Reloading Config"));
 
     Ok(())
 }
