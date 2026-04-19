@@ -308,11 +308,9 @@ impl InputDevice {
             product: self.product(),
             vendor: self.vendor(),
             path: self.path.clone(),
-        }
     }
 }
 
-impl InputDevice {
     pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String], mouse: bool) -> bool {
         if self.device_name() == Self::current_name() {
             return false;
