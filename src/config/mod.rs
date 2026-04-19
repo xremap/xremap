@@ -15,9 +15,6 @@ mod tests;
 mod validation;
 mod watcher;
 
-extern crate serde_yaml;
-extern crate toml;
-
 use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
 use crate::config::keymap::{build_keymap_table, KeymapEntry};

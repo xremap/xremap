@@ -1,6 +1,3 @@
-extern crate evdev;
-extern crate nix;
-
 use anyhow::bail;
 use derive_where::derive_where;
 use evdev::uinput::VirtualDevice;
