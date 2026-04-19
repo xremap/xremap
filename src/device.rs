@@ -110,6 +110,7 @@ pub fn select_input_devices(
     } else {
         println!(", ignoring {ignore_opts:?}:");
     }
+    println!("{SEPARATOR}");
 
     let devices: Vec<_> = devices
         .into_iter()
@@ -117,19 +118,21 @@ pub fn select_input_devices(
         // alternative is `Vec::retain_mut` whenever that gets stabilized
         .filter_map(|mut device| {
             // filter out any not matching devices and devices that error on grab
-            (device.is_input_device(device_opts, ignore_opts, mouse) && device.grab()).then_some(device)
+            if device.is_input_device(device_opts, ignore_opts, mouse) && device.grab() {
+                device.print();
+                Some(device)
+            } else {
+                None
+            }
         })
         .collect();
 
-    println!("{SEPARATOR}");
     if devices.is_empty() {
         if watch {
             println!("warning: No device was selected, but --watch is waiting for new devices.");
         } else {
             bail!("Failed to prepare input devices: No device was selected!");
         }
-    } else {
-        devices.iter().for_each(InputDevice::print);
     }
     println!("{SEPARATOR}");
 
