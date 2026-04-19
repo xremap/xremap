@@ -71,13 +71,24 @@ pub fn device_watcher(watch: bool) -> anyhow::Result<Option<Inotify>> {
     }
 }
 
+// We can't know the device path from evdev::enumerate(). So we re-implement it.
+fn input_devices() -> anyhow::Result<Vec<InputDevice>> {
+    Ok(read_dir("/dev/input")
+        .map_err(|err| anyhow::format_err!("Failed to read /dev/input: {err}"))?
+        .filter_map(|entry| {
+            // Allow "Permission denied" when opening the current process's own device.
+            InputDevice::try_from(entry.ok()?.path()).ok()
+        })
+        .collect())
+}
+
 pub fn get_input_devices(
     device_opts: &[String],
     ignore_opts: &[String],
     mouse: bool,
     watch: bool,
 ) -> anyhow::Result<HashMap<PathBuf, InputDevice>> {
-    let mut devices = InputDevice::devices()?;
+    let mut devices = input_devices()?;
     devices.sort();
 
     println!("Selecting devices from the following list:");
@@ -322,17 +333,6 @@ impl InputDevice {
         }) && (ignore_filter.is_empty() || !self.matches_any(ignore_filter))
     }
 
-    // We can't know the device path from evdev::enumerate(). So we re-implement it.
-    fn devices() -> anyhow::Result<Vec<InputDevice>> {
-        Ok(read_dir("/dev/input")
-            .map_err(|err| anyhow::format_err!("Failed to read /dev/input: {err}"))?
-            .filter_map(|entry| {
-                // Allow "Permission denied" when opening the current process's own device.
-                InputDevice::try_from(entry.ok()?.path()).ok()
-            })
-            .collect())
-    }
-
     #[allow(static_mut_refs)]
     fn current_name() -> &'static str {
         if unsafe { DEVICE_NAME.is_none() } {
@@ -349,7 +349,7 @@ impl InputDevice {
     }
 
     fn has_device_name(device_name: &str) -> bool {
-        let devices = match Self::devices() {
+        let devices = match input_devices() {
             Ok(devices) => devices,
             Err(_) => return true, // fallback to the safe side
         };
@@ -416,7 +416,7 @@ impl InputDevice {
 
 /// List info about devices
 pub fn print_device_list() -> anyhow::Result<()> {
-    let mut devices = InputDevice::devices()?;
+    let mut devices = input_devices()?;
     devices.sort();
 
     let mut table: Vec<Vec<String>> = vec![];
@@ -450,7 +450,7 @@ pub fn print_device_list() -> anyhow::Result<()> {
 
 /// Show device details
 pub fn print_device_details() -> anyhow::Result<()> {
-    let mut devices = InputDevice::devices()?;
+    let mut devices = input_devices()?;
     devices.sort();
 
     for device in devices {
