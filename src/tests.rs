@@ -925,6 +925,42 @@ fn test_keymap_modifiers_are_released_in_order_of_pressed() {
     )
 }
 
+#[test]
+fn test_keymap_press_release_repeat_only_actions() {
+    assert_actions(
+        indoc! {"
+        keymap:
+            - remap:
+                capslock:
+                    - { press: A}
+                    - { release: B}
+                    - { repeat: C}
+        "},
+        vec![Event::key_press(Key::KEY_CAPSLOCK)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Repeat)),
+        ],
+    )
+}
+
+#[test]
+fn test_keymap_action_error() {
+    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    keymap:
+        - remap:
+            a: { not_a_keymap_action: foo }
+    "})
+    .unwrap_err()
+    .to_string();
+
+    assert_eq!(
+        &errmsg,
+        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 9"
+    );
+}
+
 pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {
     let actual = actual.as_ref();
     let expected = expected.as_ref();
