@@ -45,6 +45,8 @@ mod operators;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_any_key;
+#[cfg(test)]
 mod tests_disguised_events_in;
 #[cfg(test)]
 mod tests_extra_modifiers;
