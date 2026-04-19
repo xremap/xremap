@@ -5,7 +5,6 @@ use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode a
 use log::debug;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
-use std::error::Error;
 #[cfg(feature = "udev")]
 use std::fs::metadata;
 use std::fs::{self, read_dir};
@@ -41,7 +40,7 @@ pub fn output_device(
     vendor: u16,
     product: u16,
     own_device: &str,
-) -> Result<VirtualDevice, Box<dyn Error>> {
+) -> anyhow::Result<VirtualDevice> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);

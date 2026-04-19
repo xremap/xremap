@@ -18,8 +18,7 @@ use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
 use nix::sys::inotify::{Inotify, InotifyEvent};
-use nix::sys::select::select;
-use nix::sys::select::FdSet;
+use nix::sys::select::{select, FdSet};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
@@ -243,16 +242,14 @@ fn main() -> anyhow::Result<()> {
     let mut handler = EventHandler::new(timer, &config.default_mode, delay);
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
-    let output_device = match output_device(
+    let output_device = output_device(
         input_devices.values().next().map(InputDevice::bus_type),
         config.enable_wheel,
         vendor,
         product,
         &own_device,
-    ) {
-        Ok(output_device) => output_device,
-        Err(e) => bail!("Failed to prepare an output device: {}", e),
-    };
+    )
+    .context("Failed to prepare an output device")?;
 
     let throttle_emit = if config.throttle_ms == 0 {
         None
