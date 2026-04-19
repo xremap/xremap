@@ -336,7 +336,12 @@ impl InputDevice {
     #[allow(static_mut_refs)]
     fn current_name() -> &'static str {
         if unsafe { DEVICE_NAME.is_none() } {
-            let device_name = if Self::has_device_name("xremap") {
+            let has_device_name = match input_devices() {
+                Ok(devices) => devices.iter().any(|device| device.device_name().contains("xremap")),
+                Err(_) => true, // fallback to the safe side
+            };
+
+            let device_name = if has_device_name {
                 format!("xremap pid={}", process::id())
             } else {
                 "xremap".to_string()
@@ -346,14 +351,6 @@ impl InputDevice {
             }
         }
         unsafe { DEVICE_NAME.as_ref() }.unwrap()
-    }
-
-    fn has_device_name(device_name: &str) -> bool {
-        let devices = match input_devices() {
-            Ok(devices) => devices,
-            Err(_) => return true, // fallback to the safe side
-        };
-        devices.iter().any(|device| device.device_name().contains(device_name))
     }
 
     fn matches_any(&self, filter: &[String]) -> bool {
