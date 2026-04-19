@@ -357,10 +357,6 @@ impl InputDevice {
     }
 
     fn matches_any(&self, filter: &[String]) -> bool {
-        // Force unmatch its own device
-        if self.device_name() == Self::current_name() {
-            return false;
-        }
         filter.iter().any(|f| self.to_info().matches(f))
     }
 
