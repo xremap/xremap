@@ -20,13 +20,10 @@ use std::error::Error;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-// This const is a value used to offset RELATIVE events' scancodes
-// so that they correspond to the custom aliases created in config::key::parse_key.
-// This offset also prevents resulting scancodes from corresponding to non-Xremap scancodes,
-// to prevent conflating disguised relative events with other events.
+// This const is used to map evdev relative event codes to a pseudo keycode
 pub const DISGUISED_EVENT_OFFSETTER: u16 = 59974;
 
-// This const is defined a keycode for a configuration key used to match any key.
+// This const defines a keycode used to match any key.
 // It's the offset of XHIRES_LEFTSCROLL + 1
 pub const KEY_MATCH_ANY: Key = Key(DISGUISED_EVENT_OFFSETTER + 26);
 
@@ -119,6 +116,7 @@ impl EventHandler {
 
                         if !was_remapped {
                             if relative_event.code <= 2 {
+                                // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
                                 mouse_movement_collection.push(relative_event);
                             } else {
                                 self.send_action(Action::RelativeEvent(relative_event));
@@ -201,7 +199,6 @@ impl EventHandler {
     }
 
     fn send_key(&mut self, key: &Key, value: i32) {
-        // let event = InputEvent::new(EventType::KEY, key.code(), value);
         let event = KeyEvent::new_with(key.code(), value);
         self.send_action(Action::KeyEvent(event));
     }
