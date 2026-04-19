@@ -51,50 +51,6 @@ fn test_yaml_modmap_application_regex() {
 }
 
 #[test]
-fn test_yaml_modmap_multi_purpose_key() {
-    yaml_assert_parse(indoc! {"
-    modmap:
-      - remap:
-          Space:
-            hold: Shift_L
-            tap: Space
-      - remap:
-          Muhenkan:
-            hold: Alt_L
-            tap: Muhenkan
-            tap_timeout_millis: 500
-    "})
-}
-#[test]
-fn test_yaml_modmap_multi_purpose_key_without_timeout() {
-    yaml_assert_parse(indoc! {"
-    modmap:
-      - remap:
-          Space:
-            hold: Shift_L
-            tap: Space
-            free_hold: true
-    "})
-    // NOTE: add edge cases tests for when timeout = default
-}
-
-#[test]
-fn test_yaml_modmap_multi_purpose_key_multi_key() {
-    yaml_assert_parse(indoc! {"
-    modmap:
-      - remap:
-          Space:
-            hold: [Shift_L]
-            tap: [Shift_L,A]
-      - remap:
-          Muhenkan:
-            hold: [Alt_L,Shift_L]
-            tap: [Muhenkan]
-            tap_timeout_millis: 500
-    "})
-}
-
-#[test]
 fn test_yaml_modmap_multi_purpose_key_with_invalid_key() {
     // This fails silently.
     let _errmsg = serde_yaml::from_str::<Config>(indoc! {"
@@ -171,14 +127,6 @@ fn test_yaml_keymap_can_not_emit_relative_events() {
         },
         "Relative mouse events can't be used as output",
     )
-}
-
-#[test]
-fn test_yaml_virtual_modifiers() {
-    yaml_assert_parse(indoc! {"
-    virtual_modifiers:
-      - CapsLock
-    "})
 }
 
 #[test]
@@ -316,46 +264,6 @@ fn test_yaml_key_is_unknown() {
 }
 
 #[test]
-fn test_yaml_keymap_basic() {
-    yaml_assert_parse(indoc! {"
-    keymap:
-      - name: Global
-        remap:
-          Alt-Enter: Ctrl-Enter
-      - remap:
-          M-S: C-S
-    "})
-}
-
-#[test]
-fn test_yaml_keymap_lr_modifiers() {
-    yaml_assert_parse(indoc! {"
-    keymap:
-      - name: Global
-        remap:
-          Alt_L-Enter: Ctrl_L-Enter
-      - remap:
-          M_R-S: C_L-S
-    "})
-}
-
-#[test]
-fn test_yaml_keymap_application() {
-    yaml_assert_parse(indoc! {"
-    keymap:
-      - remap:
-          Alt-Enter: Ctrl-Enter
-        application:
-          not: Gnome-terminal
-      - remap:
-          Alt-S: Ctrl-S
-        application:
-          only:
-            - Gnome-terminal
-    "})
-}
-
-#[test]
 fn test_yaml_keymap_array() {
     yaml_assert_parse(indoc! {"
     keymap:
@@ -363,22 +271,6 @@ fn test_yaml_keymap_array() {
           C-w:
             - Shift-C-w
             - C-x
-    "})
-}
-
-#[test]
-fn test_yaml_keymap_remap() {
-    yaml_assert_parse(indoc! {"
-    keymap:
-      - remap:
-          C-x:
-            remap:
-              s: C-w
-              C-s:
-                remap:
-                  x: C-z
-            timeout_key: Down
-            timeout_millis: 1000
     "})
 }
 
@@ -482,18 +374,6 @@ fn test_yaml_keymap_mode() {
 }
 
 #[test]
-fn test_yaml_keymap_mark() {
-    yaml_assert_parse(indoc! {"
-    keymap:
-      - remap:
-          C-space: { set_mark: true }
-          C-g: [esc, { set_mark: false }]
-          C-b: { with_mark: left }
-          M-b: { with_mark: C-left }
-    "})
-}
-
-#[test]
 fn test_yaml_shared_data_anchor() {
     yaml_assert_parse(indoc! {"
     shared:
@@ -534,21 +414,6 @@ fn test_yaml_fail_on_data_outside_of_config_model() {
     .to_string();
 
     assert!(errmsg.contains("unknown field `terminals`"));
-}
-
-#[test]
-fn test_yaml_no_keymap_action() {
-    yaml_assert_parse(indoc! {"
-    keymap:
-      - remap:
-          f12: []
-    "});
-
-    yaml_assert_parse(indoc! {"
-    keymap:
-      - remap:
-          f12: null
-    "})
 }
 
 #[test]

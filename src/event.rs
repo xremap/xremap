@@ -95,30 +95,18 @@ impl RelativeEvent {
         RelativeEvent { code, value }
     }
 
+    /// Creates the pseudo keycode from an evdev releative event.
+    /// This corresponds to the mapping of pseudo keynames created in `config::key::parse_key`.
+    /// Note: There is no sensitivity to the value of the relative event. This means
+    ///       that REL_WHEEL will transform into an unpreditable amount of XUPSCROLL
+    ///       depending on how the device batches up the events.
     pub fn to_disguised_key(&self) -> u16 {
-        // Because a "full" RELATIVE event is only one event,
-        // it doesn't translate very well into a KEY event (because those have a "press" event and an "unpress" event).
-        // The solution used here is to send two events for each relative event :
-        // one for the press "event" and one for the "unpress" event.
-
-        // All relative events (except maybe those i haven't found information about (REL_DIAL, REL_MISC and REL_RESERVED))
-        // can have either a positive value or a negative value.
-        // A negative value is associated with a different action than the positive value.
-        // Specifically, negative values are associated with the opposite of the action that would emit a positive value.
-        // For example, a positive value for a scroll event (REL_WHEEL) comes from an upscroll, while a negative value comes from a downscroll.
+        // evdev relative events are turned into two events depending on their value
+        // being positive or negative. For this reason is the keycode multiplied by two.
         match self.value {
-            // Positive and negative values can be really high because the events are relative,
-            // so their values are variable, meaning we have to match with all positive/negative values.
-            // Not sure if there is any relative event with a fixed value.
+            // Positive values are turned into even numbers
             1..=i32::MAX => (self.code * 2) + DISGUISED_EVENT_OFFSETTER,
-            // While some events may appear to have a fixed value,
-            // events like scrolling will have higher values with more "agressive" scrolling.
-
-            // *2 to create a "gap" between events (since multiplying by two means that all resulting values will be even, the odd numbers between will be missing),
-            // +1 if the event has a negative value to "fill" the gap (since adding one shifts the parity from even to odd),
-            // and adding DISGUISED_EVENT_OFFSETTER,
-            // so that the total as a keycode corresponds to one of the custom aliases that
-            // are created in config::key::parse_key specifically for these "disguised" relative events.
+            // Negative values are turned into odd numbers
             i32::MIN..=-1 => (self.code * 2) + 1 + DISGUISED_EVENT_OFFSETTER,
 
             0 => {

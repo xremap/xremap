@@ -1,6 +1,3 @@
-extern crate evdev;
-extern crate nix;
-
 use anyhow::bail;
 use derive_where::derive_where;
 use evdev::uinput::VirtualDevice;
@@ -8,7 +5,6 @@ use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode a
 use log::debug;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
-use std::error::Error;
 #[cfg(feature = "udev")]
 use std::fs::metadata;
 use std::fs::{self, read_dir};
@@ -24,7 +20,18 @@ use udev::DeviceType;
 
 use crate::util::{evdev_enums_to_string, print_table};
 
-pub static mut DEVICE_NAME: Option<String> = None;
+pub fn choose_device_name() -> String {
+    let name_already_taken = match input_devices() {
+        Ok(devices) => devices.iter().any(|device| device.device_name().contains("xremap")),
+        Err(_) => true, // fallback to the safe side
+    };
+
+    if name_already_taken {
+        format!("xremap pid={}", process::id())
+    } else {
+        "xremap".to_string()
+    }
+}
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
 pub fn output_device(
@@ -32,7 +39,8 @@ pub fn output_device(
     enable_wheel: bool,
     vendor: u16,
     product: u16,
-) -> Result<VirtualDevice, Box<dyn Error>> {
+    own_device: &str,
+) -> anyhow::Result<VirtualDevice> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
         let key = Key::new(code);
@@ -54,7 +62,7 @@ pub fn output_device(
     let device = VirtualDevice::builder()?
         // These are taken from https://docs.rs/evdev/0.12.0/src/evdev/uinput.rs.html#183-188
         .input_id(InputId::new(bus_type.unwrap_or(BusType::BUS_USB), vendor, product, 0x111))
-        .name(&InputDevice::current_name())
+        .name(own_device)
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
         .build()?;
@@ -71,13 +79,25 @@ pub fn device_watcher(watch: bool) -> anyhow::Result<Option<Inotify>> {
     }
 }
 
-pub fn get_input_devices(
+// We can't know the device path from evdev::enumerate(). So we re-implement it.
+fn input_devices() -> anyhow::Result<Vec<InputDevice>> {
+    Ok(read_dir("/dev/input")
+        .map_err(|err| anyhow::format_err!("Failed to read /dev/input: {err}"))?
+        .filter_map(|entry| {
+            // Allow "Permission denied" when opening the current process's own device.
+            open_device(entry.ok()?.path())
+        })
+        .collect())
+}
+
+pub fn select_input_devices(
     device_opts: &[String],
     ignore_opts: &[String],
     mouse: bool,
     watch: bool,
+    own_device: &str,
 ) -> anyhow::Result<HashMap<PathBuf, InputDevice>> {
-    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    let mut devices = input_devices()?;
     devices.sort();
 
     println!("Selecting devices from the following list:");
@@ -99,30 +119,36 @@ pub fn get_input_devices(
     } else {
         println!(", ignoring {ignore_opts:?}:");
     }
-
-    let devices: Vec<_> = devices
-        .into_iter()
-        // filter map needed for mutable access
-        // alternative is `Vec::retain_mut` whenever that gets stabilized
-        .filter_map(|mut device| {
-            // filter out any not matching devices and devices that error on grab
-            (device.is_input_device(device_opts, ignore_opts, mouse) && device.grab()).then_some(device)
-        })
-        .collect();
-
     println!("{SEPARATOR}");
-    if devices.is_empty() {
+
+    let mut selected: Vec<InputDevice> = vec![];
+    for mut device in devices.into_iter() {
+        if device.is_input_device(device_opts, ignore_opts, mouse, own_device) && device.grab() {
+            device.print();
+            selected.push(device)
+        }
+    }
+
+    if selected.is_empty() {
         if watch {
             println!("warning: No device was selected, but --watch is waiting for new devices.");
         } else {
-            bail!("No device was selected!");
+            bail!("Failed to prepare input devices: No device was selected!");
         }
-    } else {
-        devices.iter().for_each(InputDevice::print);
     }
     println!("{SEPARATOR}");
 
-    Ok(devices.into_iter().map(From::from).collect())
+    Ok(selected.into_iter().map(From::from).collect())
+}
+
+pub fn open_device(path: PathBuf) -> Option<InputDevice> {
+    path.file_name()?
+        .as_bytes()
+        .starts_with(b"event")
+        .then_some(InputDevice {
+            device: Device::open(&path).ok()?,
+            path,
+        })
 }
 
 #[derive(Debug, Clone)]
@@ -213,24 +239,6 @@ pub struct InputDevice {
 
 impl Eq for InputDevice {}
 
-impl TryFrom<PathBuf> for InputDevice {
-    type Error = io::Error;
-
-    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
-        let fname = path
-            .file_name()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
-        if fname.as_bytes().starts_with(b"event") {
-            Ok(Self {
-                device: Device::open(&path)?,
-                path,
-            })
-        } else {
-            Err(io::ErrorKind::InvalidInput.into())
-        }
-    }
-}
-
 impl From<InputDevice> for (PathBuf, InputDevice) {
     fn from(device: InputDevice) -> Self {
         (device.path.clone(), device)
@@ -310,11 +318,15 @@ impl InputDevice {
             path: self.path.clone(),
         }
     }
-}
 
-impl InputDevice {
-    pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String], mouse: bool) -> bool {
-        if self.device_name() == Self::current_name() {
+    pub fn is_input_device(
+        &self,
+        device_filter: &[String],
+        ignore_filter: &[String],
+        mouse: bool,
+        own_device: &str,
+    ) -> bool {
+        if self.device_name() == own_device {
             return false;
         }
         (if device_filter.is_empty() {
@@ -324,42 +336,7 @@ impl InputDevice {
         }) && (ignore_filter.is_empty() || !self.matches_any(ignore_filter))
     }
 
-    // We can't know the device path from evdev::enumerate(). So we re-implement it.
-    fn devices() -> io::Result<impl Iterator<Item = InputDevice>> {
-        Ok(read_dir("/dev/input")?.filter_map(|entry| {
-            // Allow "Permission denied" when opening the current process's own device.
-            InputDevice::try_from(entry.ok()?.path()).ok()
-        }))
-    }
-
-    #[allow(static_mut_refs)]
-    fn current_name() -> &'static str {
-        if unsafe { DEVICE_NAME.is_none() } {
-            let device_name = if Self::has_device_name("xremap") {
-                format!("xremap pid={}", process::id())
-            } else {
-                "xremap".to_string()
-            };
-            unsafe {
-                DEVICE_NAME = Some(device_name);
-            }
-        }
-        unsafe { DEVICE_NAME.as_ref() }.unwrap()
-    }
-
-    fn has_device_name(device_name: &str) -> bool {
-        let devices: Vec<_> = match Self::devices() {
-            Ok(devices) => devices.collect(),
-            Err(_) => return true, // fallback to the safe side
-        };
-        devices.iter().any(|device| device.device_name().contains(device_name))
-    }
-
     fn matches_any(&self, filter: &[String]) -> bool {
-        // Force unmatch its own device
-        if self.device_name() == Self::current_name() {
-            return false;
-        }
         filter.iter().any(|f| self.to_info().matches(f))
     }
 
@@ -419,7 +396,7 @@ impl InputDevice {
 
 /// List info about devices
 pub fn print_device_list() -> anyhow::Result<()> {
-    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    let mut devices = input_devices()?;
     devices.sort();
 
     let mut table: Vec<Vec<String>> = vec![];
@@ -453,7 +430,7 @@ pub fn print_device_list() -> anyhow::Result<()> {
 
 /// Show device details
 pub fn print_device_details() -> anyhow::Result<()> {
-    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    let mut devices = input_devices()?;
     devices.sort();
 
     for device in devices {

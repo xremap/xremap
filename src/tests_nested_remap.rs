@@ -7,6 +7,188 @@ use indoc::indoc;
 use std::time::Duration;
 
 #[test]
+fn test_exact_match_true_nested() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - exact_match: true
+            remap:
+              C-x:
+                remap:
+                  h: C-a
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_X),
+            Event::key_release(Key::KEY_X),
+            Event::key_release(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_press(Key::KEY_H),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_H, KeyValue::Press)),
+        ],
+    )
+}
+
+#[test]
+fn test_exact_match_false_nested() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - exact_match: false
+            remap:
+              C-x:
+                remap:
+                  h: C-a
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_X),
+            Event::key_release(Key::KEY_X),
+            Event::key_release(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_press(Key::KEY_H),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_merge_remaps() {
+    let config = indoc! {"
+        keymap:
+          - remap:
+              C-x:
+                remap:
+                  h: C-a
+          - remap:
+              C-x:
+                remap:
+                  k: C-w
+    "};
+
+    assert_actions(
+        config,
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_X),
+            Event::key_release(Key::KEY_X),
+            Event::key_release(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_H),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    );
+
+    assert_actions(
+        config,
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_X),
+            Event::key_release(Key::KEY_X),
+            Event::key_release(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_K),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_W, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_W, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_merge_remaps_with_override() {
+    let config = indoc! {"
+        keymap:
+          - remap:
+              C-x:
+                remap:
+                  h: C-a
+          - remap:
+              C-x:
+                remap:
+                  h: C-b
+                  c: C-q
+    "};
+
+    assert_actions(
+        config,
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_X),
+            Event::key_release(Key::KEY_X),
+            Event::key_release(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_H),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    );
+
+    assert_actions(
+        config,
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_X),
+            Event::key_release(Key::KEY_X),
+            Event::key_release(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_C),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
 fn test_merge_nested_sibling_remaps() {
     let config = indoc! {"
         keymap:
@@ -383,6 +565,66 @@ fn test_cancel_by_key_with_defined_timeout_key_but_no_match() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_mixing_keypress_and_remap_in_keymap_action() {
+    // KEY_D will be emitted, and the remap will be used for next key press.
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                - d
+                - remap:
+                    a: b
+        "},
+        vec![
+            Event::key_press(Key::KEY_F12),
+            Event::key_release(Key::KEY_F12),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_mixing_no_keypress_and_remap_in_keymap_action() {
+    // The first match stops the search for matches. So the last remap isn't used.
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12: []
+          - remap:
+              f12:
+                - remap:
+                    a: b
+        "},
+        vec![
+            Event::key_press(Key::KEY_F12),
+            Event::key_release(Key::KEY_F12),
+            Event::key_press(Key::KEY_A),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
         ],
     )
 }

@@ -284,3 +284,63 @@ fn test_mode_change_affects_modmap_right_away() {
         ],
     )
 }
+
+#[test]
+fn test_modmap_mode_switch_between_press_and_release() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: state1
+              remap:
+                # This matches on release, but it's fixed so emitted key will released.
+                a: c
+            - remap:
+                a: b
+        keymap:
+            - remap:
+                # Make release hard for modmap.
+                K: { set_mode: state1 }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_K),
+            Event::key_release(Key::KEY_A),
+        ],
+        // KEY_B is not stuck here.
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+        ],
+    )
+}
+
+#[test]
+fn test_modmap_mode_switch_between_press_and_release_when_multiple_keys() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - mode: state1
+              remap:
+                # This matches on release, and fails.
+                a: [d, e]
+            - remap:
+                a: [b, c]
+        keymap:
+            - remap:
+                # Make release hard for modmap.
+                K: { set_mode: state1 }
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_K),
+            Event::key_release(Key::KEY_A),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            // This fails. KEY_B and KEY_C is stuck.
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_E, KeyValue::Release)),
+        ],
+    )
+}

@@ -1,7 +1,8 @@
 use crate::client::print_open_windows;
 use crate::config::{Config, ConfigWatcher};
 use crate::device::{
-    device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
+    choose_device_name, device_watcher, open_device, output_device, print_device_details, print_device_list,
+    select_input_devices,
 };
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
@@ -17,8 +18,7 @@ use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
 use nix::sys::inotify::{Inotify, InotifyEvent};
-use nix::sys::select::select;
-use nix::sys::select::FdSet;
+use nix::sys::select::{select, FdSet};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
@@ -44,6 +44,8 @@ mod operator_sim;
 mod operators;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_any_key;
 #[cfg(test)]
 mod tests_disguised_events_in;
 #[cfg(test)]
@@ -202,12 +204,6 @@ fn main() -> anyhow::Result<()> {
         return bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
     }
 
-    if let Some(output_device_name) = output_device_name {
-        unsafe {
-            DEVICE_NAME = Some(output_device_name);
-        }
-    }
-
     // Configuration
     let mut config = match config::load_configs(&config_paths) {
         Ok(config) => config,
@@ -227,14 +223,14 @@ fn main() -> anyhow::Result<()> {
     let timeout_manager = Rc::new(TimeoutManager::new());
     let timeout_manager_fd = timeout_manager.get_timer_fd();
 
+    // Device name
+    let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
+
     // Event listeners
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
-        Ok(input_devices) => input_devices,
-        Err(e) => bail!("Failed to prepare input devices: {}", e),
-    };
+    let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
         ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
@@ -248,15 +244,14 @@ fn main() -> anyhow::Result<()> {
     let mut handler = EventHandler::new(timer, &config.default_mode, delay);
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
-    let output_device = match output_device(
+    let output_device = output_device(
         input_devices.values().next().map(InputDevice::bus_type),
         config.enable_wheel,
         vendor,
         product,
-    ) {
-        Ok(output_device) => output_device,
-        Err(e) => bail!("Failed to prepare an output device: {}", e),
-    };
+        &own_device,
+    )
+    .context("Failed to prepare an output device")?;
 
     let throttle_emit = if config.throttle_ms == 0 {
         None
@@ -324,10 +319,8 @@ fn main() -> anyhow::Result<()> {
                         input_device.ungrab();
                     }
 
-                    input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
-                        Ok(input_devices) => input_devices,
-                        Err(e) => bail!("Failed to prepare input devices: {}", e),
-                    };
+                    input_devices =
+                        select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
 
                     continue 'event_loop;
                 }
@@ -335,7 +328,14 @@ fn main() -> anyhow::Result<()> {
 
             if let Some(inotify) = device_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    handle_device_changes(events, &mut input_devices, &device_filter, &ignore_filter, mouse)?;
+                    handle_device_changes(
+                        events,
+                        &mut input_devices,
+                        &device_filter,
+                        &ignore_filter,
+                        mouse,
+                        &own_device,
+                    );
                 }
             }
 
@@ -426,18 +426,16 @@ fn handle_device_changes(
     device_filter: &[String],
     ignore_filter: &[String],
     mouse: bool,
-) -> anyhow::Result<()> {
+    own_device: &str,
+) {
     input_devices.extend(events.into_iter().filter_map(|event| {
-        event.name.and_then(|name| {
-            let path = PathBuf::from("/dev/input/").join(name);
-            let mut device = InputDevice::try_from(path).ok()?;
-            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
-                device.print();
-                Some(device.into())
-            } else {
-                None
-            }
-        })
+        let path = PathBuf::from("/dev/input/").join(event.name?);
+        let mut device = open_device(path)?;
+        if device.is_input_device(device_filter, ignore_filter, mouse, own_device) && device.grab() {
+            device.print();
+            Some(device.into())
+        } else {
+            None
+        }
     }));
-    Ok(())
 }
