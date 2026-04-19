@@ -77,7 +77,7 @@ fn input_devices() -> anyhow::Result<Vec<InputDevice>> {
         .map_err(|err| anyhow::format_err!("Failed to read /dev/input: {err}"))?
         .filter_map(|entry| {
             // Allow "Permission denied" when opening the current process's own device.
-            InputDevice::try_from(entry.ok()?.path()).ok()
+            open_device(entry.ok()?.path())
         })
         .collect())
 }
@@ -137,6 +137,17 @@ pub fn select_input_devices(
     println!("{SEPARATOR}");
 
     Ok(devices.into_iter().map(From::from).collect())
+}
+
+pub fn open_device(path: PathBuf) -> Option<InputDevice> {
+    if path.file_name()?.as_bytes().starts_with(b"event") {
+        Some(InputDevice {
+            device: Device::open(&path).ok()?,
+            path,
+        })
+    } else {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -226,24 +237,6 @@ pub struct InputDevice {
 }
 
 impl Eq for InputDevice {}
-
-impl TryFrom<PathBuf> for InputDevice {
-    type Error = io::Error;
-
-    fn try_from(path: PathBuf) -> Result<Self, Self::Error> {
-        let fname = path
-            .file_name()
-            .ok_or_else(|| io::Error::from(io::ErrorKind::InvalidInput))?;
-        if fname.as_bytes().starts_with(b"event") {
-            Ok(Self {
-                device: Device::open(&path)?,
-                path,
-            })
-        } else {
-            Err(io::ErrorKind::InvalidInput.into())
-        }
-    }
-}
 
 impl From<InputDevice> for (PathBuf, InputDevice) {
     fn from(device: InputDevice) -> Self {

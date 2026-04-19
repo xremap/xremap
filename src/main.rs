@@ -1,7 +1,8 @@
 use crate::client::print_open_windows;
 use crate::config::{Config, ConfigWatcher};
 use crate::device::{
-    device_watcher, output_device, print_device_details, print_device_list, select_input_devices, DEVICE_NAME,
+    device_watcher, open_device, output_device, print_device_details, print_device_list, select_input_devices,
+    DEVICE_NAME,
 };
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
@@ -424,7 +425,7 @@ fn handle_device_changes(
     input_devices.extend(events.into_iter().filter_map(|event| {
         event.name.and_then(|name| {
             let path = PathBuf::from("/dev/input/").join(name);
-            let mut device = InputDevice::try_from(path).ok()?;
+            let mut device = open_device(path)?;
             if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
                 device.print();
                 Some(device.into())
