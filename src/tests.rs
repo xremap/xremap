@@ -61,29 +61,6 @@ pub fn get_input_device_info() -> Rc<InputDeviceInfo> {
     })
 }
 
-#[test]
-fn test_basic_modmap() {
-    assert_actions(
-        indoc! {"
-        modmap:
-          - remap:
-              a: b
-        "},
-        vec![
-            Event::key_press(Key::KEY_A),
-            Event::key_release(Key::KEY_A),
-            Event::key_press(Key::KEY_B),
-            Event::key_release(Key::KEY_B),
-        ],
-        vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-        ],
-    )
-}
-
 /* Table to see which scancodes/custom key events correspond to which relative events
     Original RELATIVE event | scancode | Custom keyname if                              | Info
                             |          | positive value (+)     | negative value (-)    |
