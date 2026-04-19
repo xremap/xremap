@@ -335,7 +335,7 @@ fn main() -> anyhow::Result<()> {
                         &ignore_filter,
                         mouse,
                         &own_device,
-                    )?;
+                    );
                 }
             }
 
@@ -427,18 +427,15 @@ fn handle_device_changes(
     ignore_filter: &[String],
     mouse: bool,
     own_device: &str,
-) -> anyhow::Result<()> {
+) {
     input_devices.extend(events.into_iter().filter_map(|event| {
-        event.name.and_then(|name| {
-            let path = PathBuf::from("/dev/input/").join(name);
-            let mut device = open_device(path)?;
-            if device.is_input_device(device_filter, ignore_filter, mouse, own_device) && device.grab() {
-                device.print();
-                Some(device.into())
-            } else {
-                None
-            }
-        })
+        let path = PathBuf::from("/dev/input/").join(event.name?);
+        let mut device = open_device(path)?;
+        if device.is_input_device(device_filter, ignore_filter, mouse, own_device) && device.grab() {
+            device.print();
+            Some(device.into())
+        } else {
+            None
+        }
     }));
-    Ok(())
 }
