@@ -24,7 +24,18 @@ use udev::DeviceType;
 
 use crate::util::{evdev_enums_to_string, print_table};
 
-pub static mut DEVICE_NAME: Option<String> = None;
+pub fn choose_device_name() -> String {
+    let name_already_taken = match input_devices() {
+        Ok(devices) => devices.iter().any(|device| device.device_name().contains("xremap")),
+        Err(_) => true, // fallback to the safe side
+    };
+
+    if name_already_taken {
+        format!("xremap pid={}", process::id())
+    } else {
+        "xremap".to_string()
+    }
+}
 
 // Credit: https://github.com/mooz/xkeysnail/blob/bf3c93b4fe6efd42893db4e6588e5ef1c4909cfb/xkeysnail/output.py#L10-L32
 pub fn output_device(
@@ -335,26 +346,6 @@ impl InputDevice {
         } else {
             self.matches_any(device_filter)
         }) && (ignore_filter.is_empty() || !self.matches_any(ignore_filter))
-    }
-
-    #[allow(static_mut_refs)]
-    pub fn current_name() -> &'static str {
-        if unsafe { DEVICE_NAME.is_none() } {
-            let has_device_name = match input_devices() {
-                Ok(devices) => devices.iter().any(|device| device.device_name().contains("xremap")),
-                Err(_) => true, // fallback to the safe side
-            };
-
-            let device_name = if has_device_name {
-                format!("xremap pid={}", process::id())
-            } else {
-                "xremap".to_string()
-            };
-            unsafe {
-                DEVICE_NAME = Some(device_name);
-            }
-        }
-        unsafe { DEVICE_NAME.as_ref() }.unwrap()
     }
 
     fn matches_any(&self, filter: &[String]) -> bool {

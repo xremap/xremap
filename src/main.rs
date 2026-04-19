@@ -1,8 +1,8 @@
 use crate::client::print_open_windows;
 use crate::config::{Config, ConfigWatcher};
 use crate::device::{
-    device_watcher, open_device, output_device, print_device_details, print_device_list, select_input_devices,
-    DEVICE_NAME,
+    choose_device_name, device_watcher, open_device, output_device, print_device_details, print_device_list,
+    select_input_devices,
 };
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
@@ -203,12 +203,6 @@ fn main() -> anyhow::Result<()> {
         return bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
     }
 
-    if let Some(output_device_name) = output_device_name {
-        unsafe {
-            DEVICE_NAME = Some(output_device_name);
-        }
-    }
-
     // Configuration
     let mut config = match config::load_configs(&config_paths) {
         Ok(config) => config,
@@ -229,8 +223,7 @@ fn main() -> anyhow::Result<()> {
     let timeout_manager_fd = timeout_manager.get_timer_fd();
 
     // Device name
-
-    let own_device: &str = InputDevice::current_name();
+    let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
 
     // Event listeners
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
