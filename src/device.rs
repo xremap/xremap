@@ -121,22 +121,15 @@ pub fn select_input_devices(
     }
     println!("{SEPARATOR}");
 
-    let devices: Vec<_> = devices
-        .into_iter()
-        // filter map needed for mutable access
-        // alternative is `Vec::retain_mut` whenever that gets stabilized
-        .filter_map(|mut device| {
-            // filter out any not matching devices and devices that error on grab
-            if device.is_input_device(device_opts, ignore_opts, mouse, own_device) && device.grab() {
-                device.print();
-                Some(device)
-            } else {
-                None
-            }
-        })
-        .collect();
+    let mut selected: Vec<InputDevice> = vec![];
+    for mut device in devices.into_iter() {
+        if device.is_input_device(device_opts, ignore_opts, mouse, own_device) && device.grab() {
+            device.print();
+            selected.push(device)
+        }
+    }
 
-    if devices.is_empty() {
+    if selected.is_empty() {
         if watch {
             println!("warning: No device was selected, but --watch is waiting for new devices.");
         } else {
@@ -145,7 +138,7 @@ pub fn select_input_devices(
     }
     println!("{SEPARATOR}");
 
-    Ok(devices.into_iter().map(From::from).collect())
+    Ok(selected.into_iter().map(From::from).collect())
 }
 
 pub fn open_device(path: PathBuf) -> Option<InputDevice> {
