@@ -77,7 +77,7 @@ pub fn get_input_devices(
     mouse: bool,
     watch: bool,
 ) -> anyhow::Result<HashMap<PathBuf, InputDevice>> {
-    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    let mut devices = InputDevice::devices()?;
     devices.sort();
 
     println!("Selecting devices from the following list:");
@@ -308,8 +308,8 @@ impl InputDevice {
             product: self.product(),
             vendor: self.vendor(),
             path: self.path.clone(),
+        }
     }
-}
 
     pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String], mouse: bool) -> bool {
         if self.device_name() == Self::current_name() {
@@ -323,13 +323,14 @@ impl InputDevice {
     }
 
     // We can't know the device path from evdev::enumerate(). So we re-implement it.
-    fn devices() -> anyhow::Result<impl Iterator<Item = InputDevice>> {
+    fn devices() -> anyhow::Result<Vec<InputDevice>> {
         Ok(read_dir("/dev/input")
             .map_err(|err| anyhow::format_err!("Failed to read /dev/input: {err}"))?
             .filter_map(|entry| {
                 // Allow "Permission denied" when opening the current process's own device.
                 InputDevice::try_from(entry.ok()?.path()).ok()
-            }))
+            })
+            .collect())
     }
 
     #[allow(static_mut_refs)]
@@ -348,8 +349,8 @@ impl InputDevice {
     }
 
     fn has_device_name(device_name: &str) -> bool {
-        let devices: Vec<_> = match Self::devices() {
-            Ok(devices) => devices.collect(),
+        let devices = match Self::devices() {
+            Ok(devices) => devices,
             Err(_) => return true, // fallback to the safe side
         };
         devices.iter().any(|device| device.device_name().contains(device_name))
@@ -419,7 +420,7 @@ impl InputDevice {
 
 /// List info about devices
 pub fn print_device_list() -> anyhow::Result<()> {
-    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    let mut devices = InputDevice::devices()?;
     devices.sort();
 
     let mut table: Vec<Vec<String>> = vec![];
@@ -453,7 +454,7 @@ pub fn print_device_list() -> anyhow::Result<()> {
 
 /// Show device details
 pub fn print_device_details() -> anyhow::Result<()> {
-    let mut devices: Vec<_> = InputDevice::devices()?.collect();
+    let mut devices = InputDevice::devices()?;
     devices.sort();
 
     for device in devices {
