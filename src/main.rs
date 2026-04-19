@@ -228,11 +228,15 @@ fn main() -> anyhow::Result<()> {
     let timeout_manager = Rc::new(TimeoutManager::new());
     let timeout_manager_fd = timeout_manager.get_timer_fd();
 
+    // Device name
+
+    let own_device: &str = InputDevice::current_name();
+
     // Event listeners
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
+    let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
         ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
@@ -251,6 +255,7 @@ fn main() -> anyhow::Result<()> {
         config.enable_wheel,
         vendor,
         product,
+        &own_device,
     ) {
         Ok(output_device) => output_device,
         Err(e) => bail!("Failed to prepare an output device: {}", e),
@@ -322,7 +327,8 @@ fn main() -> anyhow::Result<()> {
                         input_device.ungrab();
                     }
 
-                    input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
+                    input_devices =
+                        select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
 
                     continue 'event_loop;
                 }
@@ -330,7 +336,14 @@ fn main() -> anyhow::Result<()> {
 
             if let Some(inotify) = device_watcher {
                 if let Ok(events) = inotify.read_events() {
-                    handle_device_changes(events, &mut input_devices, &device_filter, &ignore_filter, mouse)?;
+                    handle_device_changes(
+                        events,
+                        &mut input_devices,
+                        &device_filter,
+                        &ignore_filter,
+                        mouse,
+                        &own_device,
+                    )?;
                 }
             }
 
@@ -421,12 +434,13 @@ fn handle_device_changes(
     device_filter: &[String],
     ignore_filter: &[String],
     mouse: bool,
+    own_device: &str,
 ) -> anyhow::Result<()> {
     input_devices.extend(events.into_iter().filter_map(|event| {
         event.name.and_then(|name| {
             let path = PathBuf::from("/dev/input/").join(name);
             let mut device = open_device(path)?;
-            if device.is_input_device(device_filter, ignore_filter, mouse) && device.grab() {
+            if device.is_input_device(device_filter, ignore_filter, mouse, own_device) && device.grab() {
                 device.print();
                 Some(device.into())
             } else {

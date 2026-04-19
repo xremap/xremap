@@ -32,6 +32,7 @@ pub fn output_device(
     enable_wheel: bool,
     vendor: u16,
     product: u16,
+    own_device: &str,
 ) -> Result<VirtualDevice, Box<dyn Error>> {
     let mut keys: AttributeSet<Key> = AttributeSet::new();
     for code in Key::KEY_RESERVED.code()..Key::BTN_TRIGGER_HAPPY40.code() {
@@ -54,7 +55,7 @@ pub fn output_device(
     let device = VirtualDevice::builder()?
         // These are taken from https://docs.rs/evdev/0.12.0/src/evdev/uinput.rs.html#183-188
         .input_id(InputId::new(bus_type.unwrap_or(BusType::BUS_USB), vendor, product, 0x111))
-        .name(&InputDevice::current_name())
+        .name(own_device)
         .with_keys(&keys)?
         .with_relative_axes(&relative_axes)?
         .build()?;
@@ -87,6 +88,7 @@ pub fn select_input_devices(
     ignore_opts: &[String],
     mouse: bool,
     watch: bool,
+    own_device: &str,
 ) -> anyhow::Result<HashMap<PathBuf, InputDevice>> {
     let mut devices = input_devices()?;
     devices.sort();
@@ -118,7 +120,7 @@ pub fn select_input_devices(
         // alternative is `Vec::retain_mut` whenever that gets stabilized
         .filter_map(|mut device| {
             // filter out any not matching devices and devices that error on grab
-            if device.is_input_device(device_opts, ignore_opts, mouse) && device.grab() {
+            if device.is_input_device(device_opts, ignore_opts, mouse, own_device) && device.grab() {
                 device.print();
                 Some(device)
             } else {
@@ -318,8 +320,14 @@ impl InputDevice {
         }
     }
 
-    pub fn is_input_device(&self, device_filter: &[String], ignore_filter: &[String], mouse: bool) -> bool {
-        if self.device_name() == Self::current_name() {
+    pub fn is_input_device(
+        &self,
+        device_filter: &[String],
+        ignore_filter: &[String],
+        mouse: bool,
+        own_device: &str,
+    ) -> bool {
+        if self.device_name() == own_device {
             return false;
         }
         (if device_filter.is_empty() {
@@ -330,7 +338,7 @@ impl InputDevice {
     }
 
     #[allow(static_mut_refs)]
-    fn current_name() -> &'static str {
+    pub fn current_name() -> &'static str {
         if unsafe { DEVICE_NAME.is_none() } {
             let has_device_name = match input_devices() {
                 Ok(devices) => devices.iter().any(|device| device.device_name().contains("xremap")),

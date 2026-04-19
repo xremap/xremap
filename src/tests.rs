@@ -190,15 +190,21 @@ fn test_cursor_behavior_1() {
     use crate::device::InputDevice;
     use crate::device::{output_device, select_input_devices};
     // Setup to be able to send events
-    let mut input_devices = match select_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
-        Ok(input_devices) => input_devices,
-        Err(e) => panic!("Failed to prepare input devices: {e}"),
-    };
-    let mut output_device =
-        match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
-            Ok(output_device) => output_device,
-            Err(e) => panic!("Failed to prepare an output device: {e}"),
+    let mut input_devices =
+        match select_input_devices(&[String::from("/dev/input/event25")], &[], true, false, "own_device") {
+            Ok(input_devices) => input_devices,
+            Err(e) => panic!("Failed to prepare input devices: {e}"),
         };
+    let mut output_device = match output_device(
+        input_devices.values().next().map(InputDevice::bus_type),
+        true,
+        0x1234,
+        0x5678,
+        "own_device",
+    ) {
+        Ok(output_device) => output_device,
+        Err(e) => panic!("Failed to prepare an output device: {e}"),
+    };
     for input_device in input_devices.values_mut() {
         let _unused = input_device.fetch_events().unwrap();
     }
@@ -231,15 +237,21 @@ fn test_cursor_behavior_2() {
     use crate::device::InputDevice;
     use crate::device::{output_device, select_input_devices};
     // Setup to be able to send events
-    let mut input_devices = match select_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
-        Ok(input_devices) => input_devices,
-        Err(e) => panic!("Failed to prepare input devices: {e}"),
-    };
-    let mut output_device =
-        match output_device(input_devices.values().next().map(InputDevice::bus_type), true, 0x1234, 0x5678) {
-            Ok(output_device) => output_device,
-            Err(e) => panic!("Failed to prepare an output device: {e}"),
+    let mut input_devices =
+        match select_input_devices(&[String::from("/dev/input/event25")], &[], true, false, "own_device") {
+            Ok(input_devices) => input_devices,
+            Err(e) => panic!("Failed to prepare input devices: {e}"),
         };
+    let mut output_device = match output_device(
+        input_devices.values().next().map(InputDevice::bus_type),
+        true,
+        0x1234,
+        0x5678,
+        "own_device",
+    ) {
+        Ok(output_device) => output_device,
+        Err(e) => panic!("Failed to prepare an output device: {e}"),
+    };
     for input_device in input_devices.values_mut() {
         let _unused = input_device.fetch_events().unwrap();
     }
