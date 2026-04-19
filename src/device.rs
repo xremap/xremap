@@ -115,7 +115,7 @@ pub fn get_input_devices(
         if watch {
             println!("warning: No device was selected, but --watch is waiting for new devices.");
         } else {
-            bail!("No device was selected!");
+            bail!("Failed to prepare input devices: No device was selected!");
         }
     } else {
         devices.iter().for_each(InputDevice::print);
@@ -325,11 +325,13 @@ impl InputDevice {
     }
 
     // We can't know the device path from evdev::enumerate(). So we re-implement it.
-    fn devices() -> io::Result<impl Iterator<Item = InputDevice>> {
-        Ok(read_dir("/dev/input")?.filter_map(|entry| {
-            // Allow "Permission denied" when opening the current process's own device.
-            InputDevice::try_from(entry.ok()?.path()).ok()
-        }))
+    fn devices() -> anyhow::Result<impl Iterator<Item = InputDevice>> {
+        Ok(read_dir("/dev/input")
+            .map_err(|err| anyhow::format_err!("Failed to read /dev/input: {err}"))?
+            .filter_map(|entry| {
+                // Allow "Permission denied" when opening the current process's own device.
+                InputDevice::try_from(entry.ok()?.path()).ok()
+            }))
     }
 
     #[allow(static_mut_refs)]

@@ -12,7 +12,10 @@ mod common;
 pub fn test_no_input_device_match() {
     let device_filter = vec!["match_nothing".into()];
 
-    assert_err("No device was selected!", get_input_devices(&device_filter, &vec![], false, false));
+    assert_err(
+        "Failed to prepare input devices: No device was selected!",
+        get_input_devices(&device_filter, &vec![], false, false),
+    );
 }
 
 #[test]

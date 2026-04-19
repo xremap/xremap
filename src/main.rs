@@ -231,10 +231,7 @@ fn main() -> anyhow::Result<()> {
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
-        Ok(input_devices) => input_devices,
-        Err(e) => bail!("Failed to prepare input devices: {}", e),
-    };
+    let mut input_devices = get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
         ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
@@ -324,10 +321,7 @@ fn main() -> anyhow::Result<()> {
                         input_device.ungrab();
                     }
 
-                    input_devices = match get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices) {
-                        Ok(input_devices) => input_devices,
-                        Err(e) => bail!("Failed to prepare input devices: {}", e),
-                    };
+                    input_devices = get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
 
                     continue 'event_loop;
                 }
