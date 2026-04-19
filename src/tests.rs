@@ -188,9 +188,9 @@ fn test_mouse_movement_event_accumulation() {
 //
 fn test_cursor_behavior_1() {
     use crate::device::InputDevice;
-    use crate::device::{get_input_devices, output_device};
+    use crate::device::{output_device, select_input_devices};
     // Setup to be able to send events
-    let mut input_devices = match get_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
+    let mut input_devices = match select_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {e}"),
     };
@@ -229,9 +229,9 @@ fn test_cursor_behavior_1() {
 // Please refer to the comment above test_cursor_behavior_1 for information on how to run these tests.
 fn test_cursor_behavior_2() {
     use crate::device::InputDevice;
-    use crate::device::{get_input_devices, output_device};
+    use crate::device::{output_device, select_input_devices};
     // Setup to be able to send events
-    let mut input_devices = match get_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
+    let mut input_devices = match select_input_devices(&[String::from("/dev/input/event25")], &[], true, false) {
         Ok(input_devices) => input_devices,
         Err(e) => panic!("Failed to prepare input devices: {e}"),
     };

@@ -3,7 +3,7 @@
 use crate::common::{get_random_device_name, wait_for_device};
 use anyhow::Result;
 use evdev::uinput::VirtualDevice;
-use xremap::device::get_input_devices;
+use xremap::device::select_input_devices;
 
 mod common;
 
@@ -16,7 +16,7 @@ pub fn test_device_without_keys_is_not_selected_automatically() -> Result<()> {
     let _ = wait_for_device(&name)?;
 
     // Automatically select devices
-    let devices = get_input_devices(&[], &vec![], false, false)?;
+    let devices = select_input_devices(&[], &vec![], false, false)?;
 
     assert_eq!(
         0,

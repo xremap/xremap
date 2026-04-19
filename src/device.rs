@@ -82,7 +82,7 @@ fn input_devices() -> anyhow::Result<Vec<InputDevice>> {
         .collect())
 }
 
-pub fn get_input_devices(
+pub fn select_input_devices(
     device_opts: &[String],
     ignore_opts: &[String],
     mouse: bool,

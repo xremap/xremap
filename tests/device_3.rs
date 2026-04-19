@@ -3,7 +3,7 @@
 use crate::common::{get_random_device_name, wait_for_device};
 use anyhow::Result;
 use evdev::uinput::VirtualDevice;
-use xremap::device::get_input_devices;
+use xremap::device::select_input_devices;
 
 mod common;
 
@@ -16,7 +16,7 @@ pub fn test_device_filter_overwrites_keyboard_and_mouse_check() -> Result<()> {
     let _ = wait_for_device(&name)?;
 
     // Selects the device, because filter overwrites the automatic selection rules.
-    let names: Vec<String> = get_input_devices(&[name.clone()], &vec![], false, false)?
+    let names: Vec<String> = select_input_devices(&[name.clone()], &vec![], false, false)?
         .iter()
         .map(|(_, device)| device.device_name().to_string())
         .collect();

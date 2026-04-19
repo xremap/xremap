@@ -4,7 +4,7 @@ use crate::common::xremap_controller::{InputDeviceFilter, XremapController};
 use crate::common::{assert_err, assert_str_contains, get_raw_device_pair};
 use anyhow::Result;
 use std::time::Duration;
-use xremap::device::get_input_devices;
+use xremap::device::select_input_devices;
 
 mod common;
 
@@ -14,7 +14,7 @@ pub fn test_no_input_device_match() {
 
     assert_err(
         "Failed to prepare input devices: No device was selected!",
-        get_input_devices(&device_filter, &vec![], false, false),
+        select_input_devices(&device_filter, &vec![], false, false),
     );
 }
 

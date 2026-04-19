@@ -1,7 +1,7 @@
 use crate::client::print_open_windows;
 use crate::config::{Config, ConfigWatcher};
 use crate::device::{
-    device_watcher, get_input_devices, output_device, print_device_details, print_device_list, DEVICE_NAME,
+    device_watcher, output_device, print_device_details, print_device_list, select_input_devices, DEVICE_NAME,
 };
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
@@ -231,7 +231,7 @@ fn main() -> anyhow::Result<()> {
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut input_devices = get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
+    let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
     let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
     let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
         ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
@@ -321,7 +321,7 @@ fn main() -> anyhow::Result<()> {
                         input_device.ungrab();
                     }
 
-                    input_devices = get_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
+                    input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices)?;
 
                     continue 'event_loop;
                 }
