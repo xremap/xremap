@@ -149,14 +149,13 @@ pub fn select_input_devices(
 }
 
 pub fn open_device(path: PathBuf) -> Option<InputDevice> {
-    if path.file_name()?.as_bytes().starts_with(b"event") {
-        Some(InputDevice {
+    path.file_name()?
+        .as_bytes()
+        .starts_with(b"event")
+        .then_some(InputDevice {
             device: Device::open(&path).ok()?,
             path,
         })
-    } else {
-        None
-    }
 }
 
 #[derive(Debug, Clone)]
