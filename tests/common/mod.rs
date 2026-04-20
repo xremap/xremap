@@ -4,9 +4,13 @@ pub mod inputevent_formatter;
 pub mod xremap_controller;
 
 use crate::common::inputevent_formatter::get_pretty_events;
+use anyhow::bail;
 use evdev::uinput::VirtualDevice;
-use evdev::{AttributeSet, BusType, Device, EventType, InputEvent, InputId, KeyCode, SwitchCode};
+use evdev::{AttributeSet, BusType, Device, EventType, FetchEventsSynced, InputEvent, InputId, KeyCode, SwitchCode};
+use nix::sys::select::{select, FdSet};
+use nix::sys::time::TimeValLike;
 use std::iter::repeat_with;
+use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::time::Duration;
 use xremap::util::{until, until_value};
@@ -163,6 +167,20 @@ pub fn containsn(count: u64, hackstack: &str, needle: &str) -> bool {
     }
 
     !hackstack.contains(needle)
+}
+
+pub fn fetch_events(device: &mut Device) -> anyhow::Result<FetchEventsSynced<'_>> {
+    let mut fds = FdSet::new();
+    let fd = device.as_raw_fd();
+    fds.insert(fd);
+
+    select(None, &mut fds, None, None, Some(&mut TimeValLike::seconds(1)))?;
+
+    if !fds.contains(fd) {
+        bail!("Timed out waiting for xremap events.");
+    }
+
+    Ok(device.fetch_events()?)
 }
 
 #[test]

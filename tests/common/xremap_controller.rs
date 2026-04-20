@@ -1,14 +1,11 @@
 use crate::common::{
-    get_random_device_name, get_virtual_device, key_press, key_release, wait_for_device, wait_for_grabbed,
-    VirtualDeviceInfo,
+    fetch_events, get_random_device_name, get_virtual_device, key_press, key_release, wait_for_device,
+    wait_for_grabbed, VirtualDeviceInfo,
 };
 use anyhow::{bail, Result};
 use evdev::{Device, EventType, FetchEventsSynced, InputEvent, KeyCode as Key};
-use nix::sys::select::{select, FdSet};
-use nix::sys::time::TimeValLike;
 use std::cell::Cell;
 use std::iter::repeat_with;
-use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -307,19 +304,7 @@ impl XremapController {
     }
 
     pub fn fetch_events(&mut self) -> anyhow::Result<FetchEventsSynced<'_>> {
-        let device = self.output_device.as_mut().expect("Output device is not opened");
-
-        let mut fds = FdSet::new();
-        let fd = device.as_raw_fd();
-        fds.insert(fd);
-
-        select(None, &mut fds, None, None, Some(&mut TimeValLike::seconds(1)))?;
-
-        if !fds.contains(fd) {
-            bail!("Timed out waiting for xremap events.");
-        }
-
-        Ok(device.fetch_events()?)
+        fetch_events(self.output_device.as_mut().expect("Output device is not opened"))
     }
 
     pub fn fetch_until_key(&mut self, key: Key) -> anyhow::Result<Vec<InputEvent>> {
