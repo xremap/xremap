@@ -101,6 +101,7 @@ pub fn test_device_that_is_already_grabbed() -> Result<()> {
 
     assert_str_contains("Failed to prepare input devices", &output.stderr);
     assert_str_contains("Device or resource busy", &output.stderr);
+    assert_str_contains("Another program might have grabbed the device", &output.stderr);
 
     Ok(())
 }
