@@ -1,3 +1,8 @@
+## v0.15.2
+
+- Fix device watch errors and race-conditions https://github.com/xremap/xremap/pull/901
+- Refactor devices.rs and more https://github.com/xremap/xremap/pull/899
+
 ## v0.15.1
 
 - Add ready and config-fail notifications https://github.com/xremap/xremap/pull/897
