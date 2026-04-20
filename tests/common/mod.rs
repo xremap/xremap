@@ -47,7 +47,7 @@ pub fn get_random_device_name() -> String {
     format!("test device {}", repeat_with(fastrand::alphanumeric).take(10).collect::<String>())
 }
 
-pub fn get_virtual_device(name: impl Into<String>) -> anyhow::Result<VirtualDeviceInfo> {
+pub fn get_virtual_device_without_wait(name: impl Into<String>) -> anyhow::Result<VirtualDevice> {
     let name = name.into();
 
     let mut keys: AttributeSet<KeyCode> = AttributeSet::new();
@@ -70,6 +70,13 @@ pub fn get_virtual_device(name: impl Into<String>) -> anyhow::Result<VirtualDevi
         .with_keys(&keys)?
         .with_switches(&sw)?
         .build()?;
+
+    Ok(device)
+}
+
+pub fn get_virtual_device(name: impl Into<String>) -> anyhow::Result<VirtualDeviceInfo> {
+    let name = name.into();
+    let device = get_virtual_device_without_wait(&name)?;
 
     // Fetch path.
     let (path, _) = wait_for_device(&name)?;

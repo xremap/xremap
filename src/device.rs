@@ -3,6 +3,7 @@ use derive_where::derive_where;
 use evdev::uinput::VirtualDevice;
 use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode as Key, RelativeAxisCode};
 use log::debug;
+use nix::libc::ENODEV;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 #[cfg(feature = "udev")]
@@ -277,6 +278,12 @@ impl InputDevice {
 
         match result {
             Ok(_) => true,
+            Err(err) if err.raw_os_error() == Some(ENODEV) => {
+                // There's no point of printing errors when devices don't exist, because
+                // this function is only called just after the information is received, that the device
+                // does exist. So it's a race-condition, where the device was quickly removed.
+                false
+            }
             Err(error) => {
                 eprintln!(
                     "warning: Failed to grab device '{}' at '{}'. It may have been disconnected, have keys held down, or you may need to grant permissions. Error: {}",

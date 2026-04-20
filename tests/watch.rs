@@ -1,7 +1,11 @@
 #![cfg(feature = "device-test")]
 
 use crate::common::xremap_controller::{InputDeviceFilter, XremapController};
-use crate::common::{assert_str_contains, get_random_device_name, get_virtual_device};
+use crate::common::{
+    assert_str_contains, get_random_device_name, get_virtual_device, get_virtual_device_without_wait, key_press,
+};
+use evdev::KeyCode as Key;
+use std::time::Duration;
 
 mod common;
 
@@ -122,4 +126,28 @@ pub fn e2e_disconnecting_two_devices_in_watch_mode() -> anyhow::Result<()> {
         .contains(&format!("Found a removed device: \"{}\"", name2)));
 
     Ok(())
+}
+
+#[test]
+pub fn e2e_fast_connect_and_disconnect_in_watch_mode() -> anyhow::Result<()> {
+    let name = get_random_device_name();
+    let ctrl = XremapController::builder()
+        .input_device(InputDeviceFilter::CustomFilter { filter: name.clone() })
+        .watch(true)
+        .build()?;
+
+    let mut device = get_virtual_device_without_wait(&name)?;
+    // Make xremap spend more time in the race-condition
+    // region from InputDevice::try_from() to device.grab()
+    device.emit(&[key_press(Key::BTN_TRIGGER_HAPPY1)])?;
+
+    // Allow xremap to go into wait-for-keys-loop
+    std::thread::sleep(Duration::from_millis(100));
+
+    // Force an ENODEV error, that must not be printed by xremap
+    drop(device);
+
+    std::thread::sleep(std::time::Duration::from_millis(200));
+
+    ctrl.kill()
 }
