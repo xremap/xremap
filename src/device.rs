@@ -254,7 +254,12 @@ impl AsRawFd for InputDevice {
 /// Device Wrappers Abstractions
 impl InputDevice {
     pub fn wait_for_all_keys_up(&self) -> io::Result<()> {
-        for _ in 0..50 {
+        #[cfg(not(feature = "device-test"))]
+        let count = 50;
+        #[cfg(feature = "device-test")]
+        let count = 2;
+
+        for _ in 0..count {
             let keys = self.device.get_key_state()?;
 
             if keys.iter().filter(|&key| key != Key::KEY_UNKNOWN).count() == 0 {

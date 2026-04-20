@@ -1,9 +1,14 @@
 #![cfg(feature = "device-test")]
 
 use crate::common::xremap_controller::{InputDeviceFilter, XremapController};
-use crate::common::{assert_err, assert_str_contains, get_random_device_name, get_raw_device_pair, wait_for_device};
+use crate::common::{
+    assert_err, assert_events, assert_str_contains, fetch_events, get_random_device_name, get_raw_device_pair,
+    get_virtual_device, key_press, key_release, wait_for_device,
+};
 use anyhow::Result;
 use evdev::uinput::VirtualDevice;
+use evdev::{Device, KeyCode as Key};
+use indoc::indoc;
 use std::time::Duration;
 use xremap::device::select_input_devices;
 
@@ -94,6 +99,77 @@ pub fn test_device_that_is_already_grabbed() -> Result<()> {
 
     assert_str_contains("Failed to prepare input devices", &output.stderr);
     assert_str_contains("Device or resource busy", &output.stderr);
+
+    Ok(())
+}
+
+#[test]
+pub fn test_last_device_removed_in_non_watch_mode() -> Result<()> {
+    let mut ctrl = XremapController::builder().build()?;
+
+    ctrl.close_input_device()?;
+
+    // Can wait because xremap exits in this case
+    let output = ctrl.wait_for_output()?;
+
+    assert_str_contains("Failed to prepare input devices: No device was selected!", &output.stderr);
+
+    Ok(())
+}
+
+#[test]
+pub fn test_wait_for_all_up_keys_up() -> Result<()> {
+    let name = get_random_device_name();
+    let mut device = get_virtual_device(&name)?;
+    let mut input = Device::open(&device.path)?; // Open without grabbing
+
+    // A key that likely has no effect
+    device.device.emit(&[key_press(Key::BTN_TRIGGER_HAPPY1)])?;
+
+    let ctrl = XremapController::builder()
+        .not_open_for_fetch()
+        .input_device(InputDeviceFilter::CustomFilter { filter: name.clone() })
+        .build()?;
+
+    // Allow xremap to go into wait-for-keys-loop
+    std::thread::sleep(Duration::from_millis(100));
+    device.device.emit(&[key_release(Key::BTN_TRIGGER_HAPPY1)])?;
+
+    // Allow xremap to grab
+    std::thread::sleep(Duration::from_millis(200));
+
+    // The release event was not swallowed by xremap
+    let events: Vec<_> = fetch_events(&mut input)?.collect();
+    assert_events(
+        events,
+        indoc! {"
+            btn_trigger_happy1:1
+            btn_trigger_happy1:0
+        "},
+    );
+
+    ctrl.kill()
+}
+
+#[test]
+pub fn test_wait_for_all_up_keys_up_fails() -> Result<()> {
+    let name = get_random_device_name();
+    let mut device = get_virtual_device(&name)?;
+
+    // A key that likely has no effect
+    device.device.emit(&[key_press(Key::BTN_TRIGGER_HAPPY1)])?;
+
+    let ctrl = XremapController::builder()
+        .not_open_for_fetch()
+        .input_device(InputDeviceFilter::CustomFilter { filter: name.clone() })
+        .build()?;
+
+    std::thread::sleep(Duration::from_millis(500));
+
+    let output = ctrl.wait_for_output()?;
+
+    assert_str_contains("Failed to prepare input devices", &output.stderr);
+    assert_str_contains("Timed out waiting for keys to be released", &output.stderr);
 
     Ok(())
 }
