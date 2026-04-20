@@ -10,6 +10,7 @@ pub fn e2e_device_filter_does_not_match() -> anyhow::Result<()> {
         .input_device(InputDeviceFilter::CustomFilter {
             filter: "match_nothing".into(),
         })
+        .allow_stdio_errors(true)
         .not_open_for_fetch()
         .build()?;
 

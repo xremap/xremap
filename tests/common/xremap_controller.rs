@@ -21,6 +21,7 @@ pub enum InputDeviceFilter {
 pub struct XremapBuilder {
     nocapture_: bool,
     log_level_: String,
+    allow_stdio_errors_: bool,
     // None means open a new input device
     custom_input_device_: InputDeviceFilter,
     ignore_device_: Option<String>,
@@ -35,6 +36,7 @@ impl XremapBuilder {
         Self {
             nocapture_: false,
             log_level_: "debug".into(),
+            allow_stdio_errors_: false,
             custom_input_device_: InputDeviceFilter::RandomName,
             ignore_device_: None,
             // If output from xremap isn't grabbed, the events
@@ -53,6 +55,11 @@ impl XremapBuilder {
 
     pub fn log_level(&mut self, log_level: impl Into<String>) -> &mut Self {
         self.log_level_ = log_level.into();
+        self
+    }
+
+    pub fn allow_stdio_errors(&mut self, allow_stdio_errors: bool) -> &mut Self {
+        self.allow_stdio_errors_ = allow_stdio_errors;
         self
     }
 
@@ -112,6 +119,7 @@ pub struct XremapController {
     // Is None when xremap has been stopped.
     child: Cell<Option<Child>>,
     nocapture: bool,
+    allow_stdio_errors: bool,
     // Input from xremap's perspective
     input_device: Option<VirtualDeviceInfo>,
     // Output from xremap's perspective
@@ -208,6 +216,7 @@ impl XremapController {
         let mut ctrl = Self {
             child: Cell::new(Some(child)),
             nocapture: def.nocapture_,
+            allow_stdio_errors: def.allow_stdio_errors_,
             input_device,
             output_device_name,
             output_device: None,
@@ -394,13 +403,33 @@ impl XremapController {
             println!("{SEPARATOR}");
         }
 
+        if !self.allow_stdio_errors {
+            Self::check_stdio(&stdout)?;
+            Self::check_stdio(&stderr)?;
+        }
+
         match is_stopped {
             Ok(_) => Ok(Output { stdout, stderr }),
             Err(e) => Err(e),
         }
     }
 
-    pub fn raw_kill(&self) -> anyhow::Result<()> {
+    fn check_stdio(stdio: &str) -> anyhow::Result<()> {
+        // Ignore an error from evdev that goes straight to stderr, open PR:https://github.com/emberian/evdev/pull/172
+        let stdio = stdio.replace("Failed to ungrab device: No such device (os error 19)", "");
+        let stdio = stdio.to_ascii_lowercase();
+        if stdio.contains("fail")
+            || stdio.contains("fatal")
+            || stdio.contains("error")
+            || stdio.contains("panic")
+            || stdio.contains("warn")
+        {
+            bail!("Stdio contained an error message")
+        }
+        Ok(())
+    }
+
+    fn raw_kill(&self) -> anyhow::Result<()> {
         let mut child = self.child.take().expect("Output is already fetched.");
 
         let result = child.kill();
@@ -417,11 +446,12 @@ impl XremapController {
         if let Some(mut child) = self.child.take() {
             if child.try_wait()?.is_none() {
                 child.kill()?;
-
                 println!("Xremap killed");
             } else {
                 println!("Xremap already stopped when attempting to kill.");
             }
+
+            let _ = self.wait_for_output_inner(child)?;
         } else {
             println!("Some sort of shutdown has already been requested.");
         }

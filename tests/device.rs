@@ -67,6 +67,7 @@ pub fn test_device_filter_overwrites_keyboard_and_mouse_check() -> Result<()> {
 pub fn test_device_that_does_not_exist() -> Result<()> {
     // The device path doesn't exist, so will not cause other errors than no devices selected
     let ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
         .not_open_for_fetch()
         .input_device(InputDeviceFilter::CustomFilter {
             filter: "/dev/input/event99".into(),
@@ -85,6 +86,7 @@ pub fn test_device_that_is_already_grabbed() -> Result<()> {
     let (mut input, output) = get_raw_device_pair()?;
 
     let mut ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
         .not_open_for_fetch()
         .input_device(InputDeviceFilter::CustomFilter {
             filter: output.path.to_string_lossy().into(),
@@ -105,7 +107,7 @@ pub fn test_device_that_is_already_grabbed() -> Result<()> {
 
 #[test]
 pub fn test_last_device_removed_in_non_watch_mode() -> Result<()> {
-    let mut ctrl = XremapController::builder().build()?;
+    let mut ctrl = XremapController::builder().allow_stdio_errors(true).build()?;
 
     ctrl.close_input_device()?;
 
@@ -160,6 +162,7 @@ pub fn test_wait_for_all_up_keys_up_fails() -> Result<()> {
     device.device.emit(&[key_press(Key::BTN_TRIGGER_HAPPY1)])?;
 
     let ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
         .not_open_for_fetch()
         .input_device(InputDeviceFilter::CustomFilter { filter: name.clone() })
         .build()?;

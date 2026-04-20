@@ -21,6 +21,7 @@ pub fn e2e_keeps_running() -> anyhow::Result<()> {
 pub fn e2e_get_device_that_xremap_never_opens() -> anyhow::Result<()> {
     // Fails and exits without opening a VirtualDevice
     let mut ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
         .input_device(InputDeviceFilter::CustomFilter {
             filter: "match_nothing".into(),
         })
@@ -64,6 +65,7 @@ pub fn e2e_wait_for_output_with_nocapture() -> anyhow::Result<()> {
 #[test]
 pub fn e2e_error_in_config_file() -> Result<()> {
     let ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
         .config(indoc! {"
                 keymap:
                     - remap:

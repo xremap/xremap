@@ -35,7 +35,7 @@ pub fn e2e_connecting_device_in_watch_mode() -> anyhow::Result<()> {
 
     let output = ctrl.kill_for_output()?;
 
-    assert_str_contains("warning: No device was selected, but --watch is waiting for new devices.", &output.stdout);
+    assert_str_contains("No device was selected, but --watch is waiting for new devices.", &output.stdout);
     // A poor test, that device is now selected.
     assert_str_contains(&format!(": {}", name), &output.stdout);
 

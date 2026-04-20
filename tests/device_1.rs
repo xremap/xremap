@@ -22,7 +22,5 @@ pub fn test_output_device_from_other_xremap_process_is_grabbed() -> Result<()> {
         .ignore_device(devices_at_test_start)
         .build()?;
 
-    ctrl.raw_kill()?;
-
-    Ok(())
+    ctrl.kill()
 }

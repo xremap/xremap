@@ -131,7 +131,7 @@ pub fn select_input_devices(
 
     if selected.is_empty() {
         if watch {
-            println!("warning: No device was selected, but --watch is waiting for new devices.");
+            println!("No device was selected, but --watch is waiting for new devices.");
         } else {
             bail!("Failed to prepare input devices: No device was selected!");
         }
