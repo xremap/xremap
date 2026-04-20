@@ -46,7 +46,7 @@ pub fn e2e_old_config_remains_active_when_error() -> anyhow::Result<()> {
             "})?
         .build()?;
 
-    std::fs::write(&ctrl.get_config_file(), "failed_config")?;
+    std::fs::write(&ctrl.get_config_file(), "partial_config")?;
 
     std::thread::sleep(std::time::Duration::from_millis(20));
 
@@ -96,7 +96,7 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
         .build()?;
 
     std::fs::write(&ctrl.get_config_file(), "")?;
-    std::fs::write(&ctrl.get_config_file(), "failed_config")?;
+    std::fs::write(&ctrl.get_config_file(), "partial_config")?;
     std::fs::write(&ctrl.get_config_file(), "")?;
     std::fs::write(&ctrl.get_config_file(), "other problem")?;
     std::fs::write(
@@ -134,9 +134,12 @@ pub fn e2e_config_watch_with_notifications() -> anyhow::Result<()> {
             config_watch_debounce_ms: 10
         "};
 
-    let mut ctrl = XremapController::builder().watch_config(config)?.build()?;
+    let mut ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
+        .watch_config(config)?
+        .build()?;
 
-    std::fs::write(&ctrl.get_config_file(), "failed_config")?;
+    std::fs::write(&ctrl.get_config_file(), "partial_config")?;
 
     std::thread::sleep(std::time::Duration::from_millis(20));
 

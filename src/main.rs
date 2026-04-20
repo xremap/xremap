@@ -313,14 +313,17 @@ fn main() -> anyhow::Result<()> {
                     &mut operator_handler,
                     &mut mainctrl,
                 )? {
-                    println!("Found a removed device. Reselecting devices.");
+                    let device_info = input_device.to_info();
+                    println!("Found a removed device: {:?}", device_info.name);
+                    input_devices.retain(|path, _| device_info.path != *path);
 
-                    for input_device in input_devices.values_mut() {
-                        input_device.ungrab();
+                    if input_devices.is_empty() {
+                        if watch_devices {
+                            println!("No device was selected, but --watch is waiting for new devices.");
+                        } else {
+                            bail!("Last device was removed, and not watching for new devices");
+                        }
                     }
-
-                    input_devices =
-                        select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
 
                     continue 'event_loop;
                 }
@@ -428,8 +431,18 @@ fn handle_device_changes(
     mouse: bool,
     own_device: &str,
 ) {
+    // Ignore already grabbed devices.
+    // A problem that could occur is an old device in `input_devices` which is stale.
+    // So ignoring an event for that path would be incorrect. But `handle_input_events` removes
+    // the devices reliably, before this function gets an event for a new devive on the same path.
+    let mut ignore: Vec<PathBuf> = input_devices.iter().map(|(path, _)| path).cloned().collect();
+
     input_devices.extend(events.into_iter().filter_map(|event| {
         let path = PathBuf::from("/dev/input/").join(event.name?);
+        if ignore.contains(&path) {
+            return None;
+        }
+        ignore.push(path.clone());
         let mut device = open_device(path)?;
         if device.is_input_device(device_filter, ignore_filter, mouse, own_device) && device.grab() {
             device.print();

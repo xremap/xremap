@@ -3,6 +3,7 @@ use derive_where::derive_where;
 use evdev::uinput::VirtualDevice;
 use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode as Key, RelativeAxisCode};
 use log::debug;
+use nix::libc::{EBUSY, ENODEV};
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 #[cfg(feature = "udev")]
@@ -100,9 +101,13 @@ pub fn select_input_devices(
     let mut devices = input_devices()?;
     devices.sort();
 
-    println!("Selecting devices from the following list:");
-    println!("{SEPARATOR}");
-    devices.iter().for_each(InputDevice::print);
+    if devices.is_empty() {
+        println!("No input devices. It's probably because you lack the required permissions.");
+    } else {
+        println!("Selecting devices from the following list:");
+        println!("{SEPARATOR}");
+        devices.iter().for_each(InputDevice::print);
+    }
     println!("{SEPARATOR}");
 
     if device_opts.is_empty() {
@@ -131,7 +136,7 @@ pub fn select_input_devices(
 
     if selected.is_empty() {
         if watch {
-            println!("warning: No device was selected, but --watch is waiting for new devices.");
+            println!("No device was selected, but --watch is waiting for new devices.");
         } else {
             bail!("Failed to prepare input devices: No device was selected!");
         }
@@ -253,28 +258,60 @@ impl AsRawFd for InputDevice {
 
 /// Device Wrappers Abstractions
 impl InputDevice {
-    pub fn wait_for_all_keys_up(&self) -> io::Result<()> {
-        for _ in 0..50 {
-            let keys = self.device.get_key_state()?;
+    /// Returns true when all keys have been released.
+    pub fn wait_for_all_keys_up(&self) -> bool {
+        #[cfg(not(feature = "device-test"))]
+        let count = 50;
+        #[cfg(feature = "device-test")]
+        let count = 2;
 
-            if keys.iter().filter(|&key| key != Key::KEY_UNKNOWN).count() == 0 {
-                return Ok(());
-            }
-
-            std::thread::sleep(Duration::from_millis(100));
+        for _ in 0..count {
+            match self.device.get_key_state() {
+                Ok(keys) => {
+                    if keys.iter().filter(|&key| key != Key::KEY_UNKNOWN).count() == 0 {
+                        return true;
+                    } else {
+                        std::thread::sleep(Duration::from_millis(100));
+                    }
+                }
+                Err(err) if err.raw_os_error() == Some(ENODEV) => {
+                    // Must be a race-condition, so don't print error.
+                    return false;
+                }
+                Err(err) => {
+                    eprintln!(
+                        "Error: {err}. Error happened while waiting for keys to be released on: '{}'",
+                        self.device_name()
+                    );
+                    return false;
+                }
+            };
         }
 
-        Err(io::Error::new(io::ErrorKind::TimedOut, "Timed out waiting for keys to be released."))
+        eprintln!("Timed out waiting for keys to be released on: '{}'", self.device_name());
+        false
     }
 
     pub fn grab(&mut self) -> bool {
-        let result = self.wait_for_all_keys_up().and_then(|_| self.device.grab());
+        if !self.wait_for_all_keys_up() {
+            return false;
+        }
 
-        match result {
+        match self.device.grab() {
             Ok(_) => true,
+            Err(err) if err.raw_os_error() == Some(ENODEV) => {
+                // There's no point of printing errors when devices don't exist, because
+                // this function is only called just after the information is received, that the device
+                // does exist. So it's a race-condition, where the device was quickly removed.
+                false
+            }
+            Err(err) if err.raw_os_error() == Some(EBUSY) => {
+                eprintln!("Error: {err}. Another program might have grabbed the device: '{}'", self.device_name());
+                false
+            }
             Err(error) => {
                 eprintln!(
-                    "warning: Failed to grab device '{}' at '{}'. It may have been disconnected, have keys held down, or you may need to grant permissions. Error: {}",
+                    "warning: Failed to grab device '{}' at '{}'. You may need to grant permissions. Error: {}",
                     self.device_name(),
                     self.path.display(),
                     error
