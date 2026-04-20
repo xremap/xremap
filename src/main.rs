@@ -431,8 +431,18 @@ fn handle_device_changes(
     mouse: bool,
     own_device: &str,
 ) {
+    // Ignore already grabbed devices.
+    // A problem that could occur is an old device in `input_devices` which is stale.
+    // So ignoring an event for that path would be incorrect. But `handle_input_events` removes
+    // the devices reliably, before this function gets an event for a new devive on the same path.
+    let mut ignore: Vec<PathBuf> = input_devices.iter().map(|(path, _)| path).cloned().collect();
+
     input_devices.extend(events.into_iter().filter_map(|event| {
         let path = PathBuf::from("/dev/input/").join(event.name?);
+        if ignore.contains(&path) {
+            return None;
+        }
+        ignore.push(path.clone());
         let mut device = open_device(path)?;
         if device.is_input_device(device_filter, ignore_filter, mouse, own_device) && device.grab() {
             device.print();
