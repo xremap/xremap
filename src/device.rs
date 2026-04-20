@@ -101,9 +101,13 @@ pub fn select_input_devices(
     let mut devices = input_devices()?;
     devices.sort();
 
-    println!("Selecting devices from the following list:");
-    println!("{SEPARATOR}");
-    devices.iter().for_each(InputDevice::print);
+    if devices.is_empty() {
+        println!("No input devices. It's probably because you lack the required permissions.");
+    } else {
+        println!("Selecting devices from the following list:");
+        println!("{SEPARATOR}");
+        devices.iter().for_each(InputDevice::print);
+    }
     println!("{SEPARATOR}");
 
     if device_opts.is_empty() {
