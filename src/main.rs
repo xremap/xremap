@@ -313,14 +313,17 @@ fn main() -> anyhow::Result<()> {
                     &mut operator_handler,
                     &mut mainctrl,
                 )? {
-                    println!("Found a removed device. Reselecting devices.");
+                    let device_info = input_device.to_info();
+                    println!("Found a removed device: {:?}", device_info.name);
+                    input_devices.retain(|path, _| device_info.path != *path);
 
-                    for input_device in input_devices.values_mut() {
-                        input_device.ungrab();
+                    if input_devices.is_empty() {
+                        if watch_devices {
+                            println!("No device was selected, but --watch is waiting for new devices.");
+                        } else {
+                            bail!("Last device was removed, and not watching for new devices");
+                        }
                     }
-
-                    input_devices =
-                        select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
 
                     continue 'event_loop;
                 }

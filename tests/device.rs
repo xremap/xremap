@@ -112,7 +112,7 @@ pub fn test_last_device_removed_in_non_watch_mode() -> Result<()> {
     // Can wait because xremap exits in this case
     let output = ctrl.wait_for_output()?;
 
-    assert_str_contains("Failed to prepare input devices: No device was selected!", &output.stderr);
+    assert_str_contains("Last device was removed, and not watching for new devices", &output.stderr);
 
     Ok(())
 }

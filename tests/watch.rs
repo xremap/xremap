@@ -54,7 +54,10 @@ pub fn e2e_disconnecting_device_in_watch_mode() -> anyhow::Result<()> {
 
     let output = ctrl.kill_for_output()?;
 
-    assert_str_contains("Found a removed device. Reselecting devices.", &output.stdout);
+    assert_str_contains(
+        &format!("Found a removed device: \"{}\"", ctrl.get_input_device_name().as_ref().unwrap()),
+        &output.stdout,
+    );
 
     Ok(())
 }
@@ -84,7 +87,11 @@ pub fn e2e_disconnecting_two_devices_in_watch_mode() -> anyhow::Result<()> {
 
     let output = ctrl.kill_for_output()?;
 
-    assert!(output.stdout.contains("Found a removed device. Reselecting devices."));
+    assert!(output.stdout.contains(&format!("Found a removed device: \"{}\"", name)));
+
+    assert!(output
+        .stdout
+        .contains(&format!("Found a removed device: \"{}\"", name2)));
 
     Ok(())
 }
