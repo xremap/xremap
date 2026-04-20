@@ -254,29 +254,46 @@ impl AsRawFd for InputDevice {
 
 /// Device Wrappers Abstractions
 impl InputDevice {
-    pub fn wait_for_all_keys_up(&self) -> io::Result<()> {
+    /// Returns true when all keys have been released.
+    pub fn wait_for_all_keys_up(&self) -> bool {
         #[cfg(not(feature = "device-test"))]
         let count = 50;
         #[cfg(feature = "device-test")]
         let count = 2;
 
         for _ in 0..count {
-            let keys = self.device.get_key_state()?;
-
-            if keys.iter().filter(|&key| key != Key::KEY_UNKNOWN).count() == 0 {
-                return Ok(());
-            }
-
-            std::thread::sleep(Duration::from_millis(100));
+            match self.device.get_key_state() {
+                Ok(keys) => {
+                    if keys.iter().filter(|&key| key != Key::KEY_UNKNOWN).count() == 0 {
+                        return true;
+                    } else {
+                        std::thread::sleep(Duration::from_millis(100));
+                    }
+                }
+                Err(err) if err.raw_os_error() == Some(ENODEV) => {
+                    // Must be a race-condition, so don't print error.
+                    return false;
+                }
+                Err(err) => {
+                    eprintln!(
+                        "Error: {err}. Error happened while waiting for keys to be released on: '{}'",
+                        self.device_name()
+                    );
+                    return false;
+                }
+            };
         }
 
-        Err(io::Error::new(io::ErrorKind::TimedOut, "Timed out waiting for keys to be released."))
+        eprintln!("Timed out waiting for keys to be released on: '{}'", self.device_name());
+        false
     }
 
     pub fn grab(&mut self) -> bool {
-        let result = self.wait_for_all_keys_up().and_then(|_| self.device.grab());
+        if !self.wait_for_all_keys_up() {
+            return false;
+        }
 
-        match result {
+        match self.device.grab() {
             Ok(_) => true,
             Err(err) if err.raw_os_error() == Some(ENODEV) => {
                 // There's no point of printing errors when devices don't exist, because
@@ -286,7 +303,7 @@ impl InputDevice {
             }
             Err(error) => {
                 eprintln!(
-                    "warning: Failed to grab device '{}' at '{}'. It may have been disconnected, have keys held down, or you may need to grant permissions. Error: {}",
+                    "warning: Failed to grab device '{}' at '{}'. You may need to grant permissions. Error: {}",
                     self.device_name(),
                     self.path.display(),
                     error
