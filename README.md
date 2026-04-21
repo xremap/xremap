@@ -561,7 +561,8 @@ Arguments:
   [CONFIGS]...
           Config file(s)
 
-          When more than one file is given, then will modmap, keymap and virtual_modifiers from the subsequent files be merged into the first configuration file.
+          When more than one file is given, then will modmap, keymap and virtual_modifiers
+          from the subsequent files be merged into the first configuration file.
 
 Options:
       --device <DEVICE>
@@ -571,7 +572,8 @@ Options:
           Ignore input devices with the given names or paths
 
       --mouse
-          Listen to mouse devices. Default is false
+          Listen to mouse devices. Default is false.
+          Trackpads, tablets and other absolute devices are not supported.
 
       --watch[=<WATCH>...]
           Watch for new devices or changing configuration files.
@@ -589,10 +591,14 @@ Options:
           Choose the name of the created output device. Default is 'xremap' or 'xremap pid=xx'
 
       --vendor <VENDOR>
-          Choose the vendor value of the created output device. Must be given in hexadecimal with or without a prefix '0x'. Default is: 0x1234
+          Choose the vendor value of the created output device.
+          Must be given in hexadecimal with or without a prefix '0x'.
+          Default is: 0x1234
 
       --product <PRODUCT>
-          Choose the product value of the created output device. Must be given in hexadecimal with or without a prefix '0x'. Default is: 0x5678
+          Choose the product value of the created output device.
+          Must be given in hexadecimal with or without a prefix '0x'.
+          Default is: 0x5678
 
       --list-devices
           List info about devices
@@ -601,10 +607,12 @@ Options:
           Show device details
 
       --list-windows
-          List open windows. Use this to get app_class and title. It only works for COSMIC. Since v0.14.10
+          List open windows. Use this to get app_class and title.
+          It only works for COSMIC. Since v0.14.10.
 
       --no-window-logging
-          Suppress logging of window title and application changes. Default is false. Since v0.14.10
+          Suppress logging of window title and application changes.
+          Default is false. Since v0.14.10.
 
       --allow-launch <ALLOW_LAUNCH>
           Allow remappings to execute programs. Default is ambiguous. Since v0.15.1
@@ -612,7 +620,8 @@ Options:
           [possible values: true, false]
 
       --bridge
-          Open a bridge from the desktop environment to the xremap system service. Since v0.15.1
+          Open a bridge from the desktop environment to the xremap system service.
+          Since v0.15.1
 
       --completions <SHELL>
           Generate shell completions

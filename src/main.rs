@@ -88,7 +88,8 @@ struct Args {
     #[arg(long, value_delimiter = ',')]
     ignore: Vec<String>,
     /// Listen to mouse devices. Default is false.
-    #[arg(long)]
+    /// Trackpads, tablets and other absolute devices are not supported.
+    #[arg(long, verbatim_doc_comment)]
     mouse: bool,
     /// Watch for new devices or changing configuration files.
     /// Default is not watching for either.
@@ -119,17 +120,17 @@ struct Args {
         required_unless_present = "device_details",
         required_unless_present = "list_windows",
         required_unless_present = "bridge",
-        num_args = 1..)]
+        num_args = 1.., verbatim_doc_comment)]
     configs: Vec<PathBuf>,
     /// Choose the vendor value of the created output device.
     /// Must be given in hexadecimal with or without a prefix '0x'.
     /// Default is: 0x1234
-    #[arg(long)]
+    #[arg(long, verbatim_doc_comment)]
     vendor: Option<String>,
     /// Choose the product value of the created output device.
     /// Must be given in hexadecimal with or without a prefix '0x'.
     /// Default is: 0x5678
-    #[arg(long)]
+    #[arg(long, verbatim_doc_comment)]
     product: Option<String>,
     /// List info about devices
     #[arg(long)]
@@ -137,17 +138,20 @@ struct Args {
     /// Show device details
     #[arg(long)]
     device_details: bool,
-    /// List open windows. Use this to get app_class and title. It only works for COSMIC. Since v0.14.10.
-    #[arg(long)]
+    /// List open windows. Use this to get app_class and title.
+    /// It only works for COSMIC. Since v0.14.10.
+    #[arg(long, verbatim_doc_comment)]
     list_windows: bool,
-    /// Suppress logging of window title and application changes. Default is false. Since v0.14.10.
-    #[arg(long)]
+    /// Suppress logging of window title and application changes.
+    /// Default is false. Since v0.14.10.
+    #[arg(long, verbatim_doc_comment)]
     no_window_logging: bool,
     /// Allow remappings to execute programs. Default is ambiguous. Since v0.15.1
     #[arg(long)]
     allow_launch: Option<bool>,
-    /// Open a bridge from the desktop environment to the xremap system service. Since v0.15.1
-    #[arg(long)]
+    /// Open a bridge from the desktop environment to the xremap system service.
+    /// Since v0.15.1
+    #[arg(long, verbatim_doc_comment)]
     bridge: bool,
 }
 
