@@ -48,6 +48,21 @@ impl X11Client {
             }
         }
     }
+
+    fn borrow<'a>(&'a mut self) -> Result<(&'a RustConnection, usize)> {
+        self.connect();
+
+        let conn = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| anyhow::format_err!("Should already be connected"))?;
+
+        let screen_num = self
+            .screen_num
+            .ok_or_else(|| anyhow::format_err!("Screen_num should be available"))?;
+
+        Ok((conn, screen_num))
+    }
 }
 
 impl Client for X11Client {
@@ -57,8 +72,6 @@ impl Client for X11Client {
     }
 
     fn current_window(&mut self) -> Option<String> {
-        self.connect();
-
         match get_focused_title(self) {
             Ok(x) => Some(x),
             Err(e) => {
@@ -167,16 +180,8 @@ fn get_cookie_reply<T: TryParse>(
     }
 }
 
-fn get_focused_title(client: &X11Client) -> Result<String> {
-    let conn = client
-        .connection
-        .as_ref()
-        .ok_or_else(|| anyhow::format_err!("Should already be connected"))?;
-
-    let screen_num = client
-        .screen_num
-        .ok_or_else(|| anyhow::format_err!("Screen_num should be available"))?;
-
+fn get_focused_title(client: &mut X11Client) -> Result<String> {
+    let (conn, screen_num) = client.borrow()?;
     let winid = get_focused_winid(conn, screen_num)?;
 
     let atoms = Atoms::new(&conn)?.reply()?;
