@@ -16,14 +16,17 @@ pub const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
 
 pub struct KdeClient {
     active_window: Arc<Mutex<ActiveWindow>>,
+    oneoff_scripts: KwinScripts,
     log_window_changes: bool,
 }
 
 impl KdeClient {
     pub fn new(log_window_changes: bool) -> KdeClient {
         let active_window = Arc::new(Mutex::new(ActiveWindow::default()));
+        let oneoff_scripts = KwinScripts::new();
         KdeClient {
             active_window,
+            oneoff_scripts,
             log_window_changes,
         }
     }
@@ -65,10 +68,8 @@ impl KdeClient {
         // Is only loaded if not already running.
         ensure_script_loaded()?;
 
-        let oneoff_scripts = KwinScripts::new();
-
         // The script sends a message right away, so it's started after the server.
-        if let Err(err) = oneoff_scripts.send_active_window_script_once() {
+        if let Err(err) = self.oneoff_scripts.send_active_window_script_once() {
             // To avoid the risk of breaking change, the error is just printed.
             error!("{err:?}")
         }
@@ -119,8 +120,8 @@ impl Client for KdeClient {
         bail!("window_list not implemented for KDE")
     }
 
-    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
-        todo!()
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
+        self.oneoff_scripts.close_windows_by_app_class(app_class)
     }
 }
 
@@ -137,7 +138,7 @@ struct DbusServerInterface {
 
 #[interface(name = "com.k0kubun.Xremap")]
 impl DbusServerInterface {
-    fn notify_active_window(&mut self, title: String, res_class: String) {
+    fn notify_active_window(&self, title: String, res_class: String) {
         // Print when log_window_changes is enabled to help identify application resource classes.
         if self.log_window_changes {
             println!("active window: caption: '{title}', class: '{res_class}'");
