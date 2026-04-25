@@ -1,4 +1,5 @@
 use crate::util::print_table;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "cosmic")]
@@ -45,6 +46,7 @@ pub trait Client {
     }
     /// Return a list of open windows
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>>;
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> anyhow::Result<()>;
 }
 
 pub struct WMClient {
@@ -116,6 +118,12 @@ impl WMClient {
 
     pub fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         self.client.window_list()
+    }
+
+    pub fn close_windows_by_app_class(&mut self, app_class: &str) -> anyhow::Result<()> {
+        self.client
+            .close_windows_by_app_class(&app_class)
+            .context("Failed to close by app_class.")
     }
 }
 

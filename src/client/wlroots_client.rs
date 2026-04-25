@@ -96,6 +96,10 @@ impl Client for WlRootsClient {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for wlroot")
     }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
+        todo!()
+    }
 }
 
 impl Dispatch<wl_registry::WlRegistry, GlobalListContents> for State {

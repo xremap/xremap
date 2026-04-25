@@ -50,6 +50,10 @@ impl Client for StaticClient {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         Ok(vec![])
     }
+
+    fn close_windows_by_app_class(&mut self, _: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 pub fn get_input_device_info() -> Rc<InputDeviceInfo> {

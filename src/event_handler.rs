@@ -602,6 +602,7 @@ impl EventHandler {
                     self.extra_modifiers.insert(*key);
                 }
             }
+            KeymapAction::CloseByAppClass(app_class) => self.actions.push(Action::CloseByAppClass(app_class.clone())),
         }
         Ok(())
     }

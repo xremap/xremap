@@ -69,4 +69,8 @@ impl Client for NiriClient {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for NIRI")
     }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> anyhow::Result<()> {
+        bail!("close_windows_by_app_class not implemented for NIRI")
+    }
 }

@@ -227,6 +227,10 @@ impl Client for KdeClient {
     fn window_list(&mut self) -> Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for KDE")
     }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
+        todo!()
+    }
 }
 
 struct ActiveWindow {

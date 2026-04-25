@@ -94,6 +94,10 @@ impl Client for X11Client {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for X11")
     }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
+        todo!()
+    }
 }
 
 fn get_focus_window(client: &mut X11Client) -> Option<Window> {

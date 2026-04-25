@@ -139,6 +139,10 @@ impl Client for CosmicClient {
 
         Ok(windows)
     }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
+        todo!()
+    }
 }
 
 impl Dispatch<WlRegistry, GlobalListContents> for State {

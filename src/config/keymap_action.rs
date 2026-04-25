@@ -1,3 +1,4 @@
+use crate::config::deserialize_single_field;
 use crate::config::key::parse_key;
 use crate::config::key_press::KeyPress;
 use crate::config::nested_remap::{deserialize_nested_remap, Remap};
@@ -32,6 +33,8 @@ pub enum KeymapAction {
     EscapeNextKey(bool),
     #[serde(deserialize_with = "deserialize_sleep")]
     Sleep(u64),
+    #[serde(deserialize_with = "deserialize_close_by_app_class")]
+    CloseByAppClass(String),
 
     // Internals
     #[serde(skip)]
@@ -156,6 +159,10 @@ where
         }
     }
     Err(de::Error::custom("not a map with a single \"sleep\" key"))
+}
+
+pub fn deserialize_close_by_app_class<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    deserialize_single_field(deserializer, "close_apps")
 }
 
 // Used only for deserializing Vec<Action>

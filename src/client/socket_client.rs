@@ -140,4 +140,8 @@ impl Client for SocketClient {
             response => bail!("Wrong response from client {response:?}"),
         }
     }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
+        todo!()
+    }
 }

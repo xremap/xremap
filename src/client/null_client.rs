@@ -18,6 +18,10 @@ impl Client for NullClient {
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         Ok(vec![])
     }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 /// This should properly be in the test module.
@@ -46,5 +50,9 @@ impl Client for DeviceTestClient {
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
         Ok(vec![])
+    }
+
+    fn close_windows_by_app_class(&mut self, _app_class: &str) -> anyhow::Result<()> {
+        Ok(())
     }
 }
