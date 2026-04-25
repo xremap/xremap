@@ -1,6 +1,11 @@
 use crate::client::{Client, WindowInfo};
-use anyhow::bail;
-use hyprland::{data::Client as HyprClient, prelude::*};
+use anyhow::{bail, Result};
+use hyprland::data::{Client as HyprClient, Clients};
+use hyprland::dispatch::{Dispatch, DispatchType, WindowIdentifier};
+use hyprland::prelude::*;
+use log::debug;
+use std::time::Duration;
+
 pub struct HyprlandClient;
 
 impl HyprlandClient {
@@ -34,7 +39,19 @@ impl Client for HyprlandClient {
         bail!("window_list not implemented for hyprland")
     }
 
-    fn close_windows_by_app_class(&mut self, _app_class: &str) -> anyhow::Result<()> {
-        todo!()
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
+        // Must pick specific windows, because only one is closed at a time.
+        for window in Clients::get()? {
+            if window.class == app_class {
+                debug!("Closing: {:?}", window.title);
+
+                Dispatch::call(DispatchType::CloseWindow(WindowIdentifier::ClassRegularExpression(app_class)))?;
+
+                // Needed otherwise will only the first request be honored.
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        }
+
+        Ok(())
     }
 }
