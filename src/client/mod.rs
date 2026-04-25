@@ -33,6 +33,7 @@ pub struct WindowInfo {
 }
 
 pub trait Client {
+    // It's called very late. I.e. the first time xremap wants some information.
     fn supported(&mut self) -> bool;
     fn current_application(&mut self) -> Option<String>;
     fn current_window(&mut self) -> Option<String>;

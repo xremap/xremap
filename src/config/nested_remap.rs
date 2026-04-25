@@ -15,7 +15,7 @@ pub struct Remap {
     pub timeout_key: Option<Vec<Key>>,
 }
 
-// USed only for deserialization
+// Used only for deserialization
 #[derive(Debug, Deserialize)]
 pub struct RemapActions {
     pub remap: HashMap<KeyPress, Actions>,
