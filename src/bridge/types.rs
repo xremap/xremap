@@ -16,6 +16,7 @@ pub enum Request {
     ActiveWindow,
     Run(Vec<String>),
     WindowList,
+    CloseByAppClass(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]

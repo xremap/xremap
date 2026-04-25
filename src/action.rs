@@ -20,4 +20,6 @@ pub enum Action {
     Command(Vec<String>),
     // keypress_delay_ms
     Delay(Duration),
+    // Close windows with the given app_class
+    CloseByAppClass(String),
 }

@@ -4,6 +4,9 @@ use crate::client::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel
 use crate::client::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_info_v1::{
     self, ZcosmicToplevelInfoV1,
 };
+use crate::client::cosmic_protocols::toplevel_management::v1::client::zcosmic_toplevel_manager_v1::{
+    self, ZcosmicToplevelManagerV1,
+};
 use crate::client::{Client, WindowInfo};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -28,8 +31,8 @@ struct CosmicWindow {
     title: Option<String>,
 }
 
-#[derive(Default)]
 struct State {
+    toplevel_manager: ZcosmicToplevelManagerV1,
     windows: HashMap<ObjectId, CosmicWindow>,
     active_window: Option<ObjectId>,
 }
@@ -37,7 +40,7 @@ struct State {
 #[derive(Default)]
 pub struct CosmicClient {
     queue: Option<EventQueue<State>>,
-    state: State,
+    state: Option<State>,
 }
 
 impl CosmicClient {
@@ -53,33 +56,49 @@ impl CosmicClient {
             .bind::<ZcosmicToplevelInfoV1, _, _>(&queue.handle(), 1..=1, ())
             .context("zcosmic_toplevel_info_v1 protocol is not supported")?;
 
+        let toplevel_manager = globals
+            .bind::<ZcosmicToplevelManagerV1, _, _>(&queue.handle(), 1..=1, ())
+            .context("zcosmic_toplevel_manager_v1 protocol is not supported")?;
+
+        let mut state = State {
+            toplevel_manager,
+            windows: HashMap::new(),
+            active_window: None,
+        };
+
         // Flush so listening starts. Otherwise we would have to wait for the Done event
         // to ensure that we're in a consistent state. But it's easier to just accept that the
         // window info can be partial.
-        queue.roundtrip(&mut self.state)?;
+        queue.roundtrip(&mut state)?;
 
         self.queue = Some(queue);
+        self.state = Some(state);
 
         Ok(())
     }
 
     fn get_focused_window<'a>(&'a mut self) -> Result<Option<&'a CosmicWindow>> {
-        Ok(self.get_focused_objectid()?.and_then(|id| self.state.windows.get(&id)))
+        let (_, state) = self.borrow()?;
+        Ok(state.active_window.as_ref().and_then(|id| state.windows.get(&id)))
     }
 
-    fn get_focused_objectid(&mut self) -> Result<Option<ObjectId>> {
-        self.sync_state_with_server()?;
+    fn borrow<'a>(&'a mut self) -> Result<(&'a mut EventQueue<State>, &'a mut State)> {
+        if self.queue.is_none() {
+            self.connect()?;
+        }
 
-        Ok(self.state.active_window.clone())
-    }
-
-    fn sync_state_with_server(&mut self) -> Result<()> {
-        self.queue
+        let queue = self
+            .queue
             .as_mut()
-            .ok_or_else(|| anyhow::format_err!("Must be connected."))?
-            .roundtrip(&mut self.state)?;
+            .ok_or_else(|| anyhow::format_err!("This cannot happen"))?;
+        let state = self
+            .state
+            .as_mut()
+            .ok_or_else(|| anyhow::format_err!("This cannot happen"))?;
 
-        Ok(())
+        queue.roundtrip(state)?;
+
+        Ok((queue, state))
     }
 }
 
@@ -115,10 +134,9 @@ impl Client for CosmicClient {
     }
 
     fn window_list(&mut self) -> Result<Vec<WindowInfo>> {
-        self.sync_state_with_server()?;
+        let (_, state) = self.borrow()?;
 
-        let windows: Vec<WindowInfo> = self
-            .state
+        let windows: Vec<WindowInfo> = state
             .windows
             .iter()
             .map(
@@ -138,6 +156,20 @@ impl Client for CosmicClient {
             .collect();
 
         Ok(windows)
+    }
+
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
+        let (queue, state) = self.borrow()?;
+
+        for window in state.windows.values() {
+            if window.app_class.as_deref() == Some(app_class) {
+                state.toplevel_manager.close(&window.handle);
+            }
+        }
+
+        queue.flush()?; // Ensure it happens right away.
+
+        Ok(())
     }
 }
 
@@ -226,5 +258,17 @@ impl Dispatch<ZcosmicToplevelHandleV1, ()> for State {
             }
             _ => {}
         }
+    }
+}
+
+impl Dispatch<ZcosmicToplevelManagerV1, ()> for State {
+    fn event(
+        _: &mut Self,
+        _: &ZcosmicToplevelManagerV1,
+        _: zcosmic_toplevel_manager_v1::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
     }
 }

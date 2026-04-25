@@ -79,7 +79,7 @@ impl SocketClient {
         let response = self.call_via_socket(request)?;
         match serde_json::from_str::<Response>(&response)? {
             // Filter errors to make further processing easier.
-            Response::Error(message) => bail!(message),
+            Response::Error(message) => bail!(format!("GNOME extension failed: {message}")),
             response => Ok(response),
         }
     }
@@ -139,5 +139,9 @@ impl Client for SocketClient {
             Response::WindowList(window_list) => Ok(window_list),
             response => bail!("Wrong response from client {response:?}"),
         }
+    }
+
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
+        self.command(Request::CloseByAppClass(app_class.into()))
     }
 }

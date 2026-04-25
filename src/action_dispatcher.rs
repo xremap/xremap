@@ -1,7 +1,7 @@
 use crate::main_controller::MainController;
 use crate::throttle_emit::ThrottleEmit;
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
-use log::debug;
+use log::{debug, error};
 use std::thread;
 
 use crate::event::RelativeEvent;
@@ -30,7 +30,14 @@ impl ActionDispatcher {
             Action::InputEvent(event) => self.send_event(event)?,
             Action::Command(command) => mainctrl.run_command(command),
             Action::Delay(duration) => thread::sleep(duration),
+            Action::CloseByAppClass(app_class) => {
+                mainctrl
+                    .wmclient()
+                    .close_windows_by_app_class(&app_class)
+                    .unwrap_or_else(|err| error!("{err:?}"));
+            }
         }
+
         Ok(())
     }
 

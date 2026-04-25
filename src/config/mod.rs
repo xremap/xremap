@@ -161,3 +161,19 @@ where
 fn const_true() -> bool {
     true
 }
+
+pub fn deserialize_single_field<'de, D, T>(deserializer: D, name: &str) -> Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    let mut map = HashMap::<String, T>::deserialize(deserializer)?;
+
+    if let Some(value) = map.remove(name) {
+        if map.is_empty() {
+            return Ok(value);
+        }
+    }
+
+    Err(serde::de::Error::custom(format!("This error is never shown in an untagged enum")))
+}

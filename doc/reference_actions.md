@@ -58,3 +58,15 @@ keymap:
   - remap:
       Capslock: { sleep: 10 }
 ```
+
+### Example: Close applications
+
+Close all applications that have the exact `app_class`.
+
+```yml
+keymap:
+  - remap:
+      Capslock: { close_apps: "firefox" }
+```
+
+Since: `v0.15.3`. Not supported in GNOME yet.

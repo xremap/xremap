@@ -1,10 +1,9 @@
-use super::adhoc_script_handler::AdhocScriptHandler;
+use crate::client::kde::kwin_scripts::KwinScripts;
+use crate::client::kde::plugin_script_handler::ensure_script_loaded;
 use crate::client::{Client, WindowInfo};
 use anyhow::{bail, Result};
 use futures::executor::block_on;
 use log::{debug, error, warn};
-use std::env::temp_dir;
-use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -12,130 +11,23 @@ use std::time::Duration;
 use zbus::connection::Builder;
 use zbus::{interface, Connection};
 
-const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
-const KWIN_ONEOFF_SCRIPT: &str = include_str!("kwin-script-one-off.js");
-const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
+pub const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
+pub const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
 
 pub struct KdeClient {
     active_window: Arc<Mutex<ActiveWindow>>,
+    oneoff_scripts: KwinScripts,
     log_window_changes: bool,
-    adhoc_script_handler: AdhocScriptHandler,
-}
-
-struct KwinScriptTempFile(PathBuf);
-
-impl KwinScriptTempFile {
-    fn new() -> Self {
-        Self(temp_dir().join("xremap-kwin-script.js"))
-    }
-}
-
-impl Drop for KwinScriptTempFile {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.0);
-    }
-}
-
-fn dbus_load_script(conn: &Connection, path: &Path) -> Result<i32> {
-    Ok(block_on(
-        conn.call_method(
-            Some("org.kde.KWin"),
-            "/Scripting",
-            Some("org.kde.kwin.Scripting"),
-            "loadScript",
-            // since OsStr does not implement zvariant::Type, the temp-path must be valid utf-8
-            &(
-                path.to_str()
-                    .ok_or(anyhow::format_err!("Temp-path must be valid utf-8"))?,
-                KWIN_SCRIPT_PLUGIN_NAME,
-            ),
-        ),
-    )?
-    .body()
-    .deserialize::<i32>()?)
-}
-
-fn dbus_unload_script(conn: &Connection) -> Result<bool> {
-    Ok(block_on(conn.call_method(
-        Some("org.kde.KWin"),
-        "/Scripting",
-        Some("org.kde.kwin.Scripting"),
-        "unloadScript",
-        &KWIN_SCRIPT_PLUGIN_NAME,
-    ))?
-    .body()
-    .deserialize::<bool>()?)
-}
-
-// Tries both /99 for kde5 and /Scripting/Script99 for kde6
-// and squash any errors.
-fn dbus_run_script(conn: &Connection, script_obj_id: i32) -> Result<()> {
-    for script_obj_path_fn in [|id| format!("/{id}"), |id| format!("/Scripting/Script{id}")] {
-        if block_on(conn.call_method(
-            Some("org.kde.KWin"),
-            script_obj_path_fn(script_obj_id).as_str(),
-            Some("org.kde.kwin.Script"),
-            "run",
-            &(),
-        ))
-        .is_ok()
-        {
-            return Ok(());
-        }
-    }
-    Err(anyhow::format_err!("Could not start KWIN script, with id: {script_obj_id}"))
-}
-
-fn dbus_is_script_loaded(conn: &Connection) -> Result<bool> {
-    Ok(block_on(conn.call_method(
-        Some("org.kde.KWin"),
-        "/Scripting",
-        Some("org.kde.kwin.Scripting"),
-        "isScriptLoaded",
-        &KWIN_SCRIPT_PLUGIN_NAME,
-    ))?
-    .body()
-    .deserialize::<bool>()?)
-}
-
-fn run_script(conn: &Connection, script: &str) -> Result<()> {
-    let temp_file_path = KwinScriptTempFile::new();
-    std::fs::write(&temp_file_path.0, script)?;
-    let script_obj_id = dbus_load_script(&conn, &temp_file_path.0)?;
-    dbus_run_script(&conn, script_obj_id)?;
-    Ok(())
-}
-
-/// Note: Unload is not really usable.
-///     This fails: load plugin-script, load adhoc script, unload plugin-script, load plugin-script
-///     so it's fragile if other things use adhoc scripts.
-fn ensure_script_loaded() -> Result<()> {
-    let conn = block_on(Connection::session())?;
-    if !dbus_is_script_loaded(&conn)? {
-        if let Err(err) = run_script(&conn, KWIN_SCRIPT) {
-            debug!("Trying to unload kwin-script plugin ('{KWIN_SCRIPT_PLUGIN_NAME}').");
-            match dbus_unload_script(&conn, ) {
-                Err(err) => debug!("Error unloading plugin ('{err:?}'). It may still be loaded and could cause future runs of xremap to fail."),
-                Ok(unloaded) if unloaded => debug!("Successfully unloaded plugin."),
-                Ok(_) => debug!("Plugin was not loaded in the first place."),
-            }
-            return Err(err);
-        }
-    }
-    Ok(())
 }
 
 impl KdeClient {
     pub fn new(log_window_changes: bool) -> KdeClient {
-        let active_window = Arc::new(Mutex::new(ActiveWindow {
-            title: String::new(),
-            res_name: String::new(),
-            res_class: String::new(),
-        }));
+        let active_window = Arc::new(Mutex::new(ActiveWindow::default()));
+        let oneoff_scripts = KwinScripts::new();
         KdeClient {
             active_window,
+            oneoff_scripts,
             log_window_changes,
-            adhoc_script_handler: AdhocScriptHandler::new(),
         }
     }
 
@@ -146,7 +38,7 @@ impl KdeClient {
 
         std::thread::spawn(move || {
             let connect = move || -> Result<Connection> {
-                let awi = ActiveWindowInterface {
+                let awi = DbusServerInterface {
                     active_window,
                     log_window_changes,
                 };
@@ -177,7 +69,7 @@ impl KdeClient {
         ensure_script_loaded()?;
 
         // The script sends a message right away, so it's started after the server.
-        if let Err(err) = self.adhoc_script_handler.run_script(KWIN_ONEOFF_SCRIPT) {
+        if let Err(err) = self.oneoff_scripts.send_active_window_script_once() {
             // To avoid the risk of breaking change, the error is just printed.
             error!("{err:?}")
         }
@@ -227,29 +119,32 @@ impl Client for KdeClient {
     fn window_list(&mut self) -> Result<Vec<WindowInfo>> {
         bail!("window_list not implemented for KDE")
     }
+
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
+        self.oneoff_scripts.close_windows_by_app_class(app_class)
+    }
 }
 
-struct ActiveWindow {
+#[derive(Default)]
+pub struct ActiveWindow {
     res_class: String,
-    res_name: String,
     title: String,
 }
 
-struct ActiveWindowInterface {
+struct DbusServerInterface {
     active_window: Arc<Mutex<ActiveWindow>>,
     log_window_changes: bool,
 }
 
 #[interface(name = "com.k0kubun.Xremap")]
-impl ActiveWindowInterface {
-    fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
+impl DbusServerInterface {
+    fn notify_active_window(&self, title: String, res_class: String) {
         // Print when log_window_changes is enabled to help identify application resource classes.
         if self.log_window_changes {
-            println!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
+            println!("active window: caption: '{title}', class: '{res_class}'");
         }
         let mut aw = self.active_window.lock().unwrap();
-        aw.title = caption;
+        aw.title = title;
         aw.res_class = res_class;
-        aw.res_name = res_name;
     }
 }
