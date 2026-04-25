@@ -15,21 +15,19 @@ impl Client for HyprlandClient {
     }
 
     fn current_window(&mut self) -> Option<String> {
-        if let Ok(win_opt) = HyprClient::get_active() {
-            if let Some(win) = win_opt {
-                return Some(win.title);
-            }
+        if let Ok(Some(win)) = HyprClient::get_active() {
+            Some(win.title)
+        } else {
+            None
         }
-        None
     }
 
     fn current_application(&mut self) -> Option<String> {
-        if let Ok(win_opt) = HyprClient::get_active() {
-            if let Some(win) = win_opt {
-                return Some(win.class);
-            }
+        if let Ok(Some(win)) = HyprClient::get_active() {
+            Some(win.class)
+        } else {
+            None
         }
-        None
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
