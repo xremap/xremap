@@ -25,7 +25,6 @@ impl KdeClient {
     pub fn new(log_window_changes: bool) -> KdeClient {
         let active_window = Arc::new(Mutex::new(ActiveWindow {
             title: String::new(),
-            res_name: String::new(),
             res_class: String::new(),
         }));
         KdeClient {
@@ -131,7 +130,6 @@ impl Client for KdeClient {
 
 pub struct ActiveWindow {
     res_class: String,
-    res_name: String,
     title: String,
 }
 
@@ -142,14 +140,13 @@ struct ActiveWindowInterface {
 
 #[interface(name = "com.k0kubun.Xremap")]
 impl ActiveWindowInterface {
-    fn notify_active_window(&mut self, caption: String, res_class: String, res_name: String) {
+    fn notify_active_window(&mut self, caption: String, res_class: String) {
         // Print when log_window_changes is enabled to help identify application resource classes.
         if self.log_window_changes {
-            println!("active window: caption: '{caption}', class: '{res_class}', name: '{res_name}'");
+            println!("active window: caption: '{caption}', class: '{res_class}'");
         }
         let mut aw = self.active_window.lock().unwrap();
         aw.title = caption;
         aw.res_class = res_class;
-        aw.res_name = res_name;
     }
 }
