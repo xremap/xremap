@@ -1,4 +1,4 @@
-use super::adhoc_script_handler::AdhocScriptHandler;
+use crate::client::kde::kwin_scripts::KwinScripts;
 use crate::client::kde::plugin_script_handler::ensure_script_loaded;
 use crate::client::{Client, WindowInfo};
 use anyhow::{bail, Result};
@@ -12,13 +12,11 @@ use zbus::connection::Builder;
 use zbus::{interface, Connection};
 
 pub const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
-const KWIN_ONEOFF_SCRIPT: &str = include_str!("kwin-script-one-off.js");
 pub const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";
 
 pub struct KdeClient {
     active_window: Arc<Mutex<ActiveWindow>>,
     log_window_changes: bool,
-    adhoc_script_handler: AdhocScriptHandler,
 }
 
 impl KdeClient {
@@ -27,7 +25,6 @@ impl KdeClient {
         KdeClient {
             active_window,
             log_window_changes,
-            adhoc_script_handler: AdhocScriptHandler::new(),
         }
     }
 
@@ -68,8 +65,10 @@ impl KdeClient {
         // Is only loaded if not already running.
         ensure_script_loaded()?;
 
+        let oneoff_scripts = KwinScripts::new();
+
         // The script sends a message right away, so it's started after the server.
-        if let Err(err) = self.adhoc_script_handler.run_script(KWIN_ONEOFF_SCRIPT) {
+        if let Err(err) = oneoff_scripts.send_active_window_script_once() {
             // To avoid the risk of breaking change, the error is just printed.
             error!("{err:?}")
         }
