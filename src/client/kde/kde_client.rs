@@ -41,7 +41,7 @@ impl KdeClient {
 
         std::thread::spawn(move || {
             let connect = move || -> Result<Connection> {
-                let awi = ActiveWindowInterface {
+                let awi = DbusServerInterface {
                     active_window,
                     log_window_changes,
                 };
@@ -133,20 +133,20 @@ pub struct ActiveWindow {
     title: String,
 }
 
-struct ActiveWindowInterface {
+struct DbusServerInterface {
     active_window: Arc<Mutex<ActiveWindow>>,
     log_window_changes: bool,
 }
 
 #[interface(name = "com.k0kubun.Xremap")]
-impl ActiveWindowInterface {
-    fn notify_active_window(&mut self, caption: String, res_class: String) {
+impl DbusServerInterface {
+    fn notify_active_window(&mut self, title: String, res_class: String) {
         // Print when log_window_changes is enabled to help identify application resource classes.
         if self.log_window_changes {
-            println!("active window: caption: '{caption}', class: '{res_class}'");
+            println!("active window: caption: '{title}', class: '{res_class}'");
         }
         let mut aw = self.active_window.lock().unwrap();
-        aw.title = caption;
+        aw.title = title;
         aw.res_class = res_class;
     }
 }
