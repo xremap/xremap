@@ -4,6 +4,9 @@ use crate::client::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel
 use crate::client::cosmic_protocols::toplevel_info::v1::client::zcosmic_toplevel_info_v1::{
     self, ZcosmicToplevelInfoV1,
 };
+use crate::client::cosmic_protocols::toplevel_management::v1::client::zcosmic_toplevel_manager_v1::{
+    self, ZcosmicToplevelManagerV1,
+};
 use crate::client::{Client, WindowInfo};
 use anyhow::{Context, Result};
 use std::collections::HashMap;
@@ -29,6 +32,7 @@ struct CosmicWindow {
 }
 
 struct State {
+    toplevel_manager: ZcosmicToplevelManagerV1,
     windows: HashMap<ObjectId, CosmicWindow>,
     active_window: Option<ObjectId>,
 }
@@ -52,7 +56,12 @@ impl CosmicClient {
             .bind::<ZcosmicToplevelInfoV1, _, _>(&queue.handle(), 1..=1, ())
             .context("zcosmic_toplevel_info_v1 protocol is not supported")?;
 
+        let toplevel_manager = globals
+            .bind::<ZcosmicToplevelManagerV1, _, _>(&queue.handle(), 1..=1, ())
+            .context("zcosmic_toplevel_manager_v1 protocol is not supported")?;
+
         let mut state = State {
+            toplevel_manager,
             windows: HashMap::new(),
             active_window: None,
         };
@@ -149,8 +158,18 @@ impl Client for CosmicClient {
         Ok(windows)
     }
 
-    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
-        todo!()
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
+        let (queue, state) = self.borrow()?;
+
+        for window in state.windows.values() {
+            if window.app_class.as_deref() == Some(app_class) {
+                state.toplevel_manager.close(&window.handle);
+            }
+        }
+
+        queue.flush()?; // Ensure it happens right away.
+
+        Ok(())
     }
 }
 
@@ -239,5 +258,17 @@ impl Dispatch<ZcosmicToplevelHandleV1, ()> for State {
             }
             _ => {}
         }
+    }
+}
+
+impl Dispatch<ZcosmicToplevelManagerV1, ()> for State {
+    fn event(
+        _: &mut Self,
+        _: &ZcosmicToplevelManagerV1,
+        _: zcosmic_toplevel_manager_v1::Event,
+        _: &(),
+        _: &Connection,
+        _: &QueueHandle<Self>,
+    ) {
     }
 }
