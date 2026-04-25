@@ -93,5 +93,7 @@ fn handle_request(
             command_runner.run(command);
             Ok(Response::Ok)
         }
+
+        Request::CloseByAppClass(app_class) => wmclient.close_windows_by_app_class(&app_class).map(|_| Response::Ok),
     }
 }
