@@ -53,8 +53,7 @@ impl X11Client {
 impl Client for X11Client {
     fn supported(&mut self) -> bool {
         self.connect();
-        return self.connection.is_some();
-        // TODO: Test XGetInputFocus and focused_window > 0?
+        self.connection.is_some()
     }
 
     fn current_window(&mut self) -> Option<String> {
@@ -134,7 +133,7 @@ fn get_wm_class(client: &mut X11Client, window: Window) -> Option<String> {
             }
         }
     }
-    return None;
+    None
 }
 
 /// Get WM_CLASS by using _NET_ACTIVE_WINDOW
@@ -148,14 +147,14 @@ fn get_cookie_reply_with_reconnect<T: TryParse>(
     client: &mut X11Client,
     get_cookie: impl Fn(&RustConnection) -> Result<Cookie<RustConnection, T>, ConnectionError>,
 ) -> anyhow::Result<T> {
-    return match get_cookie_reply(client, &get_cookie) {
+    match get_cookie_reply(client, &get_cookie) {
         Err(e) => {
             println!("Reconnecting to X11 due to error: {}", e);
             client.reconnect();
             get_cookie_reply(client, &get_cookie)
         }
         x => x,
-    };
+    }
 }
 
 fn get_cookie_reply<T: TryParse>(
@@ -163,7 +162,7 @@ fn get_cookie_reply<T: TryParse>(
     get_cookie: &impl Fn(&RustConnection) -> Result<Cookie<RustConnection, T>, ConnectionError>,
 ) -> anyhow::Result<T> {
     match &client.connection {
-        Some(conn) => return Ok(get_cookie(conn)?.reply()?),
+        Some(conn) => Ok(get_cookie(conn)?.reply()?),
         None => bail!("No connection to X11"),
     }
 }
