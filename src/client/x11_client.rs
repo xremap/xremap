@@ -3,12 +3,13 @@ use anyhow::{bail, Result};
 use std::env;
 use x11rb::connection::Connection;
 use x11rb::cookie::Cookie;
-use x11rb::protocol::xproto::{self};
-use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, Window};
-use x11rb::rust_connection::ConnectionError;
+use x11rb::protocol::xproto::{self, get_property, AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, Window};
+use x11rb::rust_connection::{ConnectionError, RustConnection};
 use x11rb::x11_utils::TryParse;
-use x11rb::{protocol::xproto::get_property, rust_connection::RustConnection};
 
+/// https://docs.rs/x11rb/latest/x11rb/
+/// https://specifications.freedesktop.org/wm-spec
+/// https://tronche.com/gui/x/icccm/sec-4.html#s-4.2.8.1
 pub struct X11Client {
     connection: Option<RustConnection>,
     screen_num: Option<usize>,
@@ -107,8 +108,17 @@ impl Client for X11Client {
         bail!("window_list not implemented for X11")
     }
 
-    fn close_windows_by_app_class(&mut self, _app_class: &str) -> Result<()> {
-        todo!()
+    fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
+        let (conn, screen_num) = self.borrow()?;
+
+        for winid in get_window_stack(conn, screen_num)? {
+            if Some(app_class) == get_wm_class(self, winid).as_deref() {
+                let (conn, _) = self.borrow()?;
+                close_window(conn, winid, screen_num)?;
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -234,6 +244,35 @@ x11rb::atom_manager! {
     pub Atoms: AtomsCookie {
         _NET_WM_NAME,
         _NET_ACTIVE_WINDOW,
+        _NET_CLIENT_LIST_STACKING,
+        _NET_CLOSE_WINDOW,
         UTF8_STRING,
     }
+}
+
+fn get_window_stack(conn: &RustConnection, screen_num: usize) -> Result<Vec<u32>> {
+    let root = conn.setup().roots[screen_num].root;
+    let atoms = Atoms::new(&conn)?.reply()?;
+
+    let prop_reply = conn
+        .get_property(false, root, atoms._NET_CLIENT_LIST_STACKING, AtomEnum::WINDOW, 0, u32::MAX)?
+        .reply()?;
+
+    let windows: Vec<u32> = prop_reply
+        .value32()
+        .ok_or_else(|| anyhow::format_err!("Response from X11 is malformed"))?
+        .collect();
+
+    Ok(windows)
+}
+
+fn close_window(conn: &RustConnection, winid: u32, screen_num: usize) -> Result<()> {
+    let root = conn.setup().roots[screen_num].root;
+    let atoms = Atoms::new(&conn)?.reply()?;
+    let event = ClientMessageEvent::new(32, winid, atoms._NET_CLOSE_WINDOW, [0, 0, 0, 0, 0]);
+
+    conn.send_event(false, root, EventMask::SUBSTRUCTURE_NOTIFY, event)?
+        .check()?;
+
+    Ok(())
 }
