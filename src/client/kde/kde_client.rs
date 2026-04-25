@@ -23,10 +23,7 @@ pub struct KdeClient {
 
 impl KdeClient {
     pub fn new(log_window_changes: bool) -> KdeClient {
-        let active_window = Arc::new(Mutex::new(ActiveWindow {
-            title: String::new(),
-            res_class: String::new(),
-        }));
+        let active_window = Arc::new(Mutex::new(ActiveWindow::default()));
         KdeClient {
             active_window,
             log_window_changes,
@@ -128,6 +125,7 @@ impl Client for KdeClient {
     }
 }
 
+#[derive(Default)]
 pub struct ActiveWindow {
     res_class: String,
     title: String,
