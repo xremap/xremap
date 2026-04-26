@@ -628,3 +628,34 @@ fn test_mixing_no_keypress_and_remap_in_keymap_action() {
         ],
     )
 }
+
+#[test]
+fn test_nested_remap_inexact_when_union_of_modifiers() {
+    // First is used when both match
+    assert_actions(
+        indoc! {"
+        keymap:
+            - remap:
+                c-x:
+                  remap:
+                    alt-W: A
+                    control-W: B
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTALT),
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_X),
+            Event::key_press(Key::KEY_W),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}

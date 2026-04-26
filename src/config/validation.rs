@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use anyhow::bail;
 use evdev::KeyCode as Key;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
 pub fn validate_config_file(config: &Config) -> anyhow::Result<()> {
     for modmap in &config.modmap {
@@ -68,7 +68,7 @@ fn traverse_modmap_operator(operator: &ModmapOperator) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn traverse_remap(keymap: &HashMap<KeyPress, Vec<KeymapAction>>) -> anyhow::Result<()> {
+fn traverse_remap(keymap: &IndexMap<KeyPress, Vec<KeymapAction>>) -> anyhow::Result<()> {
     for (_, actions) in keymap {
         traverse_actions(actions)?;
     }
