@@ -36,7 +36,6 @@ udev = { version = "0.9.3", optional = true }
 wayland-protocols = { version = "0.32.10", features = ["client"], optional = true }
 wayland-scanner = { version = "0.31.10", optional = true }
 wayland-backend = { version = "0.3.12", optional = true }
-tokio = { version = "1.49.0", optional = true, features = ["full"] }
 indexmap = { version = "2.14.0", features = ["serde"] }
 
 [dev-dependencies]
@@ -52,7 +51,7 @@ udev = ["dep:udev"]
 niri = ["niri-ipc"]
 device-test = []
 cosmic = [ "wayland-client","wayland-scanner","wayland-backend"]
-socket = ["futures-util", "tokio", "zbus", "zbus/tokio"]
+socket = ["futures-util", "zbus"]
 
 [profile.release]
 codegen-units = 1

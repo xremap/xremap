@@ -1,6 +1,5 @@
 use super::socket_monitor::SessionMonitor;
-use crate::bridge::ActiveWindow;
-use crate::bridge::{Request, Response};
+use crate::bridge::{ActiveWindow, Request, Response};
 use crate::client::{Client, WindowInfo};
 use anyhow::{anyhow, bail, Context, Result};
 use log::debug;
@@ -9,8 +8,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
 use std::sync::Arc;
+use std::thread::spawn;
 use std::time::Duration;
-use tokio::runtime::{Builder, Runtime};
 
 // This client supports a line-based socket protocol where a message is
 // sent over the socket as a single line of JSON followed by a newline ('\n'),
@@ -32,7 +31,6 @@ const XREMAP_SOCKET: &str = "/run/xremap/{uid}/xremap.sock";
 pub struct SocketClient {
     socket_path: String,
     monitor: Arc<SessionMonitor>,
-    _runtime: Runtime,
 }
 
 impl SocketClient {
@@ -40,17 +38,9 @@ impl SocketClient {
         let socket_path = std::env::var("XREMAP_SOCKET").unwrap_or(XREMAP_SOCKET.to_string());
         let monitor = Arc::new(SessionMonitor::new(socket_path.clone()));
         let monitor_ = monitor.clone();
-        let runtime = Builder::new_multi_thread()
-            .worker_threads(1)
-            .enable_all()
-            .build()
-            .unwrap();
-        runtime.spawn(async move { monitor_.run().await });
-        SocketClient {
-            socket_path,
-            monitor,
-            _runtime: runtime,
-        }
+        let _handle = spawn(move || monitor_.run());
+
+        SocketClient { socket_path, monitor }
     }
 
     fn get_active_window(&self) -> Result<ActiveWindow> {
