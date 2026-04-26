@@ -5,6 +5,7 @@ use crate::config::application::OnlyOrNot;
 use crate::config::key_press::KeyPress;
 use crate::config::keymap_action::{Actions, KeymapAction};
 use evdev::KeyCode as Key;
+use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
@@ -16,7 +17,7 @@ pub struct Keymap {
     #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
-    pub remap: HashMap<KeyPress, Vec<KeymapAction>>,
+    pub remap: IndexMap<KeyPress, Vec<KeymapAction>>,
     pub application: Option<OnlyOrNot>,
     pub window: Option<OnlyOrNot>,
     pub device: Option<DeviceMatcher>,
@@ -26,11 +27,12 @@ pub struct Keymap {
     pub exact_match: bool,
 }
 
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<KeyPress, Vec<KeymapAction>>, D::Error>
+fn deserialize_remap<'de, D>(deserializer: D) -> Result<IndexMap<KeyPress, Vec<KeymapAction>>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let remap = HashMap::<KeyPress, Actions>::deserialize(deserializer)?;
+    // IndexMap preserves the order from the config file, which is why it's used instead of HashMap.
+    let remap = IndexMap::<KeyPress, Actions>::deserialize(deserializer)?;
     Ok(remap
         .into_iter()
         .map(|(key_press, actions)| (key_press, actions.into_vec()))
@@ -88,7 +90,7 @@ pub struct OverrideEntry {
 
 // This is executed on runtime unlike build_keymap_table, but hopefully not called so often.
 pub fn build_override_table(
-    remap: &HashMap<KeyPress, Vec<KeymapAction>>,
+    remap: &IndexMap<KeyPress, Vec<KeymapAction>>,
     exact_match: bool,
 ) -> HashMap<Key, Vec<OverrideEntry>> {
     let mut table: HashMap<Key, Vec<OverrideEntry>> = HashMap::new();

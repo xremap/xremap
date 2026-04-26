@@ -183,6 +183,63 @@ fn test_exact_match_default() {
 }
 
 #[test]
+fn test_keymap_inexact_when_union_of_modifiers() {
+    // First is used when both match
+    assert_actions(
+        indoc! {"
+        keymap:
+            - remap:
+                alt-W: A
+                control-W: B
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTALT),
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_W),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
+fn test_keymap_matches_exact_before_inexact() {
+    assert_actions(
+        indoc! {"
+        keymap:
+            - remap:
+                control-W: B
+                control-shift-W: A
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_W),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
 fn test_keymaps_are_merged() {
     assert_actions(
         indoc! {"
