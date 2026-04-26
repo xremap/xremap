@@ -1,3 +1,12 @@
+## v0.15.3
+
+- refactor: Remove tokio crate. https://github.com/xremap/xremap/pull/907
+- refactor: Remove futures crate. https://github.com/xremap/xremap/pull/906
+- Fix: non-deterministic inexact match. https://github.com/xremap/xremap/pull/905
+- Add CloseByAppClass action. https://github.com/xremap/xremap/pull/904
+- Document keymap actions and press/release key. https://github.com/xremap/xremap/pull/903
+- Update commandline description. https://github.com/xremap/xremap/pull/902
+
 ## v0.15.2
 
 - Fix device watch errors and race-conditions https://github.com/xremap/xremap/pull/901
