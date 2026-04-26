@@ -1,10 +1,9 @@
 use crate::client::kde::kde_client::{KWIN_SCRIPT, KWIN_SCRIPT_PLUGIN_NAME};
 use anyhow::Result;
-use futures::executor::block_on;
 use log::debug;
 use std::env::temp_dir;
 use std::path::{Path, PathBuf};
-use zbus::Connection;
+use zbus::{block_on, Connection};
 
 struct KwinScriptTempFile(PathBuf);
 
