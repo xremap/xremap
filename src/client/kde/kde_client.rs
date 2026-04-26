@@ -2,14 +2,13 @@ use crate::client::kde::kwin_scripts::KwinScripts;
 use crate::client::kde::plugin_script_handler::ensure_script_loaded;
 use crate::client::{Client, WindowInfo};
 use anyhow::{bail, Result};
-use futures::executor::block_on;
 use log::{debug, error, warn};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use zbus::connection::Builder;
-use zbus::{interface, Connection};
+use zbus::{block_on, interface, Connection};
 
 pub const KWIN_SCRIPT: &str = include_str!("kwin-script.js");
 pub const KWIN_SCRIPT_PLUGIN_NAME: &str = "xremap";

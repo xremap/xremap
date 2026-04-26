@@ -1,8 +1,7 @@
 use anyhow::Result;
-use futures::executor::block_on;
 use std::env::temp_dir;
 use std::path::Path;
-use zbus::Connection;
+use zbus::{block_on, Connection};
 
 pub struct AdhocScriptHandler {}
 

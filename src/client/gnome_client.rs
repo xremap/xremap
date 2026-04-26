@@ -1,12 +1,11 @@
 use crate::bridge::ActiveWindow;
 use crate::client::{Client, WindowInfo};
 use anyhow::bail;
-use futures::executor::block_on;
 use log::debug;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
 use std::path::Path;
-use zbus::{zvariant, Connection, Error, Message};
+use zbus::{block_on, zvariant, Connection, Error, Message};
 
 pub struct GnomeClient {
     socket_path: Option<String>,
