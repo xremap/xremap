@@ -35,7 +35,7 @@ toml = "1.1.2"
 udev = { version = "0.9.3", optional = true }
 wayland-protocols = { version = "0.32.10", features = ["client"], optional = true }
 wayland-scanner = { version = "0.31.10", optional = true }
-wayland-backend = { version = "0.3.12", optional = true }
+wayland-backend = { version = "0.3.15", optional = true }
 indexmap = { version = "2.14.0", features = ["serde"] }
 
 [dev-dependencies]
