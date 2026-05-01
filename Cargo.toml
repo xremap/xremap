@@ -39,7 +39,7 @@ wayland-backend = { version = "0.3.12", optional = true }
 indexmap = { version = "2.14.0", features = ["serde"] }
 
 [dev-dependencies]
-fastrand = "2.3.0"
+fastrand = "2.4.1"
 
 [features]
 gnome = ["zbus"]
