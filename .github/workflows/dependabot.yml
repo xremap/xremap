@@ -9,7 +9,7 @@ jobs:
     if: ${{ github.actor == 'dependabot[bot]' }}
     steps:
       - name: Dependabot metadata
-        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
         id: metadata
       - name: Wait for status checks
         uses: lewagon/wait-on-check-action@9312864dfbc9fd208e9c0417843430751c042800
