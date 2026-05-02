@@ -1,3 +1,7 @@
+## v0.15.4
+
+- Update github actions and cargo dependencies. https://github.com/xremap/xremap/compare/v0.15.3...v0.15.4
+
 ## v0.15.3
 
 - refactor: Remove tokio crate. https://github.com/xremap/xremap/pull/907
