@@ -137,7 +137,16 @@ struct DbusServerInterface {
 
 #[interface(name = "com.k0kubun.Xremap")]
 impl DbusServerInterface {
-    fn notify_active_window(&self, title: String, res_class: String) {
+    /// Old KWin scripts are only reloaded after relogin, which means they remain active
+    /// when updating the xremap binary. To avoid errors due to change of API. This
+    /// method can change name so only the old script calls this method.
+    /// There're two places the method call (NotifyActiveWindow) must be changed.
+    fn notify_active_window(&self, title: String, res_class: String, _res_name: String) {
+        println!("Restart or relogin is needed to finish update and make KDE integration work fully.");
+        self.notify_active_window2(title, res_class)
+    }
+
+    fn notify_active_window2(&self, title: String, res_class: String) {
         // Print when log_window_changes is enabled to help identify application resource classes.
         if self.log_window_changes {
             println!("active window: caption: '{title}', class: '{res_class}'");
