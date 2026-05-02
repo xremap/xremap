@@ -7,7 +7,7 @@ function notifyActiveWindow(client) {
         "com.k0kubun.Xremap",
         "/com/k0kubun/Xremap",
         "com.k0kubun.Xremap",
-        "NotifyActiveWindow",
+        "NotifyActiveWindow2",
         "caption" in client ? client.caption : "",
         "resourceClass" in client ? client.resourceClass : "",
     );
