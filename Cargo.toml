@@ -52,6 +52,7 @@ niri = ["niri-ipc"]
 device-test = []
 cosmic = [ "wayland-client","wayland-scanner","wayland-backend"]
 socket = ["futures-util", "zbus"]
+pantheon = ["zbus"]
 
 [profile.release]
 codegen-units = 1
