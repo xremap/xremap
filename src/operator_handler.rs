@@ -1,9 +1,15 @@
+use crate::config::expmap_operator::ExpmapOperator;
+use crate::config::Expmap;
 use crate::emit_handler::{Emit, EmitHandler};
 use crate::event::Event;
 use crate::event_handler::PRESS;
+use crate::operator_double_tap::DoubleTapOperator;
+use crate::operator_sim::SimOperator;
 use crate::operators::{ActiveOperator, OperatorAction, StaticOperator};
+use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::usize;
 
 pub struct OperatorHandler {
@@ -34,7 +40,46 @@ pub struct OperatorHandler {
 /// handles the last part 'AB'. If operators were only static, then it would be more complicated
 /// because they would have to keep track of the whether 'b' should be squashed or let through.
 impl OperatorHandler {
-    pub fn new(operators: Vec<Box<dyn StaticOperator>>) -> OperatorHandler {
+    pub fn new(experimental_map: &Vec<Expmap>, timeout_manager: Rc<TimeoutManager>) -> OperatorHandler {
+        let operators: Vec<_> = experimental_map
+            .iter()
+            .flat_map(|expmap| {
+                let chords: Vec<_> = expmap
+                    .chords
+                    .iter()
+                    .map(|chord| -> Box<dyn StaticOperator> {
+                        Box::new(SimOperator {
+                            keys: chord.keys.clone(),
+                            actions: chord.actions.clone(),
+                            timeout: chord.timeout,
+                            timeout_manager: timeout_manager.clone(),
+                        })
+                    })
+                    .collect();
+
+                let rest: Vec<_> = expmap
+                    .remap
+                    .iter()
+                    .map(|(key, op)| -> Box<dyn StaticOperator> {
+                        match op {
+                            ExpmapOperator::DoubleTap(dbltap) => Box::new(DoubleTapOperator {
+                                key: key.clone(),
+                                actions: dbltap.actions.clone(),
+                                timeout: dbltap.timeout,
+                                timeout_manager: timeout_manager.clone(),
+                            }),
+                        }
+                    })
+                    .collect();
+
+                let mut operators: Vec<Box<dyn StaticOperator>> = vec![];
+                operators.extend(chords);
+                operators.extend(rest);
+
+                operators
+            })
+            .collect();
+
         let mut lookup_map: HashMap<Key, Vec<Box<dyn StaticOperator>>> = HashMap::new();
 
         for operator in &operators {

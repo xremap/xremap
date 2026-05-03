@@ -3,7 +3,6 @@ use crate::config::expmap_simkey::Simkey;
 use crate::config::Expmap;
 use crate::event::Event;
 use crate::operator_handler::OperatorHandler;
-use crate::operators::get_operator_handler;
 use crate::tests::assert_events;
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
@@ -54,7 +53,7 @@ fn get_handler() -> OperatorHandler {
         },
     ];
 
-    get_operator_handler(&config, Rc::new(TimeoutManager::new())).unwrap()
+    OperatorHandler::new(&config, Rc::new(TimeoutManager::new()))
 }
 
 #[test]

@@ -7,7 +7,6 @@ use crate::device::{
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
-use crate::operators::get_operator_handler;
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;
 use action_dispatcher::ActionDispatcher;
@@ -263,7 +262,11 @@ fn main() -> anyhow::Result<()> {
         Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
     };
 
-    let mut operator_handler = get_operator_handler(&config.experimental_map, timeout_manager.clone());
+    let mut operator_handler = if config.experimental_map.len() > 0 {
+        Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
+    } else {
+        None
+    };
 
     let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 
