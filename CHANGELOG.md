@@ -1,3 +1,12 @@
+## v0.15.5
+
+- Add WINDOWS_L and WINDOWS_R aliases. https://github.com/xremap/xremap/pull/922
+- Update readme. https://github.com/xremap/xremap/pull/921
+- Add application-specific remapping to experimental_map. https://github.com/xremap/xremap/pull/920
+- Add window_list to Hyprland, Niri, Wlroots and X11 clients. https://github.com/xremap/xremap/pull/919
+- Add pantheon client. https://github.com/xremap/xremap/pull/918
+- Fix: Keep compat for change to KDE Kwin script. https://github.com/xremap/xremap/pull/917
+
 ## v0.15.4
 
 - Update github actions and cargo dependencies. https://github.com/xremap/xremap/compare/v0.15.3...v0.15.4
