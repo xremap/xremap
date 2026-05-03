@@ -151,6 +151,29 @@ modmap:
 
 The meaning of the config is: `F9` remaps to an empty list of keys.
 
+#### Remap a key combo to another key combo
+
+```yml
+keymap:
+  - remap:
+      Ctrl-P: Up
+      Ctrl-N: Down
+```
+
+This configuration allows extra modfiers to be pressed. This means if `Ctrl`, `Shift` and `P` are pressed,
+it will remap to `Shift-Up`, allowing to select text up and down.
+
+#### Different remap for left and right modifiers
+
+```yml
+keymap:
+  - remap:
+      Ctrl_R-C: End
+      Ctrl_R-X: Home
+```
+
+Pressing right `Ctrl` and `C` remaps to `End`. This leaves the normal remapping of `Ctrl-C` using left `Ctrl` to copy text.
+
 ### modmap
 
 `modmap` is for key-to-key remapping like xmodmap.
@@ -218,8 +241,6 @@ keymap:
   - name: Name # Optional
     exact_match: false # Optional, defaults to false
     remap:
-      # Key press -> Key press
-      MOD1-KEY_XXX1: MOD2-KEY_YYY
       # Sequence (MOD1-KEY_XXX2, MOD2-KEY_YYY) -> Key press (MOD3-KEY_ZZZ)
       MOD1-KEY_XXX2:
         remap:
