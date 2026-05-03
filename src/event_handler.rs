@@ -7,6 +7,7 @@ use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiP
 use crate::config::nested_remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
+use crate::operator_handler::OperatorHandler;
 use crate::Config;
 use evdev::KeyCode as Key;
 use lazy_static::lazy_static;
@@ -79,10 +80,15 @@ impl EventHandler {
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_events(
         &mut self,
-        events: Vec<Event>,
+        mut events: Vec<Event>,
         config: &Config,
         wmclient: &mut WMClient,
+        operator_handler: &mut Option<OperatorHandler>,
     ) -> Result<Vec<Action>, Box<dyn Error>> {
+        if let Some(handler) = operator_handler {
+            events = handler.map_events(events);
+        };
+
         debug_assert!(self.actions.is_empty());
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();

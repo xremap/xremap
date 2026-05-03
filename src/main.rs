@@ -411,15 +411,12 @@ fn handle_events(
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
     config: &Config,
-    mut events: Vec<Event>,
+    events: Vec<Event>,
     operator_handler: &mut Option<OperatorHandler>,
     mainctrl: &mut MainController,
 ) -> anyhow::Result<()> {
-    if let Some(handler) = operator_handler {
-        events = handler.map_events(events);
-    };
     let actions = handler
-        .on_events(events, config, mainctrl.wmclient())
+        .on_events(events, config, mainctrl.wmclient(), operator_handler)
         .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;
     for action in actions {
         dispatcher.on_action(action, mainctrl)?;
