@@ -376,20 +376,16 @@ keymap:
 ```
 
 The application name can be specified as a normal string to exactly match the name,
-or a regex surrounded by `/`s like `/application/`.
+or a regex surrounded by `/` like `/application/`.
 
-To check the application names, you can use the following commands:
-
-#### X11
+To check the application names, you can use the following command:
 
 ```
-$ wmctrl -x -l
-0x02800003  0 slack.Slack           ubuntu-jammy Slack | general | ruby-jp
-0x05400003  0 code.Code             ubuntu-jammy application.rs - xremap - Visual Studio Code
+xremap --list-windows
 ```
 
-You may use the entire string of the third column (`slack.Slack`, `code.Code`),
-or just the last segment after `.` (`Slack`, `Code`).
+It was added in `v0.15.5`. [See methods prior to that](https://github.com/xremap/xremap/tree/v0.15.4#application).
+It doesn't work on GNOME Wayland or KDE Wayland, though. But there it's possible to do:
 
 #### GNOME Wayland
 
@@ -404,51 +400,11 @@ busctl --user call org.gnome.Shell /com/k0kubun/Xremap com.k0kubun.Xremap WMClas
 Xremap prints the active window to the console.
 However, it will only start printing, once a mapping has been triggered that uses an application filter.
 So you have to create a mapping with a filter using a dummy application name and trigger it.
-Then each time you switch to a new window xremap will print its caption, class, and name in the following style:
-`active window: caption: '<caption>', class: '<class>', name: '<name>'`
+Then each time you switch to a new window xremap will print its caption and class in the following style:
+`active window: caption: '<caption>', class: '<class>'`
 The `class` property should be used for application matching, while the `caption` property should be used for window matching.
 
 If you use a systemd-daemon to manage xremap, the prints will be visible in the system-logs (Can be opened with `journalctl -f`)
-
-#### Sway
-
-```
-swaymsg -t get_tree
-```
-
-Locate `app_id` in the output.
-
-#### Niri
-
-```
-niri msg windows
-```
-
-Locate `App ID` in the output.
-
-#### COSMIC Wayland
-
-```
-xremap --list-windows
-```
-
-This only works on COSMIC
-
-#### All desktops
-
-If none of the above methods work, you can make a config file with:
-
-```yml
-keymap:
-  - window:
-      not: []
-    application:
-      not: []
-    remap:
-      capslock: []
-```
-
-When you press capslock xremap looks up the information and prints it to the console.
 
 #### application-specific key overrides
 
@@ -609,7 +565,7 @@ Options:
 
       --list-windows
           List open windows. Use this to get app_class and title.
-          It only works for COSMIC. Since v0.14.10.
+          Since v0.15.5. Not supported for GNOME Wayland or KDE Wayland.
 
       --no-window-logging
           Suppress logging of window title and application changes.

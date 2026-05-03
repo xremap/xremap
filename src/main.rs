@@ -139,7 +139,7 @@ struct Args {
     #[arg(long)]
     device_details: bool,
     /// List open windows. Use this to get app_class and title.
-    /// It only works for COSMIC. Since v0.14.10.
+    /// Since v0.15.5. Not supported for GNOME Wayland or KDE Wayland.
     #[arg(long, verbatim_doc_comment)]
     list_windows: bool,
     /// Suppress logging of window title and application changes.
