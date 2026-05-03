@@ -1,5 +1,5 @@
 use crate::client::{Client, WindowInfo};
-use anyhow::{bail, Result};
+use anyhow::Result;
 use hyprland::data::{Client as HyprClient, Clients};
 use hyprland::dispatch::{Dispatch, DispatchType, WindowIdentifier};
 use hyprland::prelude::*;
@@ -36,7 +36,14 @@ impl Client for HyprlandClient {
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
-        bail!("window_list not implemented for hyprland")
+        Ok(Clients::get()?
+            .into_iter()
+            .map(|client| WindowInfo {
+                winid: Some(client.address.to_string()),
+                app_class: Some(client.class),
+                title: Some(client.title),
+            })
+            .collect())
     }
 
     fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
