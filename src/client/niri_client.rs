@@ -108,7 +108,15 @@ impl Client for NiriClient {
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
-        bail!("window_list not implemented for NIRI")
+        Ok(self
+            .get_windows()?
+            .into_iter()
+            .map(|window| WindowInfo {
+                winid: Some(format!("{}", window.id)),
+                app_class: window.app_id,
+                title: window.title,
+            })
+            .collect())
     }
 
     fn close_windows_by_app_class(&mut self, app_class: &str) -> anyhow::Result<()> {
