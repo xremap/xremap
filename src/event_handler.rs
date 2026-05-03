@@ -1,6 +1,5 @@
 use crate::action::Action;
 use crate::client::WMClient;
-use crate::config::application::OnlyOrNot;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
@@ -8,6 +7,7 @@ use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiP
 use crate::config::nested_remap::Remap;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
+use crate::operator_handler::OperatorHandler;
 use crate::Config;
 use evdev::KeyCode as Key;
 use lazy_static::lazy_static;
@@ -34,8 +34,6 @@ pub struct EventHandler {
     extra_modifiers: HashSet<Key>,
     // Make sure the original event is released even if remapping changes while holding the key
     pressed_keys: HashMap<Key, Key>,
-    application_cache: Option<String>,
-    title_cache: Option<String>,
     // State machine for multi-purpose keys
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     // Current nested remaps
@@ -67,8 +65,6 @@ impl EventHandler {
             modifiers: vec![],
             extra_modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
-            application_cache: None,
-            title_cache: None,
             multi_purpose_keys: HashMap::new(),
             override_remaps: vec![],
             override_timeout_key: None,
@@ -84,18 +80,23 @@ impl EventHandler {
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_events(
         &mut self,
-        events: &Vec<Event>,
+        mut events: Vec<Event>,
         config: &Config,
         wmclient: &mut WMClient,
+        operator_handler: &mut Option<OperatorHandler>,
     ) -> Result<Vec<Action>, Box<dyn Error>> {
+        if let Some(handler) = operator_handler {
+            wmclient.clear_app_class_and_title();
+            events = handler.map_events(events, wmclient);
+        };
+
         debug_assert!(self.actions.is_empty());
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
-            self.application_cache = None; // expire cache
-            self.title_cache = None; // expire cache
+            wmclient.clear_app_class_and_title();
 
-            if let Event::KeyEvent(_, key_event) = event {
+            if let Event::KeyEvent(_, key_event) = &event {
                 debug!("=> {}: {:?}", key_event.value(), &key_event.key);
             }
 
@@ -371,10 +372,10 @@ impl EventHandler {
     fn apply_modmap(
         &mut self,
         config: &Config,
-        event: &Event,
+        event: Event,
         wmclient: &mut WMClient,
     ) -> Result<Vec<Event>, Box<dyn Error>> {
-        match event {
+        match &event {
             Event::KeyEvent(device, key_event) => {
                 let key = key_event.key;
                 let value = key_event.value();
@@ -410,11 +411,11 @@ impl EventHandler {
                     .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
                     .collect();
 
-                events.push(event.clone());
+                events.push(event);
 
                 Ok(events)
             }
-            event => Ok(vec![event.clone()]),
+            _ => Ok(vec![event]),
         }
     }
 
@@ -428,12 +429,12 @@ impl EventHandler {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(key) {
                 if let Some(window_matcher) = &modmap.window {
-                    if !self.match_window(wmclient, window_matcher) {
+                    if !wmclient.match_window(window_matcher) {
                         continue;
                     }
                 }
                 if let Some(application_matcher) = &modmap.application {
-                    if !self.match_application(wmclient, application_matcher) {
+                    if !wmclient.match_application(application_matcher) {
                         continue;
                     }
                 }
@@ -513,13 +514,13 @@ impl EventHandler {
                         continue;
                     }
                     if let Some(window_matcher) = &entry.title {
-                        if !self.match_window(wmclient, window_matcher) {
+                        if !wmclient.match_window(window_matcher) {
                             continue;
                         }
                     }
 
                     if let Some(application_matcher) = &entry.application {
-                        if !self.match_application(wmclient, application_matcher) {
+                        if !wmclient.match_application(application_matcher) {
                             continue;
                         }
                     }
@@ -672,46 +673,6 @@ impl EventHandler {
             })
             .collect();
         (extra_modifiers, missing_modifiers)
-    }
-
-    fn match_window(&mut self, wmclient: &mut WMClient, window_matcher: &OnlyOrNot) -> bool {
-        // Lazily fill the wm_class cache
-        if self.title_cache.is_none() {
-            match wmclient.current_window() {
-                Some(title) => self.title_cache = Some(title),
-                None => self.title_cache = Some(String::new()),
-            }
-        }
-
-        if let Some(title) = &self.title_cache {
-            if let Some(title_only) = &window_matcher.only {
-                return title_only.iter().any(|m| m.matches(title));
-            }
-            if let Some(title_not) = &window_matcher.not {
-                return title_not.iter().all(|m| !m.matches(title));
-            }
-        }
-        false
-    }
-
-    fn match_application(&mut self, wmclient: &mut WMClient, application_matcher: &OnlyOrNot) -> bool {
-        // Lazily fill the wm_class cache
-        if self.application_cache.is_none() {
-            match wmclient.current_application() {
-                Some(application) => self.application_cache = Some(application),
-                None => self.application_cache = Some(String::new()),
-            }
-        }
-
-        if let Some(application) = &self.application_cache {
-            if let Some(application_only) = &application_matcher.only {
-                return application_only.iter().any(|m| m.matches(application));
-            }
-            if let Some(application_not) = &application_matcher.not {
-                return application_not.iter().all(|m| !m.matches(application));
-            }
-        }
-        false
     }
 
     fn update_modifier(&mut self, key: Key, value: i32) {

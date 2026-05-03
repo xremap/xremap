@@ -1,12 +1,8 @@
-use crate::config::expmap_operator::{ExpmapAction, ExpmapOperator};
-use crate::config::Config;
+use crate::config::application::OnlyOrNot;
+use crate::config::expmap_operator::ExpmapAction;
 use crate::device::InputDeviceInfo;
 use crate::emit_handler::Emit;
 use crate::event::{Event, KeyEvent, KeyValue};
-use crate::operator_double_tap::DoubleTapOperator;
-use crate::operator_handler::OperatorHandler;
-use crate::operator_sim::SimOperator;
-use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -50,50 +46,10 @@ pub fn map_actions(actions: &Vec<ExpmapAction>, device: Rc<InputDeviceInfo>, val
         .collect()
 }
 
-pub fn get_operator_handler(config: &Config, timeout_manager: Rc<TimeoutManager>) -> Option<OperatorHandler> {
-    let operators: Vec<_> = config
-        .experimental_map
-        .iter()
-        .flat_map(|expmap| {
-            let chords: Vec<_> = expmap
-                .chords
-                .iter()
-                .map(|chord| -> Box<dyn StaticOperator> {
-                    Box::new(SimOperator {
-                        keys: chord.keys.clone(),
-                        actions: chord.actions.clone(),
-                        timeout: chord.timeout,
-                        timeout_manager: timeout_manager.clone(),
-                    })
-                })
-                .collect();
-
-            let rest: Vec<_> = expmap
-                .remap
-                .iter()
-                .map(|(key, op)| -> Box<dyn StaticOperator> {
-                    match op {
-                        ExpmapOperator::DoubleTap(dbltap) => Box::new(DoubleTapOperator {
-                            key: key.clone(),
-                            actions: dbltap.actions.clone(),
-                            timeout: dbltap.timeout,
-                            timeout_manager: timeout_manager.clone(),
-                        }),
-                    }
-                })
-                .collect();
-
-            let mut operators: Vec<Box<dyn StaticOperator>> = vec![];
-            operators.extend(chords);
-            operators.extend(rest);
-
-            operators
-        })
-        .collect();
-
-    if operators.len() > 0 {
-        Some(OperatorHandler::new(operators))
-    } else {
-        None
-    }
+// Internals for efficient operator lookup
+#[derive(Debug)]
+pub struct OperatorEntry {
+    pub operator: Box<dyn StaticOperator>,
+    pub application: Option<OnlyOrNot>,
+    pub title: Option<OnlyOrNot>,
 }

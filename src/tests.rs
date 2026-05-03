@@ -597,7 +597,7 @@ impl EventHandlerForTest {
             format!(
                 "{:?}",
                 self.event_handler
-                    .on_events(&events, &self.config, &mut self.wmclient)
+                    .on_events(events, &self.config, &mut self.wmclient, &mut None)
                     .unwrap()
             )
         );

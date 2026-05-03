@@ -7,7 +7,6 @@ use crate::device::{
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
-use crate::operators::get_operator_handler;
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;
 use action_dispatcher::ActionDispatcher;
@@ -263,7 +262,11 @@ fn main() -> anyhow::Result<()> {
         Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
     };
 
-    let mut operator_handler = get_operator_handler(&config, timeout_manager.clone());
+    let mut operator_handler = if config.experimental_map.len() > 0 {
+        Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
+    } else {
+        None
+    };
 
     let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 
@@ -411,16 +414,13 @@ fn handle_events(
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
     config: &Config,
-    mut events: Vec<Event>,
+    events: Vec<Event>,
     operator_handler: &mut Option<OperatorHandler>,
     mainctrl: &mut MainController,
 ) -> anyhow::Result<()> {
-    if let Some(handler) = operator_handler {
-        events = handler.map_events(events);
-    };
     let actions = handler
-        .on_events(&events, config, mainctrl.wmclient())
-        .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
+        .on_events(events, config, mainctrl.wmclient(), operator_handler)
+        .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;
     for action in actions {
         dispatcher.on_action(action, mainctrl)?;
     }

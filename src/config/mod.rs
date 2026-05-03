@@ -2,7 +2,7 @@ pub mod application;
 pub mod device;
 mod expmap;
 pub mod expmap_operator;
-mod expmap_simkey;
+pub mod expmap_simkey;
 mod key;
 pub mod key_press;
 pub mod keymap;
@@ -15,7 +15,7 @@ mod tests;
 mod validation;
 mod watcher;
 
-use crate::config::expmap::Expmap;
+pub use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
 use crate::config::keymap::{build_keymap_table, KeymapEntry};
 use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
