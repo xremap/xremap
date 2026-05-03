@@ -64,6 +64,24 @@ impl X11Client {
 
         Ok((conn, screen_num))
     }
+
+    fn get_app_class(&mut self, mut window: u32) -> Option<String> {
+        loop {
+            if let Some(wm_class) = get_wm_class(self, window) {
+                // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
+                if &wm_class != "Focus-Proxy-Window.FocusProxy" {
+                    return Some(wm_class);
+                }
+            }
+
+            window = get_parent_window(self, window)?;
+
+            if window == 0 {
+                // No more parents, so fall back to using _NET_ACTIVE_WINDOW
+                return current_application_fallback(self);
+            }
+        }
+    }
 }
 
 impl Client for X11Client {
@@ -86,22 +104,8 @@ impl Client for X11Client {
 
     fn current_application(&mut self) -> Option<String> {
         self.connect();
-        let mut window = get_focus_window(self)?;
-        loop {
-            if let Some(wm_class) = get_wm_class(self, window) {
-                // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
-                if &wm_class != "Focus-Proxy-Window.FocusProxy" {
-                    return Some(wm_class);
-                }
-            }
-
-            window = get_parent_window(self, window)?;
-
-            if window == 0 {
-                // No more parents, so fall back to using _NET_ACTIVE_WINDOW
-                return current_application_fallback(self);
-            }
-        }
+        let window = get_focus_window(self)?;
+        self.get_app_class(window)
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
