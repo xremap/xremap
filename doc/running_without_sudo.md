@@ -2,7 +2,7 @@
 
 1. Your normal user should be able to use `evdev` and `uinput`. `evdev` is the mechanism to work
    with input devices. And `uinput` is the mechanism to make artificial input devices.
-2. If you want to use application-specific remappings on GNOME Wayland you need to follow the instructions at the bottom.
+2. If you want to use application-specific remappings on GNOME Wayland you need to follow the instructions at the bottom. Other desktops just work.
 
 After following the instructions below, run this command:
 
