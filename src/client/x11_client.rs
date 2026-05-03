@@ -109,7 +109,20 @@ impl Client for X11Client {
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
-        bail!("window_list not implemented for X11")
+        let (conn, screen_num) = self.borrow()?;
+        let mut result: Vec<WindowInfo> = vec![];
+        for winid in get_window_stack(conn, screen_num)? {
+            let app_class = self.get_app_class(winid);
+            let (conn, _) = self.borrow()?;
+            let title = Some(get_window_title(conn, winid)?);
+            result.push(WindowInfo {
+                app_class,
+                title,
+                winid: Some(winid.to_string()),
+            });
+        }
+
+        Ok(result)
     }
 
     fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
@@ -197,7 +210,10 @@ fn get_cookie_reply<T: TryParse>(
 fn get_focused_title(client: &mut X11Client) -> Result<String> {
     let (conn, screen_num) = client.borrow()?;
     let winid = get_focused_winid(conn, screen_num)?;
+    get_window_title(conn, winid)
+}
 
+fn get_window_title(conn: &RustConnection, winid: u32) -> Result<String> {
     let atoms = Atoms::new(&conn)?.reply()?;
 
     // Get title
