@@ -77,9 +77,6 @@ If you are using Fedora, xremap can be installed via this [Fedora Copr](https://
 
 ## Usage
 
-Write [a config file](#Configuration) directly, or generate it with
-[xremap-ruby](https://github.com/xremap/xremap-ruby) or [xremap-python](https://github.com/xremap/xremap-python).
-
 If something isn't working take a look at the [troubleshooting section](doc/troubleshooting.md)
 
 #### Run with sudo
@@ -104,25 +101,18 @@ Your `config.yml` should look like this:
 
 ```yml
 modmap:
-  - name: Except Chrome
-    application:
-      not: Google-chrome
-    remap:
+  - remap:
       CapsLock: Esc
 keymap:
-  - name: Emacs binding
-    application:
-      only: Slack
-    remap:
-      C-b: left
-      C-f: right
-      C-p: up
-      C-n: down
+  - remap:
+      Ctrl-P: Up
+      Ctrl-N: Down
 ```
 
-See also: [example/config.yml](example/config.yml) and [example/emacs.yml](example/emacs.yml)
+A configuration file has 3 parts: `modmap`, `keymap` and [Configuration options](doc/reference_config_options.md).
+`modmap` and `keymap` are described below.
 
-The configuration file has 3 parts. `modmap`, `keymap` and [Configuration options](doc/reference_config_options.md). `modmap` and `keymap` are described below.
+There are examples of [a more realistic config](example/config.yml) and [an emacs inspired config](example/emacs.yml).
 
 ### Examples
 
