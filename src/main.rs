@@ -263,7 +263,7 @@ fn main() -> anyhow::Result<()> {
         Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
     };
 
-    let mut operator_handler = get_operator_handler(&config, timeout_manager.clone());
+    let mut operator_handler = get_operator_handler(&config.experimental_map, timeout_manager.clone());
 
     let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 

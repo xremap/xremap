@@ -1,5 +1,5 @@
 use crate::config::expmap_operator::{ExpmapAction, ExpmapOperator};
-use crate::config::Config;
+use crate::config::Expmap;
 use crate::device::InputDeviceInfo;
 use crate::emit_handler::Emit;
 use crate::event::{Event, KeyEvent, KeyValue};
@@ -50,9 +50,11 @@ pub fn map_actions(actions: &Vec<ExpmapAction>, device: Rc<InputDeviceInfo>, val
         .collect()
 }
 
-pub fn get_operator_handler(config: &Config, timeout_manager: Rc<TimeoutManager>) -> Option<OperatorHandler> {
-    let operators: Vec<_> = config
-        .experimental_map
+pub fn get_operator_handler(
+    experimental_map: &Vec<Expmap>,
+    timeout_manager: Rc<TimeoutManager>,
+) -> Option<OperatorHandler> {
+    let operators: Vec<_> = experimental_map
         .iter()
         .flat_map(|expmap| {
             let chords: Vec<_> = expmap

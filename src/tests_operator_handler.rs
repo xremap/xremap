@@ -1,12 +1,13 @@
-use crate::config::expmap_operator::ExpmapAction;
+use crate::config::expmap_operator::{DoubleTap, ExpmapAction, ExpmapOperator};
+use crate::config::expmap_simkey::Simkey;
+use crate::config::Expmap;
 use crate::event::Event;
-use crate::operator_double_tap::DoubleTapOperator;
 use crate::operator_handler::OperatorHandler;
-use crate::operator_sim::SimOperator;
-use crate::operators::StaticOperator;
+use crate::operators::get_operator_handler;
 use crate::tests::assert_events;
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -14,41 +15,46 @@ use std::time::Duration;
 static TIMEOUT: Duration = Duration::from_millis(10);
 
 fn get_handler() -> OperatorHandler {
-    let timeout_manager = Rc::new(TimeoutManager::new());
+    let config: Vec<Expmap> = vec![
+        Expmap {
+            name: "".into(),
+            chords: vec![],
+            // Operators that interact on KEY_H
+            // This has highest precedence.
+            remap: HashMap::from([(
+                Key::KEY_H,
+                ExpmapOperator::DoubleTap(DoubleTap {
+                    actions: vec![ExpmapAction::Key(Key::KEY_3), ExpmapAction::Key(Key::KEY_4)],
+                    timeout: TIMEOUT,
+                }),
+            )]),
+        },
+        Expmap {
+            name: "".into(),
+            chords: vec![
+                // Two operators that interact on KEY_B
+                Simkey {
+                    keys: vec![Key::KEY_A, Key::KEY_B],
+                    actions: vec![ExpmapAction::Key(Key::KEY_1)],
+                    timeout: TIMEOUT,
+                },
+                Simkey {
+                    keys: vec![Key::KEY_B, Key::KEY_C],
+                    actions: vec![ExpmapAction::Key(Key::KEY_2)],
+                    timeout: TIMEOUT,
+                },
+                // Operators that interact on KEY_H
+                Simkey {
+                    keys: vec![Key::KEY_H, Key::KEY_I],
+                    actions: vec![ExpmapAction::Key(Key::KEY_5)],
+                    timeout: TIMEOUT,
+                },
+            ],
+            remap: HashMap::new(),
+        },
+    ];
 
-    let mut operators: Vec<Box<dyn StaticOperator>> = vec![];
-
-    // Two operators that interact on KEY_B
-    operators.push(Box::new(SimOperator {
-        keys: vec![Key::KEY_A, Key::KEY_B],
-        actions: vec![ExpmapAction::Key(Key::KEY_1)],
-        timeout: TIMEOUT,
-        timeout_manager: timeout_manager.clone(),
-    }));
-
-    operators.push(Box::new(SimOperator {
-        keys: vec![Key::KEY_B, Key::KEY_C],
-        actions: vec![ExpmapAction::Key(Key::KEY_2)],
-        timeout: TIMEOUT,
-        timeout_manager: timeout_manager.clone(),
-    }));
-
-    // Two operators that interact on KEY_H
-    operators.push(Box::new(DoubleTapOperator {
-        key: Key::KEY_H,
-        actions: vec![ExpmapAction::Key(Key::KEY_3), ExpmapAction::Key(Key::KEY_4)],
-        timeout: TIMEOUT,
-        timeout_manager: timeout_manager.clone(),
-    }));
-
-    operators.push(Box::new(SimOperator {
-        keys: vec![Key::KEY_H, Key::KEY_I],
-        actions: vec![ExpmapAction::Key(Key::KEY_5)],
-        timeout: TIMEOUT,
-        timeout_manager: timeout_manager.clone(),
-    }));
-
-    OperatorHandler::new(operators)
+    get_operator_handler(&config, Rc::new(TimeoutManager::new())).unwrap()
 }
 
 #[test]

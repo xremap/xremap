@@ -1,11 +1,13 @@
 use crate::config::expmap_operator::ExpmapAction;
+use crate::config::expmap_simkey::Simkey;
+use crate::config::Expmap;
 use crate::event::Event;
 use crate::operator_handler::OperatorHandler;
-use crate::operator_sim::SimOperator;
-use crate::operators::StaticOperator;
+use crate::operators::get_operator_handler;
 use crate::tests::assert_events;
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -13,25 +15,24 @@ use std::time::Duration;
 static TIMEOUT: Duration = Duration::from_millis(10);
 
 fn get_handler() -> OperatorHandler {
-    let timeout_manager = Rc::new(TimeoutManager::new());
+    let config: Vec<Expmap> = vec![Expmap {
+        name: "".into(),
+        chords: vec![
+            Simkey {
+                keys: vec![Key::KEY_A, Key::KEY_B],
+                actions: vec![ExpmapAction::Key(Key::KEY_1)],
+                timeout: TIMEOUT,
+            },
+            Simkey {
+                keys: vec![Key::KEY_C, Key::KEY_D, Key::KEY_E],
+                actions: vec![ExpmapAction::Key(Key::KEY_2)],
+                timeout: TIMEOUT,
+            },
+        ],
+        remap: HashMap::new(),
+    }];
 
-    let mut operators: Vec<Box<dyn StaticOperator>> = vec![];
-
-    operators.push(Box::new(SimOperator {
-        keys: vec![Key::KEY_A, Key::KEY_B],
-        actions: vec![ExpmapAction::Key(Key::KEY_1)],
-        timeout: TIMEOUT,
-        timeout_manager: timeout_manager.clone(),
-    }));
-
-    operators.push(Box::new(SimOperator {
-        keys: vec![Key::KEY_C, Key::KEY_D, Key::KEY_E],
-        actions: vec![ExpmapAction::Key(Key::KEY_2)],
-        timeout: TIMEOUT,
-        timeout_manager: timeout_manager.clone(),
-    }));
-
-    OperatorHandler::new(operators)
+    get_operator_handler(&config, Rc::new(TimeoutManager::new())).unwrap()
 }
 
 #[test]
