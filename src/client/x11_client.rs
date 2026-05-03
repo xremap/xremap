@@ -278,6 +278,10 @@ fn get_window_stack(conn: &RustConnection, screen_num: usize) -> Result<Vec<u32>
         .get_property(false, root, atoms._NET_CLIENT_LIST_STACKING, AtomEnum::WINDOW, 0, u32::MAX)?
         .reply()?;
 
+    if prop_reply.type_ == x11rb::NONE {
+        bail!("Not possible to get list of windows. XWayland could be the cause.");
+    }
+
     let windows: Vec<u32> = prop_reply
         .value32()
         .ok_or_else(|| anyhow::format_err!("Response from X11 is malformed"))?
