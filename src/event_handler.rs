@@ -100,7 +100,7 @@ impl EventHandler {
             }
 
             // Apply modmap
-            let modmap_events = self.apply_modmap(config, &event, wmclient)?;
+            let modmap_events = self.apply_modmap(config, event, wmclient)?;
 
             // Apply keymap
             for event in modmap_events.into_iter() {
@@ -371,10 +371,10 @@ impl EventHandler {
     fn apply_modmap(
         &mut self,
         config: &Config,
-        event: &Event,
+        event: Event,
         wmclient: &mut WMClient,
     ) -> Result<Vec<Event>, Box<dyn Error>> {
-        match event {
+        match &event {
             Event::KeyEvent(device, key_event) => {
                 let key = key_event.key;
                 let value = key_event.value();
@@ -410,11 +410,11 @@ impl EventHandler {
                     .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
                     .collect();
 
-                events.push(event.clone());
+                events.push(event);
 
                 Ok(events)
             }
-            event => Ok(vec![event.clone()]),
+            _ => Ok(vec![event]),
         }
     }
 
