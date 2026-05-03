@@ -1,3 +1,4 @@
+use crate::config::application::OnlyOrNot;
 use crate::util::print_table;
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -54,10 +55,18 @@ pub trait Client {
 pub struct WMClient {
     pub name: String,
     pub client: Box<dyn Client>,
+    // Cached value of calling `client.supported()`
     supported: Option<bool>,
+    // The last app_class logged to console
     last_application: String,
+    // The last title logged to console
     last_window: String,
+    // Log app_class and window changes to console.
     log_window_changes: bool,
+    // Cache to reduce use of clients.
+    application_cache: Option<String>,
+    // Cache to reduce use of clients.
+    title_cache: Option<String>,
 }
 
 impl WMClient {
@@ -69,6 +78,8 @@ impl WMClient {
             last_application: String::new(),
             last_window: String::new(),
             log_window_changes,
+            application_cache: None,
+            title_cache: None,
         }
     }
 
@@ -126,6 +137,51 @@ impl WMClient {
         self.client
             .close_windows_by_app_class(&app_class)
             .context("Failed to close by app_class.")
+    }
+
+    pub fn clear_app_class_and_title(&mut self) {
+        self.application_cache = None; // expire cache
+        self.title_cache = None; // expire cache
+    }
+
+    pub fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
+        // Lazily fill the wm_class cache
+        if self.title_cache.is_none() {
+            match self.current_window() {
+                Some(title) => self.title_cache = Some(title),
+                None => self.title_cache = Some(String::new()),
+            }
+        }
+
+        if let Some(title) = &self.title_cache {
+            if let Some(title_only) = &window_matcher.only {
+                return title_only.iter().any(|m| m.matches(title));
+            }
+            if let Some(title_not) = &window_matcher.not {
+                return title_not.iter().all(|m| !m.matches(title));
+            }
+        }
+        false
+    }
+
+    pub fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
+        // Lazily fill the wm_class cache
+        if self.application_cache.is_none() {
+            match self.current_application() {
+                Some(application) => self.application_cache = Some(application),
+                None => self.application_cache = Some(String::new()),
+            }
+        }
+
+        if let Some(application) = &self.application_cache {
+            if let Some(application_only) = &application_matcher.only {
+                return application_only.iter().any(|m| m.matches(application));
+            }
+            if let Some(application_not) = &application_matcher.not {
+                return application_not.iter().all(|m| !m.matches(application));
+            }
+        }
+        false
     }
 }
 
