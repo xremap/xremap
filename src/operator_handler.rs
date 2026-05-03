@@ -41,55 +41,47 @@ pub struct OperatorHandler {
 /// because they would have to keep track of the whether 'b' should be squashed or let through.
 impl OperatorHandler {
     pub fn new(experimental_map: &Vec<Expmap>, timeout_manager: Rc<TimeoutManager>) -> OperatorHandler {
-        let operators: Vec<_> = experimental_map
-            .iter()
-            .flat_map(|expmap| {
-                let chords: Vec<_> = expmap
-                    .chords
-                    .iter()
-                    .map(|chord| -> Box<dyn StaticOperator> {
-                        Box::new(SimOperator {
-                            keys: chord.keys.clone(),
-                            actions: chord.actions.clone(),
-                            timeout: chord.timeout,
-                            timeout_manager: timeout_manager.clone(),
-                        })
-                    })
-                    .collect();
-
-                let rest: Vec<_> = expmap
-                    .remap
-                    .iter()
-                    .map(|(key, op)| -> Box<dyn StaticOperator> {
-                        match op {
-                            ExpmapOperator::DoubleTap(dbltap) => Box::new(DoubleTapOperator {
-                                key: key.clone(),
-                                actions: dbltap.actions.clone(),
-                                timeout: dbltap.timeout,
-                                timeout_manager: timeout_manager.clone(),
-                            }),
-                        }
-                    })
-                    .collect();
-
-                let mut operators: Vec<Box<dyn StaticOperator>> = vec![];
-                operators.extend(chords);
-                operators.extend(rest);
-
-                operators
-            })
-            .collect();
-
         let mut lookup_map: HashMap<Key, Vec<Box<dyn StaticOperator>>> = HashMap::new();
 
-        for operator in &operators {
-            for (key, op) in operator.get_operators() {
-                match lookup_map.get_mut(&key) {
-                    Some(current) => current.push(op),
-                    None => {
-                        lookup_map.insert(key, vec![op]);
-                    }
+        for expmap in experimental_map {
+            for chord in &expmap.chords {
+                let operator = Box::new(SimOperator {
+                    keys: chord.keys.clone(),
+                    actions: chord.actions.clone(),
+                    timeout: chord.timeout,
+                    timeout_manager: timeout_manager.clone(),
+                });
+                for (key, op) in operator.get_operators() {
+                    match lookup_map.get_mut(&key) {
+                        Some(current) => {
+                            current.push(op);
+                        }
+                        None => {
+                            lookup_map.insert(key, vec![op]);
+                        }
+                    };
+                }
+            }
+
+            for (key, op) in &expmap.remap {
+                let operator = match op {
+                    ExpmapOperator::DoubleTap(dbltap) => Box::new(DoubleTapOperator {
+                        key: key.clone(),
+                        actions: dbltap.actions.clone(),
+                        timeout: dbltap.timeout,
+                        timeout_manager: timeout_manager.clone(),
+                    }),
                 };
+                for (key, op) in operator.get_operators() {
+                    match lookup_map.get_mut(&key) {
+                        Some(current) => {
+                            current.push(op);
+                        }
+                        None => {
+                            lookup_map.insert(key, vec![op]);
+                        }
+                    };
+                }
             }
         }
 
