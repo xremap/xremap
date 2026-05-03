@@ -67,6 +67,11 @@ impl OperatorHandler {
         self.emit_handler.assert_emitted_modifiers_are_synced();
     }
 
+    #[cfg(test)]
+    pub fn map_evs(&mut self, events: Vec<Event>) -> Vec<Event> {
+        self.map_events(events)
+    }
+
     pub fn map_events(&mut self, events: Vec<Event>) -> Vec<Event> {
         events
             .into_iter()
