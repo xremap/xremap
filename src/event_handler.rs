@@ -79,7 +79,7 @@ impl EventHandler {
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_events(
         &mut self,
-        events: &Vec<Event>,
+        events: Vec<Event>,
         config: &Config,
         wmclient: &mut WMClient,
     ) -> Result<Vec<Action>, Box<dyn Error>> {
@@ -89,12 +89,12 @@ impl EventHandler {
         for event in events {
             wmclient.clear_app_class_and_title();
 
-            if let Event::KeyEvent(_, key_event) = event {
+            if let Event::KeyEvent(_, key_event) = &event {
                 debug!("=> {}: {:?}", key_event.value(), &key_event.key);
             }
 
             // Apply modmap
-            let modmap_events = self.apply_modmap(config, event, wmclient)?;
+            let modmap_events = self.apply_modmap(config, &event, wmclient)?;
 
             // Apply keymap
             for event in modmap_events.into_iter() {

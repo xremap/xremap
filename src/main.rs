@@ -419,8 +419,8 @@ fn handle_events(
         events = handler.map_events(events);
     };
     let actions = handler
-        .on_events(&events, config, mainctrl.wmclient())
-        .map_err(|e| anyhow!("Failed handling {events:?}:\n  {e:?}"))?;
+        .on_events(events, config, mainctrl.wmclient())
+        .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;
     for action in actions {
         dispatcher.on_action(action, mainctrl)?;
     }
