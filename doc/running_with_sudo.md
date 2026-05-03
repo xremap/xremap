@@ -6,7 +6,7 @@
 
 ### Con
 
-- If you want to use application-specific remappings there are extra steps to take.
+- If you want to use application-specific remappings there're extra steps to take, see below.
 - If you launch programs from xremap they will run as `root`, not as your own normal user. It's considered a security risk to do so.
 - If the config file can be edited by other users than `root`, they can effectively run any command as `root` by changing your config file.
 
