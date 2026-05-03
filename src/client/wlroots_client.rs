@@ -1,5 +1,5 @@
 use crate::client::{Client, WindowInfo};
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use std::collections::HashMap;
 use wayland_client::backend::ObjectId;
 use wayland_client::globals::{registry_queue_init, GlobalListContents};
@@ -61,6 +61,10 @@ impl WlRootsClient {
 
         Ok((queue, state))
     }
+
+    fn sync_state_with_server(&mut self) -> Result<()> {
+        self.borrow().map(|_| ())
+    }
 }
 
 impl Client for WlRootsClient {
@@ -109,7 +113,29 @@ impl Client for WlRootsClient {
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
-        bail!("window_list not implemented for wlroot")
+        self.sync_state_with_server()?;
+
+        let mut windows = vec![];
+        for (id, _) in &self.state.toplevel_handles {
+            let app_class = self
+                .state
+                .windows
+                .get(id)
+                .ok_or_else(|| anyhow::format_err!("App_class must be known."))?;
+            let title = self
+                .state
+                .titles
+                .get(id)
+                .ok_or_else(|| anyhow::format_err!("Title must be known."))?;
+
+            windows.push(WindowInfo {
+                winid: Some(format!("{}", id)),
+                app_class: Some(app_class.clone()),
+                title: Some(title.clone()),
+            });
+        }
+
+        Ok(windows)
     }
 
     fn close_windows_by_app_class(&mut self, target_app_class: &str) -> Result<()> {

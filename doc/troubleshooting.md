@@ -47,8 +47,6 @@ throttle_ms: 10
 
 #### How to check if they work
 
-First check whether a basic configuration works: [print application id/class](../#all-desktops).
-
 If it doesn't work you can see what desktop `xremap` is trying to use in the output, it
 should print something like `application-client: GNOME (supported: true)`.
 
@@ -77,10 +75,10 @@ try the instructions for sudo/GNOME [here](./running_with_sudo.md#gnome-wayland)
 
 ### Application-specific remappings don't work for COSMIC desktop
 
-This might be due to the version you use. Only the latest wayland version of COSMIC
-is supported.
+This might be due to the version you use. Only the latest Wayland version of COSMIC
+is supported by `xremap-cosmic`.
 
-For older versions of COSMIC you can use x11 to get application-specific remappings.
+For older versions of COSMIC you can use `xremap-x11` to get application-specific remappings.
 
 ### Info about your desktop
 

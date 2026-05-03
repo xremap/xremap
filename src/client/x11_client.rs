@@ -64,6 +64,24 @@ impl X11Client {
 
         Ok((conn, screen_num))
     }
+
+    fn get_app_class(&mut self, mut window: u32) -> Option<String> {
+        loop {
+            if let Some(wm_class) = get_wm_class(self, window) {
+                // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
+                if &wm_class != "Focus-Proxy-Window.FocusProxy" {
+                    return Some(wm_class);
+                }
+            }
+
+            window = get_parent_window(self, window)?;
+
+            if window == 0 {
+                // No more parents, so fall back to using _NET_ACTIVE_WINDOW
+                return current_application_fallback(self);
+            }
+        }
+    }
 }
 
 impl Client for X11Client {
@@ -86,26 +104,25 @@ impl Client for X11Client {
 
     fn current_application(&mut self) -> Option<String> {
         self.connect();
-        let mut window = get_focus_window(self)?;
-        loop {
-            if let Some(wm_class) = get_wm_class(self, window) {
-                // Workaround: https://github.com/JetBrains/jdk8u_jdk/blob/master/src/solaris/classes/sun/awt/X11/XFocusProxyWindow.java#L35
-                if &wm_class != "Focus-Proxy-Window.FocusProxy" {
-                    return Some(wm_class);
-                }
-            }
-
-            window = get_parent_window(self, window)?;
-
-            if window == 0 {
-                // No more parents, so fall back to using _NET_ACTIVE_WINDOW
-                return current_application_fallback(self);
-            }
-        }
+        let window = get_focus_window(self)?;
+        self.get_app_class(window)
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
-        bail!("window_list not implemented for X11")
+        let (conn, screen_num) = self.borrow()?;
+        let mut result: Vec<WindowInfo> = vec![];
+        for winid in get_window_stack(conn, screen_num)? {
+            let app_class = self.get_app_class(winid);
+            let (conn, _) = self.borrow()?;
+            let title = Some(get_window_title(conn, winid)?);
+            result.push(WindowInfo {
+                app_class,
+                title,
+                winid: Some(winid.to_string()),
+            });
+        }
+
+        Ok(result)
     }
 
     fn close_windows_by_app_class(&mut self, app_class: &str) -> Result<()> {
@@ -193,7 +210,10 @@ fn get_cookie_reply<T: TryParse>(
 fn get_focused_title(client: &mut X11Client) -> Result<String> {
     let (conn, screen_num) = client.borrow()?;
     let winid = get_focused_winid(conn, screen_num)?;
+    get_window_title(conn, winid)
+}
 
+fn get_window_title(conn: &RustConnection, winid: u32) -> Result<String> {
     let atoms = Atoms::new(&conn)?.reply()?;
 
     // Get title
@@ -257,6 +277,10 @@ fn get_window_stack(conn: &RustConnection, screen_num: usize) -> Result<Vec<u32>
     let prop_reply = conn
         .get_property(false, root, atoms._NET_CLIENT_LIST_STACKING, AtomEnum::WINDOW, 0, u32::MAX)?
         .reply()?;
+
+    if prop_reply.type_ == x11rb::NONE {
+        bail!("Not possible to get list of windows. XWayland could be the cause.");
+    }
 
     let windows: Vec<u32> = prop_reply
         .value32()
