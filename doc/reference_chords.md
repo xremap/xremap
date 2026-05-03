@@ -2,10 +2,12 @@
 
 ### Experimental
 
-Experimental means this feature is likely to change in the feature as it's improved. This
-can break configuration files in any version update of xremap.
+Experimental means this feature is likely to change in the future as it's improved. This
+can break configuration files in any version update of xremap, and will be noted in CHANGELOG.md.
 
-Features available in `modmap` like: `application`, `window`, `device`, `mode` doesn't work in `experimental_map`.
+Features available in `modmap` like: `device`, `mode`, key-to-key mapping,
+multi-purpose key and press/release key don't work in `experimental_map`.
+But application-specific remapping with `application` and `window` works since `v0.15.5`.
 
 ### Example
 
