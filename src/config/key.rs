@@ -71,6 +71,8 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
         // Windows
         "SUPER_R" => Key::KEY_RIGHTMETA,
         "SUPER_L" => Key::KEY_LEFTMETA,
+        "WINDOWS_R" => Key::KEY_RIGHTMETA,
+        "WINDOWS_L" => Key::KEY_LEFTMETA,
         "WIN_R" => Key::KEY_RIGHTMETA,
         "WIN_L" => Key::KEY_LEFTMETA,
         "W_R" => Key::KEY_RIGHTMETA,
