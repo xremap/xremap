@@ -61,11 +61,7 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
     let mut table: HashMap<Key, Vec<KeymapEntry>> = HashMap::new();
     for keymap in keymaps {
         for (key_press, actions) in keymap.remap.iter() {
-            let mut entries: Vec<KeymapEntry> = match table.get(&key_press.key) {
-                Some(entries) => entries.to_vec(),
-                None => vec![],
-            };
-            entries.push(KeymapEntry {
+            let entry = KeymapEntry {
                 actions: actions.to_vec(),
                 modifiers: key_press.modifiers.clone(),
                 application: keymap.application.clone(),
@@ -73,8 +69,15 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
                 device: keymap.device.clone(),
                 mode: keymap.mode.clone(),
                 exact_match: keymap.exact_match,
-            });
-            table.insert(key_press.key, entries);
+            };
+            match table.get_mut(&key_press.key) {
+                Some(entries) => {
+                    entries.push(entry);
+                }
+                None => {
+                    table.insert(key_press.key, vec![entry]);
+                }
+            };
         }
     }
     table
