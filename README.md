@@ -114,6 +114,21 @@ A configuration file has 3 parts: `modmap`, `keymap` and [Configuration options]
 
 There are examples of [a more realistic config](example/config.yml) and [an emacs inspired config](example/emacs.yml).
 
+#### Key names
+
+All possible keys are [listed here](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
+You can skip `KEY_` and the names are case-insensitive. So `KEY_CAPSLOCK`, `CAPSLOCK`, and `CapsLock` are the same thing.
+
+Some [custom aliases](src/config/key.rs) like `Shift_R` and `Control_L` are provided.
+
+In case you don't know the name of a key, you can find out by enabling debug output:
+
+```bash
+RUST_LOG=debug xremap config.yml
+```
+
+Then press the key you want to know the name of. Remember `sudo` if that's needed.
+
 ### Examples
 
 In the examples, note whether they use `modmap` or `keymap`.
@@ -206,20 +221,6 @@ modmap:
 default_mode: default # Optional
 ```
 
-For `KEY_XXX` and `KEY_YYY`, use [these names](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
-You can skip `KEY_` and the name is case-insensitive. So `KEY_CAPSLOCK`, `CAPSLOCK`, and `CapsLock` are the same thing.
-Some [custom aliases](src/config/key.rs) like `SHIFT_R`, `CONTROL_L`, etc. are provided.
-
-In case you don't know the name of a key, you can find out by enabling the xremap debug output:
-
-```bash
-RUST_LOG=debug xremap config.yml
-# or
-sudo RUST_LOG=debug xremap config.yml
-```
-
-Then press the key you want to know the name of.
-
 ### keymap
 
 `keymap` is for remapping a sequence of key combinations to another sequence of key combinations or other actions.
@@ -274,9 +275,6 @@ keymap:
     mode: [ default, my_mode ]
 default_mode: default # Optional
 ```
-
-For `KEY_XXX`, use [these names](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
-You can skip `KEY_` and the name is case-insensitive. So `KEY_CAPSLOCK`, `CAPSLOCK`, and `CapsLock` are the same thing.
 
 For the `MOD1-` part, the following prefixes can be used (also case-insensitive):
 
