@@ -63,15 +63,15 @@ You may also need to install `libx11-dev` to run `xremap` for X11.
 
 You may find a list of supported compositors for wlroots [here](https://wayland.app/protocols/wlr-foreign-toplevel-management-unstable-v1#compositor-support).
 
-### Arch Linux
+#### Arch Linux
 
 If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
 
-### NixOS
+#### NixOS
 
 If you are using NixOS, xremap can be installed and configured through a [flake](https://github.com/xremap/nix-flake/).
 
-### Fedora Linux
+#### Fedora Linux
 
 If you are using Fedora, xremap can be installed via this [Fedora Copr](https://copr.fedorainfracloud.org/coprs/blakegardner/xremap/) repository.
 
@@ -82,7 +82,7 @@ Write [a config file](#Configuration) directly, or generate it with
 
 If something isn't working take a look at the [troubleshooting section](doc/troubleshooting.md)
 
-### Run with sudo
+#### Run with sudo
 
 First perform these installation instructions: [Running xremap with sudo](doc/running_with_sudo.md)
 
@@ -90,7 +90,7 @@ First perform these installation instructions: [Running xremap with sudo](doc/ru
 sudo xremap config.yml
 ```
 
-### Run without sudo
+#### Run without sudo
 
 First perform these installation instructions: [Running xremap without sudo](doc/running_without_sudo.md)
 
