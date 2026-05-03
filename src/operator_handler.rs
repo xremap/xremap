@@ -1,3 +1,4 @@
+use crate::client::WMClient;
 use crate::config::expmap_operator::ExpmapOperator;
 use crate::config::Expmap;
 use crate::emit_handler::{Emit, EmitHandler};
@@ -5,7 +6,7 @@ use crate::event::Event;
 use crate::event_handler::PRESS;
 use crate::operator_double_tap::DoubleTapOperator;
 use crate::operator_sim::SimOperator;
-use crate::operators::{ActiveOperator, OperatorAction, StaticOperator};
+use crate::operators::{ActiveOperator, OperatorAction, OperatorEntry, StaticOperator};
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use std::collections::HashMap;
@@ -15,7 +16,7 @@ use std::usize;
 pub struct OperatorHandler {
     active: Vec<Box<dyn ActiveOperator>>,
     candidates: Option<Candidates>,
-    lookup_map: HashMap<Key, Vec<Box<dyn StaticOperator>>>,
+    lookup_map: HashMap<Key, Vec<OperatorEntry>>,
     emit_handler: EmitHandler,
 }
 
@@ -41,44 +42,56 @@ pub struct OperatorHandler {
 /// because they would have to keep track of the whether 'b' should be squashed or let through.
 impl OperatorHandler {
     pub fn new(experimental_map: &Vec<Expmap>, timeout_manager: Rc<TimeoutManager>) -> OperatorHandler {
-        let mut lookup_map: HashMap<Key, Vec<Box<dyn StaticOperator>>> = HashMap::new();
+        let mut lookup_map: HashMap<Key, Vec<OperatorEntry>> = HashMap::new();
 
         for expmap in experimental_map {
             for chord in &expmap.chords {
-                let operator = Box::new(SimOperator {
+                let operators = SimOperator {
                     keys: chord.keys.clone(),
                     actions: chord.actions.clone(),
                     timeout: chord.timeout,
                     timeout_manager: timeout_manager.clone(),
-                });
-                for (key, op) in operator.get_operators() {
+                }
+                .get_operators();
+                for (key, operator) in operators {
+                    let entry = OperatorEntry {
+                        operator,
+                        application: expmap.application.clone(),
+                        title: expmap.window.clone(),
+                    };
                     match lookup_map.get_mut(&key) {
                         Some(current) => {
-                            current.push(op);
+                            current.push(entry);
                         }
                         None => {
-                            lookup_map.insert(key, vec![op]);
+                            lookup_map.insert(key, vec![entry]);
                         }
                     };
                 }
             }
 
             for (key, op) in &expmap.remap {
-                let operator = match op {
-                    ExpmapOperator::DoubleTap(dbltap) => Box::new(DoubleTapOperator {
+                let operators = match op {
+                    ExpmapOperator::DoubleTap(dbltap) => DoubleTapOperator {
                         key: key.clone(),
                         actions: dbltap.actions.clone(),
                         timeout: dbltap.timeout,
                         timeout_manager: timeout_manager.clone(),
-                    }),
-                };
-                for (key, op) in operator.get_operators() {
+                    },
+                }
+                .get_operators();
+                for (key, operator) in operators {
+                    let entry = OperatorEntry {
+                        operator,
+                        application: expmap.application.clone(),
+                        title: expmap.window.clone(),
+                    };
                     match lookup_map.get_mut(&key) {
                         Some(current) => {
-                            current.push(op);
+                            current.push(entry);
                         }
                         None => {
-                            lookup_map.insert(key, vec![op]);
+                            lookup_map.insert(key, vec![entry]);
                         }
                     };
                 }
@@ -106,16 +119,17 @@ impl OperatorHandler {
 
     #[cfg(test)]
     pub fn map_evs(&mut self, events: Vec<Event>) -> Vec<Event> {
-        self.map_events(events)
+        let mut wmclient = WMClient::new("none", Box::new(crate::client::null_client::NullClient), false);
+        self.map_events(events, &mut wmclient)
     }
 
-    pub fn map_events(&mut self, events: Vec<Event>) -> Vec<Event> {
+    pub fn map_events(&mut self, events: Vec<Event>, wmclient: &mut WMClient) -> Vec<Event> {
         events
             .into_iter()
             .flat_map(|event| {
                 self.emit_handler.on_event(&event);
 
-                let events = process_event(event, &mut self.active, &mut self.candidates, &self.lookup_map);
+                let events = process_event(event, &mut self.active, &mut self.candidates, &self.lookup_map, wmclient);
 
                 self.emit_handler.map_output(events)
             })
@@ -163,7 +177,8 @@ fn process_event(
     event: Event,
     right: &mut Vec<Box<dyn ActiveOperator>>,
     candidates: &mut Option<Candidates>,
-    lookup_map: &HashMap<Key, Vec<Box<dyn StaticOperator>>>,
+    lookup_map: &HashMap<Key, Vec<OperatorEntry>>,
+    wmclient: &mut WMClient,
 ) -> Vec<Emit> {
     // The events that have passed fully through the operators.
     let mut emit: Vec<Emit> = vec![];
@@ -205,7 +220,7 @@ fn process_event(
                     None => {
                         match candidates {
                             Some(candidates) => try_candidates(event, &mut left, candidates),
-                            None => static_lookup(event, candidates, &lookup_map, &mut emit),
+                            None => static_lookup(event, candidates, &lookup_map, &mut emit, wmclient),
                         };
                     }
                 };
@@ -326,8 +341,9 @@ fn try_candidates(event: Event, left: &mut Vec<Node>, candidates: &mut Candidate
 fn static_lookup(
     event: Event,
     candidates: &mut Option<Candidates>,
-    lookup_map: &HashMap<Key, Vec<Box<dyn StaticOperator>>>,
+    lookup_map: &HashMap<Key, Vec<OperatorEntry>>,
     emit: &mut Vec<Emit>,
+    wmclient: &mut WMClient,
 ) {
     let (device, key_event) = match &event {
         Event::KeyEvent(device, key_event) => (device, key_event),
@@ -348,14 +364,29 @@ fn static_lookup(
 
     // Static operators
     match lookup_map.get(&key_event.key) {
-        Some(operators) => {
-            debug_assert!(!operators.is_empty());
+        Some(entries) => {
+            debug_assert!(!entries.is_empty());
             debug_assert!(candidates.is_none());
 
-            let new_candidates: Vec<_> = operators
+            let new_candidates: Vec<_> = entries
                 .iter()
-                .map(|operator| Candidate {
-                    operator: operator.get_active_operator(&event),
+                .filter(|entry| {
+                    if let Some(window_matcher) = &entry.title {
+                        if !wmclient.match_window(window_matcher) {
+                            return false;
+                        }
+                    }
+
+                    if let Some(application_matcher) = &entry.application {
+                        if !wmclient.match_application(application_matcher) {
+                            return false;
+                        }
+                    }
+
+                    true
+                })
+                .map(|entry| Candidate {
+                    operator: entry.operator.get_active_operator(&event),
                     state: CandidateState::Matching,
                     emitted: vec![],
                     unhandled: vec![],

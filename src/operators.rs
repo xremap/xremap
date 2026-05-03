@@ -1,3 +1,4 @@
+use crate::config::application::OnlyOrNot;
 use crate::config::expmap_operator::ExpmapAction;
 use crate::device::InputDeviceInfo;
 use crate::emit_handler::Emit;
@@ -43,4 +44,12 @@ pub fn map_actions(actions: &Vec<ExpmapAction>, device: Rc<InputDeviceInfo>, val
             ExpmapAction::Key(key) => Some(Emit::key_event(device.clone(), KeyEvent::new(*key, value))),
         })
         .collect()
+}
+
+// Internals for efficient operator lookup
+#[derive(Debug)]
+pub struct OperatorEntry {
+    pub operator: Box<dyn StaticOperator>,
+    pub application: Option<OnlyOrNot>,
+    pub title: Option<OnlyOrNot>,
 }

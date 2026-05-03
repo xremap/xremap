@@ -27,6 +27,8 @@ fn get_handler() -> OperatorHandler {
                     timeout: TIMEOUT,
                 }),
             )]),
+            application: None,
+            window: None,
         },
         Expmap {
             name: "".into(),
@@ -50,6 +52,8 @@ fn get_handler() -> OperatorHandler {
                 },
             ],
             remap: HashMap::new(),
+            application: None,
+            window: None,
         },
     ];
 

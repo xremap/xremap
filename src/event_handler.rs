@@ -86,7 +86,8 @@ impl EventHandler {
         operator_handler: &mut Option<OperatorHandler>,
     ) -> Result<Vec<Action>, Box<dyn Error>> {
         if let Some(handler) = operator_handler {
-            events = handler.map_events(events);
+            wmclient.clear_app_class_and_title();
+            events = handler.map_events(events, wmclient);
         };
 
         debug_assert!(self.actions.is_empty());

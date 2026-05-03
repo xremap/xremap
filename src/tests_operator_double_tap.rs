@@ -23,6 +23,8 @@ fn get_handler() -> OperatorHandler {
                 timeout: TIMEOUT,
             }),
         )]),
+        application: None,
+        window: None,
     }];
 
     OperatorHandler::new(&config, Rc::new(TimeoutManager::new()))

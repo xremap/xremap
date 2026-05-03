@@ -29,6 +29,8 @@ fn get_handler() -> OperatorHandler {
             },
         ],
         remap: HashMap::new(),
+        application: None,
+        window: None,
     }];
 
     OperatorHandler::new(&config, Rc::new(TimeoutManager::new()))

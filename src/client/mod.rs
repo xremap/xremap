@@ -26,7 +26,7 @@ mod wlroots_client;
 #[cfg(feature = "x11")]
 mod x11_client;
 
-mod null_client;
+pub mod null_client;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct WindowInfo {
