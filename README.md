@@ -124,6 +124,33 @@ See also: [example/config.yml](example/config.yml) and [example/emacs.yml](examp
 
 The configuration file has 3 parts. `modmap`, `keymap` and [Configuration options](doc/reference_config_options.md). `modmap` and `keymap` are described below.
 
+### Examples
+
+In the examples, note whether they use `modmap` or `keymap`.
+
+#### Exchange `Capslock` and `Esc`
+
+```yml
+modmap:
+  - remap:
+      Capslock: Esc
+      Esc: Capslock
+```
+
+The remapping will also be used in `keymap`, e.g. definitions with
+`Esc` in `keymap` will match the physical `Capslock` key. This is because
+the output of `modmap` goes through `keymap`.
+
+#### Disable a key
+
+```yml
+modmap:
+  - remap:
+      F9: []
+```
+
+The meaning of the config is: `F9` remaps to an empty list of keys.
+
 ### modmap
 
 `modmap` is for key-to-key remapping like xmodmap.
@@ -133,14 +160,10 @@ is supported only in `modmap` since `keymap` handles modifier keys differently.
 ```yml
 modmap:
   - name: Name # Optional
-    remap: # Required
-      # Replace a key with another
-      KEY_XXX1: KEY_YYY # Required
+    remap:
       # Replace a key with multiple keys (pressed and released simultaneously)
       KEY_XXX2: [KEY_YYY, KEY_ZZZ]
       # Dispatch different keys depending on whether you hold it or press it alone
-      # Disable a key
-      KEY_XXX3: []
       KEY_XXX4:
         held: KEY_YYY # Required, also accepts arrays
         alone: KEY_ZZZ # Required, also accepts arrays
@@ -194,7 +217,7 @@ when the last key in the trigger combination is pressed.
 keymap:
   - name: Name # Optional
     exact_match: false # Optional, defaults to false
-    remap: # Required
+    remap:
       # Key press -> Key press
       MOD1-KEY_XXX1: MOD2-KEY_YYY
       # Sequence (MOD1-KEY_XXX2, MOD2-KEY_YYY) -> Key press (MOD3-KEY_ZZZ)
