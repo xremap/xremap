@@ -75,6 +75,10 @@ If you are using NixOS, xremap can be installed and configured through a [flake]
 
 If you are using Fedora, xremap can be installed via this [Fedora Copr](https://copr.fedorainfracloud.org/coprs/blakegardner/xremap/) repository.
 
+#### Gentoo Linux
+
+If you are using Gentoo Linux, xremap can be installed via [::guru overlay](https://codeberg.org/gentoo/guru/src/branch/master/gui-apps/xremap).
+
 ## Usage
 
 If something isn't working take a look at the [troubleshooting section](doc/troubleshooting.md)
