@@ -4,7 +4,6 @@ use evdev::uinput::VirtualDevice;
 use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode as Key, RelativeAxisCode};
 use log::debug;
 use nix::libc::{EBUSY, ENODEV};
-use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
 use std::collections::HashMap;
 #[cfg(feature = "udev")]
 use std::fs::metadata;
@@ -68,16 +67,6 @@ pub fn output_device(
         .with_relative_axes(&relative_axes)?
         .build()?;
     Ok(device)
-}
-
-pub fn device_watcher(watch: bool) -> anyhow::Result<Option<Inotify>> {
-    if watch {
-        let inotify = Inotify::init(InitFlags::IN_NONBLOCK)?;
-        inotify.add_watch("/dev/input", AddWatchFlags::IN_CREATE | AddWatchFlags::IN_ATTRIB)?;
-        Ok(Some(inotify))
-    } else {
-        Ok(None)
-    }
 }
 
 // We can't know the device path from evdev::enumerate(). So we re-implement it.

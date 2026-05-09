@@ -1,13 +1,12 @@
 use crate::client::print_open_windows;
 use crate::config::Config;
 use crate::device::{
-    choose_device_name, device_watcher, open_device, output_device, print_device_details, print_device_list,
-    select_input_devices,
+    choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
 };
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
-use crate::platform_linux::ConfigWatcher;
+use crate::platform_linux::{device_watcher, ConfigWatcher};
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;
 use action_dispatcher::ActionDispatcher;
