@@ -68,6 +68,12 @@ impl ActionDispatcher {
     }
 
     fn send_event(&mut self, event: InputEvent) -> std::io::Result<()> {
+        #[cfg(target_os = "freebsd")]
+        if event.event_type() == EventType::LED {
+            log::debug!("Ignoring LED events on freebsd");
+            return Ok(());
+        }
+
         if event.event_type() == EventType::KEY {
             // Throttle
             if let Some(throttle_emit) = &mut self.throttle_emit {
