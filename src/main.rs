@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "freebsd", allow(dead_code, unused_imports, unused_variables))]
+
 use crate::client::print_open_windows;
 use crate::config::Config;
 use crate::device::{
@@ -6,7 +8,6 @@ use crate::device::{
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
-use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;
 use action_dispatcher::ActionDispatcher;
@@ -17,13 +18,23 @@ use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
-use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
+
+#[cfg(target_os = "linux")]
+mod platform_linux;
+#[cfg(target_os = "linux")]
+use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
+#[cfg(target_os = "linux")]
+use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
+#[cfg(target_os = "freebsd")]
+mod platform_freebsd;
+#[cfg(target_os = "freebsd")]
+use crate::platform_freebsd::{ConfigWatcher, DeviceWatcher};
 
 mod action;
 mod action_dispatcher;
@@ -40,7 +51,6 @@ mod operator_double_tap;
 mod operator_handler;
 mod operator_sim;
 mod operators;
-mod platform_linux;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -224,13 +234,16 @@ fn main() -> anyhow::Result<()> {
     let watch_config = watch.contains(&WatchTargets::Config);
 
     let timeout_manager = Rc::new(TimeoutManager::new());
+    #[cfg(target_os = "linux")]
     let timeout_manager_fd = timeout_manager.get_timer_fd();
 
     // Device name
     let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
 
     // Event listeners
+    #[cfg(target_os = "linux")]
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
+    #[cfg(target_os = "linux")]
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
@@ -243,7 +256,12 @@ fn main() -> anyhow::Result<()> {
     let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
     // EventHandler
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
+    let mut handler = EventHandler::new(
+        #[cfg(target_os = "linux")]
+        timer,
+        &config.default_mode,
+        delay,
+    );
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device = output_device(
@@ -280,9 +298,13 @@ fn main() -> anyhow::Result<()> {
                 input_devices.values(),
                 &device_watcher,
                 &config_watcher,
+                #[cfg(target_os = "linux")]
                 timer_fd,
+                #[cfg(target_os = "linux")]
                 timeout_manager_fd,
             )?;
+
+            #[cfg(target_os = "linux")]
             if readable_fds.contains(timer_fd) {
                 if let Err(error) = handle_events(
                     &mut handler,
@@ -296,6 +318,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
+            #[cfg(target_os = "linux")]
             if readable_fds.contains(timeout_manager_fd) {
                 if timeout_manager.need_timeout()? {
                     if let Err(error) = handle_events(
@@ -372,18 +395,22 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
-    timer_fd: RawFd,
-    timeout_manager_fd: RawFd,
+    #[cfg(target_os = "linux")] timer_fd: RawFd,
+    #[cfg(target_os = "linux")] timeout_manager_fd: RawFd,
 ) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
+    #[cfg(target_os = "linux")]
     read_fds.insert(timer_fd);
+    #[cfg(target_os = "linux")]
     read_fds.insert(timeout_manager_fd);
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
+    #[cfg(target_os = "linux")]
     if let Some(device_watcher) = device_watcher {
         read_fds.insert(device_watcher.as_raw_fd());
     }
+    #[cfg(target_os = "linux")]
     if let Some(config_watcher) = config_watcher {
         read_fds.insert(config_watcher.timer_fd);
         read_fds.insert(config_watcher.inotify.as_raw_fd());
