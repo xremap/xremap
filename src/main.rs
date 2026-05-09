@@ -235,7 +235,7 @@ fn main() -> anyhow::Result<()> {
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
     let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
-    let (config_watcher_fd, mut config_watcher) =
+    let mut config_watcher =
         ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
 
     // wmclient
@@ -282,7 +282,6 @@ fn main() -> anyhow::Result<()> {
                 &config_watcher,
                 timer_fd,
                 timeout_manager_fd,
-                config_watcher_fd,
             )?;
             if readable_fds.contains(timer_fd) {
                 if let Err(error) = handle_events(
@@ -375,12 +374,10 @@ fn select_readable<'a>(
     config_watcher: &Option<ConfigWatcher>,
     timer_fd: RawFd,
     timeout_manager_fd: RawFd,
-    config_watcher_fd: Option<RawFd>,
 ) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
     read_fds.insert(timer_fd);
     read_fds.insert(timeout_manager_fd);
-    config_watcher_fd.map(|fd| read_fds.insert(fd));
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
@@ -388,6 +385,7 @@ fn select_readable<'a>(
         read_fds.insert(device_watcher.as_raw_fd());
     }
     if let Some(config_watcher) = config_watcher {
+        read_fds.insert(config_watcher.timer_fd);
         read_fds.insert(config_watcher.inotify.as_raw_fd());
     }
     select(None, &mut read_fds, None, None, None)?;
