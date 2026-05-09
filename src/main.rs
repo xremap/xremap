@@ -16,7 +16,6 @@ use clap_complete::Shell;
 use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
-use nix::sys::inotify::Inotify;
 use nix::sys::select::{select, FdSet};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
@@ -236,7 +235,7 @@ fn main() -> anyhow::Result<()> {
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
     let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
-    let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
+    let (config_watcher_fd, mut config_watcher) =
         ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
 
     // wmclient
@@ -280,7 +279,7 @@ fn main() -> anyhow::Result<()> {
             let readable_fds = select_readable(
                 input_devices.values(),
                 &device_watcher,
-                &config_watcher_inotify,
+                &config_watcher,
                 timer_fd,
                 timeout_manager_fd,
                 config_watcher_fd,
@@ -373,7 +372,7 @@ fn main() -> anyhow::Result<()> {
 fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
-    config_watcher_inotify: &Option<Inotify>,
+    config_watcher: &Option<ConfigWatcher>,
     timer_fd: RawFd,
     timeout_manager_fd: RawFd,
     config_watcher_fd: Option<RawFd>,
@@ -388,8 +387,8 @@ fn select_readable<'a>(
     if let Some(device_watcher) = device_watcher {
         read_fds.insert(device_watcher.as_raw_fd());
     }
-    if let Some(config_watcher_inotify) = config_watcher_inotify {
-        read_fds.insert(config_watcher_inotify.as_raw_fd());
+    if let Some(config_watcher) = config_watcher {
+        read_fds.insert(config_watcher.inotify.as_raw_fd());
     }
     select(None, &mut read_fds, None, None, None)?;
     Ok(read_fds)
