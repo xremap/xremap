@@ -644,7 +644,11 @@ impl EventHandler {
     }
 
     fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
-        if self.mark_set && !Modifier::Shift.is_in(&self.modifiers) {
+        let has_shift = key_press.modifiers.contains(&Modifier::Shift)
+            || key_press.modifiers.contains(&Modifier::Key(Key::KEY_LEFTSHIFT))
+            || key_press.modifiers.contains(&Modifier::Key(Key::KEY_RIGHTSHIFT));
+
+        if self.mark_set && !has_shift {
             let mut modifiers = key_press.modifiers.clone();
             modifiers.push(Modifier::Shift);
             KeyPress {
