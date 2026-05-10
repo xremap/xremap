@@ -1,3 +1,9 @@
+## v0.15.6
+
+- Fix with_mark to add shift correctly. https://github.com/xremap/xremap/pull/926
+- Add experimental FreeBSD support. https://github.com/xremap/xremap/pull/925
+- Update README.md: Add Gentoo Linux instruction. https://github.com/xremap/xremap/pull/923
+
 ## v0.15.5
 
 - Add WINDOWS_L and WINDOWS_R aliases. https://github.com/xremap/xremap/pull/922
