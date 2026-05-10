@@ -13,7 +13,6 @@ pub mod nested_remap;
 #[cfg(test)]
 mod tests;
 mod validation;
-mod watcher;
 
 pub use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
@@ -29,7 +28,6 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use std::{error, fs};
 pub use validation::validate_config_file;
-pub use watcher::ConfigWatcher;
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]

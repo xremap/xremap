@@ -14,21 +14,16 @@ pub struct ConfigWatcher {
     files: Vec<PathBuf>,
     debounce: Option<Duration>,
     notifications: bool,
-    timer_fd: RawFd,
+    pub timer_fd: RawFd,
     timer: TimerFd,
-    inotify: Inotify,
+    pub inotify: Inotify,
     change_pending: bool,
 }
 
 impl ConfigWatcher {
-    pub fn new(
-        watch: bool,
-        files: Vec<PathBuf>,
-        debounce_ms: u64,
-        notifications: bool,
-    ) -> Result<(Option<RawFd>, Option<Inotify>, Option<Self>)> {
+    pub fn new(watch: bool, files: Vec<PathBuf>, debounce_ms: u64, notifications: bool) -> Result<Option<Self>> {
         if !watch {
-            return Ok((None, None, None));
+            return Ok(None);
         }
 
         let inotify = Inotify::init(InitFlags::IN_NONBLOCK)?;
@@ -58,7 +53,7 @@ impl ConfigWatcher {
             change_pending: false,
         };
 
-        Ok((Some(this.timer_fd), Some(this.inotify), Some(this)))
+        Ok(Some(this))
     }
 
     pub fn handle(&mut self, readable_fds: FdSet, mainctrl: &mut MainController) -> Result<Option<Config>> {

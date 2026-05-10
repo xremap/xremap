@@ -1,8 +1,9 @@
+#![cfg_attr(target_os = "freebsd", allow(dead_code, unused_imports, unused_variables))]
+
 use crate::client::print_open_windows;
-use crate::config::{Config, ConfigWatcher};
+use crate::config::Config;
 use crate::device::{
-    choose_device_name, device_watcher, open_device, output_device, print_device_details, print_device_list,
-    select_input_devices,
+    choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
 };
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
@@ -16,15 +17,24 @@ use clap_complete::Shell;
 use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
-use nix::sys::inotify::{Inotify, InotifyEvent};
 use nix::sys::select::{select, FdSet};
-use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
 use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
+
+#[cfg(target_os = "linux")]
+mod platform_linux;
+#[cfg(target_os = "linux")]
+use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
+#[cfg(target_os = "linux")]
+use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
+#[cfg(target_os = "freebsd")]
+mod platform_freebsd;
+#[cfg(target_os = "freebsd")]
+use crate::platform_freebsd::{ConfigWatcher, DeviceWatcher};
 
 mod action;
 mod action_dispatcher;
@@ -224,27 +234,34 @@ fn main() -> anyhow::Result<()> {
     let watch_config = watch.contains(&WatchTargets::Config);
 
     let timeout_manager = Rc::new(TimeoutManager::new());
+    #[cfg(target_os = "linux")]
     let timeout_manager_fd = timeout_manager.get_timer_fd();
 
     // Device name
     let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
 
     // Event listeners
+    #[cfg(target_os = "linux")]
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
+    #[cfg(target_os = "linux")]
     let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
-    let device_watcher = device_watcher(watch_devices).context("Setting up device watcher")?;
-    let (config_watcher_fd, config_watcher_inotify, mut config_watcher) =
+    let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
+    let mut config_watcher =
         ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
-    let watchers: Vec<_> = device_watcher.iter().chain(config_watcher_inotify.iter()).collect();
 
     // wmclient
     // Default allow launch (Change to false in a major upgrade)
     let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
     // EventHandler
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
+    let mut handler = EventHandler::new(
+        #[cfg(target_os = "linux")]
+        timer,
+        &config.default_mode,
+        delay,
+    );
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device = output_device(
@@ -277,8 +294,17 @@ fn main() -> anyhow::Result<()> {
         }
 
         'event_loop: loop {
-            let readable_fds =
-                select_readable(input_devices.values(), &watchers, timer_fd, timeout_manager_fd, config_watcher_fd)?;
+            let readable_fds = select_readable(
+                input_devices.values(),
+                &device_watcher,
+                &config_watcher,
+                #[cfg(target_os = "linux")]
+                timer_fd,
+                #[cfg(target_os = "linux")]
+                timeout_manager_fd,
+            )?;
+
+            #[cfg(target_os = "linux")]
             if readable_fds.contains(timer_fd) {
                 if let Err(error) = handle_events(
                     &mut handler,
@@ -292,6 +318,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
+            #[cfg(target_os = "linux")]
             if readable_fds.contains(timeout_manager_fd) {
                 if timeout_manager.need_timeout()? {
                     if let Err(error) = handle_events(
@@ -336,8 +363,8 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
-            if let Some(inotify) = device_watcher {
-                if let Ok(events) = inotify.read_events() {
+            if let Some(device_watcher) = &device_watcher {
+                if let Ok(events) = device_watcher.read_events() {
                     handle_device_changes(
                         events,
                         &mut input_devices,
@@ -366,20 +393,27 @@ fn main() -> anyhow::Result<()> {
 
 fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
-    watchers: &[&Inotify],
-    timer_fd: RawFd,
-    timeout_manager_fd: RawFd,
-    config_watcher_fd: Option<RawFd>,
+    device_watcher: &Option<DeviceWatcher>,
+    config_watcher: &Option<ConfigWatcher>,
+    #[cfg(target_os = "linux")] timer_fd: RawFd,
+    #[cfg(target_os = "linux")] timeout_manager_fd: RawFd,
 ) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
+    #[cfg(target_os = "linux")]
     read_fds.insert(timer_fd);
+    #[cfg(target_os = "linux")]
     read_fds.insert(timeout_manager_fd);
-    config_watcher_fd.map(|fd| read_fds.insert(fd));
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
-    for inotify in watchers {
-        read_fds.insert(inotify.as_raw_fd());
+    #[cfg(target_os = "linux")]
+    if let Some(device_watcher) = device_watcher {
+        read_fds.insert(device_watcher.as_raw_fd());
+    }
+    #[cfg(target_os = "linux")]
+    if let Some(config_watcher) = config_watcher {
+        read_fds.insert(config_watcher.timer_fd);
+        read_fds.insert(config_watcher.inotify.as_raw_fd());
     }
     select(None, &mut read_fds, None, None, None)?;
     Ok(read_fds)
@@ -428,7 +462,7 @@ fn handle_events(
 }
 
 fn handle_device_changes(
-    events: Vec<InotifyEvent>,
+    events: Vec<PathBuf>,
     input_devices: &mut HashMap<PathBuf, InputDevice>,
     device_filter: &[String],
     ignore_filter: &[String],
@@ -441,8 +475,7 @@ fn handle_device_changes(
     // the devices reliably, before this function gets an event for a new devive on the same path.
     let mut ignore: Vec<PathBuf> = input_devices.iter().map(|(path, _)| path).cloned().collect();
 
-    input_devices.extend(events.into_iter().filter_map(|event| {
-        let path = PathBuf::from("/dev/input/").join(event.name?);
+    input_devices.extend(events.into_iter().filter_map(|path| {
         if ignore.contains(&path) {
             return None;
         }
