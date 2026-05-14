@@ -408,8 +408,8 @@ fn select_readable<'a>(
     }
     #[cfg(target_os = "linux")]
     if let Some(config_watcher) = config_watcher {
-        read_fds.insert(config_watcher.timer_fd);
-        read_fds.insert(config_watcher.inotify.as_raw_fd());
+        read_fds.insert(config_watcher.borrow_timer().as_raw_fd());
+        read_fds.insert(config_watcher.borrow_inotify().as_raw_fd());
     }
     select(None, &mut read_fds, None, None, None)?;
     Ok(read_fds)
