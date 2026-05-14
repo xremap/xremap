@@ -8,10 +8,10 @@ use std::collections::HashMap;
 #[cfg(feature = "udev")]
 use std::fs::metadata;
 use std::fs::{self, read_dir};
+use std::os::fd::{AsFd, BorrowedFd};
 #[cfg(feature = "udev")]
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::prelude::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{io, process};
@@ -239,9 +239,9 @@ impl From<InputDevice> for (PathBuf, InputDevice) {
     }
 }
 
-impl AsRawFd for InputDevice {
-    fn as_raw_fd(&self) -> std::os::unix::prelude::RawFd {
-        self.device.as_raw_fd()
+impl AsFd for InputDevice {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.device.as_fd()
     }
 }
 

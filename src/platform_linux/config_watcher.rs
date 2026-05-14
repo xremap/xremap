@@ -4,7 +4,7 @@ use anyhow::Result;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify, InotifyEvent};
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -51,16 +51,16 @@ impl ConfigWatcher {
         Ok(Some(this))
     }
 
-    pub fn borrow_timer<'a>(&'a self) -> &'a TimerFd {
-        &self.timer
+    pub fn borrow_timer<'a>(&'a self) -> BorrowedFd<'a> {
+        self.timer.as_fd()
     }
 
-    pub fn borrow_inotify<'a>(&'a self) -> &'a Inotify {
-        &self.inotify
+    pub fn borrow_inotify<'a>(&'a self) -> BorrowedFd<'a> {
+        self.inotify.as_fd()
     }
 
     pub fn handle(&mut self, readable_fds: Vec<RawFd>, mainctrl: &mut MainController) -> Result<Option<Config>> {
-        if readable_fds.contains(&self.timer.as_raw_fd()) {
+        if readable_fds.contains(&self.timer.as_fd().as_raw_fd()) {
             return Ok(Some(self.get_config(mainctrl)?));
         }
 

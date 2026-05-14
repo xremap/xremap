@@ -2,7 +2,8 @@ use nix::sys::time::TimeSpec;
 #[cfg(target_os = "linux")]
 use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
 use std::cell::RefCell;
-use std::os::unix::io::{AsRawFd, RawFd};
+#[cfg(target_os = "linux")]
+use std::os::fd::{AsFd, BorrowedFd};
 use std::time::{Duration, Instant};
 
 static RESOLUTION: Duration = Duration::from_millis(1);
@@ -39,9 +40,9 @@ impl TimeoutManager {
 }
 
 #[cfg(target_os = "linux")]
-impl AsRawFd for TimeoutManager {
-    fn as_raw_fd(&self) -> RawFd {
-        self.timer.as_raw_fd()
+impl AsFd for TimeoutManager {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.timer.as_fd()
     }
 }
 

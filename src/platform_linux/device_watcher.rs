@@ -1,5 +1,5 @@
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify};
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, BorrowedFd};
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -7,9 +7,9 @@ pub struct DeviceWatcher {
     inotify: Inotify,
 }
 
-impl AsRawFd for DeviceWatcher {
-    fn as_raw_fd(&self) -> RawFd {
-        self.inotify.as_raw_fd()
+impl AsFd for DeviceWatcher {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.inotify.as_fd()
     }
 }
 

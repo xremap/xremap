@@ -20,7 +20,7 @@ use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
 use std::collections::HashMap;
 use std::io::stdout;
-use std::os::fd::RawFd;
+use std::os::fd::{AsFd, RawFd};
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -302,7 +302,7 @@ fn main() -> anyhow::Result<()> {
             )?;
 
             #[cfg(target_os = "linux")]
-            if readable_fds.contains(&handler.as_raw_fd()) {
+            if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
                 if let Err(error) = handle_events(
                     &mut handler,
                     &mut dispatcher,
@@ -316,7 +316,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             #[cfg(target_os = "linux")]
-            if readable_fds.contains(&timeout_manager.as_raw_fd()) {
+            if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
                 if timeout_manager.need_timeout()? {
                     if let Err(error) = handle_events(
                         &mut handler,
@@ -332,7 +332,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             for input_device in input_devices.values_mut() {
-                if !readable_fds.contains(&input_device.as_raw_fd()) {
+                if !readable_fds.contains(&input_device.as_fd().as_raw_fd()) {
                     continue;
                 }
 
@@ -392,25 +392,25 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
-    #[cfg(target_os = "linux")] event_handler: &impl AsRawFd,
+    #[cfg(target_os = "linux")] event_handler: &impl AsFd,
     #[cfg(target_os = "linux")] timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<Vec<RawFd>> {
     let mut read_fds = FdSet::new();
     #[cfg(target_os = "linux")]
-    read_fds.insert(event_handler.as_raw_fd());
+    read_fds.insert(event_handler.as_fd());
     #[cfg(target_os = "linux")]
-    read_fds.insert(timeout_manager.as_raw_fd());
+    read_fds.insert(timeout_manager.as_fd());
     for device in devices {
-        read_fds.insert(device.as_raw_fd());
+        read_fds.insert(device.as_fd());
     }
     #[cfg(target_os = "linux")]
     if let Some(device_watcher) = device_watcher {
-        read_fds.insert(device_watcher.as_raw_fd());
+        read_fds.insert(device_watcher.as_fd());
     }
     #[cfg(target_os = "linux")]
     if let Some(config_watcher) = config_watcher {
-        read_fds.insert(config_watcher.borrow_timer().as_raw_fd());
-        read_fds.insert(config_watcher.borrow_inotify().as_raw_fd());
+        read_fds.insert(config_watcher.borrow_timer());
+        read_fds.insert(config_watcher.borrow_inotify());
     }
     select(None, &mut read_fds, None, None, None)?;
 

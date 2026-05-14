@@ -18,7 +18,7 @@ use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, BorrowedFd};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -63,9 +63,9 @@ struct TaggedAction {
 }
 
 #[cfg(target_os = "linux")]
-impl AsRawFd for EventHandler {
-    fn as_raw_fd(&self) -> RawFd {
-        self.override_timer.as_raw_fd()
+impl AsFd for EventHandler {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.override_timer.as_fd()
     }
 }
 
