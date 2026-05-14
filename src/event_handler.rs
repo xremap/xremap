@@ -13,7 +13,6 @@ use evdev::KeyCode as Key;
 use lazy_static::lazy_static;
 use log::{debug, warn};
 use nix::sys::time::TimeSpec;
-#[cfg(target_os = "linux")]
 use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
@@ -43,7 +42,6 @@ pub struct EventHandler {
     // Key triggered on a timeout of nested remaps
     override_timeout_key: Option<Vec<Key>>,
     // Trigger a timeout of nested remaps through select(2)
-    #[cfg(target_os = "linux")]
     override_timer: TimerFd,
     // { set_mode: String }
     mode: String,
@@ -62,7 +60,6 @@ struct TaggedAction {
     exact_match: bool,
 }
 
-#[cfg(target_os = "linux")]
 impl AsFd for EventHandler {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.override_timer.as_fd()
@@ -70,11 +67,7 @@ impl AsFd for EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(
-        #[cfg(target_os = "linux")] override_timer: TimerFd,
-        mode: &str,
-        keypress_delay: Duration,
-    ) -> EventHandler {
+    pub fn new(override_timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
         EventHandler {
             modifiers: vec![],
             extra_modifiers: HashSet::new(),
@@ -82,7 +75,6 @@ impl EventHandler {
             multi_purpose_keys: HashMap::new(),
             override_remaps: vec![],
             override_timeout_key: None,
-            #[cfg(target_os = "linux")]
             override_timer,
             mode: mode.to_string(),
             mark_set: false,
@@ -202,7 +194,6 @@ impl EventHandler {
     }
 
     fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
-        #[cfg(target_os = "linux")]
         self.override_timer.unset()?;
         self.override_remaps.clear();
         self.override_timeout_key = None;
@@ -595,10 +586,6 @@ impl EventHandler {
                 // Set timeout only if this is the first of multiple eligible remaps,
                 // so the behaviour is consistent with how current normal keymap override works
                 if set_timeout {
-                    #[cfg(target_os = "freebsd")]
-                    panic!("Key sequences not supported on FreeBSD");
-
-                    #[cfg(target_os = "linux")]
                     if let Some(timeout) = timeout {
                         let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
                         // TODO: Consider handling the timer in ActionDispatcher

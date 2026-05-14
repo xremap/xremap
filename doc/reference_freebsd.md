@@ -12,10 +12,14 @@ pkg install rust
 #### Compile xremap
 
 ```sh
-cargo build --release --features x11
+cargo install xremap --features x11
 ```
 
-The compiled binary has the path `target/release/xremap`.
+Check it works:
+
+```sh
+xremap --version
+```
 
 #### Set permissions
 
@@ -46,11 +50,6 @@ setxkbmap gb
 ```
 
 [The problem is also described here](https://forums.freebsd.org/threads/keyboard-layout-keeps-getting-messed-up.95081/)
-
-#### Key sequences, double tap and chords are not supported
-
-The cause is missing `TimerFd` in [nix crate](https://github.com/nix-rust/nix). But that seems to
-be added in [`v0.31.2`](https://github.com/nix-rust/nix/blob/master/CHANGELOG.md), so an update might fix that.
 
 #### Config and device watching is not supported
 
