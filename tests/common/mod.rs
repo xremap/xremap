@@ -10,7 +10,7 @@ use evdev::{AttributeSet, BusType, Device, EventType, FetchEventsSynced, InputEv
 use nix::sys::select::{select, FdSet};
 use nix::sys::time::TimeValLike;
 use std::iter::repeat_with;
-use std::os::unix::io::AsRawFd;
+use std::os::fd::AsFd;
 use std::path::PathBuf;
 use std::time::Duration;
 use xremap::util::{until, until_value};
@@ -178,12 +178,11 @@ pub fn containsn(count: u64, hackstack: &str, needle: &str) -> bool {
 
 pub fn fetch_events(device: &mut Device) -> anyhow::Result<FetchEventsSynced<'_>> {
     let mut fds = FdSet::new();
-    let fd = device.as_raw_fd();
-    fds.insert(fd);
+    fds.insert(device.as_fd());
 
     select(None, &mut fds, None, None, Some(&mut TimeValLike::seconds(1)))?;
 
-    if !fds.contains(fd) {
+    if !fds.contains(device.as_fd()) {
         bail!("Timed out waiting for xremap events.");
     }
 

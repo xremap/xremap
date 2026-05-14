@@ -20,7 +20,8 @@ use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
 use std::collections::HashMap;
 use std::io::stdout;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, RawFd};
+use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
@@ -234,8 +235,6 @@ fn main() -> anyhow::Result<()> {
     let watch_config = watch.contains(&WatchTargets::Config);
 
     let timeout_manager = Rc::new(TimeoutManager::new());
-    #[cfg(target_os = "linux")]
-    let timeout_manager_fd = timeout_manager.get_timer_fd();
 
     // Device name
     let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
@@ -243,8 +242,6 @@ fn main() -> anyhow::Result<()> {
     // Event listeners
     #[cfg(target_os = "linux")]
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
-    #[cfg(target_os = "linux")]
-    let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
     let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
@@ -299,13 +296,13 @@ fn main() -> anyhow::Result<()> {
                 &device_watcher,
                 &config_watcher,
                 #[cfg(target_os = "linux")]
-                timer_fd,
+                &handler,
                 #[cfg(target_os = "linux")]
-                timeout_manager_fd,
+                &timeout_manager,
             )?;
 
             #[cfg(target_os = "linux")]
-            if readable_fds.contains(timer_fd) {
+            if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
                 if let Err(error) = handle_events(
                     &mut handler,
                     &mut dispatcher,
@@ -319,7 +316,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             #[cfg(target_os = "linux")]
-            if readable_fds.contains(timeout_manager_fd) {
+            if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
                 if timeout_manager.need_timeout()? {
                     if let Err(error) = handle_events(
                         &mut handler,
@@ -335,7 +332,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             for input_device in input_devices.values_mut() {
-                if !readable_fds.contains(input_device.as_raw_fd()) {
+                if !readable_fds.contains(&input_device.as_fd().as_raw_fd()) {
                     continue;
                 }
 
@@ -395,28 +392,30 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
-    #[cfg(target_os = "linux")] timer_fd: RawFd,
-    #[cfg(target_os = "linux")] timeout_manager_fd: RawFd,
-) -> anyhow::Result<FdSet> {
+    #[cfg(target_os = "linux")] event_handler: &impl AsFd,
+    #[cfg(target_os = "linux")] timeout_manager: &Rc<TimeoutManager>,
+) -> anyhow::Result<Vec<RawFd>> {
     let mut read_fds = FdSet::new();
     #[cfg(target_os = "linux")]
-    read_fds.insert(timer_fd);
+    read_fds.insert(event_handler.as_fd());
     #[cfg(target_os = "linux")]
-    read_fds.insert(timeout_manager_fd);
+    read_fds.insert(timeout_manager.as_fd());
     for device in devices {
-        read_fds.insert(device.as_raw_fd());
+        read_fds.insert(device.as_fd());
     }
     #[cfg(target_os = "linux")]
     if let Some(device_watcher) = device_watcher {
-        read_fds.insert(device_watcher.as_raw_fd());
+        read_fds.insert(device_watcher.as_fd());
     }
     #[cfg(target_os = "linux")]
     if let Some(config_watcher) = config_watcher {
-        read_fds.insert(config_watcher.timer_fd);
-        read_fds.insert(config_watcher.inotify.as_raw_fd());
+        read_fds.insert(config_watcher.borrow_timer());
+        read_fds.insert(config_watcher.borrow_inotify());
     }
     select(None, &mut read_fds, None, None, None)?;
-    Ok(read_fds)
+
+    // Make the result independent of borrowed fds
+    Ok(read_fds.fds(None).map(|fd| fd.as_raw_fd()).collect())
 }
 
 // Return false when a removed device is found.

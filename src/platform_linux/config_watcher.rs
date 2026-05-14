@@ -2,10 +2,9 @@ use crate::config::{load_configs, Config};
 use crate::main_controller::MainController;
 use anyhow::Result;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify, InotifyEvent};
-use nix::sys::select::FdSet;
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -14,9 +13,8 @@ pub struct ConfigWatcher {
     files: Vec<PathBuf>,
     debounce: Option<Duration>,
     notifications: bool,
-    pub timer_fd: RawFd,
     timer: TimerFd,
-    pub inotify: Inotify,
+    inotify: Inotify,
     change_pending: bool,
 }
 
@@ -35,8 +33,6 @@ impl ConfigWatcher {
             inotify.add_watch(file, AddWatchFlags::IN_MODIFY)?;
         }
 
-        let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
-
         let debounce = if debounce_ms == 0 {
             None
         } else {
@@ -47,8 +43,7 @@ impl ConfigWatcher {
             files,
             debounce,
             notifications,
-            timer_fd: timer.as_raw_fd(),
-            timer,
+            timer: TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?,
             inotify,
             change_pending: false,
         };
@@ -56,8 +51,16 @@ impl ConfigWatcher {
         Ok(Some(this))
     }
 
-    pub fn handle(&mut self, readable_fds: FdSet, mainctrl: &mut MainController) -> Result<Option<Config>> {
-        if readable_fds.contains(self.timer_fd) {
+    pub fn borrow_timer<'a>(&'a self) -> BorrowedFd<'a> {
+        self.timer.as_fd()
+    }
+
+    pub fn borrow_inotify<'a>(&'a self) -> BorrowedFd<'a> {
+        self.inotify.as_fd()
+    }
+
+    pub fn handle(&mut self, readable_fds: Vec<RawFd>, mainctrl: &mut MainController) -> Result<Option<Config>> {
+        if readable_fds.contains(&self.timer.as_fd().as_raw_fd()) {
             return Ok(Some(self.get_config(mainctrl)?));
         }
 
