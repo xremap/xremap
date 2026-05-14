@@ -284,14 +284,8 @@ fn main() -> anyhow::Result<()> {
         }
 
         'event_loop: loop {
-            let readable_fds = select_readable(
-                input_devices.values(),
-                &device_watcher,
-                &config_watcher,
-                &handler,
-                #[cfg(target_os = "linux")]
-                &timeout_manager,
-            )?;
+            let readable_fds =
+                select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
 
             if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
                 if let Err(error) = handle_events(
@@ -306,7 +300,6 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
-            #[cfg(target_os = "linux")]
             if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
                 if timeout_manager.need_timeout()? {
                     if let Err(error) = handle_events(
@@ -384,11 +377,10 @@ fn select_readable<'a>(
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
     event_handler: &impl AsFd,
-    #[cfg(target_os = "linux")] timeout_manager: &Rc<TimeoutManager>,
+    timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<Vec<RawFd>> {
     let mut read_fds = FdSet::new();
     read_fds.insert(event_handler.as_fd());
-    #[cfg(target_os = "linux")]
     read_fds.insert(timeout_manager.as_fd());
     for device in devices {
         read_fds.insert(device.as_fd());
