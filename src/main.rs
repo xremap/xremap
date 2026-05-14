@@ -243,8 +243,6 @@ fn main() -> anyhow::Result<()> {
     // Event listeners
     #[cfg(target_os = "linux")]
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
-    #[cfg(target_os = "linux")]
-    let timer_fd = timer.as_raw_fd();
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
     let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
@@ -299,13 +297,13 @@ fn main() -> anyhow::Result<()> {
                 &device_watcher,
                 &config_watcher,
                 #[cfg(target_os = "linux")]
-                timer_fd,
+                &handler,
                 #[cfg(target_os = "linux")]
                 timeout_manager_fd,
             )?;
 
             #[cfg(target_os = "linux")]
-            if readable_fds.contains(timer_fd) {
+            if readable_fds.contains((&handler).as_raw_fd()) {
                 if let Err(error) = handle_events(
                     &mut handler,
                     &mut dispatcher,
@@ -395,12 +393,12 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
-    #[cfg(target_os = "linux")] timer_fd: RawFd,
+    #[cfg(target_os = "linux")] event_handler: impl AsRawFd,
     #[cfg(target_os = "linux")] timeout_manager_fd: RawFd,
 ) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
     #[cfg(target_os = "linux")]
-    read_fds.insert(timer_fd);
+    read_fds.insert(event_handler.as_raw_fd());
     #[cfg(target_os = "linux")]
     read_fds.insert(timeout_manager_fd);
     for device in devices {
