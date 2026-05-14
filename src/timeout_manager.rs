@@ -8,15 +8,10 @@ use std::time::{Duration, Instant};
 static RESOLUTION: Duration = Duration::from_millis(1);
 
 #[derive(Debug)]
-struct State {
-    delays: Vec<Instant>,
-}
-
-#[derive(Debug)]
 pub struct TimeoutManager {
     #[cfg(target_os = "linux")]
     timer: TimerFd,
-    state: RefCell<State>,
+    delays: RefCell<Vec<Instant>>,
 }
 
 impl TimeoutManager {
@@ -24,13 +19,13 @@ impl TimeoutManager {
         Self {
             #[cfg(target_os = "linux")]
             timer: TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap(),
-            state: RefCell::new(State { delays: vec![] }),
+            delays: RefCell::new(vec![]),
         }
     }
 
     pub fn set_timeout(&self, delay: Duration) -> nix::Result<()> {
         #[cfg(target_os = "linux")]
-        return set_timeout(&mut self.state.borrow_mut(), delay, &self.timer);
+        return set_timeout(&mut self.delays.borrow_mut(), delay, &self.timer);
         #[cfg(target_os = "freebsd")]
         panic!("Double tap and chords are not supported on FreeBSD");
     }
@@ -39,7 +34,7 @@ impl TimeoutManager {
         #[cfg(target_os = "freebsd")]
         return Ok(false);
         #[cfg(target_os = "linux")]
-        need_timeout(&mut self.state.borrow_mut(), &self.timer)
+        need_timeout(&mut self.delays.borrow_mut(), &self.timer)
     }
 }
 
@@ -51,23 +46,23 @@ impl AsRawFd for TimeoutManager {
 }
 
 #[cfg(target_os = "linux")]
-fn set_timeout(state: &mut State, delay: Duration, timer: &TimerFd) -> nix::Result<()> {
+fn set_timeout(delays: &mut Vec<Instant>, delay: Duration, timer: &TimerFd) -> nix::Result<()> {
     set_timer(timer)?;
 
-    state.delays.push(Instant::now() + delay);
+    delays.push(Instant::now() + delay);
 
     Ok(())
 }
 
 #[cfg(target_os = "linux")]
-fn need_timeout(state: &mut State, timer: &TimerFd) -> anyhow::Result<bool> {
+fn need_timeout(delays: &mut Vec<Instant>, timer: &TimerFd) -> anyhow::Result<bool> {
     let now = Instant::now();
 
-    let need_timeout = state.delays.iter().any(|timeout_inst| timeout_inst <= &now);
+    let need_timeout = delays.iter().any(|timeout_inst| timeout_inst <= &now);
 
-    state.delays.retain(|&timeout_inst| timeout_inst > now);
+    delays.retain(|&timeout_inst| timeout_inst > now);
 
-    if state.delays.is_empty() {
+    if delays.is_empty() {
         timer.unset()?;
     } else {
         set_timer(timer)?;
