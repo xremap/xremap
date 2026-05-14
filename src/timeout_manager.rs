@@ -9,41 +9,28 @@ static RESOLUTION: Duration = Duration::from_millis(1);
 
 #[derive(Debug)]
 struct State {
-    #[cfg(target_os = "linux")]
-    timer_fd: RawFd,
-    #[cfg(target_os = "linux")]
-    timer: TimerFd,
     delays: Vec<Instant>,
 }
 
 #[derive(Debug)]
 pub struct TimeoutManager {
+    #[cfg(target_os = "linux")]
+    timer: TimerFd,
     state: RefCell<State>,
 }
 
 impl TimeoutManager {
     pub fn new() -> Self {
-        #[cfg(target_os = "linux")]
-        let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
         Self {
-            state: RefCell::new(State {
-                #[cfg(target_os = "linux")]
-                timer_fd: timer.as_raw_fd(),
-                #[cfg(target_os = "linux")]
-                timer,
-                delays: vec![],
-            }),
+            #[cfg(target_os = "linux")]
+            timer: TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap(),
+            state: RefCell::new(State { delays: vec![] }),
         }
-    }
-
-    #[cfg(target_os = "linux")]
-    pub fn get_timer_fd(&self) -> RawFd {
-        self.state.borrow().timer_fd
     }
 
     pub fn set_timeout(&self, delay: Duration) -> nix::Result<()> {
         #[cfg(target_os = "linux")]
-        return set_timeout(&mut self.state.borrow_mut(), delay);
+        return set_timeout(&mut self.state.borrow_mut(), delay, &self.timer);
         #[cfg(target_os = "freebsd")]
         panic!("Double tap and chords are not supported on FreeBSD");
     }
@@ -52,13 +39,20 @@ impl TimeoutManager {
         #[cfg(target_os = "freebsd")]
         return Ok(false);
         #[cfg(target_os = "linux")]
-        need_timeout(&mut self.state.borrow_mut())
+        need_timeout(&mut self.state.borrow_mut(), &self.timer)
     }
 }
 
 #[cfg(target_os = "linux")]
-fn set_timeout(state: &mut State, delay: Duration) -> nix::Result<()> {
-    set_timer(state)?;
+impl AsRawFd for TimeoutManager {
+    fn as_raw_fd(&self) -> RawFd {
+        self.timer.as_raw_fd()
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn set_timeout(state: &mut State, delay: Duration, timer: &TimerFd) -> nix::Result<()> {
+    set_timer(timer)?;
 
     state.delays.push(Instant::now() + delay);
 
@@ -66,7 +60,7 @@ fn set_timeout(state: &mut State, delay: Duration) -> nix::Result<()> {
 }
 
 #[cfg(target_os = "linux")]
-fn need_timeout(state: &mut State) -> anyhow::Result<bool> {
+fn need_timeout(state: &mut State, timer: &TimerFd) -> anyhow::Result<bool> {
     let now = Instant::now();
 
     let need_timeout = state.delays.iter().any(|timeout_inst| timeout_inst <= &now);
@@ -74,9 +68,9 @@ fn need_timeout(state: &mut State) -> anyhow::Result<bool> {
     state.delays.retain(|&timeout_inst| timeout_inst > now);
 
     if state.delays.is_empty() {
-        state.timer.unset()?;
+        timer.unset()?;
     } else {
-        set_timer(state)?;
+        set_timer(timer)?;
     }
 
     Ok(need_timeout)
@@ -84,8 +78,6 @@ fn need_timeout(state: &mut State) -> anyhow::Result<bool> {
 
 #[cfg(target_os = "linux")]
 // Could pick the minimal delay to avoid unneeded ticks.
-fn set_timer(state: &mut State) -> nix::Result<()> {
-    state
-        .timer
-        .set(Expiration::OneShot(TimeSpec::from_duration(RESOLUTION)), TimerSetTimeFlags::empty())
+fn set_timer(timer: &TimerFd) -> nix::Result<()> {
+    timer.set(Expiration::OneShot(TimeSpec::from_duration(RESOLUTION)), TimerSetTimeFlags::empty())
 }

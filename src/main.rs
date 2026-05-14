@@ -20,7 +20,7 @@ use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
 use std::collections::HashMap;
 use std::io::stdout;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
@@ -234,8 +234,6 @@ fn main() -> anyhow::Result<()> {
     let watch_config = watch.contains(&WatchTargets::Config);
 
     let timeout_manager = Rc::new(TimeoutManager::new());
-    #[cfg(target_os = "linux")]
-    let timeout_manager_fd = timeout_manager.get_timer_fd();
 
     // Device name
     let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
@@ -299,7 +297,7 @@ fn main() -> anyhow::Result<()> {
                 #[cfg(target_os = "linux")]
                 &handler,
                 #[cfg(target_os = "linux")]
-                timeout_manager_fd,
+                &timeout_manager,
             )?;
 
             #[cfg(target_os = "linux")]
@@ -317,7 +315,7 @@ fn main() -> anyhow::Result<()> {
             }
 
             #[cfg(target_os = "linux")]
-            if readable_fds.contains(timeout_manager_fd) {
+            if readable_fds.contains(timeout_manager.as_raw_fd()) {
                 if timeout_manager.need_timeout()? {
                     if let Err(error) = handle_events(
                         &mut handler,
@@ -394,13 +392,13 @@ fn select_readable<'a>(
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
     #[cfg(target_os = "linux")] event_handler: impl AsRawFd,
-    #[cfg(target_os = "linux")] timeout_manager_fd: RawFd,
+    #[cfg(target_os = "linux")] timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<FdSet> {
     let mut read_fds = FdSet::new();
     #[cfg(target_os = "linux")]
     read_fds.insert(event_handler.as_raw_fd());
     #[cfg(target_os = "linux")]
-    read_fds.insert(timeout_manager_fd);
+    read_fds.insert(timeout_manager.as_raw_fd());
     for device in devices {
         read_fds.insert(device.as_raw_fd());
     }
