@@ -51,11 +51,6 @@ setxkbmap gb
 
 [The problem is also described here](https://forums.freebsd.org/threads/keyboard-layout-keeps-getting-messed-up.95081/)
 
-#### Key sequences, double tap and chords are not supported
-
-The cause is missing `TimerFd` in [nix crate](https://github.com/nix-rust/nix). But that seems to
-be added in [`v0.31.2`](https://github.com/nix-rust/nix/blob/master/CHANGELOG.md), so an update might fix that.
-
 #### Config and device watching is not supported
 
 The cause is missing `Inotify` in [nix crate](https://github.com/nix-rust/nix). There is
