@@ -172,6 +172,21 @@ keymap:
 This configuration allows extra modfiers to be pressed. This means if `Ctrl`, `Shift` and `P` are pressed,
 it will remap to `Shift-Up`, allowing to select text up and down.
 
+#### Remap an exact key combo
+
+To make the remapping `Ctrl-P: Up` only match with the exact modifiers pressed:
+
+```yml
+keymap:
+  - exact_match: true
+    remap:
+      Ctrl-P: Up
+      Ctrl-N: Down
+```
+
+This means if `Ctrl`, `Shift` and `P` are pressed, it won't match. The keys are
+passed through as is, and the combo `Ctrl-Shift-P` does the same thing it does without xremap running.
+
 #### Different remap for left and right modifiers
 
 ```yml
@@ -190,6 +205,7 @@ Note that remapping a key to a modifier key, e.g. CapsLock to Control_L,
 is supported only in `modmap` since `keymap` handles modifier keys differently.
 
 ```yml
+default_mode: default # Optional
 modmap:
   - name: Name # Optional
     remap:
@@ -201,12 +217,12 @@ modmap:
         alone: KEY_ZZZ # Required, also accepts arrays
         hold_threshold_millis: 100 # Optional, defaults to 0
         alone_timeout_millis: 1000 # Optional, defaults to 1000
-      # Hook `keymap` action on key press/release events.
+      # Dispatch keymap-action when key is pressed or releaseed.
       KEY_XXX5:
         skip_key_event: true # Optional, skip original key event, defaults to false
         press: [{ press: KEY_YYY }, { launch: ["xdotool", "mousemove", "0", "7200"] }] # Optional, default to no action
         repeat: { repeat: KEY_YYY } # Optional, default to no action
-        release: [{ release: KEY_YYY }, { set_mode: my_mode }] # Optional, default to no action
+        release: [{ release: KEY_YYY }, { set_mode: my_mode }] # Optional, defaults to no action
     application: # Optional
       not: [Application, ...]
       # or
@@ -222,7 +238,6 @@ modmap:
     mode: default # Optional
     # or
     mode: [ default, my_mode ]
-default_mode: default # Optional
 ```
 
 ### keymap
@@ -232,6 +247,7 @@ Key actions in `keymap` will generally press and release keys right away
 when the last key in the trigger combination is pressed.
 
 ```yml
+default_mode: default # Optional
 keymap:
   - name: Name # Optional
     exact_match: false # Optional, defaults to false
@@ -249,11 +265,11 @@ keymap:
         launch: ["bash", "-c", "echo hello > /tmp/test"]
       # Let `with_mark` also press a Shift key (useful for Emacs emulation)
       MOD1-KEY_XXX5: { set_mark: true } # use { set_mark: false } to disable it
-      # Also press Shift only when { set_mark: true } is used before
+      # Add Shift to output when `set_mark` has been set to `true`.
       MOD1-KEY_XXX6: { with_mark: MOD2-KEY_YYY }
-      # After pressing MOD1-KEY_XXX7, the next key press will ignore keymap
+      # Ignore the next key press when searching for remappings in keymap (modmap is unaffected)
       MOD1-KEY_XXX7: { escape_next_key: true }
-      # Set mode to configure Vim-like modal remapping
+      # Set mode to enable/disable remappings.
       MOD1-KEY_XXX8: { set_mode: default }
       # Illustrate a nested mapping that times out;
       # also useful for timing out double-key sequences if the second key is never pressed.
@@ -277,27 +293,30 @@ keymap:
     mode: default # Optional
     # or
     mode: [ default, my_mode ]
-default_mode: default # Optional
 ```
 
 For the `MOD1-` part, the following prefixes can be used (also case-insensitive):
 
-- Shift: `SHIFT-`
-- Control: `C-`, `CTRL-`, `CONTROL-`
-- Alt: `M-`, `ALT-`
-- Windows: `SUPER-`, `WIN-`, `WINDOWS-`
+- Shift: `S-`, `Shift-`
+- Control: `C-`, `Ctrl-`, `Control-`
+- Alt: `A-`, `M-`, `Alt-`
+- Windows: `Super-`, `W-`, `Win-`, `Windows-`
 
-You can use multiple prefixes like `C-M-Shift-a`.
+You can use multiple modifiers like `Ctrl-Alt-Shift-a`.
 You may also suffix them with `_L` or `_R` (case-insensitive) so that
 remapping is triggered only on a left or right modifier, e.g. `Ctrl_L-a`.
 
-If you use `virtual_modifiers` explained below, you can use it in the `MOD1-` part too.
+### exact_match
 
-`exact_match` defines whether to use exact match when matching key presses. For
-example, given a mapping of `C-n: down` and `exact_match: false` (default), and
-you pressed <kbd>C-Shift-n</kbd>, it will automatically be remapped to
-<kbd>Shift-down</kbd>, without you having to define a mapping for
-<kbd>C-Shift-n</kbd>, which you would have to do if you use `exact_match: true`.
+`exact_match` controls how modifiers are matched.
+A remapping, where modifiers match exactly will always be used. But when such a remapping
+doesn't exist, the default is to try an inexact match, this can be disabled with
+`exact_match=true`.
+
+Example of inexact match: Given a mapping of `Ctrl-n: down`, and
+you pressed <kbd>Ctrl-Shift-n</kbd>, it will automatically be remapped to
+<kbd>Shift-down</kbd>. With exact matching, you would have to define a mapping for
+<kbd>Ctrl-Shift-n</kbd>.
 
 ### application
 

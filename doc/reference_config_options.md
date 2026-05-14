@@ -2,7 +2,7 @@
 
 ### virtual_modifiers
 
-You can declare keys that should act like a modifier.
+You can declare keys that should act like modifiers.
 
 ```yml
 virtual_modifiers:
@@ -14,6 +14,8 @@ keymap:
       CapsLock-k: Down
       CapsLock-l: Right
 ```
+
+[Use case is described here](https://github.com/xremap/xremap/blob/master/doc/use_case_virtual_modifer.md)
 
 ### keypress_delay_ms
 
