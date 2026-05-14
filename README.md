@@ -172,6 +172,21 @@ keymap:
 This configuration allows extra modfiers to be pressed. This means if `Ctrl`, `Shift` and `P` are pressed,
 it will remap to `Shift-Up`, allowing to select text up and down.
 
+#### Remap an exact key combo
+
+To make the remapping `Ctrl-P: Up` only match with the exact modifiers pressed:
+
+```yml
+keymap:
+  - exact_match: true
+    remap:
+      Ctrl-P: Up
+      Ctrl-N: Down
+```
+
+This means if `Ctrl`, `Shift` and `P` are pressed, it won't match. The keys are
+passed through as is, and the combo `Ctrl-Shift-P` does the same thing it does without xremap running.
+
 #### Different remap for left and right modifiers
 
 ```yml
@@ -287,15 +302,21 @@ For the `MOD1-` part, the following prefixes can be used (also case-insensitive)
 - Alt: `A-`, `M-`, `Alt-`
 - Windows: `Super-`, `W-`, `Win-`, `Windows-`
 
-You can use multiple prefixes like `Ctrl-Alt-Shift-a`.
+You can use multiple modifiers like `Ctrl-Alt-Shift-a`.
 You may also suffix them with `_L` or `_R` (case-insensitive) so that
 remapping is triggered only on a left or right modifier, e.g. `Ctrl_L-a`.
 
-`exact_match` defines whether to use exact match when matching key presses. For
-example, given a mapping of `C-n: down` and `exact_match: false` (default), and
-you pressed <kbd>C-Shift-n</kbd>, it will automatically be remapped to
-<kbd>Shift-down</kbd>, without you having to define a mapping for
-<kbd>C-Shift-n</kbd>, which you would have to do if you use `exact_match: true`.
+### exact_match
+
+`exact_match` controls how modifiers are matched.
+A remapping, where modifiers match exactly will always be used. But when such a remapping
+doesn't exist, the default is to try an inexact match, this can be disabled with
+`exact_match=true`.
+
+Example of inexact match: Given a mapping of `Ctrl-n: down`, and
+you pressed <kbd>Ctrl-Shift-n</kbd>, it will automatically be remapped to
+<kbd>Shift-down</kbd>. With exact matching, you would have to define a mapping for
+<kbd>Ctrl-Shift-n</kbd>.
 
 ### application
 
