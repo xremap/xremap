@@ -12,10 +12,14 @@ pkg install rust
 #### Compile xremap
 
 ```sh
-cargo build --release --features x11
+cargo install xremap --features x11
 ```
 
-The compiled binary has the path `target/release/xremap`.
+Check it works:
+
+```sh
+xremap --version
+```
 
 #### Set permissions
 
