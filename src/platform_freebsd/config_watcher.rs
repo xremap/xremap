@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::main_controller::MainController;
 use anyhow::Result;
 use nix::sys::select::FdSet;
+use std::os::fd::RawFd;
 use std::path::PathBuf;
 
 pub struct ConfigWatcher {}
@@ -14,7 +15,7 @@ impl ConfigWatcher {
         return Ok(None);
     }
 
-    pub fn handle(&mut self, _readable_fds: FdSet, _mainctrl: &mut MainController) -> Result<Option<Config>> {
+    pub fn handle(&mut self, _readable_fds: Vec<RawFd>, _mainctrl: &mut MainController) -> Result<Option<Config>> {
         unreachable!()
     }
 }

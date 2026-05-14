@@ -69,13 +69,6 @@ impl AsRawFd for EventHandler {
     }
 }
 
-#[cfg(target_os = "linux")]
-impl AsRawFd for &EventHandler {
-    fn as_raw_fd(&self) -> RawFd {
-        self.override_timer.as_raw_fd()
-    }
-}
-
 impl EventHandler {
     pub fn new(
         #[cfg(target_os = "linux")] override_timer: TimerFd,

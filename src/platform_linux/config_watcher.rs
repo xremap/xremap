@@ -2,10 +2,9 @@ use crate::config::{load_configs, Config};
 use crate::main_controller::MainController;
 use anyhow::Result;
 use nix::sys::inotify::{AddWatchFlags, InitFlags, Inotify, InotifyEvent};
-use nix::sys::select::FdSet;
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsRawFd, RawFd};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -60,8 +59,8 @@ impl ConfigWatcher {
         &self.inotify
     }
 
-    pub fn handle(&mut self, readable_fds: FdSet, mainctrl: &mut MainController) -> Result<Option<Config>> {
-        if readable_fds.contains(self.timer.as_raw_fd()) {
+    pub fn handle(&mut self, readable_fds: Vec<RawFd>, mainctrl: &mut MainController) -> Result<Option<Config>> {
+        if readable_fds.contains(&self.timer.as_raw_fd()) {
             return Ok(Some(self.get_config(mainctrl)?));
         }
 
