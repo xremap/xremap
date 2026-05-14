@@ -18,6 +18,7 @@ use device::InputDevice;
 use event::Event;
 use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
+use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
 use std::os::fd::{AsFd, RawFd};
@@ -30,8 +31,6 @@ use std::time::Duration;
 mod platform_linux;
 #[cfg(target_os = "linux")]
 use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
-#[cfg(target_os = "linux")]
-use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 #[cfg(target_os = "freebsd")]
 mod platform_freebsd;
 #[cfg(target_os = "freebsd")]
@@ -240,7 +239,6 @@ fn main() -> anyhow::Result<()> {
     let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
 
     // Event listeners
-    #[cfg(target_os = "linux")]
     let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
@@ -253,12 +251,7 @@ fn main() -> anyhow::Result<()> {
     let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
     // EventHandler
-    let mut handler = EventHandler::new(
-        #[cfg(target_os = "linux")]
-        timer,
-        &config.default_mode,
-        delay,
-    );
+    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device = output_device(
@@ -295,13 +288,11 @@ fn main() -> anyhow::Result<()> {
                 input_devices.values(),
                 &device_watcher,
                 &config_watcher,
-                #[cfg(target_os = "linux")]
                 &handler,
                 #[cfg(target_os = "linux")]
                 &timeout_manager,
             )?;
 
-            #[cfg(target_os = "linux")]
             if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
                 if let Err(error) = handle_events(
                     &mut handler,
@@ -392,11 +383,10 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
-    #[cfg(target_os = "linux")] event_handler: &impl AsFd,
+    event_handler: &impl AsFd,
     #[cfg(target_os = "linux")] timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<Vec<RawFd>> {
     let mut read_fds = FdSet::new();
-    #[cfg(target_os = "linux")]
     read_fds.insert(event_handler.as_fd());
     #[cfg(target_os = "linux")]
     read_fds.insert(timeout_manager.as_fd());
