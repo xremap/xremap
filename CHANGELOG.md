@@ -1,3 +1,12 @@
+## v0.15.7
+
+- Add key for literal key_code. https://github.com/xremap/xremap/pull/934
+- Add FreeBSD support for key sequences, double tap and chords. https://github.com/xremap/xremap/pull/932
+- Update FreeBSD action. https://github.com/xremap/xremap/pull/931
+- Update nix crate. https://github.com/xremap/xremap/pull/930
+- Add github action to check FreeBSD compiles. https://github.com/xremap/xremap/pull/929
+- Update readme. https://github.com/xremap/xremap/pull/928
+
 ## v0.15.6
 
 - Fix with_mark to add shift correctly. https://github.com/xremap/xremap/pull/926
