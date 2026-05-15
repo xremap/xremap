@@ -1,5 +1,6 @@
 use crate::config::key_press::parse_modifier_alias;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
+use anyhow::Context;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
@@ -45,6 +46,13 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
     // You can abbreviate "KEY_" of any "KEY_*" scancodes.
     if let Ok(key) = Key::from_str(&format!("KEY_{name}")) {
         return Ok(key);
+    }
+
+    // By key code, (e.g. CODE_123)
+    if name.starts_with("CODE_") {
+        let key_code = name.replacen("CODE_", "", 1);
+        let key_code = u16::from_str_radix(&key_code, 10).context(format!("Invalid key_code in: {name}"))?;
+        return Ok(Key(key_code));
     }
 
     // xremap's custom aliases like k0kubun/karabiner-dsl
@@ -157,4 +165,13 @@ fn test_parse_key() {
         parse_key("Shift").unwrap_err().to_string(),
         "Modifiers must have left/right specified when used as key: 'Shift'"
     );
+}
+
+#[test]
+fn test_parse_literal_key_code() {
+    assert_eq!(parse_key("Code_123").unwrap(), Key(123));
+    assert_eq!(parse_key("Code_0012").unwrap(), Key(12));
+
+    assert_eq!(parse_key("Code_abc").unwrap_err().to_string(), "Invalid key_code in: CODE_ABC");
+    assert_eq!(parse_key("Code_70000").unwrap_err().to_string(), "Invalid key_code in: CODE_70000");
 }
