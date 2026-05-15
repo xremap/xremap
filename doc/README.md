@@ -18,6 +18,7 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 ### Configuration file reference
 
 - [Configuration options](reference_config_options.md)
+- [Key names](reference_key_names.md)
 - [Actions](reference_actions.md)
 - [Multi-purpose key (alias: tap-hold key)](reference_multipurpose_key.md)
 - [Press/release key](reference_press_release_key.md)
