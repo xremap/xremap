@@ -157,7 +157,7 @@ fn test_yaml_fail_on_modifier_in_modmap_match() {
     .unwrap_err()
     .to_string();
 
-    assert_eq!(&errmsg, "modmap[0].remap: unknown key 'C-COMMA' at line 3 column 7");
+    assert_eq!(&errmsg, "modmap[0].remap: Unknown key 'C-COMMA' at line 3 column 7");
 }
 
 #[test]

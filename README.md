@@ -123,7 +123,7 @@ There are examples of [a more realistic config](example/config.yml) and [an emac
 All possible keys are [listed here](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
 You can skip `KEY_` and the names are case-insensitive. So `KEY_CAPSLOCK`, `CAPSLOCK`, and `CapsLock` are the same thing.
 
-Some [custom aliases](src/config/key.rs) like `Shift_R` and `Control_L` are provided.
+The keys are described in more detail in [Key names](doc/reference_key_names.md). Some custom aliases like `Shift_R` and `Control_L` also exists.
 
 In case you don't know the name of a key, you can find out by enabling debug output:
 
@@ -295,16 +295,7 @@ keymap:
     mode: [ default, my_mode ]
 ```
 
-For the `MOD1-` part, the following prefixes can be used (also case-insensitive):
-
-- Shift: `S-`, `Shift-`
-- Control: `C-`, `Ctrl-`, `Control-`
-- Alt: `A-`, `M-`, `Alt-`
-- Windows: `Super-`, `W-`, `Win-`, `Windows-`
-
-You can use multiple modifiers like `Ctrl-Alt-Shift-a`.
-You may also suffix them with `_L` or `_R` (case-insensitive) so that
-remapping is triggered only on a left or right modifier, e.g. `Ctrl_L-a`.
+What to use for modifiers, the `MOD-` part, is described in [Key names](doc/reference_key_names.md).
 
 ### exact_match
 
