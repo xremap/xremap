@@ -18,6 +18,7 @@ use std::time::Duration;
 /// Test cases are placed in the file of the most specific feature they test.
 /// With the following definition of specific (ordered by most specific first):
 ///
+///     Escape Next Key
 ///     Any key
 ///     Virtual modifiers
 ///     Disguised events input (i.e. transformation of relative event to pseudo keys)

@@ -1,7 +1,7 @@
 use crate::action::Action;
 use crate::event::{Event, KeyEvent, KeyValue};
 use crate::tests::assert_actions;
-use evdev::KeyCode as Key;
+use evdev::{KeyCode as Key, RelativeAxisCode};
 use indoc::indoc;
 use std::time::Duration;
 
@@ -27,6 +27,63 @@ fn test_any_key() {
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_disguised_keys_match_any_key() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              ANY: A
+        "},
+        vec![Event::relative(RelativeAxisCode::REL_WHEEL.0, 10)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    );
+}
+
+#[test]
+fn test_anykey_can_activate_nested_remap() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              ANY:
+                remap:
+                  A: B
+        "},
+        vec![Event::key_press(Key::KEY_K), Event::key_press(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    );
+}
+
+#[test]
+fn test_anykey_when_nested_remap_times_out() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              ANY:
+                timeout_millis: 100
+                remap:
+                  A: B
+        "},
+        vec![Event::key_press(Key::KEY_K), Event::OverrideTimeout],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Release)),
         ],
     );
 }

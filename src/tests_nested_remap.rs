@@ -70,6 +70,51 @@ fn test_exact_match_false_nested() {
 }
 
 #[test]
+fn test_nested_remap_with_on_action() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                remap:
+                    A: []
+        "},
+        vec![Event::key_press(Key::KEY_F12), Event::key_press(Key::KEY_A)],
+        vec![],
+    );
+}
+
+#[test]
+fn test_nested_remap_does_not_match_modifiers() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                remap:
+                    C-A: B
+        "},
+        vec![Event::key_press(Key::KEY_F12), Event::key_press(Key::KEY_A)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press))],
+    );
+}
+
+#[test]
+fn test_nested_remap_does_not_match_mod_trigger() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                remap:
+                    C-A_L: B
+        "},
+        vec![Event::key_press(Key::KEY_F12), Event::key_press(Key::KEY_LEFTALT)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press))],
+    );
+}
+
+#[test]
 fn test_merge_remaps() {
     let config = indoc! {"
         keymap:
@@ -658,4 +703,81 @@ fn test_nested_remap_inexact_when_union_of_modifiers() {
             Action::Delay(Duration::from_nanos(0)),
         ],
     )
+}
+
+#[test]
+fn test_triple_nested_remap() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              A:
+                remap:
+                  B:
+                    remap:
+                      C: D
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_B),
+            Event::key_press(Key::KEY_C),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
+fn test_triple_nested_remap_modifier_does_not_cancel_remap() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              A:
+                remap:
+                  B:
+                    remap:
+                      S-C: D
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_B),
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_press(Key::KEY_C),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
+fn test_triple_nested_remap_does_not_match_modifiers() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                remap:
+                  A:
+                    remap:
+                      C-A_L: D
+        "},
+        vec![
+            Event::key_press(Key::KEY_F12),
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_LEFTALT),
+        ],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press))],
+    );
 }
