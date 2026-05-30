@@ -169,7 +169,7 @@ impl EventHandler {
                 self.dispatch_actions(&actions, &key)?;
                 return Ok(true);
             } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device, wmclient)? {
-                self.dispatch_actions(&actions, &KEY_MATCH_ANY)?;
+                self.dispatch_actions(&actions, &key)?;
                 return Ok(true);
             }
         }

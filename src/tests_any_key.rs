@@ -70,6 +70,25 @@ fn test_anykey_can_activate_nested_remap() {
 }
 
 #[test]
+fn test_anykey_when_nested_remap_times_out() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              ANY:
+                timeout_millis: 100
+                remap:
+                  A: B
+        "},
+        vec![Event::key_press(Key::KEY_K), Event::OverrideTimeout],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
 fn test_any_does_not_work_in_nested_remap() {
     // This happens because it tries nested with K, and then cancels the nested
     // remap because K is not mapped there. So it doesn't matter that it's later
