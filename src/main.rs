@@ -58,6 +58,8 @@ mod tests_any_key;
 #[cfg(test)]
 mod tests_disguised_events_in;
 #[cfg(test)]
+mod tests_escape_next_key;
+#[cfg(test)]
 mod tests_extra_modifiers;
 #[cfg(test)]
 mod tests_keymap_mark;

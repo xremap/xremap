@@ -198,3 +198,29 @@ fn test_virtual_terminal_modifier_is_not_supported() {
         vec![],
     )
 }
+
+#[test]
+fn test_nested_remap_is_not_cancelled_by_virtual_modifier() {
+    assert_actions(
+        indoc! {"
+        virtual_modifiers:
+            - Capslock
+        keymap:
+            - remap:
+                A:
+                  remap:
+                    Capslock-B: C
+        "},
+        vec![
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_B),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
