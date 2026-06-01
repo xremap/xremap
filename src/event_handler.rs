@@ -162,7 +162,11 @@ impl EventHandler {
             return Ok(true);
         } else if MODIFIER_KEYS.contains(&key) {
             self.update_modifier(key, value);
-        } else if is_pressed(value) {
+            self.send_key(&key, value);
+            return Ok(true);
+        }
+
+        if is_pressed(value) && !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
             if self.escape_next_key {
                 self.escape_next_key = false
             } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient)? {
@@ -178,7 +182,6 @@ impl EventHandler {
             Ok(false)
         } else {
             self.send_key(&key, value);
-
             Ok(true)
         }
     }
