@@ -59,7 +59,11 @@ struct TaggedAction {
 
 struct TaggedActions {
     actions: Vec<TaggedAction>,
+    // Whether the match was an exact match or not.
     exact_match: bool,
+    // Modifiers that are currently pressed but not in the source KeyPress
+    // Can only happen when match is inexact.
+    extra_modifiers_pressed: Vec<Key>,
 }
 
 impl AsFd for EventHandler {
@@ -334,6 +338,7 @@ impl EventHandler {
                     &vec![TaggedActions {
                         actions: actions.into_iter().map(|action| TaggedAction { action }).collect(),
                         exact_match: false,
+                        extra_modifiers_pressed: vec![],
                     }],
                     &key,
                 )?;
@@ -595,9 +600,12 @@ impl EventHandler {
     }
 
     fn dispatch_actions(&mut self, actions: &Vec<TaggedActions>, key: &Key) -> Result<(), Box<dyn Error>> {
-        // Modifiers that are currently pressed but not in the source KeyPress
-        let mut extra_modifiers_pressed: HashSet<Key> = HashSet::new();
         for tagged_actions in actions {
+            // Modifiers that are currently pressed but not in the source KeyPress
+            let mut extra_modifiers_pressed: HashSet<Key> = HashSet::new();
+            for key in &tagged_actions.extra_modifiers_pressed {
+                extra_modifiers_pressed.insert(*key);
+            }
             for action in &tagged_actions.actions {
                 self.dispatch_action(action, key, tagged_actions.exact_match, &mut extra_modifiers_pressed)?;
             }
@@ -650,12 +658,6 @@ impl EventHandler {
             }
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
-            KeymapAction::SetExtraModifiers(keys) => {
-                extra_modifiers_pressed.clear();
-                for key in keys {
-                    extra_modifiers_pressed.insert(*key);
-                }
-            }
             KeymapAction::CloseByAppClass(app_class) => self.actions.push(Action::CloseByAppClass(app_class.clone())),
         }
         Ok(())
@@ -759,22 +761,11 @@ fn has_remap(actions: &[KeymapAction]) -> bool {
 
 fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> TaggedActions {
     let mut result: Vec<TaggedAction> = vec![];
-    if !extra_modifiers.is_empty() {
-        // Virtually release extra modifiers so that they won't be physically released on KeyPress
-        result.push(TaggedAction {
-            action: KeymapAction::SetExtraModifiers(extra_modifiers.to_vec()),
-        });
-    }
     result.extend(actions.iter().map(|action| TaggedAction { action: action.clone() }));
-    if !extra_modifiers.is_empty() {
-        // Resurrect the modifier status
-        result.push(TaggedAction {
-            action: KeymapAction::SetExtraModifiers(vec![]),
-        });
-    }
     TaggedActions {
         actions: result,
         exact_match,
+        extra_modifiers_pressed: extra_modifiers.into(),
     }
 }
 

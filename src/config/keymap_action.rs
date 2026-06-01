@@ -35,10 +35,6 @@ pub enum KeymapAction {
     Sleep(u64),
     #[serde(deserialize_with = "deserialize_close_by_app_class")]
     CloseByAppClass(String),
-
-    // Internals
-    #[serde(skip)]
-    SetExtraModifiers(Vec<Key>),
 }
 
 fn deserialize_key_press<'de, D>(deserializer: D) -> Result<Key, D::Error>
