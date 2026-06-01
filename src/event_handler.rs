@@ -59,7 +59,7 @@ struct TaggedActions {
     exact_match: bool,
     // Modifiers that are currently pressed but not in the source KeyPress
     // Can only happen when match is inexact.
-    extra_modifiers_pressed: Vec<Key>,
+    extra_modifiers_pressed: HashSet<Key>,
 }
 
 impl AsFd for EventHandler {
@@ -334,7 +334,7 @@ impl EventHandler {
                     &vec![TaggedActions {
                         actions,
                         exact_match: false,
-                        extra_modifiers_pressed: vec![],
+                        extra_modifiers_pressed: HashSet::new(),
                     }],
                     &key,
                 )?;
@@ -520,7 +520,7 @@ impl EventHandler {
                         let actions = TaggedActions {
                             actions: entry.actions.clone(),
                             exact_match: entry.exact_match,
-                            extra_modifiers_pressed: extra_modifiers.into(),
+                            extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
                         };
                         let has_remap = has_remap(&entry.actions);
 
@@ -583,7 +583,7 @@ impl EventHandler {
                         let actions = TaggedActions {
                             actions: entry.actions.clone(),
                             exact_match: entry.exact_match,
-                            extra_modifiers_pressed: extra_modifiers.into(),
+                            extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
                         };
                         let has_remap = has_remap(&entry.actions);
 
@@ -605,12 +605,8 @@ impl EventHandler {
 
     fn dispatch_actions(&mut self, actions: &Vec<TaggedActions>, key: &Key) -> Result<(), Box<dyn Error>> {
         for tagged_actions in actions {
-            let mut extra_modifiers_pressed: HashSet<Key> = HashSet::new();
-            for key in &tagged_actions.extra_modifiers_pressed {
-                extra_modifiers_pressed.insert(*key);
-            }
             for action in &tagged_actions.actions {
-                self.dispatch_action(action, key, tagged_actions.exact_match, &mut extra_modifiers_pressed)?;
+                self.dispatch_action(action, key, tagged_actions.exact_match, &tagged_actions.extra_modifiers_pressed)?;
             }
         }
         Ok(())
@@ -621,7 +617,7 @@ impl EventHandler {
         action: &KeymapAction,
         key: &Key,
         exact_match: bool,
-        extra_modifiers_pressed: &mut HashSet<Key>,
+        extra_modifiers_pressed: &HashSet<Key>,
     ) -> Result<(), Box<dyn Error>> {
         match action {
             KeymapAction::KeyPressAndRelease(key_press) => {
@@ -666,7 +662,7 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_press_and_release(&mut self, key_press: &KeyPress, extra_modifiers_pressed: &mut HashSet<Key>) {
+    fn send_key_press_and_release(&mut self, key_press: &KeyPress, extra_modifiers_pressed: &HashSet<Key>) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because virtual modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
