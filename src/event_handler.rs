@@ -158,16 +158,17 @@ impl EventHandler {
         config: &Config,
         wmclient: &mut WMClient,
     ) -> Result<bool, Box<dyn Error>> {
+        let mod_trigger = config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key);
         // Apply keymap
         let mut matched = false;
         if is_pressed(value) {
             if self.escape_next_key {
                 // Modifiers are escaped, but they don't stop escaping.
-                if !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
+                if !mod_trigger {
                     self.escape_next_key = false
                 }
-            } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient)? {
-                self.dispatch_actions(&actions, &key)?;
+            } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient, mod_trigger)? {
+                self.dispatch_actions(&actions, &key, mod_trigger)?;
                 matched = true;
             }
         }
@@ -337,6 +338,7 @@ impl EventHandler {
                         extra_modifiers_pressed: HashSet::new(),
                     }],
                     &key,
+                    false,
                 )?;
 
                 match skip_key_event {
@@ -488,7 +490,18 @@ impl EventHandler {
         key: &Key,
         device: &InputDeviceInfo,
         wmclient: &mut WMClient,
+        mod_trigger: bool,
     ) -> Result<Option<Vec<TaggedActions>>, Box<dyn Error>> {
+        let pressed_modifiers = self
+            .modifiers
+            .iter()
+            // If the key is a modifier-trigger, then it's regarded
+            // as not pressed, because it can't be its own modifier.
+            // This happens when a modifier-trigger is repeated.
+            .filter(|modifier| *modifier != key)
+            .copied()
+            .collect();
+
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
@@ -498,11 +511,11 @@ impl EventHandler {
 
             // Empty if the key isn't defined in any of the nested remaps, that are active.
             if !entries.is_empty() {
-                if !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
+                if !mod_trigger {
                     self.remove_override()?;
                 }
 
-                if config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key) {
+                if mod_trigger {
                     return Ok(None);
                 }
 
@@ -513,7 +526,7 @@ impl EventHandler {
                             continue;
                         }
                         let (extra_modifiers, missing_modifiers) =
-                            Self::diff_modifiers(&self.modifiers, &entry.modifiers);
+                            Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
                         if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                             continue;
                         }
@@ -538,12 +551,12 @@ impl EventHandler {
                 }
             }
             // An override remap is set but not used. Flush the pending key.
-            if !MODIFIER_KEYS.contains(&key) && !config.virtual_modifiers.contains(&key) {
+            if !mod_trigger {
                 self.timeout_override()?;
             }
         }
 
-        if config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key) {
+        if mod_trigger {
             return Ok(None);
         }
 
@@ -556,7 +569,7 @@ impl EventHandler {
                             continue;
                         }
                         let (extra_modifiers, missing_modifiers) =
-                            Self::diff_modifiers(&self.modifiers, &entry.modifiers);
+                            Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
                         if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                             continue;
                         }
@@ -605,10 +618,21 @@ impl EventHandler {
         Ok(None)
     }
 
-    fn dispatch_actions(&mut self, actions: &Vec<TaggedActions>, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_actions(
+        &mut self,
+        actions: &Vec<TaggedActions>,
+        key: &Key,
+        mod_trigger: bool,
+    ) -> Result<(), Box<dyn Error>> {
         for tagged_actions in actions {
             for action in &tagged_actions.actions {
-                self.dispatch_action(action, key, tagged_actions.exact_match, &tagged_actions.extra_modifiers_pressed)?;
+                self.dispatch_action(
+                    action,
+                    key,
+                    tagged_actions.exact_match,
+                    &tagged_actions.extra_modifiers_pressed,
+                    mod_trigger,
+                )?;
             }
         }
         Ok(())
@@ -620,6 +644,7 @@ impl EventHandler {
         key: &Key,
         exact_match: bool,
         extra_modifiers_pressed: &HashSet<Key>,
+        mod_trigger: bool,
     ) -> Result<(), Box<dyn Error>> {
         match action {
             KeymapAction::KeyPressAndRelease(key_press) => {
@@ -636,15 +661,23 @@ impl EventHandler {
                 let set_timeout = self.override_remaps.is_empty();
                 self.override_remaps.push(build_override_table(remap, exact_match));
 
+                let keys = match timeout_key {
+                    Some(timeout_key) => Some(timeout_key.clone()),
+                    None if mod_trigger => {
+                        unreachable!()
+                    }
+                    None => Some(vec![*key]),
+                };
+
                 // Set timeout only if this is the first of multiple eligible remaps,
                 // so the behaviour is consistent with how current normal keymap override works
-                if set_timeout {
+                if set_timeout && keys.is_some() {
                     if let Some(timeout) = timeout {
                         let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
                         // TODO: Consider handling the timer in ActionDispatcher
                         self.override_timer.unset()?;
                         self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                        self.override_timeout_key = timeout_key.clone().or_else(|| Some(vec![*key]))
+                        self.override_timeout_key = keys;
                     }
                 }
             }
