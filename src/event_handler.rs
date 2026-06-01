@@ -31,8 +31,6 @@ pub const KEY_MATCH_ANY: Key = Key(DISGUISED_EVENT_OFFSETTER + 26);
 pub struct EventHandler {
     // Currently pressed modifier keys, in the order they were pressed.
     modifiers: Vec<Key>,
-    // Modifiers that are currently pressed but not in the source KeyPress
-    extra_modifiers: HashSet<Key>,
     // Make sure the original event is released even if remapping changes while holding the key
     pressed_keys: HashMap<Key, Key>,
     // State machine for multi-purpose keys
@@ -70,7 +68,6 @@ impl EventHandler {
     pub fn new(override_timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
         EventHandler {
             modifiers: vec![],
-            extra_modifiers: HashSet::new(),
             pressed_keys: HashMap::new(),
             multi_purpose_keys: HashMap::new(),
             override_remaps: vec![],
@@ -584,16 +581,24 @@ impl EventHandler {
     }
 
     fn dispatch_actions(&mut self, actions: &Vec<TaggedAction>, key: &Key) -> Result<(), Box<dyn Error>> {
-        debug_assert!(self.extra_modifiers.len() == 0);
+        // Modifiers that are currently pressed but not in the source KeyPress
+        let mut extra_modifiers_pressed: HashSet<Key> = HashSet::new();
         for action in actions {
-            self.dispatch_action(action, key)?;
+            self.dispatch_action(action, key, &mut extra_modifiers_pressed)?;
         }
         Ok(())
     }
 
-    fn dispatch_action(&mut self, action: &TaggedAction, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_action(
+        &mut self,
+        action: &TaggedAction,
+        key: &Key,
+        extra_modifiers_pressed: &mut HashSet<Key>,
+    ) -> Result<(), Box<dyn Error>> {
         match &action.action {
-            KeymapAction::KeyPressAndRelease(key_press) => self.send_key_press_and_release(key_press),
+            KeymapAction::KeyPressAndRelease(key_press) => {
+                self.send_key_press_and_release(key_press, extra_modifiers_pressed)
+            }
             KeymapAction::KeyPress(key) => self.send_key(key, PRESS),
             KeymapAction::KeyRepeat(key) => self.send_key(key, REPEAT),
             KeymapAction::KeyRelease(key) => self.send_key(key, RELEASE),
@@ -624,13 +629,15 @@ impl EventHandler {
                 println!("mode: {mode}");
             }
             KeymapAction::SetMark(set) => self.mark_set = *set,
-            KeymapAction::WithMark(key_press) => self.send_key_press_and_release(&self.with_mark(key_press)),
+            KeymapAction::WithMark(key_press) => {
+                self.send_key_press_and_release(&self.with_mark(key_press), extra_modifiers_pressed)
+            }
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
             KeymapAction::SetExtraModifiers(keys) => {
-                self.extra_modifiers.clear();
+                extra_modifiers_pressed.clear();
                 for key in keys {
-                    self.extra_modifiers.insert(*key);
+                    extra_modifiers_pressed.insert(*key);
                 }
             }
             KeymapAction::CloseByAppClass(app_class) => self.actions.push(Action::CloseByAppClass(app_class.clone())),
@@ -638,11 +645,11 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_press_and_release(&mut self, key_press: &KeyPress) {
+    fn send_key_press_and_release(&mut self, key_press: &KeyPress, extra_modifiers_pressed: &mut HashSet<Key>) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because virtual modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
-        extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !self.extra_modifiers.contains(key));
+        extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !extra_modifiers_pressed.contains(key));
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
 
         // Emulate the modifiers of KeyPress
