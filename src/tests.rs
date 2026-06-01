@@ -26,6 +26,7 @@ use std::time::Duration;
 ///     Multipurpose keys (hold-preferred)
 ///     PressRelease keys
 ///     Modmap key-to-key
+///     Modifier triggers
 ///     Nested remap in keymap
 ///     Keymap
 ///
@@ -444,19 +445,6 @@ fn test_no_keymap_action() {
 }
 
 #[test]
-fn test_keymap_with_modifier_alone_is_not_supported() {
-    assert_actions(
-        indoc! {"
-        keymap:
-          - remap:
-              C_L: end
-        "},
-        vec![Event::key_press(Key::KEY_LEFTCTRL)],
-        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press))],
-    )
-}
-
-#[test]
 fn test_keymap_modifier_spuriously_pressed() {
     assert_actions(
         indoc! {"
@@ -545,6 +533,28 @@ fn test_keymap_action_error() {
         &errmsg,
         "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 9"
     );
+}
+
+#[test]
+fn test_keymap_repeat() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              A: B
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_repeat(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
 }
 
 pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {

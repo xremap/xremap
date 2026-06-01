@@ -66,6 +66,8 @@ mod tests_keymap_mark;
 #[cfg(test)]
 mod tests_keymap_mode;
 #[cfg(test)]
+mod tests_keymap_modifier_triggers;
+#[cfg(test)]
 mod tests_modmap_keys;
 #[cfg(test)]
 mod tests_modmap_mul_purpose;

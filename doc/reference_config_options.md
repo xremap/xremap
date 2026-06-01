@@ -15,7 +15,7 @@ keymap:
       CapsLock-l: Right
 ```
 
-[Use case is described here](https://github.com/xremap/xremap/blob/master/doc/use_case_virtual_modifer.md)
+[Use case is described here](https://github.com/xremap/xremap/blob/master/doc/use_case_virtual_modifier.md)
 
 ### keypress_delay_ms
 

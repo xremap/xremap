@@ -185,7 +185,7 @@ fn test_modmap_output_is_used_in_virtual_modifiers() {
 }
 
 #[test]
-fn test_virtual_terminal_modifier_is_not_supported() {
+fn test_virtual_modifier_triggers_alone() {
     assert_actions(
         indoc! {"
         virtual_modifiers:
@@ -195,7 +195,12 @@ fn test_virtual_terminal_modifier_is_not_supported() {
               capslock: end
         "},
         vec![Event::key_press(Key::KEY_CAPSLOCK)],
-        vec![],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_END, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_END, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
     )
 }
 

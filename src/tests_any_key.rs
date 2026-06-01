@@ -50,6 +50,44 @@ fn test_disguised_keys_match_any_key() {
 }
 
 #[test]
+fn test_modifiers_match_anykey() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              ANY: A
+        "},
+        vec![Event::key_press(Key::KEY_LEFTCTRL)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+        ],
+    );
+}
+
+#[test]
+fn test_virtual_modifiers_match_anykey() {
+    assert_actions(
+        indoc! {"
+        virtual_modifiers: [Capslock]
+        keymap:
+          - remap:
+              ANY: A
+        "},
+        vec![Event::key_press(Key::KEY_CAPSLOCK)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    );
+}
+
+#[test]
 fn test_anykey_can_activate_nested_remap() {
     assert_actions(
         indoc! {"

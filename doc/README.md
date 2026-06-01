@@ -12,7 +12,8 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 
 ### Use cases
 
-- [Use normal key as modifier](use_case_virtual_modifer.md)
+- [Use modifier to trigger remap](use_case_mod_trigger.md)
+- [Use normal key as modifier](use_case_virtual_modifier.md)
 - [Multi-purpose key (alias: tap-hold key)](use_case_multipurpose_key.md)
 
 ### Configuration file reference
