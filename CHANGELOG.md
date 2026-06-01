@@ -1,3 +1,8 @@
+## v0.15.8
+
+- Add remapping with modifiers as triggers. https://github.com/xremap/xremap/pull/938
+- Fix: Anykey in nested remap emits trigger-key on timeout. https://github.com/xremap/xremap/pull/937
+
 ## v0.15.7
 
 - Add key for literal key_code. https://github.com/xremap/xremap/pull/934
