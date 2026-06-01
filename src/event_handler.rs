@@ -515,10 +515,6 @@ impl EventHandler {
                     self.remove_override()?;
                 }
 
-                if mod_trigger {
-                    return Ok(None);
-                }
-
                 for exact_match in [true, false] {
                     let mut remaps = vec![];
                     for entry in &entries {
@@ -554,10 +550,6 @@ impl EventHandler {
             if !mod_trigger {
                 self.timeout_override()?;
             }
-        }
-
-        if mod_trigger {
-            return Ok(None);
         }
 
         for key in [key, &KEY_MATCH_ANY] {
@@ -664,7 +656,9 @@ impl EventHandler {
                 let keys = match timeout_key {
                     Some(timeout_key) => Some(timeout_key.clone()),
                     None if mod_trigger => {
-                        unreachable!()
+                        // Modifier-triggers don't need a timeout key, because they are pressed no
+                        // matter if they timeout or not. Therefore they have no default.
+                        None
                     }
                     None => Some(vec![*key]),
                 };
