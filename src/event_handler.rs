@@ -157,20 +157,21 @@ impl EventHandler {
         wmclient: &mut WMClient,
     ) -> Result<bool, Box<dyn Error>> {
         // Apply keymap
+        let mut matched = false;
         if is_pressed(value) && !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
             if self.escape_next_key {
                 self.escape_next_key = false
             } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient)? {
                 self.dispatch_actions(&actions, &key)?;
-                return Ok(true);
+                matched = true;
             } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device, wmclient)? {
                 self.dispatch_actions(&actions, &key)?;
-                return Ok(true);
+                matched = true;
             }
         }
 
         if key.code() >= DISGUISED_EVENT_OFFSETTER {
-            return Ok(false);
+            return Ok(matched);
         }
 
         if config.virtual_modifiers.contains(&key) {
@@ -182,7 +183,10 @@ impl EventHandler {
             return Ok(true);
         }
 
-        self.send_key(&key, value);
+        if !matched {
+            self.send_key(&key, value);
+        }
+
         Ok(true)
     }
 
