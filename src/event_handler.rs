@@ -159,9 +159,12 @@ impl EventHandler {
     ) -> Result<bool, Box<dyn Error>> {
         // Apply keymap
         let mut matched = false;
-        if is_pressed(value) && !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
+        if is_pressed(value) {
             if self.escape_next_key {
-                self.escape_next_key = false
+                // Modifiers are escaped, but they don't stop escaping.
+                if !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
+                    self.escape_next_key = false
+                }
             } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient)? {
                 self.dispatch_actions(&actions, &key)?;
                 matched = true;
@@ -474,6 +477,10 @@ impl EventHandler {
         device: &InputDeviceInfo,
         wmclient: &mut WMClient,
     ) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+        if config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key) {
+            return Ok(None);
+        }
+
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
