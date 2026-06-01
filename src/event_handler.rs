@@ -157,15 +157,6 @@ impl EventHandler {
         wmclient: &mut WMClient,
     ) -> Result<bool, Box<dyn Error>> {
         // Apply keymap
-        if config.virtual_modifiers.contains(&key) {
-            self.update_modifier(key, value);
-            return Ok(true);
-        } else if MODIFIER_KEYS.contains(&key) {
-            self.update_modifier(key, value);
-            self.send_key(&key, value);
-            return Ok(true);
-        }
-
         if is_pressed(value) && !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
             if self.escape_next_key {
                 self.escape_next_key = false
@@ -179,11 +170,20 @@ impl EventHandler {
         }
 
         if key.code() >= DISGUISED_EVENT_OFFSETTER {
-            Ok(false)
-        } else {
-            self.send_key(&key, value);
-            Ok(true)
+            return Ok(false);
         }
+
+        if config.virtual_modifiers.contains(&key) {
+            self.update_modifier(key, value);
+            return Ok(true);
+        } else if MODIFIER_KEYS.contains(&key) {
+            self.update_modifier(key, value);
+            self.send_key(&key, value);
+            return Ok(true);
+        }
+
+        self.send_key(&key, value);
+        Ok(true)
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
