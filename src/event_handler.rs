@@ -58,6 +58,10 @@ struct TaggedAction {
     exact_match: bool,
 }
 
+struct TaggedActions {
+    actions: Vec<TaggedAction>,
+}
+
 impl AsFd for EventHandler {
     fn as_fd(&self) -> BorrowedFd<'_> {
         self.override_timer.as_fd()
@@ -321,19 +325,21 @@ impl EventHandler {
             }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
-                let actions_to_dispatch = match value {
+                let actions = match value {
                     PRESS => press,
                     RELEASE => release,
                     _ => repeat,
                 };
                 self.dispatch_actions(
-                    &actions_to_dispatch
-                        .into_iter()
-                        .map(|action| TaggedAction {
-                            action,
-                            exact_match: false,
-                        })
-                        .collect(),
+                    &vec![TaggedActions {
+                        actions: actions
+                            .into_iter()
+                            .map(|action| TaggedAction {
+                                action,
+                                exact_match: false,
+                            })
+                            .collect(),
+                    }],
                     &key,
                 )?;
 
@@ -467,13 +473,26 @@ impl EventHandler {
         None
     }
 
+    // The return is a vector of actions, because nested remaps are included
+    //  for not only the first match, but all remappings that match. This can happen
+    //  if keymap-actions has more than one remap:
+    //      keymap:
+    //        A:
+    //          - remap: { B: 1}
+    //          - remap: { C: 2}
+    //  or inexact modifiers:
+    //      keymap:
+    //        A:
+    //          remap: { B: 1}
+    //        C-A
+    //          remap: { C: 2}
     fn find_keymap(
         &mut self,
         config: &Config,
         key: &Key,
         device: &InputDeviceInfo,
         wmclient: &mut WMClient,
-    ) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
+    ) -> Result<Option<Vec<TaggedActions>>, Box<dyn Error>> {
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
@@ -507,9 +526,9 @@ impl EventHandler {
 
                         // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
                         if remaps.is_empty() && !has_remap {
-                            return Ok(Some(actions));
+                            return Ok(Some(vec![actions]));
                         } else if has_remap {
-                            remaps.extend(actions);
+                            remaps.push(actions);
                         }
                     }
                     if !remaps.is_empty() {
@@ -566,9 +585,9 @@ impl EventHandler {
 
                         // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
                         if remaps.is_empty() && !has_remap {
-                            return Ok(Some(actions));
+                            return Ok(Some(vec![actions]));
                         } else if has_remap {
-                            remaps.extend(actions)
+                            remaps.push(actions)
                         }
                     }
                     if !remaps.is_empty() {
@@ -580,11 +599,13 @@ impl EventHandler {
         Ok(None)
     }
 
-    fn dispatch_actions(&mut self, actions: &Vec<TaggedAction>, key: &Key) -> Result<(), Box<dyn Error>> {
+    fn dispatch_actions(&mut self, actions: &Vec<TaggedActions>, key: &Key) -> Result<(), Box<dyn Error>> {
         // Modifiers that are currently pressed but not in the source KeyPress
         let mut extra_modifiers_pressed: HashSet<Key> = HashSet::new();
-        for action in actions {
-            self.dispatch_action(action, key, &mut extra_modifiers_pressed)?;
+        for tagged_actions in actions {
+            for action in &tagged_actions.actions {
+                self.dispatch_action(action, key, &mut extra_modifiers_pressed)?;
+            }
         }
         Ok(())
     }
@@ -741,7 +762,7 @@ fn has_remap(actions: &[KeymapAction]) -> bool {
     actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
 }
 
-fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> Vec<TaggedAction> {
+fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> TaggedActions {
     let mut result: Vec<TaggedAction> = vec![];
     if !extra_modifiers.is_empty() {
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
@@ -761,7 +782,7 @@ fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact
             exact_match,
         });
     }
-    result
+    TaggedActions { actions: result }
 }
 
 fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
