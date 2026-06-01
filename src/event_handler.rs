@@ -477,10 +477,6 @@ impl EventHandler {
         device: &InputDeviceInfo,
         wmclient: &mut WMClient,
     ) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
-        if config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key) {
-            return Ok(None);
-        }
-
         if !self.override_remaps.is_empty() {
             let entries: Vec<OverrideEntry> = self
                 .override_remaps
@@ -490,7 +486,13 @@ impl EventHandler {
 
             // Empty if the key isn't defined in any of the nested remaps, that are active.
             if !entries.is_empty() {
-                self.remove_override()?;
+                if !config.virtual_modifiers.contains(&key) && !MODIFIER_KEYS.contains(&key) {
+                    self.remove_override()?;
+                }
+
+                if config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key) {
+                    return Ok(None);
+                }
 
                 for exact_match in [true, false] {
                     let mut remaps = vec![];
@@ -519,7 +521,13 @@ impl EventHandler {
                 }
             }
             // An override remap is set but not used. Flush the pending key.
-            self.timeout_override()?;
+            if !MODIFIER_KEYS.contains(&key) && !config.virtual_modifiers.contains(&key) {
+                self.timeout_override()?;
+            }
+        }
+
+        if config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key) {
+            return Ok(None);
         }
 
         for key in [key, &KEY_MATCH_ANY] {
