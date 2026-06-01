@@ -498,12 +498,12 @@ impl EventHandler {
                             }
 
                             let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
-                            let is_remap = is_remap(&entry.actions);
+                            let has_remap = has_remap(&entry.actions);
 
                             // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
-                            if remaps.is_empty() && !is_remap {
+                            if remaps.is_empty() && !has_remap {
                                 return Ok(Some(actions));
-                            } else if is_remap {
+                            } else if has_remap {
                                 remaps.extend(actions);
                             }
                         }
@@ -550,12 +550,12 @@ impl EventHandler {
                         }
 
                         let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
-                        let is_remap = is_remap(&entry.actions);
+                        let has_remap = has_remap(&entry.actions);
 
                         // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
-                        if remaps.is_empty() && !is_remap {
+                        if remaps.is_empty() && !has_remap {
                             return Ok(Some(actions));
-                        } else if is_remap {
+                        } else if has_remap {
                             remaps.extend(actions)
                         }
                     }
@@ -705,12 +705,12 @@ impl EventHandler {
     }
 }
 
-fn is_remap(actions: &[KeymapAction]) -> bool {
+fn has_remap(actions: &[KeymapAction]) -> bool {
     if actions.is_empty() {
-        // When actions is empty it could either be regarded as an empty remap
+        // When actions are empty it could either be regarded as an empty remap
         //  or no actions. In principle that shouldn't matter, but remap is
         //  implemented to gather all defined remaps, not just the first match.
-        // Here we regard an empty actions as non-remap, so the matching will stop
+        // Here we regard empty actions as non-remap, so the matching will stop
         //  here, and no actions are performed. The possibly following remaps are
         //  hence ignored.
         return false;
