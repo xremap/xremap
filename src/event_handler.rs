@@ -165,9 +165,6 @@ impl EventHandler {
             } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient)? {
                 self.dispatch_actions(&actions, &key)?;
                 matched = true;
-            } else if let Some(actions) = self.find_keymap(config, &KEY_MATCH_ANY, device, wmclient)? {
-                self.dispatch_actions(&actions, &key)?;
-                matched = true;
             }
         }
 
@@ -477,26 +474,79 @@ impl EventHandler {
         device: &InputDeviceInfo,
         wmclient: &mut WMClient,
     ) -> Result<Option<Vec<TaggedAction>>, Box<dyn Error>> {
-        if !self.override_remaps.is_empty() {
-            let entries: Vec<OverrideEntry> = self
-                .override_remaps
-                .iter()
-                .flat_map(|map| map.get(key).cloned().unwrap_or_default())
-                .collect();
+        for key in [key, &KEY_MATCH_ANY] {
+            if !self.override_remaps.is_empty() {
+                let entries: Vec<OverrideEntry> = self
+                    .override_remaps
+                    .iter()
+                    .flat_map(|map| map.get(key).cloned().unwrap_or_default())
+                    .collect();
 
-            // Empty if the key isn't defined in any of the nested remaps, that are active.
-            if !entries.is_empty() {
-                self.remove_override()?;
+                // Empty if the key isn't defined in any of the nested remaps, that are active.
+                if !entries.is_empty() {
+                    self.remove_override()?;
 
+                    for exact_match in [true, false] {
+                        let mut remaps = vec![];
+                        for entry in &entries {
+                            if entry.exact_match && !exact_match {
+                                continue;
+                            }
+                            let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
+                            if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
+                                continue;
+                            }
+
+                            let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
+                            let is_remap = is_remap(&entry.actions);
+
+                            // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
+                            if remaps.is_empty() && !is_remap {
+                                return Ok(Some(actions));
+                            } else if is_remap {
+                                remaps.extend(actions);
+                            }
+                        }
+                        if !remaps.is_empty() {
+                            return Ok(Some(remaps));
+                        }
+                    }
+                }
+                // An override remap is set but not used. Flush the pending key.
+                self.timeout_override()?;
+            }
+
+            if let Some(entries) = config.keymap_table.get(key) {
                 for exact_match in [true, false] {
                     let mut remaps = vec![];
-                    for entry in &entries {
+                    for entry in entries {
                         if entry.exact_match && !exact_match {
                             continue;
                         }
                         let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
                         if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                             continue;
+                        }
+                        if let Some(window_matcher) = &entry.title {
+                            if !wmclient.match_window(window_matcher) {
+                                continue;
+                            }
+                        }
+
+                        if let Some(application_matcher) = &entry.application {
+                            if !wmclient.match_application(application_matcher) {
+                                continue;
+                            }
+                        }
+                        if let Some(device_matcher) = &entry.device {
+                            if !device_matcher.matches(device) {
+                                continue;
+                            }
+                        }
+                        if let Some(modes) = &entry.mode {
+                            if !modes.contains(&self.mode) {
+                                continue;
+                            }
                         }
 
                         let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
@@ -506,63 +556,12 @@ impl EventHandler {
                         if remaps.is_empty() && !is_remap {
                             return Ok(Some(actions));
                         } else if is_remap {
-                            remaps.extend(actions);
+                            remaps.extend(actions)
                         }
                     }
                     if !remaps.is_empty() {
                         return Ok(Some(remaps));
                     }
-                }
-            }
-            // An override remap is set but not used. Flush the pending key.
-            self.timeout_override()?;
-        }
-
-        if let Some(entries) = config.keymap_table.get(key) {
-            for exact_match in [true, false] {
-                let mut remaps = vec![];
-                for entry in entries {
-                    if entry.exact_match && !exact_match {
-                        continue;
-                    }
-                    let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
-                    if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
-                        continue;
-                    }
-                    if let Some(window_matcher) = &entry.title {
-                        if !wmclient.match_window(window_matcher) {
-                            continue;
-                        }
-                    }
-
-                    if let Some(application_matcher) = &entry.application {
-                        if !wmclient.match_application(application_matcher) {
-                            continue;
-                        }
-                    }
-                    if let Some(device_matcher) = &entry.device {
-                        if !device_matcher.matches(device) {
-                            continue;
-                        }
-                    }
-                    if let Some(modes) = &entry.mode {
-                        if !modes.contains(&self.mode) {
-                            continue;
-                        }
-                    }
-
-                    let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
-                    let is_remap = is_remap(&entry.actions);
-
-                    // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
-                    if remaps.is_empty() && !is_remap {
-                        return Ok(Some(actions));
-                    } else if is_remap {
-                        remaps.extend(actions)
-                    }
-                }
-                if !remaps.is_empty() {
-                    return Ok(Some(remaps));
                 }
             }
         }
