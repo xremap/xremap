@@ -517,7 +517,11 @@ impl EventHandler {
                             continue;
                         }
 
-                        let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
+                        let actions = TaggedActions {
+                            actions: entry.actions.clone(),
+                            exact_match: entry.exact_match,
+                            extra_modifiers_pressed: extra_modifiers.into(),
+                        };
                         let has_remap = has_remap(&entry.actions);
 
                         // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
@@ -576,7 +580,11 @@ impl EventHandler {
                             }
                         }
 
-                        let actions = with_extra_modifiers(&entry.actions, &extra_modifiers, entry.exact_match);
+                        let actions = TaggedActions {
+                            actions: entry.actions.clone(),
+                            exact_match: entry.exact_match,
+                            extra_modifiers_pressed: extra_modifiers.into(),
+                        };
                         let has_remap = has_remap(&entry.actions);
 
                         // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
@@ -752,14 +760,6 @@ fn has_remap(actions: &[KeymapAction]) -> bool {
     }
 
     actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
-}
-
-fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> TaggedActions {
-    TaggedActions {
-        actions: actions.into(),
-        exact_match,
-        extra_modifiers_pressed: extra_modifiers.into(),
-    }
 }
 
 fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
