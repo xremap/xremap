@@ -55,11 +55,11 @@ pub struct EventHandler {
 
 struct TaggedAction {
     action: KeymapAction,
-    exact_match: bool,
 }
 
 struct TaggedActions {
     actions: Vec<TaggedAction>,
+    exact_match: bool,
 }
 
 impl AsFd for EventHandler {
@@ -332,13 +332,8 @@ impl EventHandler {
                 };
                 self.dispatch_actions(
                     &vec![TaggedActions {
-                        actions: actions
-                            .into_iter()
-                            .map(|action| TaggedAction {
-                                action,
-                                exact_match: false,
-                            })
-                            .collect(),
+                        actions: actions.into_iter().map(|action| TaggedAction { action }).collect(),
+                        exact_match: false,
                     }],
                     &key,
                 )?;
@@ -604,7 +599,7 @@ impl EventHandler {
         let mut extra_modifiers_pressed: HashSet<Key> = HashSet::new();
         for tagged_actions in actions {
             for action in &tagged_actions.actions {
-                self.dispatch_action(action, key, &mut extra_modifiers_pressed)?;
+                self.dispatch_action(action, key, tagged_actions.exact_match, &mut extra_modifiers_pressed)?;
             }
         }
         Ok(())
@@ -614,6 +609,7 @@ impl EventHandler {
         &mut self,
         action: &TaggedAction,
         key: &Key,
+        exact_match: bool,
         extra_modifiers_pressed: &mut HashSet<Key>,
     ) -> Result<(), Box<dyn Error>> {
         match &action.action {
@@ -629,8 +625,7 @@ impl EventHandler {
                 timeout_key,
             }) => {
                 let set_timeout = self.override_remaps.is_empty();
-                self.override_remaps
-                    .push(build_override_table(remap, action.exact_match));
+                self.override_remaps.push(build_override_table(remap, exact_match));
 
                 // Set timeout only if this is the first of multiple eligible remaps,
                 // so the behaviour is consistent with how current normal keymap override works
@@ -768,21 +763,19 @@ fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact
         // Virtually release extra modifiers so that they won't be physically released on KeyPress
         result.push(TaggedAction {
             action: KeymapAction::SetExtraModifiers(extra_modifiers.to_vec()),
-            exact_match,
         });
     }
-    result.extend(actions.iter().map(|action| TaggedAction {
-        action: action.clone(),
-        exact_match,
-    }));
+    result.extend(actions.iter().map(|action| TaggedAction { action: action.clone() }));
     if !extra_modifiers.is_empty() {
         // Resurrect the modifier status
         result.push(TaggedAction {
             action: KeymapAction::SetExtraModifiers(vec![]),
-            exact_match,
         });
     }
-    TaggedActions { actions: result }
+    TaggedActions {
+        actions: result,
+        exact_match,
+    }
 }
 
 fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
