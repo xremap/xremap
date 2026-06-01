@@ -53,12 +53,8 @@ pub struct EventHandler {
     actions: Vec<Action>,
 }
 
-struct TaggedAction {
-    action: KeymapAction,
-}
-
 struct TaggedActions {
-    actions: Vec<TaggedAction>,
+    actions: Vec<KeymapAction>,
     // Whether the match was an exact match or not.
     exact_match: bool,
     // Modifiers that are currently pressed but not in the source KeyPress
@@ -336,7 +332,7 @@ impl EventHandler {
                 };
                 self.dispatch_actions(
                     &vec![TaggedActions {
-                        actions: actions.into_iter().map(|action| TaggedAction { action }).collect(),
+                        actions,
                         exact_match: false,
                         extra_modifiers_pressed: vec![],
                     }],
@@ -601,7 +597,6 @@ impl EventHandler {
 
     fn dispatch_actions(&mut self, actions: &Vec<TaggedActions>, key: &Key) -> Result<(), Box<dyn Error>> {
         for tagged_actions in actions {
-            // Modifiers that are currently pressed but not in the source KeyPress
             let mut extra_modifiers_pressed: HashSet<Key> = HashSet::new();
             for key in &tagged_actions.extra_modifiers_pressed {
                 extra_modifiers_pressed.insert(*key);
@@ -615,12 +610,12 @@ impl EventHandler {
 
     fn dispatch_action(
         &mut self,
-        action: &TaggedAction,
+        action: &KeymapAction,
         key: &Key,
         exact_match: bool,
         extra_modifiers_pressed: &mut HashSet<Key>,
     ) -> Result<(), Box<dyn Error>> {
-        match &action.action {
+        match action {
             KeymapAction::KeyPressAndRelease(key_press) => {
                 self.send_key_press_and_release(key_press, extra_modifiers_pressed)
             }
@@ -760,10 +755,8 @@ fn has_remap(actions: &[KeymapAction]) -> bool {
 }
 
 fn with_extra_modifiers(actions: &[KeymapAction], extra_modifiers: &[Key], exact_match: bool) -> TaggedActions {
-    let mut result: Vec<TaggedAction> = vec![];
-    result.extend(actions.iter().map(|action| TaggedAction { action: action.clone() }));
     TaggedActions {
-        actions: result,
+        actions: actions.into(),
         exact_match,
         extra_modifiers_pressed: extra_modifiers.into(),
     }
