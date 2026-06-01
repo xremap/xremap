@@ -512,7 +512,8 @@ impl EventHandler {
                         if entry.exact_match && !exact_match {
                             continue;
                         }
-                        let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
+                        let (extra_modifiers, missing_modifiers) =
+                            Self::diff_modifiers(&self.modifiers, &entry.modifiers);
                         if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                             continue;
                         }
@@ -554,7 +555,8 @@ impl EventHandler {
                         if entry.exact_match && !exact_match {
                             continue;
                         }
-                        let (extra_modifiers, missing_modifiers) = self.diff_modifiers(&entry.modifiers);
+                        let (extra_modifiers, missing_modifiers) =
+                            Self::diff_modifiers(&self.modifiers, &entry.modifiers);
                         if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                             continue;
                         }
@@ -665,7 +667,7 @@ impl EventHandler {
     fn send_key_press_and_release(&mut self, key_press: &KeyPress, extra_modifiers_pressed: &HashSet<Key>) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because virtual modifiers shouldn't make an impact outside xremap.
-        let (mut extra_modifiers, mut missing_modifiers) = self.diff_modifiers(&key_press.modifiers);
+        let (mut extra_modifiers, mut missing_modifiers) = Self::diff_modifiers(&self.modifiers, &key_press.modifiers);
         extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !extra_modifiers_pressed.contains(key));
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
 
@@ -707,17 +709,16 @@ impl EventHandler {
     }
 
     // Return (extra_modifiers, missing_modifiers)
-    fn diff_modifiers(&self, modifiers: &[Modifier]) -> (Vec<Key>, Vec<Key>) {
-        let extra_modifiers: Vec<Key> = self
-            .modifiers
+    fn diff_modifiers(current: &Vec<Key>, target: &[Modifier]) -> (Vec<Key>, Vec<Key>) {
+        let extra_modifiers: Vec<Key> = current
             .iter()
-            .filter(|modifier| !contains_modifier(modifiers, modifier))
+            .filter(|modifier| !contains_modifier(target, modifier))
             .copied()
             .collect();
-        let missing_modifiers: Vec<Key> = modifiers
+        let missing_modifiers: Vec<Key> = target
             .iter()
             .filter_map(|modifier| {
-                if modifier.is_in(&self.modifiers) {
+                if modifier.is_in(current) {
                     None
                 } else {
                     match modifier {
