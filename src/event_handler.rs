@@ -148,6 +148,7 @@ impl EventHandler {
     }
 
     // Handle EventType::KEY
+    // Note: virtual_modifiers, MODIFIER_KEYS and disguised keys are disjoint sets.
     fn on_key_event(
         &mut self,
         key: Key,
@@ -171,22 +172,23 @@ impl EventHandler {
         }
 
         if key.code() >= DISGUISED_EVENT_OFFSETTER {
+            // Only disguised keys care about return value.
             return Ok(matched);
         }
 
         if config.virtual_modifiers.contains(&key) {
+            // Virtual modifiers are never sent, only updated.
             self.update_modifier(key, value);
-            return Ok(true);
         } else if MODIFIER_KEYS.contains(&key) {
+            // Modifiers are always sent and updated. No matter if they match or not.
             self.update_modifier(key, value);
             self.send_key(&key, value);
-            return Ok(true);
-        }
-
-        if !matched {
+        } else if !matched {
+            // Normal keys are only sent if not matching.
             self.send_key(&key, value);
         }
 
+        // The return value is irrelevant here.
         Ok(true)
     }
 
