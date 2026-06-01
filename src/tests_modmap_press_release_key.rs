@@ -201,3 +201,48 @@ fn test_press_release_lift_extra_modifiers_on_emit() {
         ],
     )
 }
+
+#[test]
+fn test_press_release_emit_nested_remap() {
+    // This seems to be an anti-feature.
+    assert_actions(
+        indoc! {"
+        modmap:
+          - remap:
+              A:
+                press:
+                  remap:
+                    B: C
+                skip_key_event: true
+        "},
+        vec![Event::key_press(Key::KEY_A), Event::key_press(Key::KEY_B)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
+fn test_press_release_emit_nested_remap_with_modifier_trigger() {
+    // This seems to be an anti-feature.
+    assert_actions(
+        indoc! {"
+        modmap:
+          - remap:
+              S_L:
+                press:
+                  timeout_millis: 100
+                  remap:
+                    B: C
+        "},
+        vec![Event::key_press(Key::KEY_LEFTSHIFT), Event::OverrideTimeout],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
+        ],
+    )
+}
