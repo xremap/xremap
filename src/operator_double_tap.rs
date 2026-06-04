@@ -12,10 +12,9 @@ use std::time::{Duration, Instant};
 
 #[derive(Debug)]
 pub struct DoubleTapOperator {
-    pub key: Key,
-    pub actions: Vec<ExpmapAction>,
-    pub timeout: Duration,
-    pub timeout_manager: Rc<TimeoutManager>,
+    actions: Vec<ExpmapAction>,
+    timeout: Duration,
+    timeout_manager: Rc<TimeoutManager>,
 }
 
 impl DoubleTapOperator {
@@ -24,29 +23,18 @@ impl DoubleTapOperator {
         dbltap: &DoubleTap,
         timeout_manager: Rc<TimeoutManager>,
     ) -> Vec<(Key, Box<dyn StaticOperator>)> {
-        DoubleTapOperator {
-            key: key.clone(),
-            actions: dbltap.actions.clone(),
-            timeout: dbltap.timeout,
-            timeout_manager: timeout_manager.clone(),
-        }
-        .get_operators()
+        vec![(
+            key.clone(),
+            Box::new(DoubleTapOperator {
+                actions: dbltap.actions.clone(),
+                timeout: dbltap.timeout,
+                timeout_manager: timeout_manager.clone(),
+            }),
+        )]
     }
 }
 
 impl StaticOperator for DoubleTapOperator {
-    fn get_operators(&self) -> Vec<(Key, Box<dyn StaticOperator>)> {
-        vec![(
-            self.key,
-            Box::new(DoubleTapOperator {
-                key: self.key,
-                actions: self.actions.clone(),
-                timeout: self.timeout,
-                timeout_manager: self.timeout_manager.clone(),
-            }),
-        )]
-    }
-
     fn get_active_operator(&self, event: &Event) -> Box<dyn ActiveOperator> {
         if let Err(err) = self.timeout_manager.set_timeout(self.timeout) {
             error!("Failed to set_timeout: {err}");

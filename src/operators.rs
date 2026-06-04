@@ -3,13 +3,10 @@ use crate::config::expmap_operator::ExpmapAction;
 use crate::device::InputDeviceInfo;
 use crate::emit_handler::Emit;
 use crate::event::{Event, KeyEvent, KeyValue};
-use evdev::KeyCode as Key;
 use std::fmt::Debug;
 use std::rc::Rc;
 
 pub trait StaticOperator: Debug {
-    // To allow operators to have more than one start_key.
-    fn get_operators(&self) -> Vec<(Key, Box<dyn StaticOperator>)>;
     // Return a candidate when the start_key is pressed.
     fn get_active_operator(&self, event: &Event) -> Box<dyn ActiveOperator>;
 }

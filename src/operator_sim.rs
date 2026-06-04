@@ -27,46 +27,37 @@ use std::vec;
 
 #[derive(Debug)]
 pub struct SimOperator {
-    pub keys: Vec<Key>,
-    pub actions: Vec<ExpmapAction>,
-    pub timeout: Duration,
-    pub timeout_manager: Rc<TimeoutManager>,
+    keys: Vec<Key>,
+    actions: Vec<ExpmapAction>,
+    timeout: Duration,
+    timeout_manager: Rc<TimeoutManager>,
 }
 
 impl SimOperator {
     pub fn get_ops(chord: &Simkey, timeout_manager: Rc<TimeoutManager>) -> Vec<(Key, Box<dyn StaticOperator>)> {
-        SimOperator {
-            keys: chord.keys.clone(),
-            actions: chord.actions.clone(),
-            timeout: chord.timeout,
-            timeout_manager: timeout_manager.clone(),
-        }
-        .get_operators()
-    }
-}
-
-impl StaticOperator for SimOperator {
-    fn get_operators(&self) -> Vec<(Key, Box<dyn StaticOperator>)> {
-        if self.keys.len() < 2 {
+        if chord.keys.len() < 2 {
             panic!("There must be at least two keys for a chord.");
         }
 
         // Needs a definition for each start_key.
-        self.keys
+        chord
+            .keys
             .iter()
             .map(|&key| {
                 let operator: Box<dyn StaticOperator> = Box::new(SimOperator {
-                    keys: self.keys.clone(),
-                    actions: self.actions.clone(),
-                    timeout: self.timeout,
-                    timeout_manager: self.timeout_manager.clone(),
+                    keys: chord.keys.clone(),
+                    actions: chord.actions.clone(),
+                    timeout: chord.timeout,
+                    timeout_manager: timeout_manager.clone(),
                 });
 
                 (key, operator)
             })
             .collect()
     }
+}
 
+impl StaticOperator for SimOperator {
     fn get_active_operator(&self, event: &Event) -> Box<dyn ActiveOperator> {
         if let Err(err) = self.timeout_manager.set_timeout(self.timeout) {
             error!("Failed to set_timeout: {err}");
