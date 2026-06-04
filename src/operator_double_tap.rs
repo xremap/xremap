@@ -1,4 +1,4 @@
-use crate::config::expmap_operator::ExpmapAction;
+use crate::config::expmap_operator::{DoubleTap, ExpmapAction};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
 use crate::event_handler::{PRESS, RELEASE, REPEAT};
@@ -16,6 +16,22 @@ pub struct DoubleTapOperator {
     pub actions: Vec<ExpmapAction>,
     pub timeout: Duration,
     pub timeout_manager: Rc<TimeoutManager>,
+}
+
+impl DoubleTapOperator {
+    pub fn get_ops(
+        key: Key,
+        dbltap: &DoubleTap,
+        timeout_manager: Rc<TimeoutManager>,
+    ) -> Vec<(Key, Box<dyn StaticOperator>)> {
+        DoubleTapOperator {
+            key: key.clone(),
+            actions: dbltap.actions.clone(),
+            timeout: dbltap.timeout,
+            timeout_manager: timeout_manager.clone(),
+        }
+        .get_operators()
+    }
 }
 
 impl StaticOperator for DoubleTapOperator {

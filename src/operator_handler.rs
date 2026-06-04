@@ -46,26 +46,17 @@ impl OperatorHandler {
 
         for expmap in experimental_map {
             for chord in &expmap.chords {
-                let operators = SimOperator {
-                    keys: chord.keys.clone(),
-                    actions: chord.actions.clone(),
-                    timeout: chord.timeout,
-                    timeout_manager: timeout_manager.clone(),
-                }
-                .get_operators();
+                let operators = SimOperator::get_ops(chord, timeout_manager.clone());
+
                 append(operators, &mut lookup_map, expmap);
             }
 
             for (key, op) in &expmap.remap {
                 let operators = match op {
-                    ExpmapOperator::DoubleTap(dbltap) => DoubleTapOperator {
-                        key: key.clone(),
-                        actions: dbltap.actions.clone(),
-                        timeout: dbltap.timeout,
-                        timeout_manager: timeout_manager.clone(),
-                    },
-                }
-                .get_operators();
+                    ExpmapOperator::DoubleTap(dbltap) => {
+                        DoubleTapOperator::get_ops(*key, dbltap, timeout_manager.clone())
+                    }
+                };
                 append(operators, &mut lookup_map, expmap);
             }
         }

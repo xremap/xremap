@@ -1,4 +1,5 @@
 use crate::config::expmap_operator::ExpmapAction;
+use crate::config::expmap_simkey::Simkey;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
 use crate::event_handler::{PRESS, RELEASE, REPEAT};
@@ -30,6 +31,18 @@ pub struct SimOperator {
     pub actions: Vec<ExpmapAction>,
     pub timeout: Duration,
     pub timeout_manager: Rc<TimeoutManager>,
+}
+
+impl SimOperator {
+    pub fn get_ops(chord: &Simkey, timeout_manager: Rc<TimeoutManager>) -> Vec<(Key, Box<dyn StaticOperator>)> {
+        SimOperator {
+            keys: chord.keys.clone(),
+            actions: chord.actions.clone(),
+            timeout: chord.timeout,
+            timeout_manager: timeout_manager.clone(),
+        }
+        .get_operators()
+    }
 }
 
 impl StaticOperator for SimOperator {
