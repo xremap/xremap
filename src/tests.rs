@@ -559,7 +559,14 @@ fn test_keymap_repeat() {
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
         ],
-    )
+    );
+}
+
+pub fn parse_config_for_test(str: &str) -> Config {
+    let mut config: Config = serde_yaml::from_str(str).unwrap();
+    config.keymap_table = build_keymap_table(&config.keymap);
+    validate_config_file(&config).unwrap();
+    config
 }
 
 pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {
@@ -595,9 +602,7 @@ impl EventHandlerForTest {
 
     pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
-        let mut config: Config = serde_yaml::from_str(config_yaml).unwrap();
-        config.keymap_table = build_keymap_table(&config.keymap);
-        validate_config_file(&config).unwrap();
+        let config = parse_config_for_test(config_yaml);
         let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0));
 
         Self {

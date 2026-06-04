@@ -1,12 +1,9 @@
-use crate::config::expmap_operator::ExpmapAction;
-use crate::config::expmap_simkey::Simkey;
-use crate::config::Expmap;
 use crate::event::Event;
 use crate::operator_handler::OperatorHandler;
-use crate::tests::assert_events;
+use crate::tests::{assert_events, parse_config_for_test};
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
-use indexmap::IndexMap;
+use indoc::indoc;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -14,26 +11,18 @@ use std::time::Duration;
 static TIMEOUT: Duration = Duration::from_millis(10);
 
 fn get_handler() -> OperatorHandler {
-    let config: Vec<Expmap> = vec![Expmap {
-        name: "".into(),
-        chords: vec![
-            Simkey {
-                keys: vec![Key::KEY_A, Key::KEY_B],
-                actions: vec![ExpmapAction::Key(Key::KEY_1)],
-                timeout: TIMEOUT,
-            },
-            Simkey {
-                keys: vec![Key::KEY_C, Key::KEY_D, Key::KEY_E],
-                actions: vec![ExpmapAction::Key(Key::KEY_2)],
-                timeout: TIMEOUT,
-            },
-        ],
-        remap: IndexMap::new(),
-        application: None,
-        window: None,
-    }];
+    let config = parse_config_for_test(indoc! {"
+        experimental_map:
+            - chords:
+                - keys: [A, B]
+                  actions: '1'
+                  timeout: 10
+                - keys: [C, D, E]
+                  actions: '2'
+                  timeout: 10
+        "});
 
-    OperatorHandler::new(&config, Rc::new(TimeoutManager::new()))
+    OperatorHandler::new(&config.experimental_map, Rc::new(TimeoutManager::new()))
 }
 
 #[test]
