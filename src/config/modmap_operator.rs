@@ -36,7 +36,7 @@ pub struct MultiPurposeKey {
         alias = "alone_timeout_millis"
     )]
     pub tap_timeout: Duration,
-    #[serde(default = "default_free_hold")]
+    #[serde(default)]
     pub free_hold: bool,
     #[serde(default)]
     pub interruptable: Interruptable,
@@ -120,9 +120,4 @@ fn default_tap_timeout() -> Duration {
 
 fn default_hold_threshold() -> Duration {
     Duration::from_millis(0)
-}
-
-fn default_free_hold() -> bool {
-    false // NOTE: should default to true ?!
-          // up to maintainer
 }
