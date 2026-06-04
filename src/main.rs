@@ -413,17 +413,16 @@ fn handle_input_events(
     operator_handler: &mut Option<OperatorHandler>,
     mainctrl: &mut MainController,
 ) -> anyhow::Result<bool> {
-    let events: Vec<_> = match input_device.fetch_events() {
+    let info = Rc::new(input_device.to_info());
+    let events = match input_device.fetch_events() {
         Err(err) if err.raw_os_error() == Some(ENODEV) => {
             // The device doesn't exist anymore.
             return Ok(false);
         }
         events => events.context("Error fetching input events")?,
-    }
-    .collect();
+    };
 
-    let info = Rc::new(input_device.to_info());
-    let input_events = events.iter().map(|e| Event::new(info.clone(), *e)).collect();
+    let input_events = events.map(|e| Event::new(info.clone(), e)).collect();
     handle_events(handler, dispatcher, config, input_events, operator_handler, mainctrl)?;
     Ok(true)
 }
