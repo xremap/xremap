@@ -1,8 +1,6 @@
-use std::time::Duration;
-
-use evdev::InputEvent;
-
 use crate::event::{KeyEvent, RelativeEvent};
+use evdev::InputEvent;
+use std::time::Duration;
 
 // Input to ActionDispatcher. This should only contain things that are easily testable.
 #[derive(Debug)]

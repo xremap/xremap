@@ -29,7 +29,7 @@ pub const DISGUISED_EVENT_OFFSETTER: u16 = 59974;
 pub const KEY_MATCH_ANY: Key = Key(DISGUISED_EVENT_OFFSETTER + 26);
 
 pub struct EventHandler {
-    // Currently pressed modifier keys, in the order they were pressed.
+    // Currently pressed modifier keys, in the order they were pressed. (including virtual modifiers)
     modifiers: Vec<Key>,
     // Make sure the original event is released even if remapping changes while holding the key
     pressed_keys: HashMap<Key, Key>,

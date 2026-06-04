@@ -359,21 +359,21 @@ fn test_operator_handler_candidate_with_many_actions() {
     assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_H)]), vec![]);
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_H)]), vec![]);
 
-    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_O)]), vec![]);
-    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_O)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_K)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_K)]), vec![]);
 
-    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_P)]), vec![]);
-    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_P)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_L)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_L)]), vec![]);
 
     assert_events(
         handler.map_evs(vec![Event::key_press(Key::KEY_H)]),
         vec![
             Event::key_press(Key::KEY_3),
             Event::key_press(Key::KEY_4),
-            Event::key_press(Key::KEY_O),
-            Event::key_release(Key::KEY_O),
-            Event::key_press(Key::KEY_P),
-            Event::key_release(Key::KEY_P),
+            Event::key_press(Key::KEY_K),
+            Event::key_release(Key::KEY_K),
+            Event::key_press(Key::KEY_L),
+            Event::key_release(Key::KEY_L),
         ],
     );
     assert_events(

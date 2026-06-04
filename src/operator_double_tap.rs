@@ -211,7 +211,7 @@ impl ActiveDoubleTapOperator {
                 }
             }
             State::Emitted => {
-                // This can happen after emit because timeout isn't cancelled
+                // This can happen after emit, because timeout isn't cancelled
                 OperatorAction::Unhandled
             }
             State::Done => {

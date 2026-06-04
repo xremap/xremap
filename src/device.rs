@@ -1,3 +1,4 @@
+use crate::util::{evdev_enums_to_string, print_table};
 use anyhow::bail;
 use derive_where::derive_where;
 use evdev::uinput::VirtualDevice;
@@ -5,20 +6,12 @@ use evdev::{AttributeSet, BusType, Device, FetchEventsSynced, InputId, KeyCode a
 use log::debug;
 use nix::libc::{EBUSY, ENODEV};
 use std::collections::HashMap;
-#[cfg(feature = "udev")]
-use std::fs::metadata;
 use std::fs::{self, read_dir};
 use std::os::fd::{AsFd, BorrowedFd};
-#[cfg(feature = "udev")]
-use std::os::linux::fs::MetadataExt;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{io, process};
-#[cfg(feature = "udev")]
-use udev::DeviceType;
-
-use crate::util::{evdev_enums_to_string, print_table};
 
 pub fn choose_device_name() -> String {
     let name_already_taken = match input_devices() {
@@ -198,6 +191,9 @@ impl InputDeviceInfo {
 
         #[cfg(feature = "udev")]
         {
+            use std::fs::metadata;
+            use std::os::linux::fs::MetadataExt;
+            use udev::DeviceType;
             if filter.starts_with("props:") {
                 if let Ok(meta) = metadata(&self.path) {
                     let args = filter.split(':').collect::<Vec<&str>>();

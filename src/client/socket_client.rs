@@ -69,7 +69,7 @@ impl SocketClient {
         let response = self.call_via_socket(request)?;
         match serde_json::from_str::<Response>(&response)? {
             // Filter errors to make further processing easier.
-            Response::Error(message) => bail!(format!("GNOME extension failed: {message}")),
+            Response::Error(message) => bail!(format!("Bridge or GNOME extension failed: {message}")),
             response => Ok(response),
         }
     }

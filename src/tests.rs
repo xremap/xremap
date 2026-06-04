@@ -20,6 +20,9 @@ use std::time::Duration;
 ///
 ///     Escape Next Key
 ///     Any key
+///     Operator Double Tap
+///     Operator Chords
+///     Operator Handler
 ///     Virtual modifiers
 ///     Disguised events input (i.e. transformation of relative event to pseudo keys)
 ///     Multipurpose keys (tap-preferred)
@@ -28,6 +31,7 @@ use std::time::Duration;
 ///     Modmap key-to-key
 ///     Modifier triggers
 ///     Nested remap in keymap
+///     Keymap with_mark
 ///     Keymap
 ///
 /// In other words: A feature is responsible for testing
@@ -41,6 +45,7 @@ impl Client for StaticClient {
     fn supported(&mut self) -> bool {
         true
     }
+
     fn current_window(&mut self) -> Option<String> {
         None
     }

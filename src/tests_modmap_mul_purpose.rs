@@ -97,7 +97,7 @@ fn test_multipurpose_key_interruptable_evaluated_after_modmap_lookup() {
 }
 
 #[test]
-fn test_multipurpose_released_without_interuption() {
+fn test_multipurpose_released_without_interruption() {
     // Alone key is emitted if no other key is pressed before release
     assert_actions(
         indoc! {"

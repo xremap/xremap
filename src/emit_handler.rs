@@ -30,7 +30,6 @@ pub struct EmitHandler {
     // Physical modifiers that are down.
     physical_modifiers: Vec<Key>,
     // Currently emitted modifier keys
-    // A subset of the physical modifiers.
     emitted_modifiers: Vec<Key>,
 }
 
