@@ -20,6 +20,9 @@ use std::time::Duration;
 ///
 ///     Escape Next Key
 ///     Any key
+///     Operator Double Tap
+///     Operator Chords
+///     Operator Handler
 ///     Virtual modifiers
 ///     Disguised events input (i.e. transformation of relative event to pseudo keys)
 ///     Multipurpose keys (tap-preferred)
@@ -28,6 +31,7 @@ use std::time::Duration;
 ///     Modmap key-to-key
 ///     Modifier triggers
 ///     Nested remap in keymap
+///     Keymap with_mark
 ///     Keymap
 ///
 /// In other words: A feature is responsible for testing
@@ -41,6 +45,7 @@ impl Client for StaticClient {
     fn supported(&mut self) -> bool {
         true
     }
+
     fn current_window(&mut self) -> Option<String> {
         None
     }
@@ -554,7 +559,14 @@ fn test_keymap_repeat() {
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
         ],
-    )
+    );
+}
+
+pub fn parse_config_for_test(str: &str) -> Config {
+    let mut config: Config = serde_yaml::from_str(str).unwrap();
+    config.keymap_table = build_keymap_table(&config.keymap);
+    validate_config_file(&config).unwrap();
+    config
 }
 
 pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {
@@ -590,10 +602,8 @@ impl EventHandlerForTest {
 
     pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
-        let mut config: Config = serde_yaml::from_str(config_yaml).unwrap();
-        config.keymap_table = build_keymap_table(&config.keymap);
-        validate_config_file(&config).unwrap();
-        let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0));
+        let config = parse_config_for_test(config_yaml);
+        let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0), None);
 
         Self {
             event_handler,
@@ -608,7 +618,7 @@ impl EventHandlerForTest {
             format!(
                 "{:?}",
                 self.event_handler
-                    .on_events(events, &self.config, &mut self.wmclient, &mut None)
+                    .on_events(events, &self.config, &mut self.wmclient)
                     .unwrap()
             )
         );

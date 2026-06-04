@@ -1,4 +1,5 @@
 pub mod application;
+mod deserializers;
 pub mod device;
 mod expmap;
 pub mod expmap_operator;
@@ -25,7 +26,6 @@ use modmap::Modmap;
 use serde::{de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
 use std::{error, fs};
 pub use validation::validate_config_file;
 
@@ -59,8 +59,6 @@ pub struct Config {
     pub shared: IgnoredAny,
 
     // Internals
-    #[serde(skip)]
-    pub modify_time: Option<SystemTime>,
     #[serde(skip)]
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
     #[serde(default = "const_true")]
@@ -107,9 +105,6 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
         config.keymap.extend(c.keymap);
         config.virtual_modifiers.extend(c.virtual_modifiers);
     }
-
-    // Timestamp for --watch=config
-    config.modify_time = filenames.last().and_then(|path| path.metadata().ok()?.modified().ok());
 
     // Convert keymap for efficient keymap lookup
     config.keymap_table = build_keymap_table(&config.keymap);

@@ -353,7 +353,7 @@ impl XremapController {
         Ok(self.fetch_until_key(Key::KEY_MOVE)?)
     }
 
-    pub fn kill_for_output(&mut self) -> anyhow::Result<Output> {
+    pub fn kill_for_output(&self) -> anyhow::Result<Output> {
         self.raw_kill()?;
         self.wait_for_output()
     }

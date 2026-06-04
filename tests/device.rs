@@ -85,7 +85,7 @@ pub fn test_device_that_does_not_exist() -> Result<()> {
 pub fn test_device_that_is_already_grabbed() -> Result<()> {
     let (mut input, output) = get_raw_device_pair()?;
 
-    let mut ctrl = XremapController::builder()
+    let ctrl = XremapController::builder()
         .allow_stdio_errors(true)
         .not_open_for_fetch()
         .input_device(InputDeviceFilter::CustomFilter {

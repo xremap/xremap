@@ -46,55 +46,18 @@ impl OperatorHandler {
 
         for expmap in experimental_map {
             for chord in &expmap.chords {
-                let operators = SimOperator {
-                    keys: chord.keys.clone(),
-                    actions: chord.actions.clone(),
-                    timeout: chord.timeout,
-                    timeout_manager: timeout_manager.clone(),
-                }
-                .get_operators();
-                for (key, operator) in operators {
-                    let entry = OperatorEntry {
-                        operator,
-                        application: expmap.application.clone(),
-                        title: expmap.window.clone(),
-                    };
-                    match lookup_map.get_mut(&key) {
-                        Some(current) => {
-                            current.push(entry);
-                        }
-                        None => {
-                            lookup_map.insert(key, vec![entry]);
-                        }
-                    };
-                }
+                let operators = SimOperator::get_ops(chord, timeout_manager.clone());
+
+                append(operators, &mut lookup_map, expmap);
             }
 
             for (key, op) in &expmap.remap {
                 let operators = match op {
-                    ExpmapOperator::DoubleTap(dbltap) => DoubleTapOperator {
-                        key: key.clone(),
-                        actions: dbltap.actions.clone(),
-                        timeout: dbltap.timeout,
-                        timeout_manager: timeout_manager.clone(),
-                    },
-                }
-                .get_operators();
-                for (key, operator) in operators {
-                    let entry = OperatorEntry {
-                        operator,
-                        application: expmap.application.clone(),
-                        title: expmap.window.clone(),
-                    };
-                    match lookup_map.get_mut(&key) {
-                        Some(current) => {
-                            current.push(entry);
-                        }
-                        None => {
-                            lookup_map.insert(key, vec![entry]);
-                        }
-                    };
-                }
+                    ExpmapOperator::DoubleTap(dbltap) => {
+                        DoubleTapOperator::get_ops(*key, dbltap, timeout_manager.clone())
+                    }
+                };
+                append(operators, &mut lookup_map, expmap);
             }
         }
 
@@ -134,6 +97,28 @@ impl OperatorHandler {
                 self.emit_handler.map_output(events)
             })
             .collect()
+    }
+}
+
+fn append(
+    operators: Vec<(Key, Box<dyn StaticOperator>)>,
+    lookup_map: &mut HashMap<Key, Vec<OperatorEntry>>,
+    expmap: &Expmap,
+) {
+    for (key, operator) in operators {
+        let entry = OperatorEntry {
+            operator,
+            application: expmap.application.clone(),
+            title: expmap.window.clone(),
+        };
+        match lookup_map.get_mut(&key) {
+            Some(current) => {
+                current.push(entry);
+            }
+            None => {
+                lookup_map.insert(key, vec![entry]);
+            }
+        };
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::config::expmap_operator::ExpmapAction;
+use crate::config::expmap_operator::{DoubleTap, ExpmapAction};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
 use crate::event_handler::{PRESS, RELEASE, REPEAT};
@@ -12,25 +12,29 @@ use std::time::{Duration, Instant};
 
 #[derive(Debug)]
 pub struct DoubleTapOperator {
-    pub key: Key,
-    pub actions: Vec<ExpmapAction>,
-    pub timeout: Duration,
-    pub timeout_manager: Rc<TimeoutManager>,
+    actions: Vec<ExpmapAction>,
+    timeout: Duration,
+    timeout_manager: Rc<TimeoutManager>,
 }
 
-impl StaticOperator for DoubleTapOperator {
-    fn get_operators(&self) -> Vec<(Key, Box<dyn StaticOperator>)> {
+impl DoubleTapOperator {
+    pub fn get_ops(
+        key: Key,
+        dbltap: &DoubleTap,
+        timeout_manager: Rc<TimeoutManager>,
+    ) -> Vec<(Key, Box<dyn StaticOperator>)> {
         vec![(
-            self.key,
+            key.clone(),
             Box::new(DoubleTapOperator {
-                key: self.key,
-                actions: self.actions.clone(),
-                timeout: self.timeout,
-                timeout_manager: self.timeout_manager.clone(),
+                actions: dbltap.actions.clone(),
+                timeout: dbltap.timeout,
+                timeout_manager: timeout_manager.clone(),
             }),
         )]
     }
+}
 
+impl StaticOperator for DoubleTapOperator {
     fn get_active_operator(&self, event: &Event) -> Box<dyn ActiveOperator> {
         if let Err(err) = self.timeout_manager.set_timeout(self.timeout) {
             error!("Failed to set_timeout: {err}");
@@ -211,7 +215,7 @@ impl ActiveDoubleTapOperator {
                 }
             }
             State::Emitted => {
-                // This can happen after emit because timeout isn't cancelled
+                // This can happen after emit, because timeout isn't cancelled
                 OperatorAction::Unhandled
             }
             State::Done => {

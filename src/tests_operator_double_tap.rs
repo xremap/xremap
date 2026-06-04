@@ -1,11 +1,9 @@
-use crate::config::expmap_operator::{DoubleTap, ExpmapAction, ExpmapOperator};
-use crate::config::Expmap;
 use crate::event::Event;
 use crate::operator_handler::OperatorHandler;
-use crate::tests::assert_events;
+use crate::tests::{assert_events, parse_config_for_test};
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
-use std::collections::HashMap;
+use indoc::indoc;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -13,21 +11,15 @@ use std::time::Duration;
 static TIMEOUT: Duration = Duration::from_millis(10);
 
 fn get_handler() -> OperatorHandler {
-    let config: Vec<Expmap> = vec![Expmap {
-        name: "".into(),
-        chords: vec![],
-        remap: HashMap::from([(
-            Key::KEY_LEFTCTRL,
-            ExpmapOperator::DoubleTap(DoubleTap {
-                actions: vec![ExpmapAction::Key(Key::KEY_1)],
-                timeout: TIMEOUT,
-            }),
-        )]),
-        application: None,
-        window: None,
-    }];
+    let config = parse_config_for_test(indoc! {"
+        experimental_map:
+            - remap:
+                c_l:
+                    double: '1'
+                    timeout: 10
+        "});
 
-    OperatorHandler::new(&config, Rc::new(TimeoutManager::new()))
+    OperatorHandler::new(&config.experimental_map, Rc::new(TimeoutManager::new()))
 }
 
 #[test]

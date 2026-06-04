@@ -11,7 +11,7 @@ mod common;
 
 #[test]
 pub fn e2e_match_nothing_in_watch_mode() -> anyhow::Result<()> {
-    let mut ctrl = XremapController::builder()
+    let ctrl = XremapController::builder()
         .input_device(InputDeviceFilter::CustomFilter {
             filter: "match_nothing".into(),
         })
@@ -99,7 +99,7 @@ pub fn e2e_disconnecting_two_devices_in_watch_mode() -> anyhow::Result<()> {
     let name = get_random_device_name();
     let name2 = format!("{name} 2");
 
-    let mut ctrl = {
+    let ctrl = {
         let _dev1 = get_virtual_device(&name)?;
         let _dev2 = get_virtual_device(&name2)?;
 

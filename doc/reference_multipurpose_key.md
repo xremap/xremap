@@ -17,17 +17,17 @@ The parameters `tap_timeout_millis` and `held_threshold_millis` denote time sinc
 
 - Tap-preferred from `0ms` to `held_threshold_millis`:
   - If interrupted by another key press → tap-action
-    - The tap-action is pressed then released before the interupting key is pressed.
+    - The tap-action is pressed then released before the interrupting key is pressed.
   - If released alone → tap-action
 
 - Hold-preferred from `held_threshold_millis` to `tap_timeout_millis`:
   - If interrupted by another key press → hold-action
-    - The hold-action is pressed before the interupting key is pressed,
-      and the hold-action is released when the multi-purpose key is released, independent of the interupting key.
+    - The hold-action is pressed before the interrupting key is pressed,
+      and the hold-action is released when the multi-purpose key is released, independent of the interrupting key.
   - If released alone → tap-action
 
 - Always-hold from `tap_timeout_millis` to `∞`:
-  - At `tap_timeout_millis` the hold-action is pressed and it's released when the multi-purpose key is released.
+  - At `tap_timeout_millis` the hold-action is pressed. It's released when the multi-purpose key is released.
 
 The press event that triggers the multi-purpose key is not emitted.
 
@@ -41,7 +41,7 @@ When emitting tap-action:
 - Repeat events from the multi-purpose key is suppressed, and nothing happens when it's released.
 
 The meaning of interrupted is when another key press is emitted from the `modmap`, this means
-a physical key can be pressed without interupting a multi-purpose key, as long as it's 'squashed' by
+a physical key can be pressed without interrupting a multi-purpose key, as long as it's 'squashed' by
 a remap in the `modmap`.
 
 Repeat and release events do not

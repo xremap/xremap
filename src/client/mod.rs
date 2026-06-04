@@ -83,17 +83,19 @@ impl WMClient {
         }
     }
 
-    fn check_supported(&mut self) -> Option<()> {
+    fn supported(&mut self) -> bool {
         if self.supported.is_none() {
             let supported = self.client.supported();
             self.supported = Some(supported);
             println!("application-client: {} (supported: {})", self.name, supported);
         }
-        self.supported.unwrap().then_some(())
+        self.supported.unwrap()
     }
 
     pub fn current_window(&mut self) -> Option<String> {
-        self.check_supported()?;
+        if !self.supported() {
+            return None;
+        }
 
         let result = self.client.current_window();
         if self.log_window_changes {
@@ -108,7 +110,9 @@ impl WMClient {
     }
 
     pub fn current_application(&mut self) -> Option<String> {
-        self.check_supported()?;
+        if !self.supported() {
+            return None;
+        }
 
         let result = self.client.current_application();
         if self.log_window_changes {
@@ -123,10 +127,11 @@ impl WMClient {
     }
 
     pub fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
-        if self.check_supported().is_some() {
-            return self.client.run(command);
+        if self.supported() {
+            self.client.run(command)
+        } else {
+            Ok(false)
         }
-        Ok(false)
     }
 
     pub fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
@@ -147,41 +152,29 @@ impl WMClient {
     pub fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.title_cache.is_none() {
-            match self.current_window() {
-                Some(title) => self.title_cache = Some(title),
-                None => self.title_cache = Some(String::new()),
-            }
+            let title = self.current_window().unwrap_or_default();
+            self.title_cache = Some(title);
         }
 
         if let Some(title) = &self.title_cache {
-            if let Some(title_only) = &window_matcher.only {
-                return title_only.iter().any(|m| m.matches(title));
-            }
-            if let Some(title_not) = &window_matcher.not {
-                return title_not.iter().all(|m| !m.matches(title));
-            }
+            window_matcher.matches(title)
+        } else {
+            false
         }
-        false
     }
 
     pub fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.application_cache.is_none() {
-            match self.current_application() {
-                Some(application) => self.application_cache = Some(application),
-                None => self.application_cache = Some(String::new()),
-            }
+            let application = self.current_application().unwrap_or_default();
+            self.application_cache = Some(application);
         }
 
         if let Some(application) = &self.application_cache {
-            if let Some(application_only) = &application_matcher.only {
-                return application_only.iter().any(|m| m.matches(application));
-            }
-            if let Some(application_not) = &application_matcher.not {
-                return application_not.iter().all(|m| !m.matches(application));
-            }
+            application_matcher.matches(application)
+        } else {
+            false
         }
-        false
     }
 }
 
