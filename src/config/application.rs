@@ -1,8 +1,8 @@
-use std::str::FromStr;
-
+use crate::config::deserializers::VecOrSingle;
 use anyhow::anyhow;
 use regex::Regex;
 use serde::{Deserialize, Deserializer};
+use std::str::FromStr;
 
 // TODO: Use trait to allow only either `only` or `not`
 #[derive(Clone, Debug, Deserialize)]
@@ -89,7 +89,7 @@ fn deserialize_matchers<'de, D>(deserializer: D) -> Result<Option<Vec<Applicatio
 where
     D: Deserializer<'de>,
 {
-    let v = deserialize_string_or_vec(deserializer)?;
+    let v = Some(VecOrSingle::<String>::deserialize(deserializer)?.into_vec());
     match v {
         None => Ok(None),
         Some(strings) => {
@@ -106,17 +106,7 @@ pub fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<S
 where
     D: Deserializer<'de>,
 {
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum StringOrVec {
-        String(String),
-        Vec(Vec<String>),
-    }
-
-    let vec = match StringOrVec::deserialize(deserializer)? {
-        StringOrVec::Vec(vec) => vec,
-        StringOrVec::String(string) => vec![string],
-    };
+    let vec = VecOrSingle::<String>::deserialize(deserializer)?.into_vec();
     Ok(Some(vec))
 }
 
