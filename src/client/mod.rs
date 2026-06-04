@@ -147,10 +147,8 @@ impl WMClient {
     pub fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.title_cache.is_none() {
-            match self.current_window() {
-                Some(title) => self.title_cache = Some(title),
-                None => self.title_cache = Some(String::new()),
-            }
+            let title = self.current_window().unwrap_or_default();
+            self.title_cache = Some(title);
         }
 
         if let Some(title) = &self.title_cache {
@@ -163,10 +161,8 @@ impl WMClient {
     pub fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
         // Lazily fill the wm_class cache
         if self.application_cache.is_none() {
-            match self.current_application() {
-                Some(application) => self.application_cache = Some(application),
-                None => self.application_cache = Some(String::new()),
-            }
+            let application = self.current_application().unwrap_or_default();
+            self.application_cache = Some(application);
         }
 
         if let Some(application) = &self.application_cache {
