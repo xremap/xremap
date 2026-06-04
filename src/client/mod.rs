@@ -83,7 +83,7 @@ impl WMClient {
         }
     }
 
-    fn check_supported(&mut self) -> Option<()> {
+    fn supported(&mut self) -> Option<()> {
         if self.supported.is_none() {
             let supported = self.client.supported();
             self.supported = Some(supported);
@@ -93,7 +93,9 @@ impl WMClient {
     }
 
     pub fn current_window(&mut self) -> Option<String> {
-        self.check_supported()?;
+        if self.supported().is_none() {
+            return None;
+        }
 
         let result = self.client.current_window();
         if self.log_window_changes {
@@ -108,7 +110,9 @@ impl WMClient {
     }
 
     pub fn current_application(&mut self) -> Option<String> {
-        self.check_supported()?;
+        if self.supported().is_none() {
+            return None;
+        }
 
         let result = self.client.current_application();
         if self.log_window_changes {
@@ -123,10 +127,11 @@ impl WMClient {
     }
 
     pub fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
-        if self.check_supported().is_some() {
-            return self.client.run(command);
+        if self.supported().is_some() {
+            self.client.run(command)
+        } else {
+            Ok(false)
         }
-        Ok(false)
     }
 
     pub fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
