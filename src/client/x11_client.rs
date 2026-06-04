@@ -1,5 +1,6 @@
 use crate::client::{Client, WindowInfo};
 use anyhow::{bail, Result};
+use log::warn;
 use std::env;
 use x11rb::connection::Connection;
 use x11rb::cookie::Cookie;
@@ -38,6 +39,9 @@ impl X11Client {
     fn reconnect(&mut self) {
         match x11rb::connect(None) {
             Ok((connection, screen)) => {
+                if "wayland" == env::var("XDG_SESSION_TYPE").unwrap_or_default() {
+                    warn!("Connected to X11 server, but in wayland session. This will not work.");
+                }
                 self.connection = Some(connection);
                 self.screen_num = Some(screen);
             }
