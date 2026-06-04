@@ -603,7 +603,7 @@ impl EventHandlerForTest {
     pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
         let config = parse_config_for_test(config_yaml);
-        let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0));
+        let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0), None);
 
         Self {
             event_handler,
@@ -618,7 +618,7 @@ impl EventHandlerForTest {
             format!(
                 "{:?}",
                 self.event_handler
-                    .on_events(events, &self.config, &mut self.wmclient, &mut None)
+                    .on_events(events, &self.config, &mut self.wmclient)
                     .unwrap()
             )
         );

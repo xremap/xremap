@@ -51,6 +51,8 @@ pub struct EventHandler {
     keypress_delay: Duration,
     // Buffered actions to be dispatched. TODO: Just return actions from each function instead of using this.
     actions: Vec<Action>,
+    // Handler to perform some of the remapping
+    operator_handler: Option<OperatorHandler>,
 }
 
 struct TaggedActions {
@@ -69,7 +71,12 @@ impl AsFd for EventHandler {
 }
 
 impl EventHandler {
-    pub fn new(override_timer: TimerFd, mode: &str, keypress_delay: Duration) -> EventHandler {
+    pub fn new(
+        override_timer: TimerFd,
+        mode: &str,
+        keypress_delay: Duration,
+        operator_handler: Option<OperatorHandler>,
+    ) -> EventHandler {
         EventHandler {
             modifiers: vec![],
             pressed_keys: HashMap::new(),
@@ -82,6 +89,7 @@ impl EventHandler {
             escape_next_key: false,
             keypress_delay,
             actions: vec![],
+            operator_handler,
         }
     }
 
@@ -91,9 +99,8 @@ impl EventHandler {
         mut events: Vec<Event>,
         config: &Config,
         wmclient: &mut WMClient,
-        operator_handler: &mut Option<OperatorHandler>,
     ) -> Result<Vec<Action>, Box<dyn Error>> {
-        if let Some(handler) = operator_handler {
+        if let Some(handler) = &mut self.operator_handler {
             wmclient.clear_app_class_and_title();
             events = handler.map_events(events, wmclient);
         };

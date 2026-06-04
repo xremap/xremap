@@ -254,8 +254,15 @@ fn main() -> anyhow::Result<()> {
     // Default allow launch (Change to false in a major upgrade)
     let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
+    // OperatorHandler
+    let operator_handler = if config.experimental_map.len() > 0 {
+        Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
+    } else {
+        None
+    };
+
     // EventHandler
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay);
+    let mut handler = EventHandler::new(timer, &config.default_mode, delay, operator_handler);
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
     let output_device = output_device(
@@ -273,12 +280,6 @@ fn main() -> anyhow::Result<()> {
         Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
     };
 
-    let mut operator_handler = if config.experimental_map.len() > 0 {
-        Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
-    } else {
-        None
-    };
-
     let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 
     // Main loop
@@ -292,28 +293,18 @@ fn main() -> anyhow::Result<()> {
                 select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
 
             if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
-                if let Err(error) = handle_events(
-                    &mut handler,
-                    &mut dispatcher,
-                    &config,
-                    vec![Event::OverrideTimeout],
-                    &mut operator_handler,
-                    &mut mainctrl,
-                ) {
+                if let Err(error) =
+                    handle_events(&mut handler, &mut dispatcher, &config, vec![Event::OverrideTimeout], &mut mainctrl)
+                {
                     println!("Error on remap timeout: {error}")
                 }
             }
 
             if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
                 if timeout_manager.need_timeout()? {
-                    if let Err(error) = handle_events(
-                        &mut handler,
-                        &mut dispatcher,
-                        &mut config,
-                        vec![Event::Tick],
-                        &mut operator_handler,
-                        &mut mainctrl,
-                    ) {
+                    if let Err(error) =
+                        handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::Tick], &mut mainctrl)
+                    {
                         println!("Error on timeout: {error}")
                     }
                 }
@@ -324,14 +315,7 @@ fn main() -> anyhow::Result<()> {
                     continue;
                 }
 
-                if !handle_input_events(
-                    input_device,
-                    &mut handler,
-                    &mut dispatcher,
-                    &config,
-                    &mut operator_handler,
-                    &mut mainctrl,
-                )? {
+                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &config, &mut mainctrl)? {
                     let device_info = input_device.to_info();
                     println!("Found a removed device: {:?}", device_info.name);
                     input_devices.retain(|path, _| device_info.path != *path);
@@ -410,7 +394,6 @@ fn handle_input_events(
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
     config: &Config,
-    operator_handler: &mut Option<OperatorHandler>,
     mainctrl: &mut MainController,
 ) -> anyhow::Result<bool> {
     let info = Rc::new(input_device.to_info());
@@ -423,7 +406,7 @@ fn handle_input_events(
     };
 
     let input_events = events.map(|e| Event::new(info.clone(), e)).collect();
-    handle_events(handler, dispatcher, config, input_events, operator_handler, mainctrl)?;
+    handle_events(handler, dispatcher, config, input_events, mainctrl)?;
     Ok(true)
 }
 
@@ -433,11 +416,10 @@ fn handle_events(
     dispatcher: &mut ActionDispatcher,
     config: &Config,
     events: Vec<Event>,
-    operator_handler: &mut Option<OperatorHandler>,
     mainctrl: &mut MainController,
 ) -> anyhow::Result<()> {
     let actions = handler
-        .on_events(events, config, mainctrl.wmclient(), operator_handler)
+        .on_events(events, config, mainctrl.wmclient())
         .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;
     for action in actions {
         dispatcher.on_action(action, mainctrl)?;
