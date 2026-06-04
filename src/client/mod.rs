@@ -83,17 +83,17 @@ impl WMClient {
         }
     }
 
-    fn supported(&mut self) -> Option<()> {
+    fn supported(&mut self) -> bool {
         if self.supported.is_none() {
             let supported = self.client.supported();
             self.supported = Some(supported);
             println!("application-client: {} (supported: {})", self.name, supported);
         }
-        self.supported.unwrap().then_some(())
+        self.supported.unwrap()
     }
 
     pub fn current_window(&mut self) -> Option<String> {
-        if self.supported().is_none() {
+        if !self.supported() {
             return None;
         }
 
@@ -110,7 +110,7 @@ impl WMClient {
     }
 
     pub fn current_application(&mut self) -> Option<String> {
-        if self.supported().is_none() {
+        if !self.supported() {
             return None;
         }
 
@@ -127,7 +127,7 @@ impl WMClient {
     }
 
     pub fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
-        if self.supported().is_some() {
+        if self.supported() {
             self.client.run(command)
         } else {
             Ok(false)
