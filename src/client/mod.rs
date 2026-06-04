@@ -154,14 +154,10 @@ impl WMClient {
         }
 
         if let Some(title) = &self.title_cache {
-            if let Some(title_only) = &window_matcher.only {
-                return title_only.iter().any(|m| m.matches(title));
-            }
-            if let Some(title_not) = &window_matcher.not {
-                return title_not.iter().all(|m| !m.matches(title));
-            }
+            window_matcher.matches(title)
+        } else {
+            false
         }
-        false
     }
 
     pub fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
@@ -174,14 +170,10 @@ impl WMClient {
         }
 
         if let Some(application) = &self.application_cache {
-            if let Some(application_only) = &application_matcher.only {
-                return application_only.iter().any(|m| m.matches(application));
-            }
-            if let Some(application_not) = &application_matcher.not {
-                return application_not.iter().all(|m| !m.matches(application));
-            }
+            application_matcher.matches(application)
+        } else {
+            false
         }
-        false
     }
 }
 

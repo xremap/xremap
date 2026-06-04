@@ -5,6 +5,7 @@ use serde::{Deserialize, Deserializer};
 use std::str::FromStr;
 
 // TODO: Use trait to allow only either `only` or `not`
+// Used for both application and window-title matching.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OnlyOrNot {
@@ -12,6 +13,18 @@ pub struct OnlyOrNot {
     pub only: Option<Vec<ApplicationMatcher>>,
     #[serde(default, deserialize_with = "deserialize_matchers")]
     pub not: Option<Vec<ApplicationMatcher>>,
+}
+
+impl OnlyOrNot {
+    pub fn matches(&self, app: &str) -> bool {
+        if let Some(only) = &self.only {
+            return only.iter().any(|m| m.matches(app));
+        }
+        if let Some(not) = &self.not {
+            return not.iter().all(|m| !m.matches(app));
+        }
+        false
+    }
 }
 
 #[derive(Clone, Debug)]
