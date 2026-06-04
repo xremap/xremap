@@ -89,17 +89,12 @@ fn deserialize_matchers<'de, D>(deserializer: D) -> Result<Option<Vec<Applicatio
 where
     D: Deserializer<'de>,
 {
-    let v = Some(VecOrSingle::<String>::deserialize(deserializer)?.into_vec());
-    match v {
-        None => Ok(None),
-        Some(strings) => {
-            let mut result: Vec<ApplicationMatcher> = vec![];
-            for s in strings {
-                result.push(ApplicationMatcher::from_str(&s).map_err(serde::de::Error::custom)?);
-            }
-            Ok(Some(result))
-        }
+    let strings: Vec<String> = VecOrSingle::deserialize(deserializer)?.into_vec();
+    let mut result = vec![];
+    for s in strings {
+        result.push(ApplicationMatcher::from_str(&s).map_err(serde::de::Error::custom)?);
     }
+    Ok(Some(result))
 }
 
 pub fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
