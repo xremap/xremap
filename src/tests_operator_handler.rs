@@ -6,7 +6,7 @@ use crate::operator_handler::OperatorHandler;
 use crate::tests::assert_events;
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -20,7 +20,7 @@ fn get_handler() -> OperatorHandler {
             chords: vec![],
             // Operators that interact on KEY_H
             // This has highest precedence.
-            remap: HashMap::from([(
+            remap: IndexMap::from([(
                 Key::KEY_H,
                 ExpmapOperator::DoubleTap(DoubleTap {
                     actions: vec![ExpmapAction::Key(Key::KEY_3), ExpmapAction::Key(Key::KEY_4)],
@@ -51,7 +51,7 @@ fn get_handler() -> OperatorHandler {
                     timeout: TIMEOUT,
                 },
             ],
-            remap: HashMap::new(),
+            remap: IndexMap::new(),
             application: None,
             window: None,
         },

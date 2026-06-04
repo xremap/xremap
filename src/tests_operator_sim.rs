@@ -6,7 +6,7 @@ use crate::operator_handler::OperatorHandler;
 use crate::tests::assert_events;
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -28,7 +28,7 @@ fn get_handler() -> OperatorHandler {
                 timeout: TIMEOUT,
             },
         ],
-        remap: HashMap::new(),
+        remap: IndexMap::new(),
         application: None,
         window: None,
     }];

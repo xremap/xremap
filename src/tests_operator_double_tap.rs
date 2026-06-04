@@ -5,7 +5,7 @@ use crate::operator_handler::OperatorHandler;
 use crate::tests::assert_events;
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
@@ -16,7 +16,7 @@ fn get_handler() -> OperatorHandler {
     let config: Vec<Expmap> = vec![Expmap {
         name: "".into(),
         chords: vec![],
-        remap: HashMap::from([(
+        remap: IndexMap::from([(
             Key::KEY_LEFTCTRL,
             ExpmapOperator::DoubleTap(DoubleTap {
                 actions: vec![ExpmapAction::Key(Key::KEY_1)],
