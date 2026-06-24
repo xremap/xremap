@@ -83,8 +83,36 @@ impl CosmicClient {
     }
 
     fn borrow<'a>(&'a mut self) -> Result<(&'a mut EventQueue<State>, &'a mut State)> {
-        if self.queue.is_none() {
-            self.connect()?;
+        // cosmic-comp's Wayland IPC drops periodically (surfaces as a "Broken pipe").
+        // The original code only (re)connected when self.queue was None, but a dropped
+        // connection leaves self.queue as Some — so every later roundtrip() hit the dead
+        // socket and failed forever, silently disabling app-id matching until xremap was
+        // restarted by hand. Reconnect once on a roundtrip error so we self-heal.
+        for attempt in 0..2 {
+            if self.queue.is_none() {
+                self.connect()?;
+            }
+
+            let queue = self
+                .queue
+                .as_mut()
+                .ok_or_else(|| anyhow::format_err!("This cannot happen"))?;
+            let state = self
+                .state
+                .as_mut()
+                .ok_or_else(|| anyhow::format_err!("This cannot happen"))?;
+
+            match queue.roundtrip(state) {
+                Ok(_) => break,
+                Err(e) => {
+                    // Tear down the dead connection so the next iteration reconnects.
+                    self.queue = None;
+                    self.state = None;
+                    if attempt == 1 {
+                        return Err(e).context("cosmic IPC roundtrip failed after reconnect");
+                    }
+                }
+            }
         }
 
         let queue = self
@@ -95,8 +123,6 @@ impl CosmicClient {
             .state
             .as_mut()
             .ok_or_else(|| anyhow::format_err!("This cannot happen"))?;
-
-        queue.roundtrip(state)?;
 
         Ok((queue, state))
     }
