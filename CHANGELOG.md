@@ -1,3 +1,9 @@
+## v0.15.9
+
+- fix(cosmic): reconnect when the cosmic-comp IPC drops. https://github.com/xremap/xremap/pull/947
+- Refactor stuff. https://github.com/xremap/xremap/pull/944
+- Chore(deps): Bump deps
+
 ## v0.15.8
 
 - Add remapping with modifiers as triggers. https://github.com/xremap/xremap/pull/938
