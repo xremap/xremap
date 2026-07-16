@@ -99,7 +99,7 @@ pub fn select_input_devices(
             print!("Selected keyboards automatically since --device options weren't specified");
         }
     } else {
-        print!("Selected devices matching {device_opts:?}");
+        print!("Selecting devices matching {device_opts:?}");
     };
     if ignore_opts.is_empty() {
         println!(":")
