@@ -12,7 +12,7 @@ jobs:
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
         id: metadata
       - name: Wait for status checks
-        uses: lewagon/wait-on-check-action@9312864dfbc9fd208e9c0417843430751c042800
+        uses: lewagon/wait-on-check-action@96d9100b431964d10e0136aff8b9ccb92470505e
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
