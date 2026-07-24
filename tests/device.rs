@@ -10,7 +10,7 @@ use evdev::uinput::VirtualDevice;
 use evdev::{Device, KeyCode as Key};
 use indoc::indoc;
 use std::time::Duration;
-use xremap::device::select_input_devices;
+use xremap::private::select_input_devices;
 
 mod common;
 

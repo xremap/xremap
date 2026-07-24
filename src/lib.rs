@@ -6,8 +6,10 @@ pub use crate::main_impl::xremap_cli;
 pub use evdev::KeyCode;
 
 // Exports used by integration/e2e test cases.
-pub mod device;
-pub mod util;
+pub mod private {
+    pub use crate::device::{select_input_devices, SEPARATOR};
+    pub use crate::util::{until, until_value};
+}
 
 // Modules
 #[cfg(target_os = "freebsd")]
@@ -21,6 +23,7 @@ mod bridge;
 mod client;
 mod command_runner;
 mod config;
+mod device;
 mod emit_handler;
 mod event;
 mod event_handler;
@@ -68,3 +71,4 @@ mod tests_throttle_emit;
 mod tests_virtual_modifier;
 mod throttle_emit;
 mod timeout_manager;
+mod util;
