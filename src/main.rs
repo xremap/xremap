@@ -1,5 +1,5 @@
-use xremap::xremap_cli;
+use xremap::{xremap_cli, NoopPlugin};
 
 fn main() -> anyhow::Result<()> {
-    xremap_cli()
+    xremap_cli(NoopPlugin {})
 }

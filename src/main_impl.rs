@@ -14,6 +14,7 @@ use crate::event::Event;
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
+use crate::plugin::{apply_plugin, Plugin};
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;
 use anyhow::{anyhow, bail, Context};
@@ -115,7 +116,7 @@ enum WatchTargets {
     Config,
 }
 
-pub fn xremap_cli() -> anyhow::Result<()> {
+pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
     env_logger::init();
 
     let Args {
@@ -232,18 +233,28 @@ pub fn xremap_cli() -> anyhow::Result<()> {
                 select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
 
             if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
-                if let Err(error) =
-                    handle_events(&mut handler, &mut dispatcher, &config, vec![Event::OverrideTimeout], &mut mainctrl)
-                {
+                if let Err(error) = handle_events(
+                    &mut handler,
+                    &mut dispatcher,
+                    &config,
+                    vec![Event::OverrideTimeout],
+                    &mut mainctrl,
+                    &mut plugin,
+                ) {
                     println!("Error on remap timeout: {error}")
                 }
             }
 
             if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
                 if timeout_manager.need_timeout()? {
-                    if let Err(error) =
-                        handle_events(&mut handler, &mut dispatcher, &mut config, vec![Event::Tick], &mut mainctrl)
-                    {
+                    if let Err(error) = handle_events(
+                        &mut handler,
+                        &mut dispatcher,
+                        &mut config,
+                        vec![Event::Tick],
+                        &mut mainctrl,
+                        &mut plugin,
+                    ) {
                         println!("Error on timeout: {error}")
                     }
                 }
@@ -254,7 +265,14 @@ pub fn xremap_cli() -> anyhow::Result<()> {
                     continue;
                 }
 
-                if !handle_input_events(input_device, &mut handler, &mut dispatcher, &config, &mut mainctrl)? {
+                if !handle_input_events(
+                    input_device,
+                    &mut handler,
+                    &mut dispatcher,
+                    &config,
+                    &mut mainctrl,
+                    &mut plugin,
+                )? {
                     let device_info = input_device.to_info();
                     println!("Found a removed device: {:?}", device_info.name);
                     input_devices.retain(|path, _| device_info.path != *path);
@@ -334,6 +352,7 @@ fn handle_input_events(
     dispatcher: &mut ActionDispatcher,
     config: &Config,
     mainctrl: &mut MainController,
+    plugin: &mut impl Plugin,
 ) -> anyhow::Result<bool> {
     let info = Rc::new(input_device.to_info());
     let events = match input_device.fetch_events() {
@@ -345,18 +364,23 @@ fn handle_input_events(
     };
 
     let input_events = events.map(|e| Event::new(info.clone(), e)).collect();
-    handle_events(handler, dispatcher, config, input_events, mainctrl)?;
+    handle_events(handler, dispatcher, config, input_events, mainctrl, plugin)?;
     Ok(true)
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
-fn handle_events(
+fn handle_events<T: Plugin>(
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
     config: &Config,
-    events: Vec<Event>,
+    mut events: Vec<Event>,
     mainctrl: &mut MainController,
+    plugin: &mut T,
 ) -> anyhow::Result<()> {
+    if T::IMPLEMENTED {
+        events = apply_plugin(plugin, events)
+    };
+
     let actions = handler
         .on_events(events, config, mainctrl.wmclient())
         .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;

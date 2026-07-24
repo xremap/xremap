@@ -3,6 +3,8 @@
 // Fine-grained public exports
 pub use crate::event::KeyValue;
 pub use crate::main_impl::xremap_cli;
+pub use crate::plugin::{NoopPlugin, Plugin};
+pub use anyhow::Result;
 pub use evdev::KeyCode;
 
 // Exports used by integration/e2e test cases.
@@ -33,6 +35,7 @@ mod operator_double_tap;
 mod operator_handler;
 mod operator_sim;
 mod operators;
+mod plugin;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

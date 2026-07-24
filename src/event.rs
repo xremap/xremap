@@ -40,7 +40,7 @@ impl Event {
 #[derive(Debug, Clone)]
 pub struct KeyEvent {
     pub key: Key,
-    value: KeyValue,
+    pub value: KeyValue,
 }
 
 #[derive(Debug, Clone)]
