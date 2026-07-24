@@ -13,7 +13,7 @@ use std::iter::repeat_with;
 use std::os::fd::AsFd;
 use std::path::PathBuf;
 use std::time::Duration;
-use xremap::util::{until, until_value};
+use xremap::private::{until, until_value};
 
 pub fn key_click(key: KeyCode) -> Vec<InputEvent> {
     vec![key_press(key), key_release(key)]

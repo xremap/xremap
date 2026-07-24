@@ -40,7 +40,7 @@ impl Event {
 #[derive(Debug, Clone)]
 pub struct KeyEvent {
     pub key: Key,
-    value: KeyValue,
+    pub value: KeyValue,
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +49,7 @@ pub struct RelativeEvent {
     pub value: i32,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum KeyValue {
     Press,
     Release,

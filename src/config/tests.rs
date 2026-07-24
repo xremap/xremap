@@ -1,5 +1,5 @@
 use crate::config::validation::validate_config_file;
-use crate::Config;
+use crate::config::Config;
 use indoc::indoc;
 
 #[test]

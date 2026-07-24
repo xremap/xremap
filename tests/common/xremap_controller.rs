@@ -9,8 +9,7 @@ use std::iter::repeat_with;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
-use xremap::device::SEPARATOR;
-use xremap::util::until;
+use xremap::private::{until, SEPARATOR};
 
 pub enum InputDeviceFilter {
     NoFilter,
