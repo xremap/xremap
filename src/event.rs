@@ -49,7 +49,7 @@ pub struct RelativeEvent {
     pub value: i32,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum KeyValue {
     Press,
     Release,
