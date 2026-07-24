@@ -1,21 +1,21 @@
 #![cfg_attr(target_os = "freebsd", allow(dead_code, unused_imports, unused_variables))]
 
+use crate::action_dispatcher::ActionDispatcher;
 use crate::client::print_open_windows;
 use crate::config::Config;
 use crate::device::{
     choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
+    InputDevice,
 };
+use crate::event::Event;
 use crate::event_handler::EventHandler;
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;
-use action_dispatcher::ActionDispatcher;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
-use device::InputDevice;
-use event::Event;
 use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
@@ -218,11 +218,11 @@ fn main() -> anyhow::Result<()> {
 
     if bridge {
         // Default deny launch
-        return bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
+        return crate::bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
     }
 
     // Configuration
-    let mut config = match config::load_configs(&config_paths) {
+    let mut config = match crate::config::load_configs(&config_paths) {
         Ok(config) => config,
         Err(e) => bail!(
             "Failed to load config '{}': {}",
