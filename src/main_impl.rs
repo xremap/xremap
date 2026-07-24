@@ -116,6 +116,13 @@ enum WatchTargets {
     Config,
 }
 
+/// Run xremap CLI
+///  - Inits logging.
+///  - Parses command-line arguments.
+///  - Loads configuration file.
+///  - Selects input devices.
+///  - Creates output device.
+///  - Enters infinite event-loop that listens on input devices.
 pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
     env_logger::init();
 

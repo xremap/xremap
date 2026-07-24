@@ -29,6 +29,7 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 - [Double tap](reference_double_tap.md)
 - [Chords (simultaneous keys)](reference_chords.md)
 - [FreeBSD](reference_freebsd.md)
+- [Scripting](reference_scripting.md)
 
 ### Troubleshooting
 
