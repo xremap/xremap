@@ -547,7 +547,7 @@ Options:
 
 ### Device/ignore
 
-The arguments to `--device` and `--ignore` are described [here](#device). When using
+The arguments taken by `--device` and `--ignore` are described [here](#device). When using
 `--device`, only the devices you specify will be used. To select more than one device separate them
 by `,` or use `--device` for each:
 

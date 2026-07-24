@@ -123,3 +123,40 @@ sudo dnf install notify-send
 sudo pacman --sync libnotify
 sudo zypper install libnotify-tools
 ```
+
+### Disable-touchpad-while-typing stops working
+
+Try this:
+
+1. Create this file if not exists: /etc/libinput/local-overrides.quirks
+2. Add below text:
+
+```text
+[xremap]
+MatchName=xremap
+MatchUdevType=keyboard
+AttrKeyboardIntegration=internal
+```
+
+3. Restart and check
+
+[Reference](https://github.com/xremap/xremap/discussions/656)
+
+If it doesn't work, it might also be necressary to 'pair' the devices: [Mac-Keyboard-Style-On-Linux](https://github.com/Anas-Alhariri/Mac-Keyboard-Style-On-Linux/blob/213c0552d048d8d681bf16d31f63ce08c42b5e98/touchpad-disable-while-typing-fix.sh)
+
+### Special device like trackball stops working
+
+`xremap` creates just one output device. This means the input devices that are grabbed
+look different to the operating system.
+
+For devices that have special features like trackballs the operating system might interpret
+the events differently when it comes from the single virtual xremap device than when they
+come from the individual devices.
+
+It's possible to change the xremap device so it looks to be a trackball by using this `udev` rule:
+
+```
+ACTION=="add", SUBSYSTEM=="input", ATTRS{name}=="xremap", ENV{ID_INPUT_TRACKBALL}="1"
+```
+
+[Reference](https://github.com/xremap/xremap/discussions/838)
