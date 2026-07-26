@@ -3,7 +3,6 @@ use crate::client::kde::plugin_script_handler::ensure_script_loaded;
 use crate::client::{Client, WindowInfo};
 use anyhow::{bail, Result};
 use log::{debug, error, warn};
-use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -17,6 +16,7 @@ pub struct KdeClient {
     active_window: Arc<Mutex<ActiveWindow>>,
     oneoff_scripts: KwinScripts,
     log_window_changes: bool,
+    _server: Option<Connection>,
 }
 
 impl KdeClient {
@@ -25,42 +25,23 @@ impl KdeClient {
             active_window: Arc::new(Mutex::new(ActiveWindow::default())),
             oneoff_scripts: KwinScripts::new(),
             log_window_changes,
+            _server: None,
         }
     }
 
     fn connect(&mut self) -> Result<()> {
-        let active_window = Arc::clone(&self.active_window);
-        let log_window_changes = self.log_window_changes;
-        let (tx, rx) = channel();
-
-        std::thread::spawn(move || {
-            let connect = move || -> Result<Connection> {
-                let awi = DbusServerInterface {
-                    active_window,
-                    log_window_changes,
-                };
-
-                let connection = Builder::session()?
-                    .name("com.k0kubun.Xremap")?
-                    .serve_at("/com/k0kubun/Xremap", awi)?
-                    .build();
-
-                Ok(block_on(connection)?)
-            };
-
-            match connect() {
-                Ok(_) => {
-                    tx.send(Ok(())).unwrap();
-                    loop {
-                        thread::sleep(Duration::from_secs(86400));
-                    }
-                }
-                Err(err) => tx.send(Err(err)).unwrap(),
-            }
-        });
-
-        // Wait for server to start
-        rx.recv().unwrap()?;
+        self._server = Some(block_on(
+            Builder::session()?
+                .name("com.k0kubun.Xremap")?
+                .serve_at(
+                    "/com/k0kubun/Xremap",
+                    DbusServerInterface {
+                        active_window: Arc::clone(&self.active_window),
+                        log_window_changes: self.log_window_changes,
+                    },
+                )?
+                .build(),
+        )?);
 
         // Is only loaded if not already running.
         ensure_script_loaded()?;
