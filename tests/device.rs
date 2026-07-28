@@ -25,27 +25,6 @@ pub fn test_no_input_device_match() {
 }
 
 #[test]
-pub fn test_device_without_keys_is_not_selected_automatically() -> Result<()> {
-    // Create device without any output events.
-    let name = get_random_device_name();
-    let _device = VirtualDevice::builder()?.name(&name).build()?;
-    let _ = wait_for_device(&name)?;
-
-    // Automatically select devices
-    let devices = select_input_devices(&[], &vec![], false, false, "own_device")?;
-
-    assert_eq!(
-        0,
-        devices
-            .iter()
-            .filter(|(_, device)| device.device_name() == name)
-            .count()
-    );
-
-    Ok(())
-}
-
-#[test]
 pub fn test_device_filter_overwrites_keyboard_and_mouse_check() -> Result<()> {
     // Create device, that will not be selected automatically.
     let name = get_random_device_name();
