@@ -17,15 +17,17 @@ pub fn test_device_without_keys_is_not_selected_automatically() -> Result<()> {
     let _ = wait_for_device(&name)?;
 
     // Automatically select devices
-    let devices = select_input_devices(&[], &vec![], false, false, "own_device")?;
-
-    assert_eq!(
-        0,
-        devices
-            .iter()
-            .filter(|(_, device)| device.device_name() == name)
-            .count()
-    );
+    match select_input_devices(&[], &vec![], false, false, "own_device") {
+        Ok(devices) => assert_eq!(
+            0,
+            devices
+                .iter()
+                .filter(|(_, device)| device.device_name() == name)
+                .count()
+        ),
+        // on VMs with no keyboards
+        Err(error) => assert_eq!("Failed to prepare input devices: No device was selected!", error.to_string()),
+    }
 
     Ok(())
 }
