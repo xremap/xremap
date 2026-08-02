@@ -5,7 +5,7 @@ use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
 
 use crate::action_dispatcher::ActionDispatcher;
 use crate::client::print_open_windows;
-use crate::config::Config;
+use crate::config::{load_configs, Config};
 use crate::device::{
     choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
     InputDevice,
@@ -25,7 +25,6 @@ use nix::sys::select::{select, FdSet};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
-use std::mem;
 use std::os::fd::{AsFd, RawFd};
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
@@ -122,7 +121,6 @@ enum WatchTargets {
 pub enum MainAction {
     #[allow(unused)]
     Exit,
-    #[allow(unused)]
     ReloadConfig,
 }
 
@@ -204,8 +202,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
     let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
     let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
-    let mut config_watcher =
-        ConfigWatcher::new(watch_config, config_paths, config.config_watch_debounce_ms, config.notifications)?;
+    let mut config_watcher = ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
 
     // wmclient
     // Default allow launch (Change to false in a major upgrade)
@@ -266,7 +263,21 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             MainAction::Exit => {
                 return Ok(());
             }
-            MainAction::ReloadConfig => todo!(),
+            MainAction::ReloadConfig => match load_configs(&config_paths) {
+                Ok(c) => {
+                    println!("Reloading Config");
+                    // The new config is only partially used.
+                    config = c;
+                    if config.notifications {
+                        mainctrl.show_popup("Ready", None);
+                    }
+                }
+                Err(err) => {
+                    if config.notifications {
+                        mainctrl.show_popup("Config error", Some(&err.to_string()));
+                    }
+                }
+            },
         }
     }
 }
@@ -336,16 +347,10 @@ fn event_loop(
         }
 
         if let Some(config_watcher) = config_watcher.as_mut() {
-            match config_watcher.handle(readable_fds, mainctrl) {
-                Ok(Some(mut c)) => {
-                    mem::swap(config, &mut c);
-                    if config.notifications {
-                        mainctrl.show_popup("Ready", None);
-                    }
-                }
+            match config_watcher.handle(readable_fds) {
+                Ok(Some(_)) => return Ok(MainAction::ReloadConfig),
                 _ => {}
             };
-            // The new config is only partially used.
             continue 'event_loop;
         }
     }
