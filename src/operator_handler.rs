@@ -1,6 +1,6 @@
 use crate::client::WMClient;
+use crate::config::expmap::Expmap;
 use crate::config::expmap_operator::ExpmapOperator;
-use crate::config::Expmap;
 use crate::emit_handler::{Emit, EmitHandler};
 use crate::event::Event;
 use crate::event_handler::PRESS;

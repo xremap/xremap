@@ -1,11 +1,10 @@
+use crate::event::RelativeEvent;
 use crate::main_controller::MainController;
 use crate::throttle_emit::ThrottleEmit;
+use crate::{action::Action, event::KeyEvent};
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
 use log::{debug, error};
 use std::thread;
-
-use crate::event::RelativeEvent;
-use crate::{action::Action, event::KeyEvent};
 
 pub struct ActionDispatcher {
     // Device to emit events
