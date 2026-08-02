@@ -20,4 +20,14 @@ pub enum Action {
     Delay(Duration),
     // Close windows with the given app_class
     CloseByAppClass(String),
+    // Close program gracefully
+    Exit,
+    // Reload configuration file
+    ReloadConfig,
+    // Show popup with window-info used for matching
+    PopWindowInfo,
+    // Print window-info used for matching
+    PrintWindowInfo,
+    // Print list of open windows
+    PrintWindowList,
 }

@@ -8,6 +8,7 @@ pub mod key;
 pub mod key_press;
 pub mod keymap;
 pub mod keymap_action;
+pub mod keymap_action_without_args;
 pub mod modmap;
 pub mod modmap_operator;
 pub mod nested_remap;

@@ -119,7 +119,6 @@ enum WatchTargets {
 // Action that the main loop must perform.
 #[derive(Debug)]
 pub enum MainAction {
-    #[allow(unused)]
     Exit,
     ReloadConfig,
     RemoveDevice(Rc<InputDeviceInfo>),
