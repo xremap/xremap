@@ -314,18 +314,20 @@ fn event_loop(
             select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
 
         if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
-            if let Err(error) =
-                handle_events(handler, dispatcher, &config, vec![Event::OverrideTimeout], mainctrl, plugin)
-            {
-                println!("Error on remap timeout: {error}")
-            }
+            match handle_events(handler, dispatcher, &config, vec![Event::OverrideTimeout], mainctrl, plugin) {
+                Ok(None) => {}
+                Ok(Some(main_action)) => return Ok(main_action),
+                Err(error) => println!("Error on remap timeout: {error}"),
+            };
         }
 
         if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
             if timeout_manager.need_timeout()? {
-                if let Err(error) = handle_events(handler, dispatcher, config, vec![Event::Tick], mainctrl, plugin) {
-                    println!("Error on timeout: {error}")
-                }
+                match handle_events(handler, dispatcher, config, vec![Event::Tick], mainctrl, plugin) {
+                    Ok(None) => {}
+                    Ok(Some(main_action)) => return Ok(main_action),
+                    Err(error) => println!("Error on timeout: {error}"),
+                };
             }
         }
 
@@ -403,8 +405,7 @@ fn handle_input_events(
     };
 
     let input_events = events.map(|e| Event::new(info.clone(), e)).collect();
-    handle_events(handler, dispatcher, config, input_events, mainctrl, plugin)?;
-    Ok(None)
+    handle_events(handler, dispatcher, config, input_events, mainctrl, plugin)
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
@@ -415,7 +416,7 @@ fn handle_events<T: Plugin>(
     mut events: Vec<Event>,
     mainctrl: &mut MainController,
     plugin: &mut T,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<MainAction>> {
     if T::IMPLEMENTED {
         events = apply_plugin(plugin, events)
     };
@@ -423,10 +424,15 @@ fn handle_events<T: Plugin>(
     let actions = handler
         .on_events(events, config, mainctrl.wmclient())
         .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;
+
     for action in actions {
-        dispatcher.on_action(action, mainctrl)?;
+        let main_action = dispatcher.on_action(action, mainctrl)?;
+        // Stop processing actions, if an action for main is returned.
+        if main_action.is_some() {
+            return Ok(main_action);
+        }
     }
-    Ok(())
+    Ok(None)
 }
 
 fn handle_device_changes(

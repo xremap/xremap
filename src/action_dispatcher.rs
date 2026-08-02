@@ -1,5 +1,6 @@
 use crate::event::RelativeEvent;
 use crate::main_controller::MainController;
+use crate::main_impl::MainAction;
 use crate::throttle_emit::ThrottleEmit;
 use crate::{action::Action, event::KeyEvent};
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
@@ -19,7 +20,7 @@ impl ActionDispatcher {
     }
 
     // Execute Actions created by EventHandler. This should be the only public method of ActionDispatcher.
-    pub fn on_action(&mut self, action: Action, mainctrl: &mut MainController) -> anyhow::Result<()> {
+    pub fn on_action(&mut self, action: Action, mainctrl: &mut MainController) -> anyhow::Result<Option<MainAction>> {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
             Action::RelativeEvent(relative_event) => self.on_relative_event(relative_event)?,
@@ -37,7 +38,7 @@ impl ActionDispatcher {
             }
         }
 
-        Ok(())
+        Ok(None)
     }
 
     fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
