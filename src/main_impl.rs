@@ -348,7 +348,7 @@ fn event_loop(
 
         if let Some(config_watcher) = config_watcher.as_mut() {
             match config_watcher.handle(readable_fds) {
-                Ok(Some(_)) => return Ok(MainAction::ReloadConfig),
+                Ok(Some(action)) => return Ok(action),
                 _ => {}
             };
             continue 'event_loop;
