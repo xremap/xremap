@@ -8,7 +8,7 @@ use crate::client::print_open_windows;
 use crate::config::{load_configs, Config};
 use crate::device::{
     choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
-    InputDevice,
+    InputDevice, InputDeviceInfo,
 };
 use crate::event::Event;
 use crate::event_handler::EventHandler;
@@ -122,6 +122,7 @@ pub enum MainAction {
     #[allow(unused)]
     Exit,
     ReloadConfig,
+    RemoveDevice(Rc<InputDeviceInfo>),
 }
 
 /// Run xremap CLI
@@ -251,7 +252,6 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             &mut dispatcher,
             &mut config,
             &mut mainctrl,
-            watch_devices,
             &device_filter,
             &ignore_filter,
             mouse,
@@ -278,6 +278,18 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                     }
                 }
             },
+            MainAction::RemoveDevice(device_info) => {
+                println!("Found a removed device: {:?}", device_info.name);
+                input_devices.retain(|path, _| device_info.path != *path);
+
+                if input_devices.is_empty() {
+                    if watch_devices {
+                        println!("No device was selected, but --watch is waiting for new devices.");
+                    } else {
+                        bail!("Last device was removed, and not watching for new devices");
+                    }
+                }
+            }
         }
     }
 }
@@ -291,7 +303,6 @@ fn event_loop(
     dispatcher: &mut ActionDispatcher,
     config: &mut Config,
     mainctrl: &mut MainController,
-    watch_devices: bool,
     device_filter: &[String],
     ignore_filter: &[String],
     mouse: bool,
@@ -323,20 +334,10 @@ fn event_loop(
                 continue;
             }
 
-            if !handle_input_events(input_device, handler, dispatcher, &config, mainctrl, plugin)? {
-                let device_info = input_device.to_info();
-                println!("Found a removed device: {:?}", device_info.name);
-                input_devices.retain(|path, _| device_info.path != *path);
-
-                if input_devices.is_empty() {
-                    if watch_devices {
-                        println!("No device was selected, but --watch is waiting for new devices.");
-                    } else {
-                        bail!("Last device was removed, and not watching for new devices");
-                    }
-                }
-
-                continue 'event_loop;
+            if let Some(main_action) =
+                handle_input_events(input_device, handler, dispatcher, &config, mainctrl, plugin)?
+            {
+                return Ok(main_action);
             }
         }
 
@@ -384,7 +385,6 @@ fn select_readable<'a>(
     Ok(read_fds.fds(None).map(|fd| fd.as_raw_fd()).collect())
 }
 
-// Return false when a removed device is found.
 fn handle_input_events(
     input_device: &mut InputDevice,
     handler: &mut EventHandler,
@@ -392,19 +392,19 @@ fn handle_input_events(
     config: &Config,
     mainctrl: &mut MainController,
     plugin: &mut impl Plugin,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<Option<MainAction>> {
     let info = Rc::new(input_device.to_info());
     let events = match input_device.fetch_events() {
         Err(err) if err.raw_os_error() == Some(ENODEV) => {
             // The device doesn't exist anymore.
-            return Ok(false);
+            return Ok(Some(MainAction::RemoveDevice(info)));
         }
         events => events.context("Error fetching input events")?,
     };
 
     let input_events = events.map(|e| Event::new(info.clone(), e)).collect();
     handle_events(handler, dispatcher, config, input_events, mainctrl, plugin)?;
-    Ok(true)
+    Ok(None)
 }
 
 // Handle an Event with EventHandler, and dispatch Actions with ActionDispatcher
