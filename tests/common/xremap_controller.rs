@@ -315,7 +315,15 @@ impl XremapController {
         fetch_events(self.output_device.as_mut().expect("Output device is not opened"))
     }
 
+    pub fn fetch_until_end(&mut self) -> anyhow::Result<Vec<InputEvent>> {
+        self.fetch_until(None, true)
+    }
+
     pub fn fetch_until_key(&mut self, key: Key) -> anyhow::Result<Vec<InputEvent>> {
+        self.fetch_until(Some(key), false)
+    }
+
+    pub fn fetch_until(&mut self, key: Option<Key>, allow_eof: bool) -> anyhow::Result<Vec<InputEvent>> {
         let start = Instant::now();
 
         let mut done = false;
@@ -330,11 +338,19 @@ impl XremapController {
                 break;
             }
 
-            let events = self.fetch_events()?;
+            let events = self.fetch_events();
 
-            for event in events {
-                if event.event_type() == EventType::KEY && event.code() == key.0 && event.value() == 0 {
-                    done = true;
+            if let Err(err) = &events {
+                if allow_eof && err.to_string() == "No such device (os error 19)" {
+                    return Ok(result);
+                }
+            }
+
+            for event in events? {
+                if let Some(key) = key {
+                    if event.event_type() == EventType::KEY && event.code() == key.0 && event.value() == 0 {
+                        done = true;
+                    }
                 }
 
                 result.push(event);
