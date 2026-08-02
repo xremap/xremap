@@ -12,10 +12,10 @@
 - [Usage](#Usage)
 - [Configuration](#Configuration)
 - [Commandline arguments](#Commandline-arguments)
-- [Documentation](doc/README.md)
-- [Troubleshooting](doc/troubleshooting.md)
 - [Maintainers](#Maintainers)
 - [License](#License)
+
+See also: [Documentation section](doc/README.md)
 
 ## Concept
 
@@ -197,6 +197,16 @@ keymap:
 ```
 
 Pressing right `Ctrl` and `C` remaps to `End`. This leaves the normal remapping of `Ctrl-C` using left `Ctrl` to copy text.
+
+#### Reload config file with key combo
+
+```yml
+keymap:
+  - remap:
+      f9: { action: reload_config }
+```
+
+[List of all actions](doc/reference_actions.md).
 
 ### modmap
 
