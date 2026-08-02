@@ -1,6 +1,5 @@
 use crate::config::application::OnlyOrNot;
 use crate::util::print_table;
-use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "cosmic")]
@@ -139,9 +138,7 @@ impl WMClient {
     }
 
     pub fn close_windows_by_app_class(&mut self, app_class: &str) -> anyhow::Result<()> {
-        self.client
-            .close_windows_by_app_class(&app_class)
-            .context("Failed to close by app_class.")
+        self.client.close_windows_by_app_class(app_class)
     }
 
     pub fn clear_app_class_and_title(&mut self) {

@@ -3,6 +3,7 @@ use crate::main_controller::MainController;
 use crate::main_impl::MainAction;
 use crate::throttle_emit::ThrottleEmit;
 use crate::{action::Action, event::KeyEvent};
+use anyhow::Context;
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
 use log::{debug, error};
 use std::thread;
@@ -30,11 +31,33 @@ impl ActionDispatcher {
             Action::InputEvent(event) => self.send_event(event)?,
             Action::Command(command) => mainctrl.run_command(command),
             Action::Delay(duration) => thread::sleep(duration),
+            _ => {
+                self.handle_non_fatal_action(action, mainctrl)
+                    .context("Failed handling action.")
+                    .err()
+                    .inspect(|err| error!("{err:?}"));
+            }
+        }
+
+        Ok(None)
+    }
+
+    fn handle_non_fatal_action(
+        &mut self,
+        action: Action,
+        mainctrl: &mut MainController,
+    ) -> anyhow::Result<Option<MainAction>> {
+        match action {
+            Action::KeyEvent(_)
+            | Action::RelativeEvent(_)
+            | Action::MouseMovementEventCollection(_)
+            | Action::InputEvent(_)
+            | Action::Command(_)
+            | Action::Delay(_) => {
+                unreachable!();
+            }
             Action::CloseByAppClass(app_class) => {
-                mainctrl
-                    .wmclient()
-                    .close_windows_by_app_class(&app_class)
-                    .unwrap_or_else(|err| error!("{err:?}"));
+                mainctrl.wmclient().close_windows_by_app_class(&app_class)?;
             }
         }
 
