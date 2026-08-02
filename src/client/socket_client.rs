@@ -135,3 +135,39 @@ impl Client for SocketClient {
         self.command(Request::CloseByAppClass(app_class.into()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::iter::repeat_with;
+    use std::os::unix::net::UnixListener;
+
+    #[test]
+    fn test_run() {
+        let filename =
+            format!("xremap_socket_{}.sock", repeat_with(fastrand::alphanumeric).take(10).collect::<String>());
+        let socket_path = std::env::temp_dir().join(filename);
+        let listener = UnixListener::bind(&socket_path).unwrap();
+        let command = vec!["echo".into(), "hello".into()];
+        let expected_command = command.clone();
+        let handle = spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream);
+            let mut request = String::new();
+            reader.read_line(&mut request).unwrap();
+            assert_eq!(serde_json::from_str::<Request>(&request).unwrap(), Request::Run(expected_command));
+            writeln!(reader.get_mut(), "{}", serde_json::to_string(&Response::Ok).unwrap()).unwrap();
+        });
+        let monitor = Arc::new(SessionMonitor::new(socket_path.to_string_lossy().into()));
+        monitor.set_active_session(socket_path.clone());
+        let mut client = SocketClient {
+            socket_path: socket_path.to_string_lossy().into(),
+            monitor,
+        };
+
+        assert!(client.run(&command).unwrap());
+
+        handle.join().unwrap();
+        std::fs::remove_file(socket_path).unwrap();
+    }
+}

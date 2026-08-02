@@ -29,6 +29,19 @@ impl SessionMonitor {
         self.sessions.lock().unwrap().get_active_session()
     }
 
+    #[cfg(test)]
+    pub(super) fn set_active_session(&self, user_socket: PathBuf) {
+        let session_path = OwnedObjectPath::try_from("/dummy").unwrap();
+        self.sessions.lock().unwrap().insert(
+            session_path,
+            Session {
+                id: "test".into(),
+                user_socket,
+            },
+            true,
+        );
+    }
+
     pub fn run(&self) -> Result<()> {
         let session_new_rule = MatchRule::builder()
             .msg_type(zbus::message::Type::Signal)
