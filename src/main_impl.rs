@@ -229,12 +229,12 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
 
     let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 
+    if config.notifications {
+        mainctrl.show_popup("Ready", None);
+    }
+
     // Main loop
     loop {
-        if config.notifications {
-            mainctrl.show_popup("Ready", None);
-        }
-
         'event_loop: loop {
             let readable_fds =
                 select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
@@ -313,12 +313,14 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                 match config_watcher.handle(readable_fds, &mut mainctrl) {
                     Ok(Some(c)) => {
                         config = c;
-                        break 'event_loop;
+                        if config.notifications {
+                            mainctrl.show_popup("Ready", None);
+                        }
                     }
-                    _ => {
-                        continue 'event_loop;
-                    }
+                    _ => {}
                 };
+                // The new config is only partially used.
+                continue 'event_loop;
             }
         }
     }
