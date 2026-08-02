@@ -1,3 +1,18 @@
+## v0.15.10
+
+Features:
+
+- Add exit, reload_config and more actions. https://github.com/xremap/xremap/pull/980
+- Say "Selecting" before matching devices. https://github.com/xremap/xremap/pull/966
+- Add: Scripting with Rust by using xremap as a library. https://github.com/xremap/xremap/pull/962
+
+Maintenance:
+
+- Remove thread in KDE client. https://github.com/xremap/xremap/pull/964
+- Add to troubleshooting doc. https://github.com/xremap/xremap/pull/963
+- Update test cases. https://github.com/xremap/xremap/pull/982, https://github.com/xremap/xremap/pull/972, https://github.com/xremap/xremap/pull/968, https://github.com/xremap/xremap/pull/967
+- Update dependencies. https://github.com/xremap/xremap/pull/981, https://github.com/xremap/xremap/pull/960, https://github.com/xremap/xremap/pull/953
+
 ## v0.15.9
 
 - fix(cosmic): reconnect when the cosmic-comp IPC drops. https://github.com/xremap/xremap/pull/947

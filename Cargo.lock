@@ -2032,7 +2032,7 @@ checksum = "acf4d1bc32aa46eec18caa634ec3cf4c05bfa151f12b93b510b15190f69a1ca8"
 
 [[package]]
 name = "xremap"
-version = "0.15.9"
+version = "0.15.10"
 dependencies = [
  "anyhow",
  "clap",
