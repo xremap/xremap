@@ -61,6 +61,8 @@ impl ConfigWatcher {
 
     pub fn handle(&mut self, readable_fds: Vec<RawFd>, mainctrl: &mut MainController) -> Result<Option<Config>> {
         if readable_fds.contains(&self.timer.as_fd().as_raw_fd()) {
+            self.change_pending = false;
+            self.timer.unset()?;
             return Ok(Some(self.get_config(mainctrl)?));
         }
 
@@ -84,8 +86,6 @@ impl ConfigWatcher {
     }
 
     fn get_config(&mut self, mainctrl: &mut MainController) -> Result<Config> {
-        self.change_pending = false;
-        self.timer.unset()?;
         let result = load_configs(&self.files);
         match &result {
             Ok(_) => {
