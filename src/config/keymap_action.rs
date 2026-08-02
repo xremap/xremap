@@ -1,6 +1,7 @@
 use crate::config::deserialize_single_field;
 use crate::config::key::parse_key;
 use crate::config::key_press::KeyPress;
+use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::nested_remap::{deserialize_nested_remap, Remap};
 use evdev::KeyCode as Key;
 use serde::{de, Deserialize, Deserializer};
@@ -35,6 +36,8 @@ pub enum KeymapAction {
     Sleep(u64),
     #[serde(deserialize_with = "deserialize_close_by_app_class")]
     CloseByAppClass(String),
+    #[serde(deserialize_with = "deserialize_action_without_args")]
+    Action(ActionWithoutArgs),
 }
 
 fn deserialize_key_press<'de, D>(deserializer: D) -> Result<Key, D::Error>
@@ -159,6 +162,10 @@ where
 
 pub fn deserialize_close_by_app_class<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
     deserialize_single_field(deserializer, "close_apps")
+}
+
+fn deserialize_action_without_args<'de, D: Deserializer<'de>>(deserializer: D) -> Result<ActionWithoutArgs, D::Error> {
+    deserialize_single_field(deserializer, "action")
 }
 
 // Used only for deserializing Vec<Action>

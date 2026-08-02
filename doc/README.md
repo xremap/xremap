@@ -21,6 +21,7 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 - [Configuration options](reference_config_options.md)
 - [Key names](reference_key_names.md)
 - [Actions](reference_actions.md)
+- [Key sequence](reference_key_sequence.md)
 - [Multi-purpose key (alias: tap-hold key)](reference_multipurpose_key.md)
 - [Press/release key](reference_press_release_key.md)
 
@@ -37,4 +38,4 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 
 ### Upgrade guide
 
-- [Upgrade to v.0.15.0](../UPGRADE.md#Upgrade-to-v0.15)
+- [Upgrade to v0.15.0](../UPGRADE.md#Upgrade-to-v0.15)

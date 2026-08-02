@@ -3,6 +3,7 @@ use crate::client::WMClient;
 use crate::config::key_press::{KeyPress, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
+use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiPurposeKey, PressReleaseKey};
 use crate::config::nested_remap::Remap;
 use crate::config::Config;
@@ -694,6 +695,23 @@ impl EventHandler {
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
             KeymapAction::CloseByAppClass(app_class) => self.actions.push(Action::CloseByAppClass(app_class.clone())),
+            KeymapAction::Action(action) => match action {
+                ActionWithoutArgs::PopWindowInfo => {
+                    self.send_action(Action::PopWindowInfo);
+                }
+                ActionWithoutArgs::PrintWindowInfo => {
+                    self.send_action(Action::PrintWindowInfo);
+                }
+                ActionWithoutArgs::PrintWindowList => {
+                    self.send_action(Action::PrintWindowList);
+                }
+                ActionWithoutArgs::Exit => {
+                    self.send_action(Action::Exit);
+                }
+                ActionWithoutArgs::ReloadConfig => {
+                    self.send_action(Action::ReloadConfig);
+                }
+            },
         }
         Ok(())
     }

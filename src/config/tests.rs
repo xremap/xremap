@@ -729,7 +729,7 @@ fn yaml_assert_parse(yaml: &str) {
     }
 }
 
-fn assert_invalid_config(config: &str, expected: &str) {
+pub fn assert_invalid_config(config: &str, expected: &str) {
     let errmsg = validate_config_file(&serde_yaml::from_str::<Config>(config).unwrap())
         .unwrap_err()
         .to_string();

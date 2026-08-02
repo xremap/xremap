@@ -1,11 +1,13 @@
+use crate::client::print_windows;
+use crate::event::RelativeEvent;
 use crate::main_controller::MainController;
+use crate::main_impl::MainAction;
 use crate::throttle_emit::ThrottleEmit;
+use crate::{action::Action, event::KeyEvent};
+use anyhow::Context;
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
 use log::{debug, error};
 use std::thread;
-
-use crate::event::RelativeEvent;
-use crate::{action::Action, event::KeyEvent};
 
 pub struct ActionDispatcher {
     // Device to emit events
@@ -20,7 +22,7 @@ impl ActionDispatcher {
     }
 
     // Execute Actions created by EventHandler. This should be the only public method of ActionDispatcher.
-    pub fn on_action(&mut self, action: Action, mainctrl: &mut MainController) -> anyhow::Result<()> {
+    pub fn on_action(&mut self, action: Action, mainctrl: &mut MainController) -> anyhow::Result<Option<MainAction>> {
         match action {
             Action::KeyEvent(key_event) => self.on_key_event(key_event)?,
             Action::RelativeEvent(relative_event) => self.on_relative_event(relative_event)?,
@@ -30,15 +32,64 @@ impl ActionDispatcher {
             Action::InputEvent(event) => self.send_event(event)?,
             Action::Command(command) => mainctrl.run_command(command),
             Action::Delay(duration) => thread::sleep(duration),
-            Action::CloseByAppClass(app_class) => {
-                mainctrl
-                    .wmclient()
-                    .close_windows_by_app_class(&app_class)
-                    .unwrap_or_else(|err| error!("{err:?}"));
+            Action::Exit => {
+                return Ok(Some(MainAction::Exit));
+            }
+            Action::ReloadConfig => {
+                return Ok(Some(MainAction::ReloadConfig));
+            }
+            _ => {
+                self.handle_non_fatal_action(action, mainctrl)
+                    .context("Failed handling action.")
+                    .err()
+                    .inspect(|err| error!("{err:?}"));
             }
         }
 
-        Ok(())
+        Ok(None)
+    }
+
+    fn handle_non_fatal_action(
+        &mut self,
+        action: Action,
+        mainctrl: &mut MainController,
+    ) -> anyhow::Result<Option<MainAction>> {
+        match action {
+            Action::KeyEvent(_)
+            | Action::RelativeEvent(_)
+            | Action::MouseMovementEventCollection(_)
+            | Action::InputEvent(_)
+            | Action::Command(_)
+            | Action::Delay(_)
+            | Action::Exit
+            | Action::ReloadConfig => {
+                unreachable!();
+            }
+            Action::CloseByAppClass(app_class) => {
+                mainctrl.wmclient().close_windows_by_app_class(&app_class)?;
+            }
+            Action::PopWindowInfo => {
+                let msg = self.get_window_info(mainctrl)?;
+                mainctrl.show_popup("window", Some(&msg));
+            }
+            Action::PrintWindowInfo => {
+                println!("{}", self.get_window_info(mainctrl)?);
+            }
+            Action::PrintWindowList => {
+                let windows = mainctrl.wmclient().window_list()?;
+                print_windows(windows)?;
+            }
+        }
+
+        Ok(None)
+    }
+
+    fn get_window_info(&mut self, mainctrl: &mut MainController) -> std::io::Result<String> {
+        let wmclient = mainctrl.wmclient();
+        let title = wmclient.current_window().unwrap_or_default();
+        let app_class = wmclient.current_application().unwrap_or_default();
+
+        Ok(format!("title: {title}\napp: {app_class}"))
     }
 
     fn on_key_event(&mut self, event: KeyEvent) -> std::io::Result<()> {
