@@ -3,6 +3,7 @@
 use crate::common::{assert_events, containsn, key_press, key_release, xremap_controller::XremapController};
 use evdev::KeyCode;
 use indoc::indoc;
+use std::time::Instant;
 mod common;
 
 #[test]
@@ -95,6 +96,8 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
         .watch_config("config_watch_debounce_ms: 10")?
         .build()?;
 
+    let start_write = Instant::now();
+
     std::fs::write(&ctrl.get_config_file(), "")?;
     std::fs::write(&ctrl.get_config_file(), "partial_config")?;
     std::fs::write(&ctrl.get_config_file(), "")?;
@@ -107,6 +110,9 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
               f12: key_1
         "},
     )?;
+
+    let write_duration = Instant::now().duration_since(start_write);
+    println!("write duration: {:?}", write_duration);
 
     std::thread::sleep(std::time::Duration::from_millis(20));
 
@@ -122,7 +128,12 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
 
     let stdout = ctrl.kill_for_output()?.stdout;
 
-    assert!(containsn(1, &stdout, "Reloading Config"));
+    // Github tests have been observed to take around 100ms to complete
+    // write IO for this test case. But this test only makes sense
+    // if the writes are faster than the debounce value.
+    if write_duration < std::time::Duration::from_millis(10) {
+        assert!(containsn(1, &stdout, "Reloading Config"));
+    }
 
     Ok(())
 }
