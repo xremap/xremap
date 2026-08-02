@@ -223,8 +223,11 @@ pub fn print_open_windows() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let mut windows = wmclient.window_list()?;
+    let windows = wmclient.window_list()?;
+    print_windows(windows)
+}
 
+pub fn print_windows(mut windows: Vec<WindowInfo>) -> anyhow::Result<()> {
     windows.sort();
 
     let mut table: Vec<Vec<String>> = vec![];
