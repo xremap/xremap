@@ -25,6 +25,7 @@ use nix::sys::select::{select, FdSet};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
+use std::mem;
 use std::os::fd::{AsFd, RawFd};
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
@@ -114,6 +115,15 @@ enum WatchTargets {
     Device,
     /// reload the config automatically
     Config,
+}
+
+// Action that the main loop must perform.
+#[derive(Debug)]
+pub enum MainAction {
+    #[allow(unused)]
+    Exit,
+    #[allow(unused)]
+    ReloadConfig,
 }
 
 /// Run xremap CLI
@@ -235,93 +245,108 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
 
     // Main loop
     loop {
-        'event_loop: loop {
-            let readable_fds =
-                select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
+        let main_action = event_loop(
+            &mut input_devices,
+            &device_watcher,
+            &mut config_watcher,
+            &timeout_manager,
+            &mut handler,
+            &mut dispatcher,
+            &mut config,
+            &mut mainctrl,
+            watch_devices,
+            &device_filter,
+            &ignore_filter,
+            mouse,
+            &own_device,
+            &mut plugin,
+        )?;
 
-            if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
-                if let Err(error) = handle_events(
-                    &mut handler,
-                    &mut dispatcher,
-                    &config,
-                    vec![Event::OverrideTimeout],
-                    &mut mainctrl,
-                    &mut plugin,
-                ) {
-                    println!("Error on remap timeout: {error}")
+        match main_action {
+            MainAction::Exit => {
+                return Ok(());
+            }
+            MainAction::ReloadConfig => todo!(),
+        }
+    }
+}
+
+fn event_loop(
+    input_devices: &mut HashMap<PathBuf, InputDevice>,
+    device_watcher: &Option<DeviceWatcher>,
+    config_watcher: &mut Option<ConfigWatcher>,
+    timeout_manager: &Rc<TimeoutManager>,
+    handler: &mut EventHandler,
+    dispatcher: &mut ActionDispatcher,
+    config: &mut Config,
+    mainctrl: &mut MainController,
+    watch_devices: bool,
+    device_filter: &[String],
+    ignore_filter: &[String],
+    mouse: bool,
+    own_device: &str,
+    plugin: &mut impl Plugin,
+) -> anyhow::Result<MainAction> {
+    'event_loop: loop {
+        let readable_fds =
+            select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
+
+        if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
+            if let Err(error) =
+                handle_events(handler, dispatcher, &config, vec![Event::OverrideTimeout], mainctrl, plugin)
+            {
+                println!("Error on remap timeout: {error}")
+            }
+        }
+
+        if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
+            if timeout_manager.need_timeout()? {
+                if let Err(error) = handle_events(handler, dispatcher, config, vec![Event::Tick], mainctrl, plugin) {
+                    println!("Error on timeout: {error}")
                 }
             }
+        }
 
-            if readable_fds.contains(&timeout_manager.as_fd().as_raw_fd()) {
-                if timeout_manager.need_timeout()? {
-                    if let Err(error) = handle_events(
-                        &mut handler,
-                        &mut dispatcher,
-                        &mut config,
-                        vec![Event::Tick],
-                        &mut mainctrl,
-                        &mut plugin,
-                    ) {
-                        println!("Error on timeout: {error}")
+        for input_device in input_devices.values_mut() {
+            if !readable_fds.contains(&input_device.as_fd().as_raw_fd()) {
+                continue;
+            }
+
+            if !handle_input_events(input_device, handler, dispatcher, &config, mainctrl, plugin)? {
+                let device_info = input_device.to_info();
+                println!("Found a removed device: {:?}", device_info.name);
+                input_devices.retain(|path, _| device_info.path != *path);
+
+                if input_devices.is_empty() {
+                    if watch_devices {
+                        println!("No device was selected, but --watch is waiting for new devices.");
+                    } else {
+                        bail!("Last device was removed, and not watching for new devices");
                     }
                 }
-            }
 
-            for input_device in input_devices.values_mut() {
-                if !readable_fds.contains(&input_device.as_fd().as_raw_fd()) {
-                    continue;
-                }
-
-                if !handle_input_events(
-                    input_device,
-                    &mut handler,
-                    &mut dispatcher,
-                    &config,
-                    &mut mainctrl,
-                    &mut plugin,
-                )? {
-                    let device_info = input_device.to_info();
-                    println!("Found a removed device: {:?}", device_info.name);
-                    input_devices.retain(|path, _| device_info.path != *path);
-
-                    if input_devices.is_empty() {
-                        if watch_devices {
-                            println!("No device was selected, but --watch is waiting for new devices.");
-                        } else {
-                            bail!("Last device was removed, and not watching for new devices");
-                        }
-                    }
-
-                    continue 'event_loop;
-                }
-            }
-
-            if let Some(device_watcher) = &device_watcher {
-                if let Ok(events) = device_watcher.read_events() {
-                    handle_device_changes(
-                        events,
-                        &mut input_devices,
-                        &device_filter,
-                        &ignore_filter,
-                        mouse,
-                        &own_device,
-                    );
-                }
-            }
-
-            if let Some(config_watcher) = config_watcher.as_mut() {
-                match config_watcher.handle(readable_fds, &mut mainctrl) {
-                    Ok(Some(c)) => {
-                        config = c;
-                        if config.notifications {
-                            mainctrl.show_popup("Ready", None);
-                        }
-                    }
-                    _ => {}
-                };
-                // The new config is only partially used.
                 continue 'event_loop;
             }
+        }
+
+        if let Some(device_watcher) = &device_watcher {
+            if let Ok(events) = device_watcher.read_events() {
+                handle_device_changes(events, input_devices, &device_filter, &ignore_filter, mouse, &own_device);
+            }
+        }
+
+        if let Some(config_watcher) = config_watcher.as_mut() {
+            match config_watcher.handle(readable_fds, mainctrl) {
+                Ok(Some(mut c)) => {
+                    mem::swap(config, &mut c);
+                    if config.notifications {
+                        mainctrl.show_popup("Ready", None);
+                    }
+                }
+                _ => {}
+            };
+            // The new config is only partially used.
+            continue 'event_loop;
         }
     }
 }
