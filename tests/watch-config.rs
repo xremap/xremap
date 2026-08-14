@@ -31,7 +31,7 @@ pub fn e2e_watch_config() -> anyhow::Result<()> {
         "},
     );
 
-    assert!(ctrl.kill_for_output()?.stdout.contains("Reloading Config"));
+    assert!(ctrl.kill_for_output()?.stdout.contains("Config Reloaded"));
 
     Ok(())
 }
@@ -132,7 +132,7 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
     // write IO for this test case. But this test only makes sense
     // if the writes are faster than the debounce value.
     if write_duration < std::time::Duration::from_millis(10) {
-        assert!(containsn(1, &stdout, "Reloading Config"));
+        assert!(containsn(1, &stdout, "Config Reloaded"));
     }
 
     Ok(())
@@ -162,7 +162,7 @@ pub fn e2e_config_watch_with_notifications() -> anyhow::Result<()> {
 
     assert!(containsn(2, &stdout, r#"["notify-send", "-a", "xremap", "Ready"]"#));
     assert!(containsn(1, &stdout, r#"["notify-send", "-a", "xremap", "Config error""#));
-    assert!(containsn(1, &stdout, "Reloading Config"));
+    assert!(containsn(1, &stdout, "Config Reloaded"));
 
     Ok(())
 }

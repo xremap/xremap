@@ -120,7 +120,7 @@ enum WatchTargets {
 #[derive(Debug)]
 pub enum MainAction {
     Exit,
-    ReloadConfig,
+    Reload { full: bool },
     RemoveDevice(Rc<InputDeviceInfo>),
 }
 
@@ -263,15 +263,19 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                 MainAction::Exit => {
                     return Ok(());
                 }
-                MainAction::ReloadConfig => match load_configs(&config_paths) {
+                MainAction::Reload { full } => match load_configs(&config_paths) {
                     Ok(new_config) => {
-                        println!("Reloading Config");
-                        // The new config is only partially used.
                         config = new_config;
                         if config.notifications {
                             mainctrl.show_popup("Ready", None);
                         }
-                        continue 'event_loop;
+                        if full {
+                            unreachable!();
+                        } else {
+                            // The new config is only partially used.
+                            println!("Config Reloaded");
+                            continue 'event_loop;
+                        }
                     }
                     Err(err) => {
                         if config.notifications {

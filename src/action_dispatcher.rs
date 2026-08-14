@@ -36,7 +36,7 @@ impl ActionDispatcher {
                 return Ok(Some(MainAction::Exit));
             }
             Action::ReloadConfig => {
-                return Ok(Some(MainAction::ReloadConfig));
+                return Ok(Some(MainAction::Reload { full: false }));
             }
             _ => {
                 self.handle_non_fatal_action(action, mainctrl)
