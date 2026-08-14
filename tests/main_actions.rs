@@ -1,7 +1,7 @@
 #![cfg(feature = "device-test")]
 
 use crate::common::xremap_controller::XremapController;
-use crate::common::{assert_events, key_press, key_release};
+use crate::common::{assert_events, containsn, key_press, key_release};
 use evdev::KeyCode;
 use indoc::indoc;
 use std::thread;
@@ -70,6 +70,87 @@ pub fn e2e_actions_before_exit_action() -> anyhow::Result<()> {
     ctrl.wait_for_output()?;
 
     Ok(())
+}
+
+#[test]
+pub fn e2e_full_reload_recreates_output_device() -> anyhow::Result<()> {
+    let mut ctrl = XremapController::builder()
+        .config(indoc! {"
+              keymap:
+                - remap:
+                    f12: { action: reload }
+            "})?
+        .build()?;
+
+    ctrl.emit_events(&vec![key_press(KeyCode::KEY_F12)])?;
+
+    ctrl.fetch_until_end()?; // Will timeout if device isn't closed.
+
+    ctrl.kill()
+}
+
+#[test]
+pub fn e2e_full_reload_cancels_at_config_error() -> anyhow::Result<()> {
+    let mut ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
+        .config(indoc! {"
+              keymap:
+                - remap:
+                    f11: KEY_A
+                    f12: { action: reload }
+            "})?
+        .build()?;
+
+    std::fs::write(&ctrl.get_config_file(), "partial_config")?;
+
+    ctrl.emit_events(&vec![key_press(KeyCode::KEY_F12)])?;
+
+    // Old config is still in effect.
+    ctrl.emit_events(&vec![key_press(KeyCode::KEY_F11), key_release(KeyCode::KEY_F11)])?;
+
+    assert_events(
+        ctrl.fetch_until_key(KeyCode::KEY_A)?,
+        indoc! {"
+            a:1
+            a:0
+        "},
+    );
+
+    let stdout = ctrl.kill_for_output()?.stdout;
+    assert!(containsn(1, &stdout, "Config error"));
+
+    Ok(())
+}
+
+#[test]
+pub fn e2e_full_reload_cancels_timers() -> anyhow::Result<()> {
+    let mut ctrl = XremapController::builder()
+        .config(indoc! {"
+              experimental_map:
+                - remap:
+                    f11: { double: A }
+              keymap:
+                - remap:
+                    f12: { action: reload }
+            "})?
+        .build()?;
+
+    // These keys are buffered, and will be forgot because of reload.
+    ctrl.emit_events(&vec![key_press(KeyCode::KEY_F11), key_release(KeyCode::KEY_F11)])?;
+
+    // Reload
+    ctrl.emit_events(&vec![key_press(KeyCode::KEY_F12), key_release(KeyCode::KEY_F12)])?;
+    ctrl.fetch_until_end()?; // Will timeout if device isn't closed.
+
+    // Reopen device
+    ctrl.forget_output_device()?;
+    ctrl.open_output_device()?;
+
+    // DoubleTapOperator will buffer KEY_MOVE sent by `fetch()`, so it's guaranteed
+    //  that it has made a decision when KEY_MOVE is received here.
+    assert_events(ctrl.fetch()?, "");
+
+    ctrl.kill()
 }
 
 #[test]
