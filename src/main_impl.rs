@@ -263,10 +263,10 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                 return Ok(());
             }
             MainAction::ReloadConfig => match load_configs(&config_paths) {
-                Ok(c) => {
+                Ok(new_config) => {
                     println!("Reloading Config");
                     // The new config is only partially used.
-                    config = c;
+                    config = new_config;
                     if config.notifications {
                         mainctrl.show_popup("Ready", None);
                     }
