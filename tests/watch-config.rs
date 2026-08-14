@@ -39,6 +39,7 @@ pub fn e2e_watch_config() -> anyhow::Result<()> {
 #[test]
 pub fn e2e_old_config_remains_active_when_error() -> anyhow::Result<()> {
     let mut ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
         .watch_config(indoc! {"
               config_watch_debounce_ms: 10
               keymap:

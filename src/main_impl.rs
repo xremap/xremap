@@ -284,6 +284,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                         if config.notifications {
                             mainctrl.show_popup("Config error", Some(&err.to_string()));
                         }
+                        println!("Config error: {}", err.to_string());
                         continue 'event_loop;
                     }
                 },
