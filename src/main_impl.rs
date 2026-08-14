@@ -176,8 +176,17 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         return crate::bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
     }
 
+    let watch_devices = watch.contains(&WatchTargets::Device);
+    let watch_config = watch.contains(&WatchTargets::Config);
+
+    let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
+    let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
+
+    // Device name
+    let own_device = output_device_name.unwrap_or_else(choose_device_name);
+
     // Configuration
-    let mut config = match crate::config::load_configs(&config_paths) {
+    let mut config = match load_configs(&config_paths) {
         Ok(config) => config,
         Err(e) => bail!(
             "Failed to load config '{}': {}",
@@ -189,22 +198,15 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             e
         ),
     };
-    let watch_devices = watch.contains(&WatchTargets::Device);
-    let watch_config = watch.contains(&WatchTargets::Config);
 
     let timeout_manager = Rc::new(TimeoutManager::new());
 
-    // Device name
-    let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
-
-    // Event listeners
-    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
-    let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
+
+    // Watchers
     let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
     let mut config_watcher = ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
 
-    // wmclient
     // Default allow launch (Change to false in a major upgrade)
     let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
@@ -216,9 +218,10 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
     };
 
     // EventHandler
+    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
+    let delay = Duration::from_millis(config.keypress_delay_ms);
     let mut handler = EventHandler::new(timer, &config.default_mode, delay, operator_handler);
-    let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
-    let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
+
     let output_device = output_device(
         input_devices.values().next().map(InputDevice::bus_type),
         config.enable_wheel,

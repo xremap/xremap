@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 pub struct ThrottleEmit {
     delay: Duration,
-    // When modifier was last either pressed or released.
+    // When any modifier was last either pressed or released.
     last_mod: Instant,
     // When any ordinary key was last pressed.
     last_key_press: Instant,
