@@ -242,51 +242,56 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
 
     // Main loop
     loop {
-        let main_action = event_loop(
-            &mut input_devices,
-            &device_watcher,
-            &mut config_watcher,
-            &timeout_manager,
-            &mut handler,
-            &mut dispatcher,
-            &mut config,
-            &mut mainctrl,
-            &device_filter,
-            &ignore_filter,
-            mouse,
-            &own_device,
-            &mut plugin,
-        )?;
+        'event_loop: loop {
+            let main_action = event_loop(
+                &mut input_devices,
+                &device_watcher,
+                &mut config_watcher,
+                &timeout_manager,
+                &mut handler,
+                &mut dispatcher,
+                &mut config,
+                &mut mainctrl,
+                &device_filter,
+                &ignore_filter,
+                mouse,
+                &own_device,
+                &mut plugin,
+            )?;
 
-        match main_action {
-            MainAction::Exit => {
-                return Ok(());
-            }
-            MainAction::ReloadConfig => match load_configs(&config_paths) {
-                Ok(new_config) => {
-                    println!("Reloading Config");
-                    // The new config is only partially used.
-                    config = new_config;
-                    if config.notifications {
-                        mainctrl.show_popup("Ready", None);
-                    }
+            match main_action {
+                MainAction::Exit => {
+                    return Ok(());
                 }
-                Err(err) => {
-                    if config.notifications {
-                        mainctrl.show_popup("Config error", Some(&err.to_string()));
+                MainAction::ReloadConfig => match load_configs(&config_paths) {
+                    Ok(new_config) => {
+                        println!("Reloading Config");
+                        // The new config is only partially used.
+                        config = new_config;
+                        if config.notifications {
+                            mainctrl.show_popup("Ready", None);
+                        }
+                        continue 'event_loop;
                     }
-                }
-            },
-            MainAction::RemoveDevice(device_info) => {
-                println!("Found a removed device: {:?}", device_info.name);
-                input_devices.retain(|path, _| device_info.path != *path);
+                    Err(err) => {
+                        if config.notifications {
+                            mainctrl.show_popup("Config error", Some(&err.to_string()));
+                        }
+                        continue 'event_loop;
+                    }
+                },
+                MainAction::RemoveDevice(device_info) => {
+                    println!("Found a removed device: {:?}", device_info.name);
+                    input_devices.retain(|path, _| device_info.path != *path);
 
-                if input_devices.is_empty() {
-                    if watch_devices {
-                        println!("No device was selected, but --watch is waiting for new devices.");
-                    } else {
-                        bail!("Last device was removed, and not watching for new devices");
+                    if input_devices.is_empty() {
+                        if watch_devices {
+                            println!("No device was selected, but --watch is waiting for new devices.");
+                        } else {
+                            bail!("Last device was removed, and not watching for new devices");
+                        }
                     }
+                    continue 'event_loop;
                 }
             }
         }
