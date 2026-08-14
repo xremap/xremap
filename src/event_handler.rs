@@ -708,6 +708,9 @@ impl EventHandler {
                 ActionWithoutArgs::Exit => {
                     self.send_action(Action::Exit);
                 }
+                ActionWithoutArgs::Reload => {
+                    self.send_action(Action::Reload);
+                }
                 ActionWithoutArgs::ReloadConfig => {
                     self.send_action(Action::ReloadConfig);
                 }

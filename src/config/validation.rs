@@ -102,12 +102,12 @@ fn check_specific_actions(actions: &Vec<KeymapAction>) -> anyhow::Result<()> {
     let mut actions_allowed = true;
     for action in actions {
         if !actions_allowed {
-            bail!("Actions after exit or reload_config are not allowed.")
+            bail!("Actions after exit or reload are not allowed.")
         }
 
         if let KeymapAction::Action(inner_action) = action {
             match inner_action {
-                ActionWithoutArgs::Exit | ActionWithoutArgs::ReloadConfig => {
+                ActionWithoutArgs::Exit | ActionWithoutArgs::Reload | ActionWithoutArgs::ReloadConfig => {
                     actions_allowed = false;
                 }
                 _ => {}

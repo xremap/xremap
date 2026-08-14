@@ -120,7 +120,7 @@ enum WatchTargets {
 #[derive(Debug)]
 pub enum MainAction {
     Exit,
-    ReloadConfig,
+    Reload { full: bool },
     RemoveDevice(Rc<InputDeviceInfo>),
 }
 
@@ -176,8 +176,17 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         return crate::bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
     }
 
+    let watch_devices = watch.contains(&WatchTargets::Device);
+    let watch_config = watch.contains(&WatchTargets::Config);
+
+    let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
+    let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
+
+    // Device name
+    let own_device = output_device_name.unwrap_or_else(choose_device_name);
+
     // Configuration
-    let mut config = match crate::config::load_configs(&config_paths) {
+    let mut config = match load_configs(&config_paths) {
         Ok(config) => config,
         Err(e) => bail!(
             "Failed to load config '{}': {}",
@@ -189,104 +198,109 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             e
         ),
     };
-    let watch_devices = watch.contains(&WatchTargets::Device);
-    let watch_config = watch.contains(&WatchTargets::Config);
 
-    let timeout_manager = Rc::new(TimeoutManager::new());
+    'main_loop: loop {
+        let timeout_manager = Rc::new(TimeoutManager::new());
 
-    // Device name
-    let own_device: String = output_device_name.unwrap_or_else(choose_device_name);
+        let mut input_devices =
+            select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
 
-    // Event listeners
-    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
-    let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
-    let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
-    let mut config_watcher = ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
+        // Watchers
+        let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
+        let mut config_watcher =
+            ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
 
-    // wmclient
-    // Default allow launch (Change to false in a major upgrade)
-    let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
+        // Default allow launch (Change to false in a major upgrade)
+        let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
-    // OperatorHandler
-    let operator_handler = if config.experimental_map.len() > 0 {
-        Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
-    } else {
-        None
-    };
+        // OperatorHandler
+        let operator_handler = if config.experimental_map.len() > 0 {
+            Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
+        } else {
+            None
+        };
 
-    // EventHandler
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay, operator_handler);
-    let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
-    let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
-    let output_device = output_device(
-        input_devices.values().next().map(InputDevice::bus_type),
-        config.enable_wheel,
-        vendor,
-        product,
-        &own_device,
-    )
-    .context("Failed to prepare an output device")?;
+        // EventHandler
+        let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
+        let delay = Duration::from_millis(config.keypress_delay_ms);
+        let mut handler = EventHandler::new(timer, &config.default_mode, delay, operator_handler);
 
-    let throttle_emit = if config.throttle_ms == 0 {
-        None
-    } else {
-        Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
-    };
-
-    let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
-
-    if config.notifications {
-        mainctrl.show_popup("Ready", None);
-    }
-
-    // Main loop
-    loop {
-        let main_action = event_loop(
-            &mut input_devices,
-            &device_watcher,
-            &mut config_watcher,
-            &timeout_manager,
-            &mut handler,
-            &mut dispatcher,
-            &mut config,
-            &mut mainctrl,
-            &device_filter,
-            &ignore_filter,
-            mouse,
+        let output_device = output_device(
+            input_devices.values().next().map(InputDevice::bus_type),
+            config.enable_wheel,
+            vendor,
+            product,
             &own_device,
-            &mut plugin,
-        )?;
+        )
+        .context("Failed to prepare an output device")?;
 
-        match main_action {
-            MainAction::Exit => {
-                return Ok(());
-            }
-            MainAction::ReloadConfig => match load_configs(&config_paths) {
-                Ok(c) => {
-                    println!("Reloading Config");
-                    // The new config is only partially used.
-                    config = c;
-                    if config.notifications {
-                        mainctrl.show_popup("Ready", None);
-                    }
-                }
-                Err(err) => {
-                    if config.notifications {
-                        mainctrl.show_popup("Config error", Some(&err.to_string()));
-                    }
-                }
-            },
-            MainAction::RemoveDevice(device_info) => {
-                println!("Found a removed device: {:?}", device_info.name);
-                input_devices.retain(|path, _| device_info.path != *path);
+        let throttle_emit = if config.throttle_ms == 0 {
+            None
+        } else {
+            Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
+        };
 
-                if input_devices.is_empty() {
-                    if watch_devices {
-                        println!("No device was selected, but --watch is waiting for new devices.");
-                    } else {
-                        bail!("Last device was removed, and not watching for new devices");
+        let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
+
+        if config.notifications {
+            mainctrl.show_popup("Ready", None);
+        }
+
+        'event_loop: loop {
+            let main_action = event_loop(
+                &mut input_devices,
+                &device_watcher,
+                &mut config_watcher,
+                &timeout_manager,
+                &mut handler,
+                &mut dispatcher,
+                &config,
+                &mut mainctrl,
+                &device_filter,
+                &ignore_filter,
+                mouse,
+                &own_device,
+                &mut plugin,
+            )?;
+
+            match main_action {
+                MainAction::Exit => {
+                    return Ok(());
+                }
+                MainAction::Reload { full } => match load_configs(&config_paths) {
+                    Ok(new_config) => {
+                        config = new_config;
+                        if config.notifications {
+                            mainctrl.show_popup("Ready", None);
+                        }
+                        if full {
+                            continue 'main_loop;
+                        } else {
+                            // The new config is only partially used.
+                            println!("Config Reloaded");
+                            continue 'event_loop;
+                        }
                     }
+                    Err(err) => {
+                        if config.notifications {
+                            mainctrl.show_popup("Config error", Some(&err.to_string()));
+                        }
+                        println!("Config error: {}", err.to_string());
+                        continue 'event_loop;
+                    }
+                },
+                MainAction::RemoveDevice(device_info) => {
+                    println!("Found a removed device: {:?}", device_info.name);
+                    input_devices.retain(|path, _| device_info.path != *path);
+
+                    if input_devices.is_empty() {
+                        if watch_devices {
+                            println!("No device was selected, but --watch is waiting for new devices.");
+                        } else {
+                            bail!("Last device was removed, and not watching for new devices");
+                        }
+                    }
+                    continue 'event_loop;
                 }
             }
         }
@@ -300,7 +314,7 @@ fn event_loop(
     timeout_manager: &Rc<TimeoutManager>,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
-    config: &mut Config,
+    config: &Config,
     mainctrl: &mut MainController,
     device_filter: &[String],
     ignore_filter: &[String],

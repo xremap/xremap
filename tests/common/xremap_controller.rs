@@ -4,6 +4,7 @@ use crate::common::{
 };
 use anyhow::{bail, Result};
 use evdev::{Device, EventType, FetchEventsSynced, InputEvent, KeyCode as Key};
+use nix::libc::ENODEV;
 use std::cell::Cell;
 use std::iter::repeat_with;
 use std::path::PathBuf;
@@ -294,6 +295,26 @@ impl XremapController {
         self.output_device = Some(device);
 
         Ok(())
+    }
+
+    pub fn forget_output_device(&mut self) -> anyhow::Result<()> {
+        match &mut self.output_device {
+            Some(device) => {
+                device.ungrab().or_else(|err| {
+                    if err.raw_os_error() == Some(ENODEV) {
+                        // Suppress when device is already gone.
+                        Ok(())
+                    } else {
+                        Err(err)
+                    }
+                })?;
+                self.output_device = None;
+                Ok(())
+            }
+            None => {
+                bail!("No output device to forget.")
+            }
+        }
     }
 
     pub fn emit_events(&mut self, events: &[InputEvent]) -> anyhow::Result<()> {

@@ -31,7 +31,7 @@ pub fn e2e_watch_config() -> anyhow::Result<()> {
         "},
     );
 
-    assert!(ctrl.kill_for_output()?.stdout.contains("Reloading Config"));
+    assert!(ctrl.kill_for_output()?.stdout.contains("Config Reloaded"));
 
     Ok(())
 }
@@ -39,6 +39,7 @@ pub fn e2e_watch_config() -> anyhow::Result<()> {
 #[test]
 pub fn e2e_old_config_remains_active_when_error() -> anyhow::Result<()> {
     let mut ctrl = XremapController::builder()
+        .allow_stdio_errors(true)
         .watch_config(indoc! {"
               config_watch_debounce_ms: 10
               keymap:
@@ -52,8 +53,8 @@ pub fn e2e_old_config_remains_active_when_error() -> anyhow::Result<()> {
     std::thread::sleep(std::time::Duration::from_millis(20));
 
     // This is fragile without debounce, because the file write can cause
-    // two events one with an empty file and one with the new content.
-    // This means xremap drops the old and replace it with a 'blank' config,
+    // two events. One with an empty file and one with the new content.
+    // This means xremap drops the old and replaces it with a 'blank' config,
     // instead of leaving the old in place.
     ctrl.emit_events(&vec![key_press(KeyCode::KEY_F12), key_release(KeyCode::KEY_F12)])?;
 
@@ -132,7 +133,7 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
     // write IO for this test case. But this test only makes sense
     // if the writes are faster than the debounce value.
     if write_duration < std::time::Duration::from_millis(10) {
-        assert!(containsn(1, &stdout, "Reloading Config"));
+        assert!(containsn(1, &stdout, "Config Reloaded"));
     }
 
     Ok(())
@@ -162,7 +163,7 @@ pub fn e2e_config_watch_with_notifications() -> anyhow::Result<()> {
 
     assert!(containsn(2, &stdout, r#"["notify-send", "-a", "xremap", "Ready"]"#));
     assert!(containsn(1, &stdout, r#"["notify-send", "-a", "xremap", "Config error""#));
-    assert!(containsn(1, &stdout, "Reloading Config"));
+    assert!(containsn(1, &stdout, "Config Reloaded"));
 
     Ok(())
 }

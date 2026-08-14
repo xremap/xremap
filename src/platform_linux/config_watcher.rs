@@ -60,7 +60,7 @@ impl ConfigWatcher {
         if readable_fds.contains(&self.timer.as_fd().as_raw_fd()) {
             self.change_pending = false;
             self.timer.unset()?;
-            return Ok(Some(MainAction::ReloadConfig));
+            return Ok(Some(MainAction::Reload { full: false }));
         }
 
         if let Ok(events) = self.inotify.read_events() {
@@ -73,7 +73,7 @@ impl ConfigWatcher {
                             .set(Expiration::OneShot(TimeSpec::from_duration(debounce)), TimerSetTimeFlags::empty())?;
                     }
                     None => {
-                        return Ok(Some(MainAction::ReloadConfig));
+                        return Ok(Some(MainAction::Reload { full: false }));
                     }
                 };
             }
