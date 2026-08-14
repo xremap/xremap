@@ -35,6 +35,9 @@ impl ActionDispatcher {
             Action::Exit => {
                 return Ok(Some(MainAction::Exit));
             }
+            Action::Reload => {
+                return Ok(Some(MainAction::Reload { full: true }));
+            }
             Action::ReloadConfig => {
                 return Ok(Some(MainAction::Reload { full: false }));
             }
@@ -62,6 +65,7 @@ impl ActionDispatcher {
             | Action::Command(_)
             | Action::Delay(_)
             | Action::Exit
+            | Action::Reload
             | Action::ReloadConfig => {
                 unreachable!();
             }

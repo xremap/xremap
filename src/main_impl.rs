@@ -199,52 +199,53 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         ),
     };
 
-    let timeout_manager = Rc::new(TimeoutManager::new());
+    'main_loop: loop {
+        let timeout_manager = Rc::new(TimeoutManager::new());
 
-    let mut input_devices = select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
+        let mut input_devices =
+            select_input_devices(&device_filter, &ignore_filter, mouse, watch_devices, &own_device)?;
 
-    // Watchers
-    let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
-    let mut config_watcher = ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
+        // Watchers
+        let device_watcher = DeviceWatcher::new(watch_devices).context("Setting up device watcher")?;
+        let mut config_watcher =
+            ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
 
-    // Default allow launch (Change to false in a major upgrade)
-    let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
+        // Default allow launch (Change to false in a major upgrade)
+        let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
 
-    // OperatorHandler
-    let operator_handler = if config.experimental_map.len() > 0 {
-        Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
-    } else {
-        None
-    };
+        // OperatorHandler
+        let operator_handler = if config.experimental_map.len() > 0 {
+            Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
+        } else {
+            None
+        };
 
-    // EventHandler
-    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
-    let delay = Duration::from_millis(config.keypress_delay_ms);
-    let mut handler = EventHandler::new(timer, &config.default_mode, delay, operator_handler);
+        // EventHandler
+        let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty())?;
+        let delay = Duration::from_millis(config.keypress_delay_ms);
+        let mut handler = EventHandler::new(timer, &config.default_mode, delay, operator_handler);
 
-    let output_device = output_device(
-        input_devices.values().next().map(InputDevice::bus_type),
-        config.enable_wheel,
-        vendor,
-        product,
-        &own_device,
-    )
-    .context("Failed to prepare an output device")?;
+        let output_device = output_device(
+            input_devices.values().next().map(InputDevice::bus_type),
+            config.enable_wheel,
+            vendor,
+            product,
+            &own_device,
+        )
+        .context("Failed to prepare an output device")?;
 
-    let throttle_emit = if config.throttle_ms == 0 {
-        None
-    } else {
-        Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
-    };
+        let throttle_emit = if config.throttle_ms == 0 {
+            None
+        } else {
+            Some(ThrottleEmit::new(Duration::from_millis(config.throttle_ms)))
+        };
 
-    let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
+        let mut dispatcher = ActionDispatcher::new(output_device, throttle_emit);
 
-    if config.notifications {
-        mainctrl.show_popup("Ready", None);
-    }
+        if config.notifications {
+            mainctrl.show_popup("Ready", None);
+        }
 
-    // Main loop
-    loop {
         'event_loop: loop {
             let main_action = event_loop(
                 &mut input_devices,
@@ -253,7 +254,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                 &timeout_manager,
                 &mut handler,
                 &mut dispatcher,
-                &mut config,
+                &config,
                 &mut mainctrl,
                 &device_filter,
                 &ignore_filter,
@@ -273,7 +274,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                             mainctrl.show_popup("Ready", None);
                         }
                         if full {
-                            unreachable!();
+                            continue 'main_loop;
                         } else {
                             // The new config is only partially used.
                             println!("Config Reloaded");
@@ -313,7 +314,7 @@ fn event_loop(
     timeout_manager: &Rc<TimeoutManager>,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
-    config: &mut Config,
+    config: &Config,
     mainctrl: &mut MainController,
     device_filter: &[String],
     ignore_filter: &[String],

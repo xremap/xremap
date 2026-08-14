@@ -22,6 +22,8 @@ pub enum Action {
     CloseByAppClass(String),
     // Close program gracefully
     Exit,
+    // Reload xremap
+    Reload,
     // Reload configuration file, partially.
     ReloadConfig,
     // Show popup with window-info used for matching

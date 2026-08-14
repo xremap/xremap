@@ -3,6 +3,7 @@ use serde::{Deserialize, Deserializer};
 #[derive(Clone, Debug)]
 pub enum ActionWithoutArgs {
     Exit,
+    Reload,
     ReloadConfig,
     PopWindowInfo,
     PrintWindowInfo,
@@ -15,6 +16,8 @@ impl<'de> Deserialize<'de> for ActionWithoutArgs {
 
         if action == "exit" {
             Ok(ActionWithoutArgs::Exit)
+        } else if action == "reload" {
+            Ok(ActionWithoutArgs::Reload)
         } else if action == "reload_config" {
             Ok(ActionWithoutArgs::ReloadConfig)
         } else if action == "pop_window_info" {
@@ -45,7 +48,7 @@ mod tests {
                             - A
                     "
             },
-            "Actions after exit or reload_config are not allowed.",
+            "Actions after exit or reload are not allowed.",
         )
     }
 
@@ -56,11 +59,26 @@ mod tests {
                     keymap:
                       - remap:
                           f12:
+                            - { action: reload }
+                            - A
+                    "
+            },
+            "Actions after exit or reload are not allowed.",
+        )
+    }
+
+    #[test]
+    fn test_action_after_full_reload_fails() {
+        assert_invalid_config(
+            indoc! {"
+                    keymap:
+                      - remap:
+                          f12:
                             - { action: reload_config }
                             - A
                     "
             },
-            "Actions after exit or reload_config are not allowed.",
+            "Actions after exit or reload are not allowed.",
         )
     }
 }

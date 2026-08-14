@@ -7,12 +7,17 @@ Actions can only be used in `keymap` and [press/release keys](reference_press_re
 | Name              | Description                                   | Added in |
 | ----------------- | --------------------------------------------- | -------- |
 | exit              | Close xremap gracefully                       | v0.15.10 |
+| reload            | Reload xremap                                 | v0.15.11 |
 | reload_config     | Reload configuration file, partially          | v0.15.10 |
 | pop_window_info   | Show popup with window-info used for matching | v0.15.10 |
 | print_window_info | Print window-info used for matching           | v0.15.10 |
 | print_window_list | Print list of open windows                    | v0.15.10 |
 
 The above actions are used like this: `TriggerKey: { action: name }`. Name is case-insensitive.
+
+Using `{ action: reload }` reloads the main xremap process. But only if the configuration file is free from errors.
+For users with a system service setup, it means only that process will reload itself.
+The bridge or GNOME extension isn't affected.
 
 `reload_config` reloads the same way `--watch` does. It's a limited reload, because
 reloading configuration in a running program is a hard thing to do. So it does a simple replacement

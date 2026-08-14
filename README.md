@@ -198,12 +198,12 @@ keymap:
 
 Pressing right `Ctrl` and `C` remaps to `End`. This leaves the normal remapping of `Ctrl-C` using left `Ctrl` to copy text.
 
-#### Reload config file with key combo
+#### Reload xremap with a key combo
 
 ```yml
 keymap:
   - remap:
-      f9: { action: reload_config }
+      f9: { action: reload }
 ```
 
 [List of all actions](doc/reference_actions.md).
