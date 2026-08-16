@@ -1,4 +1,4 @@
-# To get dependabot PRs merge automatically uncomment below:
+# To get dependabot PRs merge automatically rename file to dependabot.yml uncomment below:
 
 # # from https://github.com/gofiber/swagger/blob/main/.github/workflows/dependabot_automerge.yml
 # name: dependabot
