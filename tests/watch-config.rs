@@ -115,6 +115,15 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
     let write_duration = Instant::now().duration_since(start_write);
     println!("write duration: {:?}", write_duration);
 
+    if write_duration > std::time::Duration::from_millis(10) {
+        // Github tests have been observed to take around 100ms to complete
+        // write IO for this test case. But this test only makes sense
+        // if the writes are faster than the debounce value.
+        println!("Test cancelled. IO is too slow.");
+        ctrl.allow_stdio_errors = true; // Errors are not relevant.
+        return ctrl.kill();
+    }
+
     std::thread::sleep(std::time::Duration::from_millis(20));
 
     ctrl.emit_events(&vec![key_press(KeyCode::KEY_F12)])?;
@@ -129,12 +138,7 @@ pub fn e2e_config_watch_is_debounced() -> anyhow::Result<()> {
 
     let stdout = ctrl.kill_for_output()?.stdout;
 
-    // Github tests have been observed to take around 100ms to complete
-    // write IO for this test case. But this test only makes sense
-    // if the writes are faster than the debounce value.
-    if write_duration < std::time::Duration::from_millis(10) {
-        assert!(containsn(1, &stdout, "Config Reloaded"));
-    }
+    assert!(containsn(1, &stdout, "Config Reloaded"));
 
     Ok(())
 }
