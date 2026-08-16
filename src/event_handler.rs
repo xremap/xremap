@@ -11,7 +11,6 @@ use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::operator_handler::OperatorHandler;
 use evdev::KeyCode as Key;
-use lazy_static::lazy_static;
 use log::{debug, warn};
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{Expiration, TimerFd, TimerSetTimeFlags};
@@ -829,22 +828,20 @@ fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
     false
 }
 
-lazy_static! {
-    pub static ref MODIFIER_KEYS: [Key; 8] = [
-        // Shift
-        Key::KEY_LEFTSHIFT,
-        Key::KEY_RIGHTSHIFT,
-        // Control
-        Key::KEY_LEFTCTRL,
-        Key::KEY_RIGHTCTRL,
-        // Alt
-        Key::KEY_LEFTALT,
-        Key::KEY_RIGHTALT,
-        // Windows
-        Key::KEY_LEFTMETA,
-        Key::KEY_RIGHTMETA,
-    ];
-}
+pub static MODIFIER_KEYS: [Key; 8] = [
+    // Shift
+    Key::KEY_LEFTSHIFT,
+    Key::KEY_RIGHTSHIFT,
+    // Control
+    Key::KEY_LEFTCTRL,
+    Key::KEY_RIGHTCTRL,
+    // Alt
+    Key::KEY_LEFTALT,
+    Key::KEY_RIGHTALT,
+    // Windows
+    Key::KEY_LEFTMETA,
+    Key::KEY_RIGHTMETA,
+];
 
 // ---
 
