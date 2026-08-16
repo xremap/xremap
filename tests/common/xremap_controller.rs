@@ -119,7 +119,7 @@ pub struct XremapController {
     // Is None when xremap has been stopped.
     child: Cell<Option<Child>>,
     nocapture: bool,
-    allow_stdio_errors: bool,
+    pub allow_stdio_errors: bool,
     // Input from xremap's perspective
     input_device: Option<VirtualDeviceInfo>,
     // Output from xremap's perspective
