@@ -1,3 +1,9 @@
+## v0.15.11
+
+- Add reload xremap action. https://github.com/xremap/xremap/pull/983
+- Remove lazy_static crate. https://github.com/xremap/xremap/pull/985
+- Disable auto-merge of dependabot PRs. https://github.com/xremap/xremap/pull/984, https://github.com/xremap/xremap/pull/986
+
 ## v0.15.10
 
 Features:
