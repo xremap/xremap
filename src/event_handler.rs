@@ -682,7 +682,10 @@ impl EventHandler {
                     }
                 }
             }
-            KeymapAction::Launch(command) => self.run_command(command.clone()),
+            KeymapAction::Launch(command) => {
+                debug!("Launching command: {command:?}");
+                self.run_command(command.clone());
+            }
             KeymapAction::SetMode(mode) => {
                 self.mode = mode.clone();
                 println!("mode: {mode}");
