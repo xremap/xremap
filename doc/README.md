@@ -36,6 +36,7 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 
 - [Troubleshooting](troubleshooting.md)
 
-### Upgrade guide
+### Additional
 
+- [Feature matrix](./reference_feature_matrix.md)
 - [Upgrade to v0.15.0](../UPGRADE.md#Upgrade-to-v0.15)
