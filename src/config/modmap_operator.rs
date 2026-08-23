@@ -1,9 +1,9 @@
 use super::deserialize_keys;
 use super::keymap_action::{Actions, KeymapAction};
+use crate::config::deserializers::deserialize_duration;
 use crate::config::key::{deserialize_key, parse_key};
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
-use serde_with::{serde_as, DurationMilliSeconds};
 use std::time::Duration;
 
 // Values in `modmap.remap`
@@ -15,25 +15,24 @@ pub enum ModmapOperator {
     PressReleaseKey(PressReleaseKey),
 }
 
-#[serde_as]
 #[derive(Clone, Debug, Deserialize)]
 pub struct MultiPurposeKey {
     #[serde(alias = "held")]
     pub hold: Keys,
     #[serde(alias = "alone")]
     pub tap: Keys,
-    #[serde_as(as = "DurationMilliSeconds")]
     #[serde(
         default = "default_hold_threshold",
         alias = "hold_threshold_millis",
-        alias = "held_threshold_millis"
+        alias = "held_threshold_millis",
+        deserialize_with = "deserialize_duration"
     )]
     pub hold_threshold: Duration,
-    #[serde_as(as = "DurationMilliSeconds")]
     #[serde(
         default = "default_tap_timeout",
         alias = "tap_timeout_millis",
-        alias = "alone_timeout_millis"
+        alias = "alone_timeout_millis",
+        deserialize_with = "deserialize_duration"
     )]
     pub tap_timeout: Duration,
     #[serde(default)]

@@ -1,7 +1,7 @@
+use crate::config::deserializers::deserialize_duration;
 use crate::config::key::deserialize_key;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
-use serde_with::{serde_as, DurationMilliSeconds};
 use std::fmt::Debug;
 use std::time::Duration;
 
@@ -11,14 +11,11 @@ pub enum ExpmapOperator {
     DoubleTap(DoubleTap),
 }
 
-#[serde_as]
 #[derive(Clone, Debug, Deserialize)]
 pub struct DoubleTap {
     #[serde(rename = "double", deserialize_with = "deserialize_expmap_actions")]
     pub actions: Vec<ExpmapAction>,
-
-    #[serde_as(as = "DurationMilliSeconds")]
-    #[serde(default = "default_dbltap_timeout")]
+    #[serde(default = "default_dbltap_timeout", deserialize_with = "deserialize_duration")]
     pub timeout: Duration,
 }
 
