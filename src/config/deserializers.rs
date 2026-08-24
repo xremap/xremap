@@ -24,3 +24,6 @@ where
     let millis = u64::deserialize(deserializer)?;
     Ok(Duration::from_millis(millis))
 }
+
+#[derive(Deserialize, Debug)]
+pub struct DurationWrapper(#[serde(deserialize_with = "deserialize_duration")] pub Duration);

@@ -3,6 +3,7 @@ use crate::config::expmap_operator::ExpmapAction;
 use crate::device::InputDeviceInfo;
 use crate::emit_handler::Emit;
 use crate::event::{Event, KeyEvent, KeyValue};
+use crate::event_handler::{PRESS, RELEASE, REPEAT};
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -31,7 +32,45 @@ pub enum OperatorAction {
 }
 
 pub trait ActiveOperator: Debug {
-    fn on_event(&mut self, event: &Event) -> OperatorAction;
+    /// Either implement this method, or each of the methods called by this one.
+    fn on_event(&mut self, event: &Event) -> OperatorAction {
+        match event {
+            Event::KeyEvent(device, key_event) => {
+                if key_event.value() == PRESS {
+                    self.on_press(device.clone(), key_event)
+                } else if key_event.value() == RELEASE {
+                    self.on_release(device.clone(), key_event)
+                } else if key_event.value() == REPEAT {
+                    self.on_repeat(device.clone(), key_event)
+                } else {
+                    // Invalid
+                    OperatorAction::Unhandled
+                }
+            }
+            Event::Tick => self.on_tick(),
+            _ => self.on_other(event),
+        }
+    }
+
+    fn on_press(&mut self, _device: Rc<InputDeviceInfo>, _key_event: &KeyEvent) -> OperatorAction {
+        unreachable!()
+    }
+
+    fn on_release(&mut self, _device: Rc<InputDeviceInfo>, _key_event: &KeyEvent) -> OperatorAction {
+        unreachable!()
+    }
+
+    fn on_repeat(&mut self, _device: Rc<InputDeviceInfo>, _key_event: &KeyEvent) -> OperatorAction {
+        unreachable!()
+    }
+
+    fn on_tick(&mut self) -> OperatorAction {
+        unreachable!()
+    }
+
+    fn on_other(&mut self, _event: &Event) -> OperatorAction {
+        unreachable!()
+    }
 }
 
 pub fn map_actions(actions: &Vec<ExpmapAction>, device: Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Emit> {

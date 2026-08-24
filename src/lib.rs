@@ -34,6 +34,7 @@ mod main_impl;
 mod operator_double_tap;
 mod operator_handler;
 mod operator_sim;
+mod operator_throttle;
 mod operators;
 mod plugin;
 #[cfg(test)]
@@ -68,6 +69,8 @@ mod tests_operator_double_tap;
 mod tests_operator_handler;
 #[cfg(test)]
 mod tests_operator_sim;
+#[cfg(test)]
+mod tests_operator_throttle;
 #[cfg(test)]
 mod tests_throttle_emit;
 #[cfg(test)]
