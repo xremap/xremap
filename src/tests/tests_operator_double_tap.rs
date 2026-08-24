@@ -30,7 +30,6 @@ fn test_dbltap_key_not_matching() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![Event::key_release(Key::KEY_A)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -47,6 +46,11 @@ fn test_dbltap_at_first_press_not_canceled_by_other_non_matching() {
     );
 
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
+
+    assert_events(
+        handler.map_evs(vec![Event::key_release(Key::KEY_LEFTALT)]),
+        vec![Event::key_release(Key::KEY_LEFTALT)],
+    );
 
     handler.assert_base_state();
 }
@@ -74,7 +78,6 @@ fn test_dbltap_at_first_press_canceled_by_timeout() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![Event::key_release(Key::KEY_A)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -89,7 +92,6 @@ fn test_dbltap_at_first_press_repeated() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -112,7 +114,6 @@ fn test_dbltap_when_tapped_not_canceled_by_other_non_matching() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -135,7 +136,6 @@ fn test_dbltap_when_tapped_canceled_by_timeout() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -162,7 +162,6 @@ fn test_dbltap_when_tapped_canceled_by_timeout_with_rolled_key() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -189,7 +188,6 @@ fn test_dbltap_when_tapped_canceled_by_timeout_with_modded_key() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -216,7 +214,6 @@ fn test_dbltap_when_tapped_canceled_by_timeout_with_distinct_key() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -240,7 +237,6 @@ fn test_dbltap_spurious_events() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -254,7 +250,6 @@ fn test_dbltap() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -274,7 +269,6 @@ fn test_dbltap_twice() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -294,7 +288,6 @@ fn test_dbltap_then_tick_before_release() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -309,7 +302,6 @@ fn test_dbltap_then_repeat_triggering_key() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -332,7 +324,6 @@ fn test_dbltap_then_repeat_ordinary_key() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -352,7 +343,6 @@ fn test_dbltap_surrounded_at_first_press() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -372,7 +362,6 @@ fn test_dbltap_surrounded_at_tapped() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -397,5 +386,4 @@ fn test_dbltap_surrounded_at_double_tapped() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_LEFTCTRL)]), vec![Event::key_release(Key::KEY_1)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }

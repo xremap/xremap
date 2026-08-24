@@ -1,23 +1,13 @@
 use crate::device::InputDeviceInfo;
-use crate::event::{Event, KeyEvent, KeyValue};
+use crate::event::{Event, KeyEvent};
 use crate::event_handler::{MODIFIER_KEYS, PRESS, RELEASE, REPEAT};
 use evdev::KeyCode as Key;
 use log::warn;
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
-pub struct EmitCombo {
-    pub key: Key,
-    pub modifiers: Vec<Key>,
-}
-
-#[derive(Debug, Clone)]
 pub enum Emit {
     Single(Event),
-    #[allow(dead_code)]
-    KeyComboWithHold(Rc<InputDeviceInfo>, EmitCombo),
-    #[allow(dead_code)]
-    SyncModidiers(Rc<InputDeviceInfo>),
 }
 
 impl Emit {
@@ -42,10 +32,9 @@ impl EmitHandler {
     }
 
     #[cfg(test)]
-    pub fn assert_emitted_modifiers_are_synced(&self) {
-        assert!(self
-            .sync_emitted_modifiers(crate::tests::get_input_device_info(), &self.physical_modifiers)
-            .is_empty());
+    pub fn assert_base_state(&self) {
+        assert!(self.physical_modifiers.is_empty());
+        assert!(self.emitted_modifiers.is_empty());
     }
 
     pub fn map_output(&mut self, events: Vec<Emit>) -> Vec<Event> {
@@ -57,27 +46,6 @@ impl EmitHandler {
                     update_modifier_state(&mut self.emitted_modifiers, &event);
                     result.push(event);
                 }
-                Emit::KeyComboWithHold(device, key_combo) => {
-                    let mut events = self.sync_emitted_modifiers(device.clone(), &key_combo.modifiers);
-
-                    self.emitted_modifiers = key_combo.modifiers.clone();
-
-                    assert!(!MODIFIER_KEYS.contains(&key_combo.key));
-
-                    events.extend(vec![
-                        Event::KeyEvent(device.clone(), KeyEvent::new(key_combo.key, KeyValue::Press)),
-                        Event::KeyEvent(device, KeyEvent::new(key_combo.key, KeyValue::Release)),
-                    ]);
-
-                    result.extend(events);
-                }
-                Emit::SyncModidiers(device) => {
-                    let events = self.sync_emitted_modifiers(device, &self.physical_modifiers);
-
-                    self.emitted_modifiers = self.physical_modifiers.clone();
-
-                    result.extend(events);
-                }
             }
         }
 
@@ -86,39 +54,6 @@ impl EmitHandler {
 
     pub fn on_event(&mut self, event: &Event) {
         update_modifier_state(&mut self.physical_modifiers, event)
-    }
-
-    fn sync_emitted_modifiers(&self, device: Rc<InputDeviceInfo>, modifiers: &[Key]) -> Vec<Event> {
-        let modifiers_to_release: Vec<Event> = self
-            .emitted_modifiers
-            .iter()
-            .filter_map(|key| {
-                if modifiers.contains(key) {
-                    None
-                } else {
-                    // Emitted modifier that should not be pressed.
-                    Some(Event::KeyEvent(device.clone(), KeyEvent::new(*key, KeyValue::Release)))
-                }
-            })
-            .collect();
-
-        let modifiers_to_press: Vec<Event> = modifiers
-            .iter()
-            .filter_map(|key| {
-                if self.emitted_modifiers.contains(key) {
-                    None
-                } else {
-                    // Modifier that hasn't been emitted yet.
-                    Some(Event::KeyEvent(device.clone(), KeyEvent::new(*key, KeyValue::Press)))
-                }
-            })
-            .collect();
-
-        let mut events = modifiers_to_release;
-
-        events.extend(modifiers_to_press);
-
-        events
     }
 }
 

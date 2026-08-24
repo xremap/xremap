@@ -75,11 +75,7 @@ impl OperatorHandler {
     pub fn assert_base_state(&self) {
         assert!(self.active.is_empty());
         assert!(self.candidates.is_none());
-    }
-
-    #[cfg(test)]
-    pub fn assert_emitted_modifiers_are_synced(&self) {
-        self.emit_handler.assert_emitted_modifiers_are_synced();
+        self.emit_handler.assert_base_state();
     }
 
     #[cfg(test)]
