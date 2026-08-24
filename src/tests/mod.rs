@@ -13,6 +13,7 @@ mod tests_modmap_press_release_key;
 mod tests_nested_remap;
 mod tests_operator_double_tap;
 mod tests_operator_handler;
+mod tests_operator_oneshot;
 mod tests_operator_sim;
 mod tests_operator_throttle;
 mod tests_throttle_emit;

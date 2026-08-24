@@ -5,6 +5,7 @@ use crate::emit_handler::{Emit, EmitHandler};
 use crate::event::Event;
 use crate::event_handler::PRESS;
 use crate::operator_double_tap::DoubleTapOperator;
+use crate::operator_oneshot::OneshotOperator;
 use crate::operator_sim::SimOperator;
 use crate::operator_throttle::ThrottleOperator;
 use crate::operators::{ActiveOperator, OperatorAction, OperatorEntry, StaticOperator};
@@ -58,6 +59,7 @@ impl OperatorHandler {
                         DoubleTapOperator::get_ops(*key, dbltap, timeout_manager.clone())
                     }
                     ExpmapOperator::Throttle(timeout) => ThrottleOperator::get_ops(*key, *timeout),
+                    ExpmapOperator::OneShot(action) => OneshotOperator::get_ops(*key, *action),
                 };
                 append(operators, &mut lookup_map, expmap);
             }
@@ -75,11 +77,7 @@ impl OperatorHandler {
     pub fn assert_base_state(&self) {
         assert!(self.active.is_empty());
         assert!(self.candidates.is_none());
-    }
-
-    #[cfg(test)]
-    pub fn assert_emitted_modifiers_are_synced(&self) {
-        self.emit_handler.assert_emitted_modifiers_are_synced();
+        self.emit_handler.assert_base_state();
     }
 
     #[cfg(test)]

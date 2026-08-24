@@ -36,7 +36,6 @@ fn symkey_test_first_key_released_before_second_is_pressed() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -50,7 +49,6 @@ fn symkey_pressed_then_timeout() {
     assert_events(handler.map_evs(vec![Event::Tick]), vec![Event::key_press(Key::KEY_A)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -75,7 +73,6 @@ fn symkey_pressed_then_release_of_old_other_key() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -85,7 +82,6 @@ fn simkey_test_releasing_key_does_not_start_matching() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![Event::key_release(Key::KEY_A)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -104,7 +100,6 @@ fn symkey_emitted_then_timeout() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -117,7 +112,6 @@ fn symkey_test_emitted_key_is_released_when_first_trigger_key_is_released() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -132,7 +126,6 @@ fn symkey_test_trigger_then_modded_release() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -147,7 +140,6 @@ fn symkey_test_trigger_then_rolled_release() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -162,7 +154,6 @@ fn symkey_test_trigger_in_reverse_then_modded_release() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -177,7 +168,6 @@ fn symkey_test_trigger_in_reverse_then_rolled_release() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -196,7 +186,6 @@ fn symkey_released_then_timeout() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -217,7 +206,6 @@ fn symkey_test_second_key_can_start_matching_right_after_other_release() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -236,7 +224,6 @@ fn symkey_test_surrounded_at_first_press() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -258,7 +245,6 @@ fn symkey_test_surrounded_at_first_press_and_cancel() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![Event::key_release(Key::KEY_B)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -277,7 +263,6 @@ fn symkey_test_surrounded_at_emit() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -293,7 +278,6 @@ fn symkey_test_surrounded_at_release() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -309,7 +293,6 @@ fn symkey_test_surrounded_at_done() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_K)]), vec![Event::key_release(Key::KEY_K)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -342,7 +325,6 @@ fn symkey_test_repeat() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -378,7 +360,6 @@ fn symkey_test_repeat_after_release() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -393,5 +374,4 @@ fn symkey_test_3_simkeys() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_E)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }

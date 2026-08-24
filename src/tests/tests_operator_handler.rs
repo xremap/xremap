@@ -47,7 +47,6 @@ fn test_operator_handler_picks_heighest_candidate() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -74,7 +73,6 @@ fn test_operator_handler_picks_heighest_candidate_after_lowest_has_canceled() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -92,7 +90,6 @@ fn test_operator_handler_picks_lowest_candidate_when_heighest_cancels() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_C)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -117,7 +114,6 @@ fn test_operator_handler_picks_finished_lowest_candidate_when_heighest_cancels()
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_K)]), vec![Event::key_release(Key::KEY_K)]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -154,7 +150,6 @@ fn test_operator_handler_picks_lowest_candidate_done_a_while_when_heighest_match
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -185,7 +180,6 @@ fn test_operator_handler_picks_lowest_candidate_finished_a_while_when_heighest_c
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -208,7 +202,6 @@ fn test_operator_handler_picks_lowest_candidate_when_canceled_by_timeout() {
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -222,7 +215,6 @@ fn test_operator_handler_two_candidates_that_both_cancel() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -246,7 +238,6 @@ fn test_operator_handler_unhandled_events_are_passed_to_next_operator_when_cance
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -269,7 +260,6 @@ fn test_operator_handler_unhandled_events_are_passed_to_next_operator_at_match()
     assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_B)]), vec![]);
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -294,7 +284,6 @@ fn test_operator_handler_unhandled_events_are_passed_to_static_operators_when_do
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -312,7 +301,6 @@ fn test_operator_handler_candidate_match_in_one_batch() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -325,7 +313,6 @@ fn test_operator_handler_candidate_cancels_in_one_batch() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
 
 #[test]
@@ -358,5 +345,4 @@ fn test_operator_handler_candidate_with_many_actions() {
     );
 
     handler.assert_base_state();
-    handler.assert_emitted_modifiers_are_synced();
 }
