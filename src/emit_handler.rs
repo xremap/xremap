@@ -1,5 +1,5 @@
 use crate::device::InputDeviceInfo;
-use crate::event::{Event, KeyEvent};
+use crate::event::{Event, KeyEvent, KeyValue};
 use crate::event_handler::{MODIFIER_KEYS, PRESS, RELEASE, REPEAT};
 use evdev::KeyCode as Key;
 use log::warn;
@@ -11,6 +11,16 @@ pub enum Emit {
 }
 
 impl Emit {
+    pub fn key_release(device: Rc<InputDeviceInfo>, code: Key) -> Emit {
+        Emit::Single(Event::KeyEvent(device, KeyEvent::new(code, KeyValue::Release)))
+    }
+    pub fn key_press(device: Rc<InputDeviceInfo>, code: Key) -> Emit {
+        Emit::Single(Event::KeyEvent(device, KeyEvent::new(code, KeyValue::Press)))
+    }
+    pub fn key_repeat(device: Rc<InputDeviceInfo>, code: Key) -> Emit {
+        Emit::Single(Event::KeyEvent(device, KeyEvent::new(code, KeyValue::Repeat)))
+    }
+
     pub fn key_event(device: Rc<InputDeviceInfo>, key_event: KeyEvent) -> Emit {
         Emit::Single(Event::KeyEvent(device, key_event))
     }

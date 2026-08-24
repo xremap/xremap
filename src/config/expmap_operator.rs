@@ -1,6 +1,7 @@
 use crate::config::deserialize_single_field;
 use crate::config::deserializers::{deserialize_duration, DurationWrapper};
 use crate::config::key::deserialize_key;
+use crate::config::modmap::KeyWrapper;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::fmt::Debug;
@@ -12,10 +13,16 @@ pub enum ExpmapOperator {
     DoubleTap(DoubleTap),
     #[serde(deserialize_with = "deserialize_throttle")]
     Throttle(Duration),
+    #[serde(deserialize_with = "deserialize_oneshot")]
+    OneShot(Key),
 }
 
 pub fn deserialize_throttle<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
     Ok(deserialize_single_field::<D, DurationWrapper>(deserializer, "throttle_ms")?.0)
+}
+
+pub fn deserialize_oneshot<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Key, D::Error> {
+    Ok(deserialize_single_field::<D, KeyWrapper>(deserializer, "oneshot")?.0)
 }
 
 #[derive(Clone, Debug, Deserialize)]

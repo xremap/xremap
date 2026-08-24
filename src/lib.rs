@@ -36,6 +36,7 @@ mod main_controller;
 mod main_impl;
 mod operator_double_tap;
 mod operator_handler;
+mod operator_oneshot;
 mod operator_sim;
 mod operator_throttle;
 mod operators;

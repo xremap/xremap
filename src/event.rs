@@ -26,6 +26,9 @@ pub enum Event {
 }
 
 impl Event {
+    pub fn key_release2(device: Rc<InputDeviceInfo>, code: Key) -> Event {
+        Event::KeyEvent(device, KeyEvent::new(code, KeyValue::Release))
+    }
     pub fn key_event2(device: Rc<InputDeviceInfo>, key_event: KeyEvent) -> Event {
         Event::KeyEvent(device, key_event)
     }
