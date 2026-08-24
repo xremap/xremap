@@ -1,7 +1,6 @@
 use crate::config::expmap_operator::{DoubleTap, ExpmapAction};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
-use crate::event_handler::{PRESS, RELEASE, REPEAT};
 use crate::operators::{map_actions, ActiveOperator, OperatorAction, StaticOperator};
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
@@ -77,27 +76,6 @@ pub struct ActiveDoubleTapOperator {
 }
 
 impl ActiveOperator for ActiveDoubleTapOperator {
-    fn on_event(&mut self, event: &Event) -> OperatorAction {
-        match event {
-            Event::KeyEvent(device, key_event) => {
-                if key_event.value() == PRESS {
-                    self.on_press(device.clone(), key_event)
-                } else if key_event.value() == RELEASE {
-                    self.on_release(device.clone(), key_event)
-                } else if key_event.value() == REPEAT {
-                    self.on_repeat(device.clone(), key_event)
-                } else {
-                    // Invalid
-                    OperatorAction::Unhandled
-                }
-            }
-            Event::Tick => self.on_tick(),
-            _ => self.on_other(event),
-        }
-    }
-}
-
-impl ActiveDoubleTapOperator {
     fn on_press(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &mut self.state {
             State::New => {
