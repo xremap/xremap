@@ -47,7 +47,7 @@ impl StaticOperator for DoubleTapOperator {
                 timeout: self.timeout,
                 start_inst: Instant::now(),
                 buffered: vec![],
-                state: State::Pressed,
+                state: State::New,
             }),
             _ => {
                 unreachable!()
@@ -58,6 +58,7 @@ impl StaticOperator for DoubleTapOperator {
 
 #[derive(Debug)]
 enum State {
+    New,
     Pressed,
     Tapped,
     Emitted,
@@ -99,6 +100,10 @@ impl ActiveOperator for ActiveDoubleTapOperator {
 impl ActiveDoubleTapOperator {
     fn on_press(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &mut self.state {
+            State::New => {
+                self.state = State::Pressed;
+                OperatorAction::Undecided
+            }
             State::Pressed | State::Emitted if self.key == key_event.key => {
                 // Suppress spurious press
                 OperatorAction::Undecided
@@ -129,6 +134,7 @@ impl ActiveDoubleTapOperator {
 
     fn on_release(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &self.state {
+            State::New => unreachable!(),
             State::Pressed if self.key == key_event.key => {
                 self.state = State::Tapped;
 
@@ -157,6 +163,7 @@ impl ActiveDoubleTapOperator {
 
     fn on_repeat(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &self.state {
+            State::New => unreachable!(),
             // Suppress repeat when matching
             State::Pressed | State::Tapped => OperatorAction::Undecided,
 
@@ -175,6 +182,7 @@ impl ActiveDoubleTapOperator {
 
     fn on_tick(&mut self) -> OperatorAction {
         match &mut self.state {
+            State::New => unreachable!(),
             State::Pressed | State::Tapped => {
                 if self.start_inst.elapsed() <= self.timeout {
                     OperatorAction::Undecided
@@ -196,6 +204,7 @@ impl ActiveDoubleTapOperator {
 
     fn on_other(&mut self, event: &Event) -> OperatorAction {
         match &mut self.state {
+            State::New => unreachable!(),
             // Suppress when matching
             State::Pressed | State::Tapped => {
                 self.buffered.push(event.clone());

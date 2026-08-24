@@ -64,18 +64,14 @@ impl StaticOperator for SimOperator {
         }
 
         match event {
-            Event::KeyEvent(_, key_event) => {
-                let still_missing: Vec<_> = self.keys.iter().filter(|&&key| key != key_event.key).cloned().collect();
-
-                Box::new(ActiveSimOperator {
-                    keys: self.keys.clone(),
-                    actions: self.actions.clone(),
-                    start_inst: Instant::now(),
-                    buffered: vec![],
-                    state: State::Pressed { still_missing },
-                    timeout: self.timeout,
-                })
-            }
+            Event::KeyEvent(_, _) => Box::new(ActiveSimOperator {
+                keys: self.keys.clone(),
+                actions: self.actions.clone(),
+                start_inst: Instant::now(),
+                buffered: vec![],
+                state: State::New,
+                timeout: self.timeout,
+            }),
             _ => {
                 unreachable!()
             }
@@ -85,6 +81,7 @@ impl StaticOperator for SimOperator {
 
 #[derive(Debug)]
 enum State {
+    New,
     // Some trigger keys have been pressed.
     Pressed { still_missing: Vec<Key> },
     // The action has been pressed.
@@ -130,6 +127,12 @@ impl ActiveOperator for ActiveSimOperator {
 impl ActiveSimOperator {
     fn on_press(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &mut self.state {
+            State::New => {
+                self.state = State::Pressed {
+                    still_missing: self.keys.iter().filter(|&&key| key != key_event.key).cloned().collect(),
+                };
+                OperatorAction::Undecided
+            }
             State::Pressed { still_missing } => {
                 if vec![key_event.key] == *still_missing {
                     // All keys pressed
@@ -179,6 +182,7 @@ impl ActiveSimOperator {
 
     fn on_release(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &mut self.state {
+            State::New => unreachable!(),
             State::Pressed { still_missing } => {
                 if self.keys.contains(&key_event.key) && !still_missing.contains(&key_event.key) {
                     // A trigger key has been pressed and now released. So cancel.
@@ -236,6 +240,7 @@ impl ActiveSimOperator {
 
     fn on_repeat(&mut self, _: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &self.state {
+            State::New => unreachable!(),
             // Suppress repeat when matching
             State::Pressed { still_missing: _ } => OperatorAction::Undecided,
             State::Emitted { device } => {
@@ -268,6 +273,7 @@ impl ActiveSimOperator {
 
     fn on_tick(&mut self) -> OperatorAction {
         match &self.state {
+            State::New => unreachable!(),
             State::Pressed { still_missing: _ } if self.start_inst.elapsed() <= self.timeout => {
                 OperatorAction::Undecided
             }
@@ -286,6 +292,7 @@ impl ActiveSimOperator {
 
     fn on_other(&mut self, event: &Event) -> OperatorAction {
         match &mut self.state {
+            State::New => unreachable!(),
             State::Pressed { still_missing: _ } => {
                 self.buffered.push(event.clone());
                 OperatorAction::Undecided
