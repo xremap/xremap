@@ -41,13 +41,13 @@ impl StaticOperator for DoubleTapOperator {
         }
 
         match event {
-            Event::KeyEvent(device, key_event) => Box::new(ActiveDoubleTapOperator {
+            Event::KeyEvent(_, key_event) => Box::new(ActiveDoubleTapOperator {
                 key: key_event.key,
                 actions: self.actions.clone(),
                 timeout: self.timeout,
                 start_inst: Instant::now(),
                 buffered: vec![],
-                state: State::Pressed { device: device.clone() },
+                state: State::Pressed,
             }),
             _ => {
                 unreachable!()
@@ -58,13 +58,8 @@ impl StaticOperator for DoubleTapOperator {
 
 #[derive(Debug)]
 enum State {
-    Pressed {
-        device: Rc<InputDeviceInfo>,
-    },
-    Tapped {
-        press_device: Rc<InputDeviceInfo>,
-        release_device: Rc<InputDeviceInfo>,
-    },
+    Pressed,
+    Tapped,
     Emitted,
     Done,
 }
@@ -104,14 +99,11 @@ impl ActiveOperator for ActiveDoubleTapOperator {
 impl ActiveDoubleTapOperator {
     fn on_press(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &mut self.state {
-            State::Pressed { device: _ } | State::Emitted if self.key == key_event.key => {
+            State::Pressed | State::Emitted if self.key == key_event.key => {
                 // Suppress spurious press
                 OperatorAction::Undecided
             }
-            State::Tapped {
-                press_device,
-                release_device,
-            } if self.key == key_event.key => {
+            State::Tapped if self.key == key_event.key => {
                 let emit = map_actions(&self.actions, device, KeyValue::Press);
 
                 // Flush buffered events.
@@ -123,11 +115,7 @@ impl ActiveDoubleTapOperator {
                 OperatorAction::Partial(emit, buffered)
             }
             // Buffer events when matching
-            State::Pressed { device: _ }
-            | State::Tapped {
-                press_device: _,
-                release_device: _,
-            } => {
+            State::Pressed | State::Tapped => {
                 self.buffered.push(Event::KeyEvent(device.clone(), key_event.clone()));
 
                 OperatorAction::Undecided
@@ -141,26 +129,16 @@ impl ActiveDoubleTapOperator {
 
     fn on_release(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &self.state {
-            State::Pressed { device: press_device } if self.key == key_event.key => {
-                self.state = State::Tapped {
-                    press_device: press_device.clone(),
-                    release_device: device.clone(),
-                };
+            State::Pressed if self.key == key_event.key => {
+                self.state = State::Tapped;
 
                 OperatorAction::Undecided
             }
-            State::Tapped {
-                press_device,
-                release_device,
-            } if self.key == key_event.key => {
+            State::Tapped if self.key == key_event.key => {
                 // Suppress spurious release
                 OperatorAction::Undecided
             }
-            State::Tapped {
-                press_device: _,
-                release_device: _,
-            }
-            | State::Pressed { device: _ } => {
+            State::Tapped | State::Pressed => {
                 self.buffered.push(Event::KeyEvent(device.clone(), key_event.clone()));
 
                 OperatorAction::Undecided
@@ -180,11 +158,7 @@ impl ActiveDoubleTapOperator {
     fn on_repeat(&mut self, device: Rc<InputDeviceInfo>, key_event: &KeyEvent) -> OperatorAction {
         match &self.state {
             // Suppress repeat when matching
-            State::Pressed { device: _ }
-            | State::Tapped {
-                press_device: _,
-                release_device: _,
-            } => OperatorAction::Undecided,
+            State::Pressed | State::Tapped => OperatorAction::Undecided,
 
             // Repeat the emitted key.
             State::Emitted if self.key == key_event.key => {
@@ -201,11 +175,7 @@ impl ActiveDoubleTapOperator {
 
     fn on_tick(&mut self) -> OperatorAction {
         match &mut self.state {
-            State::Pressed { device: _ }
-            | State::Tapped {
-                press_device: _,
-                release_device: _,
-            } => {
+            State::Pressed | State::Tapped => {
                 if self.start_inst.elapsed() <= self.timeout {
                     OperatorAction::Undecided
                 } else {
@@ -227,11 +197,7 @@ impl ActiveDoubleTapOperator {
     fn on_other(&mut self, event: &Event) -> OperatorAction {
         match &mut self.state {
             // Suppress when matching
-            State::Pressed { device: _ }
-            | State::Tapped {
-                press_device: _,
-                release_device: _,
-            } => {
+            State::Pressed | State::Tapped => {
                 self.buffered.push(event.clone());
                 OperatorAction::Undecided
             }
