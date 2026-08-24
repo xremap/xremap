@@ -1,4 +1,4 @@
-use crate::config::application::OnlyOrNot;
+use crate::config::application::ApplicationMatch;
 use crate::util::print_table;
 use serde::{Deserialize, Serialize};
 
@@ -146,7 +146,7 @@ impl WMClient {
         self.title_cache = None; // expire cache
     }
 
-    pub fn match_window(&mut self, window_matcher: &OnlyOrNot) -> bool {
+    pub fn match_window(&mut self, window_matcher: &ApplicationMatch) -> bool {
         // Lazily fill the wm_class cache
         if self.title_cache.is_none() {
             let title = self.current_window().unwrap_or_default();
@@ -160,7 +160,7 @@ impl WMClient {
         }
     }
 
-    pub fn match_application(&mut self, application_matcher: &OnlyOrNot) -> bool {
+    pub fn match_application(&mut self, application_matcher: &ApplicationMatch) -> bool {
         // Lazily fill the wm_class cache
         if self.application_cache.is_none() {
             let application = self.current_application().unwrap_or_default();
