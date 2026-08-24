@@ -19,6 +19,10 @@ pub enum Event {
 }
 
 impl Event {
+    pub fn key_event2(device: Rc<InputDeviceInfo>, key_event: KeyEvent) -> Event {
+        Event::KeyEvent(device, key_event)
+    }
+
     #[cfg(test)]
     pub fn key_release(code: Key) -> Event {
         Event::KeyEvent(crate::tests::get_input_device_info(), KeyEvent::new(code, KeyValue::Release))

@@ -7,6 +7,8 @@ use crate::config::Config;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
+use crate::operator_handler::OperatorHandler;
+use crate::timeout_manager::TimeoutManager;
 use evdev::{KeyCode as Key, RelativeAxisCode};
 use indoc::indoc;
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
@@ -568,6 +570,11 @@ pub fn parse_config_for_test(str: &str) -> Config {
     config.keymap_table = build_keymap_table(&config.keymap);
     validate_config_file(&config).unwrap();
     config
+}
+
+pub fn get_handler_from_config(config: &str) -> anyhow::Result<OperatorHandler> {
+    let config = parse_config_for_test(config);
+    Ok(OperatorHandler::new(&config.experimental_map, Rc::new(TimeoutManager::new())))
 }
 
 pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {

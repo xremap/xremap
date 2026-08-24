@@ -6,6 +6,7 @@ use crate::event::Event;
 use crate::event_handler::PRESS;
 use crate::operator_double_tap::DoubleTapOperator;
 use crate::operator_sim::SimOperator;
+use crate::operator_throttle::ThrottleOperator;
 use crate::operators::{ActiveOperator, OperatorAction, OperatorEntry, StaticOperator};
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
@@ -56,6 +57,7 @@ impl OperatorHandler {
                     ExpmapOperator::DoubleTap(dbltap) => {
                         DoubleTapOperator::get_ops(*key, dbltap, timeout_manager.clone())
                     }
+                    ExpmapOperator::Throttle(timeout) => ThrottleOperator::get_ops(*key, *timeout),
                 };
                 append(operators, &mut lookup_map, expmap);
             }
@@ -147,6 +149,7 @@ struct Candidates {
 }
 
 // Nodes that exist on the stack, that still needs to be processed.
+#[derive(Debug)]
 enum Node {
     Event(Event),
     Operator(Box<dyn ActiveOperator>),
@@ -204,8 +207,11 @@ fn process_event(
                     // No more operators
                     None => {
                         match candidates {
-                            Some(candidates) => try_candidates(event, &mut left, candidates),
-                            None => static_lookup(event, candidates, &lookup_map, &mut emit, wmclient),
+                            Some(candidates) => {
+                                candidates.events.push(event.clone());
+                                try_candidates(event, &mut left, candidates)
+                            }
+                            None => static_lookup(event, &mut left, candidates, &lookup_map, &mut emit, wmclient),
                         };
                     }
                 };
@@ -232,7 +238,7 @@ fn process_event(
 
                 // start_key didn't match anything, so emit.
                 emit.push(Emit::Single(taken.start_event.clone()));
-                // Start over with the next event.
+                // Start over from the next event.
                 unhandled_back_to_stack(taken.events, &mut left);
             }
 
@@ -255,8 +261,6 @@ fn unhandled_back_to_stack(events: Vec<Event>, nodes: &mut Vec<Node>) {
 }
 
 fn try_candidates(event: Event, left: &mut Vec<Node>, candidates: &mut Candidates) {
-    candidates.events.push(event.clone());
-
     let mut first = true;
 
     for (usize, candidate) in candidates.operators.iter_mut().enumerate() {
@@ -325,6 +329,7 @@ fn try_candidates(event: Event, left: &mut Vec<Node>, candidates: &mut Candidate
 
 fn static_lookup(
     event: Event,
+    left: &mut Vec<Node>,
     candidates: &mut Option<Candidates>,
     lookup_map: &HashMap<Key, Vec<OperatorEntry>>,
     emit: &mut Vec<Emit>,
@@ -378,11 +383,13 @@ fn static_lookup(
                 })
                 .collect();
 
-            candidates.replace(Candidates {
-                start_event: event,
+            let candidates = candidates.insert(Candidates {
+                start_event: event.clone(),
                 events: vec![],
                 operators: new_candidates,
             });
+
+            try_candidates(event, left, candidates);
         }
         None => {
             emit.push(Emit::key_event(device.clone(), key_event.clone()));
