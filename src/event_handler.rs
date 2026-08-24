@@ -145,6 +145,7 @@ impl EventHandler {
                     Event::Tick => {
                         // Can be ignored. It's for operators.
                     }
+                    Event::ByPassLocal(_) => unreachable!(),
                 }
             }
         }

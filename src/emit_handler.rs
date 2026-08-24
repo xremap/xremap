@@ -43,6 +43,12 @@ impl EmitHandler {
         for event in events {
             match event {
                 Emit::Single(event) => {
+                    let event = match event {
+                        // Extract the event, that operators have ignored.
+                        Event::ByPassLocal(event) => *event,
+                        event => event,
+                    };
+
                     update_modifier_state(&mut self.emitted_modifiers, &event);
                     result.push(event);
                 }

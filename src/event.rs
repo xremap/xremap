@@ -16,6 +16,13 @@ pub enum Event {
     OverrideTimeout,
     // Ticks for operators
     Tick,
+    // By pass active operators adn static operators on the same level.
+    //  This has the meaning, that the emitted operator has handled the event, created
+    //  this synthetic event, that must not have effect on the same level.
+    // The bypass-event can at most interrupt other operators or actions emitted.
+    // This event is never emitted from EmitHandler, so it's strictly local to the level.
+    #[allow(warnings)]
+    ByPassLocal(Box<Event>),
 }
 
 impl Event {
