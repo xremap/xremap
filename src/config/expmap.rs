@@ -1,4 +1,4 @@
-use crate::config::application::OnlyOrNot;
+use crate::config::application::ApplicationMatch;
 use crate::config::modmap::KeyWrapper;
 use crate::config::{expmap_operator::ExpmapOperator, expmap_simkey::Simkey};
 use evdev::KeyCode as Key;
@@ -15,8 +15,8 @@ pub struct Expmap {
     pub chords: Vec<Simkey>,
     #[serde(default, deserialize_with = "deserialize_experimental_remap")]
     pub remap: IndexMap<Key, ExpmapOperator>,
-    pub application: Option<OnlyOrNot>,
-    pub window: Option<OnlyOrNot>,
+    pub application: Option<ApplicationMatch>,
+    pub window: Option<ApplicationMatch>,
 }
 
 pub fn deserialize_experimental_remap<'de, D>(deserializer: D) -> Result<IndexMap<Key, ExpmapOperator>, D::Error>

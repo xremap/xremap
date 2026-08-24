@@ -1,0 +1,21 @@
+mod tests;
+mod tests_any_key;
+mod tests_disguised_events_in;
+mod tests_escape_next_key;
+mod tests_extra_modifiers;
+mod tests_keymap_mark;
+mod tests_keymap_mode;
+mod tests_keymap_modifier_triggers;
+mod tests_modmap_keys;
+mod tests_modmap_mul_purpose;
+mod tests_modmap_mul_purpose_tap_preferred;
+mod tests_modmap_press_release_key;
+mod tests_nested_remap;
+mod tests_operator_double_tap;
+mod tests_operator_handler;
+mod tests_operator_sim;
+mod tests_operator_throttle;
+mod tests_throttle_emit;
+mod tests_virtual_modifier;
+
+pub use tests::*;

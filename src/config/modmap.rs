@@ -1,6 +1,6 @@
 use super::device::DeviceMatcher;
 use crate::config::application::deserialize_string_or_vec;
-use crate::config::application::OnlyOrNot;
+use crate::config::application::ApplicationMatch;
 use crate::config::key::deserialize_key;
 use crate::config::modmap_operator::ModmapOperator;
 use evdev::KeyCode as Key;
@@ -15,8 +15,8 @@ pub struct Modmap {
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
     pub remap: HashMap<Key, ModmapOperator>,
-    pub application: Option<OnlyOrNot>,
-    pub window: Option<OnlyOrNot>,
+    pub application: Option<ApplicationMatch>,
+    pub window: Option<ApplicationMatch>,
     pub device: Option<DeviceMatcher>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,

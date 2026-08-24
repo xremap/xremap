@@ -1,6 +1,6 @@
+use super::tests::assert_actions;
 use crate::action::Action;
 use crate::event::{Event, KeyEvent, KeyValue};
-use crate::tests::assert_actions;
 use evdev::{KeyCode as Key, RelativeAxisCode};
 use indoc::indoc;
 use std::time::Duration;

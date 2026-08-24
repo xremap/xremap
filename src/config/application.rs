@@ -5,17 +5,18 @@ use serde::{Deserialize, Deserializer};
 use std::str::FromStr;
 
 // TODO: Use trait to allow only either `only` or `not`
+// This struct is used in error messages to users
 // Used for both application and window-title matching.
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct OnlyOrNot {
+pub struct ApplicationMatch {
     #[serde(default, deserialize_with = "deserialize_matchers")]
-    pub only: Option<Vec<ApplicationMatcher>>,
+    only: Option<Vec<ApplicationMatcher>>,
     #[serde(default, deserialize_with = "deserialize_matchers")]
-    pub not: Option<Vec<ApplicationMatcher>>,
+    not: Option<Vec<ApplicationMatcher>>,
 }
 
-impl OnlyOrNot {
+impl ApplicationMatch {
     pub fn matches(&self, app: &str) -> bool {
         if let Some(only) = &self.only {
             return only.iter().any(|m| m.matches(app));
@@ -28,7 +29,7 @@ impl OnlyOrNot {
 }
 
 #[derive(Clone, Debug)]
-pub enum ApplicationMatcher {
+enum ApplicationMatcher {
     // class.name
     Literal(String),
     // name

@@ -1,7 +1,7 @@
 use super::device::DeviceMatcher;
 use super::key_press::Modifier;
 use crate::config::application::deserialize_string_or_vec;
-use crate::config::application::OnlyOrNot;
+use crate::config::application::ApplicationMatch;
 use crate::config::key_press::KeyPress;
 use crate::config::keymap_action::{Actions, KeymapAction};
 use evdev::KeyCode as Key;
@@ -18,8 +18,8 @@ pub struct Keymap {
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
     pub remap: IndexMap<KeyPress, Vec<KeymapAction>>,
-    pub application: Option<OnlyOrNot>,
-    pub window: Option<OnlyOrNot>,
+    pub application: Option<ApplicationMatch>,
+    pub window: Option<ApplicationMatch>,
     pub device: Option<DeviceMatcher>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
@@ -44,8 +44,8 @@ where
 pub struct KeymapEntry {
     pub actions: Vec<KeymapAction>,
     pub modifiers: Vec<Modifier>,
-    pub application: Option<OnlyOrNot>,
-    pub title: Option<OnlyOrNot>,
+    pub application: Option<ApplicationMatch>,
+    pub title: Option<ApplicationMatch>,
     pub device: Option<DeviceMatcher>,
     pub mode: Option<Vec<String>>,
     pub exact_match: bool,
