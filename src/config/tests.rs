@@ -225,7 +225,7 @@ fn test_yaml_press_release_key_wrongly_used_in_keymap() {
 
     assert_eq!(
         &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
     );
 }
 
@@ -242,7 +242,7 @@ fn test_yaml_modifier_is_missing_sidedness() {
 
     assert_eq!(
         &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
     );
 }
 
@@ -259,7 +259,7 @@ fn test_yaml_key_is_unknown() {
 
     assert_eq!(
         &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
     );
 }
 
@@ -305,7 +305,7 @@ fn test_yaml_keymap_remap_timeout_key_invalid() {
 
     assert_eq!(
         &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
     );
 }
 
@@ -324,7 +324,7 @@ fn test_yaml_keymap_remap_timeout_invalid() {
 
     assert_eq!(
         &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 7"
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
     );
 }
 

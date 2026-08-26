@@ -168,30 +168,10 @@ fn deserialize_action_without_args<'de, D: Deserializer<'de>>(deserializer: D) -
     deserialize_single_field(deserializer, "action")
 }
 
-// Used only for deserializing Vec<Action>
-#[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
-pub enum Actions {
-    // Allows keychords to map to null, which means no actions.
-    NoAction,
-    Action(KeymapAction),
-    Actions(Vec<KeymapAction>),
-}
-
-impl Actions {
-    pub fn into_vec(self) -> Vec<KeymapAction> {
-        match self {
-            Actions::NoAction => vec![],
-            Actions::Action(action) => vec![action],
-            Actions::Actions(actions) => actions,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::config::key_press::{KeyPress, Modifier};
-    use crate::config::keymap_action::{Actions, KeymapAction};
+    use crate::config::keymap_action::KeymapAction;
     use evdev::KeyCode as Key;
 
     #[test]
@@ -209,14 +189,6 @@ mod tests {
     fn test_launch_action() {
         test_yaml_parsing_key_launch("{launch: []}", vec![]);
         test_yaml_parsing_key_launch("{launch: [\"bla\"]}", vec!["bla".into()]);
-    }
-
-    #[test]
-    fn test_null_action() {
-        if let Actions::NoAction = serde_yaml::from_str("null").unwrap() {
-            return;
-        }
-        panic!("unexpected type");
     }
 
     //
