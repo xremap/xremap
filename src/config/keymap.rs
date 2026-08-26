@@ -2,8 +2,9 @@ use super::device::DeviceMatcher;
 use super::key_press::Modifier;
 use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::ApplicationMatch;
+use crate::config::deserializers::VectorOrSingleOrNull;
 use crate::config::key_press::KeyPress;
-use crate::config::keymap_action::{Actions, KeymapAction};
+use crate::config::keymap_action::KeymapAction;
 use evdev::KeyCode as Key;
 use indexmap::IndexMap;
 use serde::{Deserialize, Deserializer};
@@ -32,7 +33,7 @@ where
     D: Deserializer<'de>,
 {
     // IndexMap preserves the order from the config file, which is why it's used instead of HashMap.
-    let remap = IndexMap::<KeyPress, Actions>::deserialize(deserializer)?;
+    let remap = IndexMap::<KeyPress, VectorOrSingleOrNull<KeymapAction>>::deserialize(deserializer)?;
     Ok(remap
         .into_iter()
         .map(|(key_press, actions)| (key_press, actions.into_vec()))

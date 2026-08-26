@@ -19,10 +19,13 @@ pub struct Expmap {
     pub window: Option<ApplicationMatch>,
 }
 
-pub fn deserialize_experimental_remap<'de, D>(deserializer: D) -> Result<IndexMap<Key, ExpmapOperator>, D::Error>
+fn deserialize_experimental_remap<'de, D>(deserializer: D) -> Result<IndexMap<Key, ExpmapOperator>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let v = IndexMap::<KeyWrapper, ExpmapOperator>::deserialize(deserializer)?;
-    Ok(v.into_iter().map(|(KeyWrapper(k), v)| (k, v)).collect())
+    let remap = IndexMap::<KeyWrapper, ExpmapOperator>::deserialize(deserializer)?;
+    Ok(remap
+        .into_iter()
+        .map(|(KeyWrapper(key), actions)| (key, actions))
+        .collect())
 }

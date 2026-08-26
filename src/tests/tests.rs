@@ -539,7 +539,7 @@ fn test_keymap_action_error() {
 
     assert_eq!(
         &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum Actions at line 3 column 9"
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 9"
     );
 }
 

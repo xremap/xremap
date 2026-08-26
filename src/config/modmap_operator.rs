@@ -1,6 +1,6 @@
 use super::deserialize_keys;
-use super::keymap_action::{Actions, KeymapAction};
-use crate::config::deserializers::deserialize_duration;
+use super::keymap_action::KeymapAction;
+use crate::config::deserializers::{deserialize_duration, VectorOrSingleOrNull};
 use crate::config::key::{deserialize_key, parse_key};
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
@@ -109,7 +109,7 @@ pub fn deserialize_actions<'de, D>(deserializer: D) -> Result<Vec<KeymapAction>,
 where
     D: Deserializer<'de>,
 {
-    let actions = Actions::deserialize(deserializer)?;
+    let actions = VectorOrSingleOrNull::<KeymapAction>::deserialize(deserializer)?;
     Ok(actions.into_vec())
 }
 
