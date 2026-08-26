@@ -17,6 +17,27 @@ impl<T> VecOrSingle<T> {
     }
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum VectorOrSingleOrNull<T> {
+    NoAction,
+    Action(T),
+    Actions(Vec<T>),
+}
+
+impl<T> VectorOrSingleOrNull<T> {
+    pub fn into_vec(self) -> Vec<T> {
+        match self {
+            VectorOrSingleOrNull::NoAction => vec![],
+            VectorOrSingleOrNull::Action(action) => vec![action],
+            VectorOrSingleOrNull::Actions(actions) => actions,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct DurationWrapper(#[serde(deserialize_with = "deserialize_duration")] pub Duration);
+
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,
@@ -24,6 +45,3 @@ where
     let millis = u64::deserialize(deserializer)?;
     Ok(Duration::from_millis(millis))
 }
-
-#[derive(Deserialize, Debug)]
-pub struct DurationWrapper(#[serde(deserialize_with = "deserialize_duration")] pub Duration);

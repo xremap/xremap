@@ -1,5 +1,5 @@
 use crate::config::deserialize_single_field;
-use crate::config::deserializers::{deserialize_duration, DurationWrapper};
+use crate::config::deserializers::{deserialize_duration, DurationWrapper, VectorOrSingleOrNull};
 use crate::config::key::deserialize_key;
 use crate::config::modmap::KeyWrapper;
 use evdev::KeyCode as Key;
@@ -40,30 +40,11 @@ pub enum ExpmapAction {
     Key(Key),
 }
 
-// Used only for deserializing
-#[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
-enum ExpmapActions<T> {
-    NoAction,
-    Action(T),
-    Actions(Vec<T>),
-}
-
-impl<T> ExpmapActions<T> {
-    pub fn into_vec(self) -> Vec<T> {
-        match self {
-            ExpmapActions::NoAction => vec![],
-            ExpmapActions::Action(action) => vec![action],
-            ExpmapActions::Actions(actions) => actions,
-        }
-    }
-}
-
 pub fn deserialize_expmap_actions<'de, D>(deserializer: D) -> Result<Vec<ExpmapAction>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(ExpmapActions::deserialize(deserializer)?.into_vec())
+    Ok(VectorOrSingleOrNull::deserialize(deserializer)?.into_vec())
 }
 
 fn default_dbltap_timeout() -> Duration {
