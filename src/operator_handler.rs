@@ -54,13 +54,7 @@ impl OperatorHandler {
             }
 
             for (key, op) in &expmap.remap {
-                let operators = match op {
-                    ExpmapOperator::DoubleTap(dbltap) => {
-                        DoubleTapOperator::get_ops(*key, dbltap, timeout_manager.clone())
-                    }
-                    ExpmapOperator::Throttle(timeout) => ThrottleOperator::get_ops(*key, *timeout),
-                    ExpmapOperator::OneShot(action) => OneshotOperator::get_ops(*key, *action),
-                };
+                let operators = get_static_operators(*key, op, &timeout_manager);
                 append(operators, &mut lookup_map, expmap);
             }
         }
@@ -97,6 +91,23 @@ impl OperatorHandler {
                 self.emit_handler.map_output(events)
             })
             .collect()
+    }
+}
+
+/// Makes the static operators, that is needed for the given configuration file definition.
+fn get_static_operators(
+    key: Key,
+    op: &ExpmapOperator,
+    timeout_manager: &Rc<TimeoutManager>,
+) -> Vec<(Key, Box<dyn StaticOperator>)> {
+    match op {
+        ExpmapOperator::DoubleTap(dbltap) => DoubleTapOperator::get_ops(key, dbltap, timeout_manager.clone()),
+        ExpmapOperator::Throttle(timeout) => ThrottleOperator::get_ops(key, *timeout),
+        ExpmapOperator::OneShot(action) => OneshotOperator::get_ops(key, *action),
+        ExpmapOperator::Select(operators) => operators
+            .iter()
+            .flat_map(|operator| get_static_operators(key, operator, &timeout_manager))
+            .collect(),
     }
 }
 

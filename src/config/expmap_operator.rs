@@ -15,6 +15,8 @@ pub enum ExpmapOperator {
     Throttle(Duration),
     #[serde(deserialize_with = "deserialize_oneshot")]
     OneShot(Key),
+    #[serde(deserialize_with = "deserialize_select")]
+    Select(Vec<ExpmapOperator>),
 }
 
 pub fn deserialize_throttle<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
@@ -23,6 +25,10 @@ pub fn deserialize_throttle<'de, D: Deserializer<'de>>(deserializer: D) -> Resul
 
 pub fn deserialize_oneshot<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Key, D::Error> {
     Ok(deserialize_single_field::<D, KeyWrapper>(deserializer, "oneshot")?.0)
+}
+
+pub fn deserialize_select<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<ExpmapOperator>, D::Error> {
+    Ok(deserialize_single_field::<D, Vec<ExpmapOperator>>(deserializer, "select")?)
 }
 
 #[derive(Clone, Debug, Deserialize)]

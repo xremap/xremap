@@ -31,6 +31,7 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 - [Chords (simultaneous keys)](reference_chords.md)
 - [Throttle keys](reference_throttle.md)
 - [Oneshot key](reference_oneshot.md)
+- [Select between operators](reference_select.md)
 - [FreeBSD](reference_freebsd.md)
 - [Scripting](reference_scripting.md)
 
