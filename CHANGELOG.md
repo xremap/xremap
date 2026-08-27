@@ -1,3 +1,13 @@
+## v0.15.12
+
+- Add Select Operator. https://github.com/xremap/xremap/pull/994
+- Add Oneshot Operator. https://github.com/xremap/xremap/pull/992
+- Add Throttle Operator. https://github.com/xremap/xremap/pull/990
+- Add feature matrix. https://github.com/xremap/xremap/pull/988
+- Refactor. https://github.com/xremap/xremap/pull/991
+- Remove serde_with crate. https://github.com/xremap/xremap/pull/989
+- Fix fragile test: e2e_config_watch_is_debounced. https://github.com/xremap/xremap/pull/987
+
 ## v0.15.11
 
 - Add reload xremap action. https://github.com/xremap/xremap/pull/983
