@@ -76,7 +76,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
 
       - name: Compile in VM
-        uses: cross-platform-actions/action@5ea7e8e4677bd726033a10b094ba1c5762b15dee
+        uses: cross-platform-actions/action@faa0c6197e94aacf1c5956460152c8380d3560a5
         with:
           operating_system: freebsd
           version: "15.0"
