@@ -1,5 +1,6 @@
 use crate::client::{build_client, WMClient};
 use crate::command_runner::CommandRunner;
+use crate::main_impl::Desktop;
 use log::debug;
 
 pub struct MainController {
@@ -9,9 +10,9 @@ pub struct MainController {
 }
 
 impl MainController {
-    pub fn new(log_window_changes: bool, allow_launch: bool) -> Self {
+    pub fn new(log_window_changes: bool, allow_launch: bool, desktop: Desktop) -> Self {
         Self {
-            wmclient: build_client(log_window_changes),
+            wmclient: build_client(log_window_changes, desktop),
             command_runner: CommandRunner::new(allow_launch),
             allow_launch,
         }

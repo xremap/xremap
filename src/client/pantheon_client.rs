@@ -64,6 +64,11 @@ impl PantheonClient {
 }
 
 impl Client for PantheonClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        self.get_windows()?;
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         self.get_windows().is_ok()
     }

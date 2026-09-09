@@ -1,6 +1,10 @@
 use crate::config::application::ApplicationMatch;
+use crate::main_impl::Desktop;
 use crate::util::print_table;
+use log::{debug, error, info, warn};
+use nix::libc::getuid;
 use serde::{Deserialize, Serialize};
+use std::time::Instant;
 
 #[cfg(feature = "cosmic")]
 mod cosmic_client;
@@ -36,7 +40,12 @@ pub struct WindowInfo {
 }
 
 pub trait Client {
+    /// Must not print/log anything. Must return an error if connection isn't possible.
+    /// This function must be called as the first thing, otherwise it's ill-defined.
+    /// Because some clients cache the connection and will never retry connecting.
+    fn test_connection(&mut self) -> anyhow::Result<()>;
     // It's called very late. I.e. the first time xremap wants some information.
+    // Some clients may print/log messages.
     fn supported(&mut self) -> bool;
     fn current_application(&mut self) -> Option<String>;
     fn current_window(&mut self) -> Option<String>;
@@ -175,48 +184,132 @@ impl WMClient {
     }
 }
 
-pub fn build_client(log_window_changes: bool) -> WMClient {
-    let clients: Vec<WMClient> = vec![
+fn supported_clients(_log_window_changes: bool) -> Vec<(Desktop, &'static str, Box<dyn Fn() -> Box<dyn Client>>)> {
+    // X11 is last. Because it's generic, and one of the others should
+    // be used if possible. It must also be last because a Wayland desktop
+    // with XWayland-support likely isolates the apps.
+    // Niri and Hypr must be before wlroots. They aren't selected, otherwise.
+    vec![
         #[cfg(feature = "gnome")]
-        WMClient::new("GNOME", Box::new(gnome_client::GnomeClient::new()), log_window_changes),
+        (Desktop::Gnome, "GNOME", Box::new(|| Box::new(gnome_client::GnomeClient::new()))),
         #[cfg(feature = "kde")]
-        WMClient::new("KDE", Box::new(kde::KdeClient::new(log_window_changes)), log_window_changes),
+        (Desktop::Kde, "KDE", Box::new(move || Box::new(kde::KdeClient::new(_log_window_changes)))),
         #[cfg(feature = "hypr")]
-        WMClient::new("Hypr", Box::new(hypr_client::HyprlandClient::new()), log_window_changes),
-        #[cfg(feature = "x11")]
-        WMClient::new("X11", Box::new(x11_client::X11Client::new()), log_window_changes),
-        #[cfg(feature = "wlroots")]
-        WMClient::new("wlroots", Box::new(wlroots_client::WlRootsClient::new()), log_window_changes),
+        (Desktop::Hypr, "Hypr", Box::new(|| Box::new(hypr_client::HyprlandClient::new()))),
         #[cfg(feature = "niri")]
-        WMClient::new("Niri", Box::new(niri_client::NiriClient::new()), log_window_changes),
+        (Desktop::Niri, "Niri", Box::new(|| Box::new(niri_client::NiriClient::new()))),
+        #[cfg(feature = "wlroots")]
+        (Desktop::Wlroots, "wlroots", Box::new(|| Box::new(wlroots_client::WlRootsClient::new()))),
         #[cfg(feature = "cosmic")]
-        WMClient::new("COSMIC", Box::new(cosmic_client::CosmicClient::new()), log_window_changes),
+        (Desktop::Cosmic, "COSMIC", Box::new(|| Box::new(cosmic_client::CosmicClient::new()))),
         #[cfg(feature = "pantheon")]
-        WMClient::new("Pantheon", Box::new(pantheon_client::PantheonClient::new()), log_window_changes),
+        (Desktop::Pantheon, "Pantheon", Box::new(|| Box::new(pantheon_client::PantheonClient::new()))),
+        #[cfg(feature = "x11")]
+        (Desktop::X11, "X11", Box::new(|| Box::new(x11_client::X11Client::new()))),
         #[cfg(feature = "socket")]
-        WMClient::new("Socket", Box::new(socket_client::SocketClient::new()), log_window_changes),
-        #[cfg(feature = "device-test")]
-        WMClient::new("DeviceTest", Box::new(null_client::DeviceTestClient), log_window_changes),
-    ];
+        (Desktop::Socket, "Socket", Box::new(|| Box::new(socket_client::SocketClient::new()))),
+    ]
+}
 
-    if clients.len() == 0 {
-        WMClient::new("none", Box::new(null_client::NullClient), log_window_changes)
-    } else if clients.len() == 1 {
-        clients.into_iter().next().unwrap()
-    } else {
-        // Shouldn't use panic, but this cannot happen for users,
-        // because two features would previously conflict already at
-        // compile-time, with multiple declarations of `build_client`.
-        panic!("There is no way to run with multiple clients enabled.")
+fn concat_supported_clients(clients: Vec<(Desktop, &'static str, Box<dyn Fn() -> Box<dyn Client>>)>) -> String {
+    clients
+        .into_iter()
+        .map(|(_, name, _)| name)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+pub fn build_client(log_window_changes: bool, desktop: Desktop) -> WMClient {
+    #[cfg(feature = "device-test")]
+    if 1 == 1 {
+        // Runtime guard to allow easy type checking with `--all-features`.
+        return WMClient::new("DeviceTest", Box::new(null_client::DeviceTestClient), log_window_changes);
+    }
+
+    let clients = supported_clients(log_window_changes);
+
+    match desktop {
+        Desktop::None => WMClient::new("none", Box::new(null_client::NullClient), log_window_changes),
+        Desktop::Auto => auto_select_client(clients, log_window_changes),
+        _ => {
+            for (_desktop, name, client) in &clients {
+                if desktop == *_desktop {
+                    return WMClient::new(name, client(), log_window_changes);
+                }
+            }
+
+            let supported = concat_supported_clients(clients);
+            error!("This variant of xremap doesn't support '{desktop:?}'. Supported: {supported}");
+            WMClient::new("none", Box::new(null_client::NullClient), log_window_changes)
+        }
     }
 }
 
-pub fn print_open_windows() -> anyhow::Result<()> {
-    let mut wmclient = build_client(false);
+pub fn auto_select_client(
+    clients: Vec<(Desktop, &str, Box<dyn Fn() -> Box<dyn Client>>)>,
+    log_window_changes: bool,
+) -> WMClient {
+    // Desktop chosen at compile time
+    if clients.len() == 0 {
+        return WMClient::new("none", Box::new(null_client::NullClient), log_window_changes);
+    } else if clients.len() == 1 {
+        let (_, name, client) = clients.into_iter().next().unwrap();
+        return WMClient::new(name, client(), log_window_changes);
+    }
+
+    let start_time = Instant::now();
+    let mut supported_clients: Vec<(&str, Box<dyn Client>)> = vec![];
+
+    for (_desktop, name, client) in clients {
+        if _desktop == Desktop::Socket {
+            // Socket can't be automatically selected.
+            // It must also not be constructed, because that would start SessionMonitor.
+            continue;
+        }
+
+        let mut client = client(); // Construct the client.
+
+        let display_name = format!("{}:", name);
+        match client.test_connection() {
+            Ok(()) => {
+                info!("{:<9} supported.", display_name);
+                supported_clients.push((name, client));
+            }
+            Err(err) => {
+                debug!("{:<9} {:?}", display_name, err)
+            }
+        };
+    }
+
+    debug!("Client-select-time: {:?}", Instant::now().duration_since(start_time));
+
+    // Take the first supported
+    for (name, client) in supported_clients {
+        info!("Using client: {:?}", name);
+        return WMClient::new(name, client, log_window_changes);
+    }
+
+    warn!("No supported desktop clients. Run with 'RUST_LOG=debug' to get more info.");
+
+    if 1000 > unsafe { getuid() } {
+        warn!("When running as system user it's difficult to get a connection to the desktop environment.");
+    }
+
+    // When there's nothing supported
+    WMClient::new("none", Box::new(null_client::NullClient), log_window_changes)
+}
+
+pub fn print_supported_desktops() {
+    let supported = concat_supported_clients(supported_clients(false));
+    println!("This variant of xremap supports: {supported}");
+}
+
+pub fn print_open_windows(desktop: Desktop) -> anyhow::Result<()> {
+    let mut wmclient = build_client(false, desktop);
 
     // This must be done to connect.
     if !wmclient.client.supported() {
-        eprintln!("{} is not supported.", wmclient.name);
+        eprintln!("Can't connect to '{}'.", wmclient.name);
         return Ok(());
     }
 

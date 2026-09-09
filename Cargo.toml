@@ -40,17 +40,18 @@ indexmap = { version = "2.14.0", features = ["serde"] }
 fastrand = "2.4.1"
 
 [features]
+full = ["gnome", "x11", "hypr", "kde", "wlroots", "niri", "cosmic", "pantheon", "socket"]
 gnome = ["zbus"]
 x11 = ["x11rb"]
 hypr = ["hyprland"]
 kde = ["zbus"]
 wlroots = ["wayland-client", "wayland-protocols-wlr"]
-udev = ["dep:udev"]
 niri = ["niri-ipc"]
-device-test = []
 cosmic = [ "wayland-client","wayland-scanner","wayland-backend"]
-socket = ["futures-util", "zbus"]
 pantheon = ["zbus"]
+socket = ["futures-util", "zbus"]
+udev = ["dep:udev"]
+device-test = []
 
 [profile.release]
 codegen-units = 1

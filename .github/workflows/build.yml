@@ -23,7 +23,7 @@ jobs:
       matrix:
         arch: [x86_64, aarch64]
         feature:
-          [x11, gnome, kde, hypr, wlroots, niri, cosmic, pantheon, socket]
+          [x11, gnome, kde, hypr, wlroots, niri, cosmic, pantheon, socket, full]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
@@ -127,6 +127,8 @@ jobs:
         with: { name: xremap-x86_64-pantheon, path: package/ }
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with: { name: xremap-x86_64-socket, path: package/ }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with: { name: xremap-x86_64-full, path: package/ }
 
       # Fetch aarch64 binary
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -147,6 +149,8 @@ jobs:
         with: { name: xremap-aarch64-pantheon, path: package/ }
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with: { name: xremap-aarch64-socket, path: package/ }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with: { name: xremap-aarch64-full, path: package/ }
 
       # Release binary
       - name: Release

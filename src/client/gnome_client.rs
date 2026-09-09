@@ -92,6 +92,23 @@ impl GnomeClient {
 }
 
 impl Client for GnomeClient {
+    // This does the same thing as `current_application()`, but without printing anything.
+    // Socket isn't used, because it's deprecated in favor of `--feature socket`.
+    // Legacy WMClass via DBUS isn't used either.
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        // Use DBUS connection to be sure GNOME extension is installed.
+        let conn = block_on(Connection::session())?;
+        block_on(conn.call_method(
+            Some("org.gnome.Shell"),
+            "/com/k0kubun/Xremap",
+            Some("com.k0kubun.Xremap"),
+            "ActiveWindow",
+            &(),
+        ))?;
+
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         if let Some(socket) = self.socket_path.as_ref() {
             match Path::new(socket).parent() {

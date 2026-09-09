@@ -91,6 +91,14 @@ impl SocketClient {
 }
 
 impl Client for SocketClient {
+    // Socket can't support automatic selection because both xremap-user and normal-user
+    // will see the socket. So the normal-user will erroneously try to connect to it.
+    // The socket client must be selected explicitly with: `--desktop=socket`.
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        self.get_active_window()?;
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         debug!("Using socket path pattern: {}", self.socket_path);
         let regex = Regex::new(r"/(\{uid\}/.+|[^/{]+)$").unwrap();

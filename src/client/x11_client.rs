@@ -89,6 +89,16 @@ impl X11Client {
 }
 
 impl Client for X11Client {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        // Sets default DISPLAY without changing env-var.
+        let _ = x11rb::connect(Some(":0"))?;
+        if "wayland" == env::var("XDG_SESSION_TYPE").unwrap_or_default() {
+            bail!("Connected to X11 server, but in wayland session. This will not work.");
+        } else {
+            Ok(())
+        }
+    }
+
     fn supported(&mut self) -> bool {
         self.connect();
         self.connection.is_some()

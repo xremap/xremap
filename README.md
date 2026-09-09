@@ -41,43 +41,30 @@ See also: [Documentation section](doc/README.md)
 
 ## Installation
 
-Download a binary from [Releases](https://github.com/k0kubun/xremap/releases).
+Xremap comes as a full variant (since v0.15.13), which includes support for all desktops and window managers.
+Otherwise a specific variant can be chosen, with support for just one each.
 
-If it doesn't work, please [install Rust](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-and run one of the following commands:
+After installation there're also manual instructions below.
 
-```bash
-cargo install xremap --features x11      # X11
-cargo install xremap --features gnome    # GNOME Wayland
-cargo install xremap --features kde      # KDE-Plasma Wayland
-cargo install xremap --features wlroots  # Sway, Wayfire, etc.
-cargo install xremap --features hypr     # Hyprland
-cargo install xremap --features niri     # Niri
-cargo install xremap --features cosmic   # COSMIC Wayland
-cargo install xremap --features pantheon # Pantheon Wayland (aka Secure)
-cargo install xremap --features socket   # Variant for system service
-cargo install xremap                     # Others
-```
+The community has a [task to discuss what the meaning of `xremap`](https://github.com/xremap/xremap/discussions/1005) should be in distro packages
+and on the release page. Should it mean `xremap-minimal` with no desktop support or should it
+mean `xremap-full` with all supported desktops and auto selection.
 
-You may also need to install `libx11-dev` to run `xremap` for X11.
+### Packages
 
-You may find a list of supported compositors for wlroots [here](https://wayland.app/protocols/wlr-foreign-toplevel-management-unstable-v1#compositor-support).
+- If you are using Arch there're [packages in AUR](https://aur.archlinux.org/packages?K=xremap).
+- If you are using NixOS, xremap provides a [flake](https://github.com/xremap/nix-flake/).
+- If you are using Fedora, xremap can be installed via a community [Copr](https://copr.fedorainfracloud.org/coprs/blakegardner/xremap/).
+- If you are using Gentoo Linux, xremap can be installed via [::guru overlay](https://codeberg.org/gentoo/guru/src/branch/master/gui-apps/xremap).
 
-#### Arch Linux
+### Release page
 
-If you are on Arch Linux and X11, you can install [xremap-x11-bin](https://aur.archlinux.org/packages/xremap-x11-bin/) from AUR.
+Otherwise xremap is available on the [Download page](https://github.com/k0kubun/xremap/releases) for all™ linux distros. There're generally no extra requirements than the single binary.
 
-#### NixOS
+### From source
 
-If you are using NixOS, xremap can be installed and configured through a [flake](https://github.com/xremap/nix-flake/).
-
-#### Fedora Linux
-
-If you are using Fedora, xremap can be installed via this [Fedora Copr](https://copr.fedorainfracloud.org/coprs/blakegardner/xremap/) repository.
-
-#### Gentoo Linux
-
-If you are using Gentoo Linux, xremap can be installed via [::guru overlay](https://codeberg.org/gentoo/guru/src/branch/master/gui-apps/xremap).
+[Instructions for GitHub and crates.io](doc/development/install_from_source.md)
+[Instructions for FreeBSD](doc/reference_freebsd.md)
 
 ## Usage
 
@@ -515,6 +502,15 @@ Options:
           Choose the product value of the created output device.
           Must be given in hexadecimal with or without a prefix '0x'.
           Default is: 0x5678
+
+      --desktop <DESKTOP>
+          Choose the desktop or window manager to connect to.
+          Default is: auto select
+
+          [possible values: gnome, x11, hypr, kde, wlroots, niri, cosmic, pantheon, socket, auto, none]
+
+      --list-desktops
+          List the desktops xremap supports in the current variant.
 
       --list-devices
           List info about devices
