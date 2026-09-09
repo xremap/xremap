@@ -32,7 +32,7 @@ impl MainController {
                 // could not run command, proceed to fork
                 self.command_runner.run(command);
             }
-            Ok(true) => {}
+            Ok(true) => debug!("Command delegated: {command:?}"),
             Err(e) => {
                 debug!("{command:?} failed: {e:?}");
             }
