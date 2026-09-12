@@ -175,33 +175,25 @@ mod tests {
     use evdev::KeyCode as Key;
 
     #[test]
-    fn test_keypress_action() {
-        test_yaml_parsing_key_press_and_release(
-            "c-x",
-            KeyCombo {
-                key: Key::KEY_X,
-                modifiers: vec![Modifier::Control],
-            },
-        );
+    fn test_keycombo() {
+        match serde_yaml::from_str("c-x").unwrap() {
+            KeymapAction::KeyCombo(key_combo) => {
+                assert_eq!(
+                    key_combo,
+                    KeyCombo {
+                        key: Key::KEY_X,
+                        modifiers: vec![Modifier::Control],
+                    }
+                );
+            }
+            _ => panic!("unexpected type"),
+        }
     }
 
     #[test]
     fn test_launch_action() {
         test_yaml_parsing_key_launch("{launch: []}", vec![]);
         test_yaml_parsing_key_launch("{launch: [\"bla\"]}", vec!["bla".into()]);
-    }
-
-    //
-    // util
-    //
-
-    fn test_yaml_parsing_key_press_and_release(yaml: &str, expected: KeyCombo) {
-        match serde_yaml::from_str(yaml).unwrap() {
-            KeymapAction::KeyCombo(keyp) => {
-                assert_eq!(keyp, expected);
-            }
-            _ => panic!("unexpected type"),
-        }
     }
 
     fn test_yaml_parsing_key_launch(yaml: &str, expected: Vec<String>) {
