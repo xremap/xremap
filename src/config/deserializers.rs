@@ -12,7 +12,7 @@ impl<T> VecOrSingle<T> {
     pub fn into_vec(self) -> Vec<T> {
         match self {
             VecOrSingle::Vec(vec) => vec,
-            VecOrSingle::Single(string) => vec![string],
+            VecOrSingle::Single(value) => vec![value],
         }
     }
 }
@@ -21,16 +21,16 @@ impl<T> VecOrSingle<T> {
 #[serde(untagged)]
 pub enum VectorOrSingleOrNull<T> {
     NoAction,
-    Action(T),
-    Actions(Vec<T>),
+    Single(T),
+    Vec(Vec<T>),
 }
 
 impl<T> VectorOrSingleOrNull<T> {
     pub fn into_vec(self) -> Vec<T> {
         match self {
             VectorOrSingleOrNull::NoAction => vec![],
-            VectorOrSingleOrNull::Action(action) => vec![action],
-            VectorOrSingleOrNull::Actions(actions) => actions,
+            VectorOrSingleOrNull::Single(action) => vec![action],
+            VectorOrSingleOrNull::Vec(actions) => actions,
         }
     }
 }
