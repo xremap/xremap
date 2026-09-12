@@ -15,6 +15,11 @@ impl HyprlandClient {
 }
 
 impl Client for HyprlandClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        HyprClient::get_active()?;
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         true
     }

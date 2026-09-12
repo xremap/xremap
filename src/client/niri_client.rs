@@ -78,6 +78,11 @@ impl NiriClient {
 }
 
 impl Client for NiriClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        Socket::connect()?;
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         let socket_path = match std::env::var("NIRI_SOCKET") {
             Ok(path) => path,

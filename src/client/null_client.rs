@@ -1,8 +1,13 @@
 use crate::client::{Client, WindowInfo};
+use anyhow::bail;
 
 pub struct NullClient;
 
 impl Client for NullClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        bail!("NullClient can't be auto selected")
+    }
+
     fn supported(&mut self) -> bool {
         false
     }
@@ -31,6 +36,10 @@ pub struct DeviceTestClient;
 
 #[cfg(feature = "device-test")]
 impl Client for DeviceTestClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         true
     }

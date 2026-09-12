@@ -68,6 +68,10 @@ impl WlRootsClient {
 }
 
 impl Client for WlRootsClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        self.connect()
+    }
+
     fn supported(&mut self) -> bool {
         match self.connect() {
             Ok(_) => true,

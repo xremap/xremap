@@ -76,6 +76,10 @@ impl KdeClient {
 }
 
 impl Client for KdeClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        self.connect()
+    }
+
     fn supported(&mut self) -> bool {
         let conn_res = self.connect();
         if let Err(err) = &conn_res {

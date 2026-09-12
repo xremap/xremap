@@ -4,6 +4,10 @@ Ensure xremap is installed in `/usr/bin/xremap`, or use the right path below.
 
 Ensure module for creating output devices is loaded. See instructions elsewhere.
 
+These instructions are for `v0.15.13` and later. [See instructions for earlier versions](https://github.com/xremap/xremap/blob/7e6649e442ca445b781e4cf0e90c165f86e717db/doc/running_as_system_service.md). For
+users that previously used two binaries for socket and bridge, remember to set `--desktop=socket` in the
+system service, as the socket feature can't be auto selected.
+
 ### Pro
 
 - It's the most secure way to run `xremap`.
@@ -14,7 +18,15 @@ Ensure module for creating output devices is loaded. See instructions elsewhere.
 - A drawback is that the same config file is used for all users.
 - The config file is inconvenient to modify because it's owned by the xremap user.
 - If you launch programs from xremap they will run as the `xremap` user. Not your own normal user. Except if you use the `socket` feature, see below.
-- If you want to use application-specific remappings it's only possible with the `socket` feature, see below.
+- If you want to use application-specific remappings it's only possible with the `socket` feature.
+
+## Socket feature (Optional)
+
+The instructions below tell you how to setup with and without the socket feature. With it, the system service will connect to another instance of xremap, which runs as your normal user.
+
+If you don't want this, it doesn't matter which variant of xremap you choose to install.
+
+If you want it choose the full variant of xremap, which includes the socket feature and the ability to connect to all desktops. On the [Releases page](https://github.com/xremap/xremap/releases) choose a version with a name like `xremap-linux-x86_64-full.zip`.
 
 ## Create a system user named xremap
 
@@ -22,8 +34,8 @@ Ensure module for creating output devices is loaded. See instructions elsewhere.
 sudo useradd --no-create-home --shell /bin/false --user-group --groups input --system xremap
 ```
 
-Note: The `xremap` user should only be used for this one purpose, to preserve security separation. Do not add your own user to the
-`xremap` group either for the same reason.
+Note: The `xremap` user should only be used for this one purpose, to preserve security separation.
+Do not add your own user to the `xremap` group either for the same reason.
 
 ## Place your config file a central location
 
@@ -44,7 +56,7 @@ sudo chmod 644 /etc/xremap/config.yml
 
 ## Create groups for socket feature (Optional)
 
-The `socket` variant of xremap lets you use application-specific remappings.
+The `socket` and `full` variant of xremap lets you use application-specific remappings.
 
 ```sh
 # Add a group for each user that will use xremap.
@@ -70,7 +82,7 @@ Description=Xremap
 After=default.target
 
 [Service]
-ExecStart=/usr/bin/xremap --watch=device /etc/xremap/config.yml
+ExecStart=/usr/bin/xremap --desktop=socket --watch=device /etc/xremap/config.yml
 Restart=always
 StandardOutput=journal
 StandardError=journal
@@ -94,7 +106,7 @@ Environment=RUST_LOG=warn # The default logging level
 WantedBy=default.target
 ```
 
-Adapt the arguments to `xremap` in `ExecStart`.
+Adapt the arguments to `xremap` in `ExecStart`. At least consider if you want `--desktop=none` or `--desktop=socket`.
 
 Start the service
 
@@ -126,11 +138,7 @@ sudo systemctl enable xremap.service
 
 ## Application-specific remappings (socket feature)
 
-To use this feature you must choose the right variant of xremap for the system service. On the [Releases page](https://github.com/xremap/xremap/releases) choose a version with a name like `xremap-linux-x86_64-socket.zip`. This binary will connect to another instance of xremap, which runs as your normal user. Below are instructions for the second xremap instance:
-
 ### GNOME
-
-Ensure you are using xremap v0.14.10 or later.
 
 The GNOME extension serves as the second instance of xremap.
 
@@ -145,15 +153,22 @@ The GNOME extension is configured to use `/run/xremap/{uid}/xremap.sock` by defa
 
 ### Other desktops than GNOME
 
-Ensure you are using xremap v0.15.1 or later.
+Ensure you are using xremap v0.15.13 or later.
 
-The second instance of xremap must match your desktop environment. So you can't avoid having two binaries. Start it by:
+The second instance of xremap connects to your desktop environment. Start it by:
 
 ```sh
 xremap --bridge
 ```
 
-The only argument that `xremap` can take in bridge-mode is `xremap --bridge --no_window_logging`.
+The only arguments that `xremap` can take in bridge-mode are:
+
+```sh
+xremap --no-window-logging \
+       --allow-launch="true or false" \
+       --desktop="kde,gnome, ... ,auto or none" \
+       --bridge
+```
 
 You can run the bridge as a user service or autostart file, see this as inspiration [Running as a user service](running_as_user_service.md).
 

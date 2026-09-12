@@ -1,6 +1,7 @@
 use crate::bridge::{Request, Response};
 use crate::client::{build_client, WMClient};
 use crate::command_runner::CommandRunner;
+use crate::main_impl::Desktop;
 use anyhow::{bail, Context};
 use nix::unistd::getuid;
 use std::fs::{exists, remove_file, set_permissions};
@@ -9,15 +10,15 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::Path;
 
-pub fn main(log_window_changes: bool, allow_launch: bool) -> anyhow::Result<()> {
+pub fn main(log_window_changes: bool, allow_launch: bool, desktop: Desktop) -> anyhow::Result<()> {
     let uid = getuid().as_raw();
     let socket_path = format!("/run/xremap/{uid}/xremap.sock");
     let mut command_runner = CommandRunner::new(allow_launch);
-    let mut wmclient = build_client(log_window_changes);
+    let mut wmclient = build_client(log_window_changes, desktop);
 
     // This must be done to connect.
     if !wmclient.client.supported() {
-        eprintln!("{} is not supported.", wmclient.name);
+        eprintln!("Can't connect to '{}'.", wmclient.name);
         return Ok(());
     }
 

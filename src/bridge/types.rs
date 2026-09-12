@@ -51,6 +51,13 @@ fn test_legacy_bridge_response() {
     // Used by gnome extension
     assert_eq!(
         ActiveWindow {
+            title: "".into(),
+            wm_class: "".into()
+        },
+        serde_json::from_str::<ActiveWindow>("{}\n").unwrap()
+    );
+    assert_eq!(
+        ActiveWindow {
             title: "foo".into(),
             wm_class: "bar".into()
         },

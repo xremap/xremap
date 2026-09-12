@@ -129,6 +129,10 @@ impl CosmicClient {
 }
 
 impl Client for CosmicClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        self.connect()
+    }
+
     fn supported(&mut self) -> bool {
         match self.connect() {
             Ok(_) => true,

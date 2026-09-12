@@ -4,7 +4,7 @@ use crate::platform_freebsd::{ConfigWatcher, DeviceWatcher};
 use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
 
 use crate::action_dispatcher::ActionDispatcher;
-use crate::client::print_open_windows;
+use crate::client::{print_open_windows, print_supported_desktops};
 use crate::config::{load_configs, Config};
 use crate::device::{
     choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
@@ -69,6 +69,7 @@ struct Args {
     /// When more than one file is given, then will modmap, keymap and virtual_modifiers
     /// from the subsequent files be merged into the first configuration file.
     #[arg(required_unless_present = "completions",
+        required_unless_present = "list_desktops",
         required_unless_present = "list_devices",
         required_unless_present = "device_details",
         required_unless_present = "list_windows",
@@ -85,6 +86,13 @@ struct Args {
     /// Default is: 0x5678
     #[arg(long, verbatim_doc_comment)]
     product: Option<String>,
+    /// Choose the desktop or window manager to connect to.
+    /// Default is: auto select
+    #[arg(long, verbatim_doc_comment)]
+    desktop: Option<Desktop>,
+    /// List the desktops xremap supports in the current variant.
+    #[arg(long, verbatim_doc_comment)]
+    list_desktops: bool,
     /// List info about devices
     #[arg(long)]
     list_devices: bool,
@@ -116,6 +124,21 @@ enum WatchTargets {
     Config,
 }
 
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Desktop {
+    Gnome,
+    X11,
+    Hypr,
+    Kde,
+    Wlroots,
+    Niri,
+    Cosmic,
+    Pantheon,
+    Socket,
+    Auto,
+    None,
+}
+
 // Action that the main loop must perform.
 #[derive(Debug)]
 pub enum MainAction {
@@ -144,6 +167,8 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         output_device_name,
         product,
         vendor,
+        desktop,
+        list_desktops,
         list_devices,
         device_details,
         list_windows,
@@ -151,6 +176,8 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         allow_launch,
         bridge,
     } = Args::parse();
+
+    let desktop = desktop.unwrap_or(Desktop::Auto);
 
     if let Some(shell) = completions {
         clap_complete::generate(shell, &mut Args::command(), "xremap", &mut stdout());
@@ -168,12 +195,17 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
     }
 
     if list_windows {
-        return print_open_windows();
+        return print_open_windows(desktop);
+    }
+
+    if list_desktops {
+        print_supported_desktops();
+        return Ok(());
     }
 
     if bridge {
         // Default deny launch
-        return crate::bridge::main(!no_window_logging, allow_launch.unwrap_or(false));
+        return crate::bridge::main(!no_window_logging, allow_launch.unwrap_or(false), desktop);
     }
 
     let watch_devices = watch.contains(&WatchTargets::Device);
@@ -211,7 +243,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
 
         // Default allow launch (Change to false in a major upgrade)
-        let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true));
+        let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true), desktop);
 
         // OperatorHandler
         let operator_handler = if config.experimental_map.len() > 0 {

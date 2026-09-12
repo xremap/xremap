@@ -2,7 +2,7 @@ use super::socket_monitor::SessionMonitor;
 use crate::bridge::{ActiveWindow, Request, Response};
 use crate::client::{Client, WindowInfo};
 use anyhow::{anyhow, bail, Context, Result};
-use log::debug;
+use log::{debug, error};
 use regex::Regex;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::UnixStream;
@@ -91,6 +91,14 @@ impl SocketClient {
 }
 
 impl Client for SocketClient {
+    // Socket can't support automatic selection because both xremap-user and normal-user
+    // will see the socket. So the normal-user will erroneously try to connect to it.
+    // The socket client must be selected explicitly with: `--desktop=socket`.
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        self.get_active_window()?;
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         debug!("Using socket path pattern: {}", self.socket_path);
         let regex = Regex::new(r"/(\{uid\}/.+|[^/{]+)$").unwrap();
@@ -106,17 +114,23 @@ impl Client for SocketClient {
     }
 
     fn current_window(&mut self) -> Option<String> {
-        if let Ok(window) = self.get_active_window() {
-            return Some(window.title);
+        match self.get_active_window() {
+            Ok(window) => Some(window.title),
+            Err(err) => {
+                error!("{err:?}");
+                None
+            }
         }
-        None
     }
 
     fn current_application(&mut self) -> Option<String> {
-        if let Ok(window) = self.get_active_window() {
-            return Some(window.wm_class);
+        match self.get_active_window() {
+            Ok(window) => Some(window.wm_class),
+            Err(err) => {
+                error!("{err:?}");
+                None
+            }
         }
-        None
     }
 
     fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {

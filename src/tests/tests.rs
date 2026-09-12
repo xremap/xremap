@@ -45,6 +45,10 @@ struct StaticClient {
 }
 
 impl Client for StaticClient {
+    fn test_connection(&mut self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
     fn supported(&mut self) -> bool {
         true
     }
