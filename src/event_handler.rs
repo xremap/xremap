@@ -125,7 +125,7 @@ impl EventHandler {
                         self.on_key_event(key_event.key, key_event.value(), &device, config, wmclient)?;
                     }
                     Event::RelativeEvent(device, relative_event) => {
-                        let key = Key(relative_event.to_disguised_key());
+                        let key = relative_event.to_disguised_key();
 
                         // Send as disguised-event
                         let was_remapped = self.on_key_event(key, PRESS, &device, config, wmclient)?;
@@ -424,7 +424,7 @@ impl EventHandler {
             }
             Event::RelativeEvent(device, relative_event) => {
                 // Can't use `flush_timeout_keys`, because it would also emit the disguised key.
-                let pressed = vec![Key(relative_event.to_disguised_key())];
+                let pressed = vec![relative_event.to_disguised_key()];
 
                 let mut events = vec![];
                 for (_, state) in self.multi_purpose_keys.iter_mut() {
