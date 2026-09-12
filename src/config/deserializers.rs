@@ -1,3 +1,5 @@
+use crate::config::key::parse_key;
+use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::time::Duration;
 
@@ -52,4 +54,12 @@ where
 {
     let vec = VecOrSingle::<String>::deserialize(deserializer)?.into_vec();
     Ok(Some(vec))
+}
+
+pub fn deserialize_key<'de, D>(deserializer: D) -> Result<Key, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let key = String::deserialize(deserializer)?;
+    parse_key(&key).map_err(serde::de::Error::custom)
 }

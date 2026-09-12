@@ -1,6 +1,5 @@
 use crate::config::deserialize_single_field;
-use crate::config::deserializers::{deserialize_duration, DurationWrapper, VectorOrSingleOrNull};
-use crate::config::key::deserialize_key;
+use crate::config::deserializers::{deserialize_duration, deserialize_key, DurationWrapper, VectorOrSingleOrNull};
 use crate::config::modmap::KeyWrapper;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
