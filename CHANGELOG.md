@@ -1,3 +1,10 @@
+## v0.15.13
+
+- Auto select desktop client. https://github.com/xremap/xremap/pull/1004
+- Log delegated launches in the main xremap process. https://github.com/xremap/xremap/pull/965
+- Update dependencies. https://github.com/xremap/xremap/pull/1007
+- Refactor stuff. https://github.com/xremap/xremap/pull/1006
+
 ## v0.15.12
 
 - Add Select Operator. https://github.com/xremap/xremap/pull/994
