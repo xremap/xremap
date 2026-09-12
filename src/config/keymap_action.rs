@@ -1,6 +1,6 @@
 use crate::config::deserialize_single_field;
 use crate::config::key::parse_key;
-use crate::config::key_press::KeyPress;
+use crate::config::key_combo::KeyCombo;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::nested_remap::{deserialize_nested_remap, Remap};
 use evdev::KeyCode as Key;
@@ -13,7 +13,7 @@ use std::fmt::Debug;
 #[serde(untagged)]
 pub enum KeymapAction {
     // Config interface
-    KeyPressAndRelease(KeyPress),
+    KeyCombo(KeyCombo),
     #[serde(deserialize_with = "deserialize_key_press")]
     KeyPress(Key),
     #[serde(deserialize_with = "deserialize_key_repeat")]
@@ -29,7 +29,7 @@ pub enum KeymapAction {
     #[serde(deserialize_with = "deserialize_set_mark")]
     SetMark(bool),
     #[serde(deserialize_with = "deserialize_with_mark")]
-    WithMark(KeyPress),
+    WithMark(KeyCombo),
     #[serde(deserialize_with = "deserialize_escape_next_key")]
     EscapeNextKey(bool),
     #[serde(deserialize_with = "deserialize_sleep")]
@@ -121,11 +121,11 @@ where
     Err(de::Error::custom("not a map with a single \"set_mark\" key"))
 }
 
-fn deserialize_with_mark<'de, D>(deserializer: D) -> Result<KeyPress, D::Error>
+fn deserialize_with_mark<'de, D>(deserializer: D) -> Result<KeyCombo, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let mut action = HashMap::<String, KeyPress>::deserialize(deserializer)?;
+    let mut action = HashMap::<String, KeyCombo>::deserialize(deserializer)?;
     if let Some(key_press) = action.remove("with_mark") {
         if action.is_empty() {
             return Ok(key_press);
@@ -170,38 +170,30 @@ fn deserialize_action_without_args<'de, D: Deserializer<'de>>(deserializer: D) -
 
 #[cfg(test)]
 mod tests {
-    use crate::config::key_press::{KeyPress, Modifier};
+    use crate::config::key_combo::{KeyCombo, Modifier};
     use crate::config::keymap_action::KeymapAction;
     use evdev::KeyCode as Key;
 
     #[test]
-    fn test_keypress_action() {
-        test_yaml_parsing_key_press_and_release(
-            "c-x",
-            KeyPress {
-                key: Key::KEY_X,
-                modifiers: vec![Modifier::Control],
-            },
-        );
+    fn test_keycombo() {
+        match serde_yaml::from_str("c-x").unwrap() {
+            KeymapAction::KeyCombo(key_combo) => {
+                assert_eq!(
+                    key_combo,
+                    KeyCombo {
+                        key: Key::KEY_X,
+                        modifiers: vec![Modifier::Control],
+                    }
+                );
+            }
+            _ => panic!("unexpected type"),
+        }
     }
 
     #[test]
     fn test_launch_action() {
         test_yaml_parsing_key_launch("{launch: []}", vec![]);
         test_yaml_parsing_key_launch("{launch: [\"bla\"]}", vec!["bla".into()]);
-    }
-
-    //
-    // util
-    //
-
-    fn test_yaml_parsing_key_press_and_release(yaml: &str, expected: KeyPress) {
-        match serde_yaml::from_str(yaml).unwrap() {
-            KeymapAction::KeyPressAndRelease(keyp) => {
-                assert_eq!(keyp, expected);
-            }
-            _ => panic!("unexpected type"),
-        }
     }
 
     fn test_yaml_parsing_key_launch(yaml: &str, expected: Vec<String>) {

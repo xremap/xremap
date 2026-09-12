@@ -28,7 +28,7 @@ pub struct OperatorHandler {
 /// Operators are given events from the left first, and can choose to emit to the next
 /// operator or to the standard modmap.
 /// The logic is:
-///   1. Try all active operators in the order they ware activated.
+///   1. Try all active operators in the order they were activated.
 ///   2. Try all candidates. They have no order, and there's no active operators after
 ///      the candidates.
 ///   3. Lookup operators that have the keypress as start_key.

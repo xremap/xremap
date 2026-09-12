@@ -1,7 +1,7 @@
 use super::deserialize_keys;
 use super::keymap_action::KeymapAction;
-use crate::config::deserializers::{deserialize_duration, VectorOrSingleOrNull};
-use crate::config::key::{deserialize_key, parse_key};
+use crate::config::deserializers::{deserialize_duration, deserialize_key, VectorOrSingleOrNull};
+use crate::config::key::parse_key;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::time::Duration;

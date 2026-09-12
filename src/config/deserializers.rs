@@ -1,3 +1,5 @@
+use crate::config::key::parse_key;
+use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::time::Duration;
 
@@ -12,7 +14,7 @@ impl<T> VecOrSingle<T> {
     pub fn into_vec(self) -> Vec<T> {
         match self {
             VecOrSingle::Vec(vec) => vec,
-            VecOrSingle::Single(string) => vec![string],
+            VecOrSingle::Single(value) => vec![value],
         }
     }
 }
@@ -21,16 +23,16 @@ impl<T> VecOrSingle<T> {
 #[serde(untagged)]
 pub enum VectorOrSingleOrNull<T> {
     NoAction,
-    Action(T),
-    Actions(Vec<T>),
+    Single(T),
+    Vec(Vec<T>),
 }
 
 impl<T> VectorOrSingleOrNull<T> {
     pub fn into_vec(self) -> Vec<T> {
         match self {
             VectorOrSingleOrNull::NoAction => vec![],
-            VectorOrSingleOrNull::Action(action) => vec![action],
-            VectorOrSingleOrNull::Actions(actions) => actions,
+            VectorOrSingleOrNull::Single(action) => vec![action],
+            VectorOrSingleOrNull::Vec(actions) => actions,
         }
     }
 }
@@ -44,4 +46,20 @@ where
 {
     let millis = u64::deserialize(deserializer)?;
     Ok(Duration::from_millis(millis))
+}
+
+pub fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let vec = VecOrSingle::<String>::deserialize(deserializer)?.into_vec();
+    Ok(Some(vec))
+}
+
+pub fn deserialize_key<'de, D>(deserializer: D) -> Result<Key, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let key = String::deserialize(deserializer)?;
+    parse_key(&key).map_err(serde::de::Error::custom)
 }

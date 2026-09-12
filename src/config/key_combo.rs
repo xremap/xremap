@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer};
 use std::error::Error;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct KeyPress {
+pub struct KeyCombo {
     pub key: Key,
     pub modifiers: Vec<Modifier>,
 }
@@ -32,17 +32,17 @@ impl Modifier {
     }
 }
 
-impl<'de> Deserialize<'de> for KeyPress {
+impl<'de> Deserialize<'de> for KeyCombo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let key_press = String::deserialize(deserializer)?;
-        parse_key_press(&key_press).map_err(serde::de::Error::custom)
+        parse_key_combo(&key_press).map_err(serde::de::Error::custom)
     }
 }
 
-fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn Error>> {
+fn parse_key_combo(input: &str) -> Result<KeyCombo, Box<dyn Error>> {
     let keys: Vec<&str> = input.split('-').collect();
     if let Some((key, modifier_keys)) = keys.split_last() {
         let mut modifiers = vec![];
@@ -50,7 +50,7 @@ fn parse_key_press(input: &str) -> Result<KeyPress, Box<dyn Error>> {
             modifiers.push(parse_modifier(modifier_key)?);
         }
 
-        Ok(KeyPress {
+        Ok(KeyCombo {
             key: parse_key(key)?,
             modifiers,
         })
@@ -97,8 +97,8 @@ pub fn parse_modifier_alias(modifier: &str) -> Option<Modifier> {
 fn test_parse_key_press() {
     // Can have modifiers with unspecified sidedness
     assert_eq!(
-        parse_key_press("Shift-2").unwrap(),
-        KeyPress {
+        parse_key_combo("Shift-2").unwrap(),
+        KeyCombo {
             key: Key::KEY_2,
             modifiers: vec![Modifier::Shift]
         }
@@ -106,8 +106,8 @@ fn test_parse_key_press() {
 
     // Can use custom key names. Defined in `parse_key`.
     assert_eq!(
-        parse_key_press("Shift_L-2").unwrap(),
-        KeyPress {
+        parse_key_combo("Shift_L-2").unwrap(),
+        KeyCombo {
             key: Key::KEY_2,
             modifiers: vec![Modifier::Key(Key::KEY_LEFTSHIFT)]
         }
@@ -116,8 +116,8 @@ fn test_parse_key_press() {
     // All keys are accepted as modifiers, because it's not possible to know
     // if the key is listed in virtual_modifiers at this point.
     assert_eq!(
-        parse_key_press("Enter-2").unwrap(),
-        KeyPress {
+        parse_key_combo("Enter-2").unwrap(),
+        KeyCombo {
             key: Key::KEY_2,
             modifiers: vec![Modifier::Key(Key::KEY_ENTER)]
         }

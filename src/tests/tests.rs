@@ -625,14 +625,10 @@ impl EventHandlerForTest {
     }
 
     pub fn assert(&mut self, events: Vec<Event>, actions: Vec<Action>) {
-        assert_eq!(
-            format!("{actions:?}"),
-            format!(
-                "{:?}",
-                self.event_handler
-                    .on_events(events, &self.config, &mut self.wmclient)
-                    .unwrap()
-            )
-        );
+        let actual = self
+            .event_handler
+            .on_events(events, &self.config, &mut self.wmclient)
+            .unwrap();
+        assert_eq!(format!("{actions:?}"), format!("{actual:?}"));
     }
 }

@@ -1,18 +1,9 @@
-use crate::config::key_press::parse_modifier_alias;
+use crate::config::key_combo::parse_modifier_alias;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use anyhow::Context;
 use evdev::KeyCode as Key;
-use serde::{Deserialize, Deserializer};
 use std::error::Error;
 use std::str::FromStr;
-
-pub fn deserialize_key<'de, D>(deserializer: D) -> Result<Key, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let key = String::deserialize(deserializer)?;
-    parse_key(&key).map_err(serde::de::Error::custom)
-}
 
 // Correspondence between pseudo keys created by xremap and evdev relative events
 // Alias for pseudo key is disguised relative event.

@@ -1,4 +1,4 @@
-use crate::config::application::deserialize_string_or_vec;
+use crate::config::deserializers::deserialize_string_or_vec;
 use crate::device::InputDeviceInfo;
 use serde::Deserialize;
 

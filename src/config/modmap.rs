@@ -1,7 +1,6 @@
 use super::device::DeviceMatcher;
-use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::ApplicationMatch;
-use crate::config::key::deserialize_key;
+use crate::config::deserializers::{deserialize_key, deserialize_string_or_vec};
 use crate::config::modmap_operator::ModmapOperator;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};

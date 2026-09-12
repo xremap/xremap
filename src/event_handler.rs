@@ -1,6 +1,6 @@
 use crate::action::Action;
 use crate::client::WMClient;
-use crate::config::key_press::{KeyPress, Modifier};
+use crate::config::key_combo::{KeyCombo, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
@@ -125,7 +125,7 @@ impl EventHandler {
                         self.on_key_event(key_event.key, key_event.value(), &device, config, wmclient)?;
                     }
                     Event::RelativeEvent(device, relative_event) => {
-                        let key = Key(relative_event.to_disguised_key());
+                        let key = relative_event.to_disguised_key();
 
                         // Send as disguised-event
                         let was_remapped = self.on_key_event(key, PRESS, &device, config, wmclient)?;
@@ -424,7 +424,7 @@ impl EventHandler {
             }
             Event::RelativeEvent(device, relative_event) => {
                 // Can't use `flush_timeout_keys`, because it would also emit the disguised key.
-                let pressed = vec![Key(relative_event.to_disguised_key())];
+                let pressed = vec![relative_event.to_disguised_key()];
 
                 let mut events = vec![];
                 for (_, state) in self.multi_purpose_keys.iter_mut() {
@@ -647,9 +647,7 @@ impl EventHandler {
         mod_trigger: bool,
     ) -> Result<(), Box<dyn Error>> {
         match action {
-            KeymapAction::KeyPressAndRelease(key_press) => {
-                self.send_key_press_and_release(key_press, extra_modifiers_pressed)
-            }
+            KeymapAction::KeyCombo(key_press) => self.send_key_combo(key_press, extra_modifiers_pressed),
             KeymapAction::KeyPress(key) => self.send_key(key, PRESS),
             KeymapAction::KeyRepeat(key) => self.send_key(key, REPEAT),
             KeymapAction::KeyRelease(key) => self.send_key(key, RELEASE),
@@ -690,7 +688,7 @@ impl EventHandler {
             }
             KeymapAction::SetMark(set) => self.mark_set = *set,
             KeymapAction::WithMark(key_press) => {
-                self.send_key_press_and_release(&self.with_mark(key_press), extra_modifiers_pressed)
+                self.send_key_combo(&self.with_mark(key_press), extra_modifiers_pressed)
             }
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
@@ -719,7 +717,7 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_press_and_release(&mut self, key_press: &KeyPress, extra_modifiers_pressed: &HashSet<Key>) {
+    fn send_key_combo(&mut self, key_press: &KeyCombo, extra_modifiers_pressed: &HashSet<Key>) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because virtual modifiers shouldn't make an impact outside xremap.
         let (mut extra_modifiers, mut missing_modifiers) = Self::diff_modifiers(&self.modifiers, &key_press.modifiers);
@@ -742,7 +740,7 @@ impl EventHandler {
         self.send_keys(&missing_modifiers, RELEASE);
     }
 
-    fn with_mark(&self, key_press: &KeyPress) -> KeyPress {
+    fn with_mark(&self, key_press: &KeyCombo) -> KeyCombo {
         let has_shift = key_press.modifiers.contains(&Modifier::Shift)
             || key_press.modifiers.contains(&Modifier::Key(Key::KEY_LEFTSHIFT))
             || key_press.modifiers.contains(&Modifier::Key(Key::KEY_RIGHTSHIFT));
@@ -750,7 +748,7 @@ impl EventHandler {
         if self.mark_set && !has_shift {
             let mut modifiers = key_press.modifiers.clone();
             modifiers.push(Modifier::Shift);
-            KeyPress {
+            KeyCombo {
                 key: key_press.key,
                 modifiers,
             }

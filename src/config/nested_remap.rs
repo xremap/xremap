@@ -1,7 +1,6 @@
-use crate::config::application::deserialize_string_or_vec;
-use crate::config::deserializers::VectorOrSingleOrNull;
+use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
 use crate::config::key::parse_key;
-use crate::config::key_press::KeyPress;
+use crate::config::key_combo::KeyCombo;
 use crate::config::keymap_action::KeymapAction;
 use evdev::KeyCode as Key;
 use indexmap::IndexMap;
@@ -10,7 +9,7 @@ use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Remap {
-    pub remap: IndexMap<KeyPress, Vec<KeymapAction>>,
+    pub remap: IndexMap<KeyCombo, Vec<KeymapAction>>,
     pub timeout: Option<Duration>,
     pub timeout_key: Option<Vec<Key>>,
 }
@@ -18,7 +17,7 @@ pub struct Remap {
 // Used only for deserialization
 #[derive(Debug, Deserialize)]
 pub struct RemapActions {
-    pub remap: IndexMap<KeyPress, VectorOrSingleOrNull<KeymapAction>>,
+    pub remap: IndexMap<KeyCombo, VectorOrSingleOrNull<KeymapAction>>,
     pub timeout_millis: Option<u64>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub timeout_key: Option<Vec<String>>,

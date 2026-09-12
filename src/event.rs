@@ -114,10 +114,10 @@ impl RelativeEvent {
     /// Note: There is no sensitivity to the value of the relative event. This means
     ///       that REL_WHEEL will transform into an unpreditable amount of XUPSCROLL
     ///       depending on how the device batches up the events.
-    pub fn to_disguised_key(&self) -> u16 {
+    pub fn to_disguised_key(&self) -> Key {
         // evdev relative events are turned into two events depending on their value
         // being positive or negative. For this reason is the keycode multiplied by two.
-        match self.value {
+        let code = match self.value {
             // Positive values are turned into even numbers
             1..=i32::MAX => (self.code * 2) + DISGUISED_EVENT_OFFSETTER,
             // Negative values are turned into odd numbers
@@ -131,7 +131,8 @@ impl RelativeEvent {
                 // we'll just act like the value of the event was a positive.
                 (self.code * 2) + DISGUISED_EVENT_OFFSETTER
             }
-        }
+        };
+        Key(code)
     }
 }
 
