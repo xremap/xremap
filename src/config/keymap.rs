@@ -1,8 +1,7 @@
 use super::device::DeviceMatcher;
 use super::key_press::Modifier;
-use crate::config::application::deserialize_string_or_vec;
 use crate::config::application::ApplicationMatch;
-use crate::config::deserializers::VectorOrSingleOrNull;
+use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
 use crate::config::key_press::KeyPress;
 use crate::config::keymap_action::KeymapAction;
 use evdev::KeyCode as Key;

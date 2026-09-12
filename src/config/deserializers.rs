@@ -45,3 +45,11 @@ where
     let millis = u64::deserialize(deserializer)?;
     Ok(Duration::from_millis(millis))
 }
+
+pub fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let vec = VecOrSingle::<String>::deserialize(deserializer)?.into_vec();
+    Ok(Some(vec))
+}

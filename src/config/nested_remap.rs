@@ -1,5 +1,4 @@
-use crate::config::application::deserialize_string_or_vec;
-use crate::config::deserializers::VectorOrSingleOrNull;
+use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
 use crate::config::key::parse_key;
 use crate::config::key_press::KeyPress;
 use crate::config::keymap_action::KeymapAction;
