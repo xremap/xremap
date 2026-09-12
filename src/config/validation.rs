@@ -1,4 +1,4 @@
-use crate::config::key_press::KeyPress;
+use crate::config::key_combo::KeyCombo;
 use crate::config::keymap_action::KeymapAction;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::modmap_operator::ModmapOperator;
@@ -69,7 +69,7 @@ fn traverse_modmap_operator(operator: &ModmapOperator) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn traverse_remap(keymap: &IndexMap<KeyPress, Vec<KeymapAction>>) -> anyhow::Result<()> {
+fn traverse_remap(keymap: &IndexMap<KeyCombo, Vec<KeymapAction>>) -> anyhow::Result<()> {
     for (_, actions) in keymap {
         traverse_actions(actions)?;
     }
@@ -85,7 +85,7 @@ fn traverse_actions(actions: &Vec<KeymapAction>) -> anyhow::Result<()> {
             KeymapAction::Remap(remap) => {
                 traverse_remap(&remap.remap)?;
             }
-            KeymapAction::KeyPressAndRelease(key_press) | KeymapAction::WithMark(key_press) => {
+            KeymapAction::KeyCombo(key_press) | KeymapAction::WithMark(key_press) => {
                 traverse_keymap_output_keys(&vec![key_press.key])?;
             }
             KeymapAction::KeyPress(key) | KeymapAction::KeyRepeat(key) | KeymapAction::KeyRelease(key) => {

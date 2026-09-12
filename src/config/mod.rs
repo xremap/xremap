@@ -5,7 +5,7 @@ pub mod expmap;
 pub mod expmap_operator;
 pub mod expmap_simkey;
 pub mod key;
-pub mod key_press;
+pub mod key_combo;
 pub mod keymap;
 pub mod keymap_action;
 pub mod keymap_action_without_args;

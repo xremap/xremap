@@ -1,8 +1,8 @@
 use super::device::DeviceMatcher;
-use super::key_press::Modifier;
+use super::key_combo::Modifier;
 use crate::config::application::ApplicationMatch;
 use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
-use crate::config::key_press::KeyPress;
+use crate::config::key_combo::KeyCombo;
 use crate::config::keymap_action::KeymapAction;
 use evdev::KeyCode as Key;
 use indexmap::IndexMap;
@@ -17,7 +17,7 @@ pub struct Keymap {
     #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
-    pub remap: IndexMap<KeyPress, Vec<KeymapAction>>,
+    pub remap: IndexMap<KeyCombo, Vec<KeymapAction>>,
     pub application: Option<ApplicationMatch>,
     pub window: Option<ApplicationMatch>,
     pub device: Option<DeviceMatcher>,
@@ -27,12 +27,12 @@ pub struct Keymap {
     pub exact_match: bool,
 }
 
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<IndexMap<KeyPress, Vec<KeymapAction>>, D::Error>
+fn deserialize_remap<'de, D>(deserializer: D) -> Result<IndexMap<KeyCombo, Vec<KeymapAction>>, D::Error>
 where
     D: Deserializer<'de>,
 {
     // IndexMap preserves the order from the config file, which is why it's used instead of HashMap.
-    let remap = IndexMap::<KeyPress, VectorOrSingleOrNull<KeymapAction>>::deserialize(deserializer)?;
+    let remap = IndexMap::<KeyCombo, VectorOrSingleOrNull<KeymapAction>>::deserialize(deserializer)?;
     Ok(remap
         .into_iter()
         .map(|(key_press, actions)| (key_press, actions.into_vec()))
@@ -93,7 +93,7 @@ pub struct OverrideEntry {
 
 // This is executed on runtime unlike build_keymap_table, but hopefully not called so often.
 pub fn build_override_table(
-    remap: &IndexMap<KeyPress, Vec<KeymapAction>>,
+    remap: &IndexMap<KeyCombo, Vec<KeymapAction>>,
     exact_match: bool,
 ) -> HashMap<Key, Vec<OverrideEntry>> {
     let mut table: HashMap<Key, Vec<OverrideEntry>> = HashMap::new();

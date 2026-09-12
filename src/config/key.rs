@@ -1,4 +1,4 @@
-use crate::config::key_press::parse_modifier_alias;
+use crate::config::key_combo::parse_modifier_alias;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use anyhow::Context;
 use evdev::KeyCode as Key;
