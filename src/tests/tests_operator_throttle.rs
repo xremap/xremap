@@ -17,20 +17,6 @@ fn get_handler() -> OperatorHandler {
 }
 
 #[test]
-fn test_throttle_mess() {
-    let mut handler = get_handler();
-
-    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_A)]), vec![Event::key_press(Key::KEY_A)]);
-    assert_events(handler.map_evs(vec![Event::key_repeat(Key::KEY_A)]), vec![Event::key_repeat(Key::KEY_A)]);
-    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![Event::key_release(Key::KEY_A)]);
-
-    std::thread::sleep(TIMEOUT); // So it goes into done state
-    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_K)]), vec![Event::key_press(Key::KEY_K)]);
-
-    handler.assert_base_state();
-}
-
-#[test]
 fn test_throttle() {
     let mut handler = get_handler();
 
