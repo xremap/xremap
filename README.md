@@ -522,6 +522,10 @@ Options:
           List open windows. Use this to get app_class and title.
           Since v0.15.5. Not supported for GNOME Wayland or KDE Wayland.
 
+      --validate-config
+          Validate the config file(s) and exit without starting xremap.
+          The exit code is non-zero when the config is invalid.
+
       --no-window-logging
           Suppress logging of window title and application changes.
           Default is false. Since v0.14.10.
@@ -566,6 +570,18 @@ or:
 ```sh
 xremap --device "first device" --device "second device" config.yml
 ```
+
+### Validate config
+
+Use `--validate-config` to check your configuration without starting xremap. It performs the same
+checks as when xremap starts, but doesn't touch any devices, so it needs no special permissions:
+
+```sh
+xremap --validate-config config.yml
+```
+
+It prints `Config is valid` and exits with code 0 when the config is valid. Otherwise the error is
+printed, and the exit code is non-zero.
 
 ## Maintainers
 

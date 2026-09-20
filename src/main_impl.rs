@@ -103,6 +103,10 @@ struct Args {
     /// Since v0.15.5. Not supported for GNOME Wayland or KDE Wayland.
     #[arg(long, verbatim_doc_comment)]
     list_windows: bool,
+    /// Validate the config file(s) and exit without starting xremap.
+    /// The exit code is non-zero when the config is invalid.
+    #[arg(long, verbatim_doc_comment)]
+    validate_config: bool,
     /// Suppress logging of window title and application changes.
     /// Default is false. Since v0.14.10.
     #[arg(long, verbatim_doc_comment)]
@@ -172,6 +176,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         list_devices,
         device_details,
         list_windows,
+        validate_config,
         no_window_logging,
         allow_launch,
         bridge,
@@ -214,9 +219,6 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
     let vendor = u16::from_str_radix(vendor.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x1234);
     let product = u16::from_str_radix(product.unwrap_or_default().trim_start_matches("0x"), 16).unwrap_or(0x5678);
 
-    // Device name
-    let own_device = output_device_name.unwrap_or_else(choose_device_name);
-
     // Configuration
     let mut config = match load_configs(&config_paths) {
         Ok(config) => config,
@@ -230,6 +232,15 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             e
         ),
     };
+
+    // Must be before anything touches devices, so it works without device permissions.
+    if validate_config {
+        println!("Config is valid");
+        return Ok(());
+    }
+
+    // Device name
+    let own_device = output_device_name.unwrap_or_else(choose_device_name);
 
     'main_loop: loop {
         let timeout_manager = Rc::new(TimeoutManager::new());
