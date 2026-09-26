@@ -519,14 +519,14 @@ fn test_keymap_press_release_repeat_only_actions() {
             - remap:
                 capslock:
                     - { press: A}
-                    - { release: B}
-                    - { repeat: C}
+                    - { repeat: A}
+                    - { release: A}
         "},
         vec![Event::key_press(Key::KEY_CAPSLOCK)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Repeat)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Repeat)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
         ],
     )
 }

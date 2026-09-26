@@ -19,6 +19,7 @@ fn test_emacs_like() {
             Event::key_press(Key::KEY_LEFTCTRL),
             Event::key_press(Key::KEY_SPACE),
             Event::key_press(Key::KEY_F),
+            Event::key_release(Key::KEY_F),
             // Remove mark again
             Event::key_press(Key::KEY_G),
             // Now it's without shift
@@ -34,6 +35,7 @@ fn test_emacs_like() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_ESC, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_ESC, KeyValue::Release)),
