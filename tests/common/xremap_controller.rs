@@ -28,6 +28,7 @@ pub struct XremapBuilder {
     open_for_fetch_: bool,
     watch_: bool,
     watch_config_: bool,
+    validate_config_: bool,
     config_file: Option<String>,
 }
 
@@ -44,6 +45,7 @@ impl XremapBuilder {
             open_for_fetch_: true,
             watch_: false,
             watch_config_: false,
+            validate_config_: false,
             config_file: None,
         }
     }
@@ -80,6 +82,11 @@ impl XremapBuilder {
 
     pub fn watch(&mut self, value: bool) -> &mut Self {
         self.watch_ = value;
+        self
+    }
+
+    pub fn validate_config(&mut self, value: bool) -> &mut Self {
+        self.validate_config_ = value;
         self
     }
 
@@ -183,6 +190,10 @@ impl XremapController {
 
         if def.watch_config_ {
             builder.arg("--watch=config");
+        }
+
+        if def.validate_config_ {
+            builder.arg("--validate-config");
         }
 
         let device_filter = match &def.custom_input_device_ {

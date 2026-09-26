@@ -18,3 +18,23 @@ pub struct Simkey {
 fn default_symkey_timeout() -> Duration {
     Duration::from_millis(30)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::config::tests::assert_invalid_config;
+    use indoc::indoc;
+
+    #[test]
+    fn test_chord_with_one_key_fails() {
+        assert_invalid_config(
+            indoc! {"
+                    experimental_map:
+                      - chords:
+                          - keys: [f11]
+                            actions: A
+                    "
+            },
+            "There must be at least two keys for a chord.",
+        )
+    }
+}

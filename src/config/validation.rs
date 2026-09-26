@@ -20,6 +20,14 @@ pub fn validate_config_file(config: &Config) -> anyhow::Result<()> {
         traverse_remap(&keymap.remap)?;
     }
 
+    for expmap in &config.experimental_map {
+        for chord in &expmap.chords {
+            if chord.keys.len() < 2 {
+                bail!("There must be at least two keys for a chord.")
+            }
+        }
+    }
+
     Ok(())
 }
 
