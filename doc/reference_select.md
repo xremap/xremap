@@ -48,7 +48,7 @@ experimental_map:
             timeout: 300 # This timeout is also started when the key is pressed.
 ```
 
-### Example: Double tap and oneshot action otherwise
+### Example: Double tap, otherwise oneshot
 
 The following allows an action when double tapping and a oneshot otherwise.
 If the double tap doesn't match (default timeout: 200ms), will it look like
