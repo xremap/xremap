@@ -121,7 +121,7 @@ impl ActiveOperator for ActiveSimOperator {
 
                     self.state = State::Emitted { device: device.clone() };
 
-                    OperatorAction::Partial(vec![], events)
+                    OperatorAction::Partial(events)
                 } else if still_missing.contains(&key_event.key) {
                     // One more trigger key pressed, but not all, yet.
 
@@ -183,7 +183,7 @@ impl ActiveOperator for ActiveSimOperator {
 
                     self.state = State::Released { still_pressed };
 
-                    OperatorAction::Partial(vec![], events)
+                    OperatorAction::Partial(events)
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -195,12 +195,12 @@ impl ActiveOperator for ActiveSimOperator {
                     // All released
                     self.state = State::Done;
 
-                    OperatorAction::Done(vec![], vec![])
+                    OperatorAction::Done(vec![])
                 } else if still_pressed.contains(&key_event.key) {
                     // To squash
                     still_pressed.retain(|&key| key != key_event.key);
 
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else if self.keys.contains(&key_event.key) && !still_pressed.contains(&key_event.key) {
                     // Already squashed, but now released again.
                     OperatorAction::Unhandled
@@ -226,10 +226,10 @@ impl ActiveOperator for ActiveSimOperator {
                     // events be multiplied for the action.
                     // Maybe this should be the last key pressed, because that might be the
                     // only one, that sends repeat signals.
-                    OperatorAction::Partial(vec![], map_actions(&self.actions, device.clone(), KeyValue::Repeat))
+                    OperatorAction::Partial(map_actions(&self.actions, device.clone(), KeyValue::Repeat))
                 } else if self.keys.contains(&key_event.key) {
                     // These are unneeded
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -237,7 +237,7 @@ impl ActiveOperator for ActiveSimOperator {
             State::Released { still_pressed } => {
                 if still_pressed.contains(&key_event.key) {
                     // It's still squashed, because it hasn't been released yet.
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }

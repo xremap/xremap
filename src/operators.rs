@@ -1,7 +1,6 @@
 use crate::config::application::ApplicationMatch;
 use crate::config::expmap_operator::ExpmapAction;
 use crate::device::InputDeviceInfo;
-use crate::emit_handler::Emit;
 use crate::event::{Event, KeyEvent, KeyValue};
 use crate::event_handler::{PRESS, RELEASE, REPEAT};
 use std::fmt::Debug;
@@ -22,13 +21,9 @@ pub enum OperatorAction {
     // The event is unhandled by this operator, and must go to next operators.
     Unhandled,
     // The operator consumes the event and remains active.
-    // 1st vector to next level
-    // 2nd vector to next operators
-    Partial(Vec<Emit>, Vec<Event>),
+    Partial(Vec<Event>),
     // The operator is done and asks to be removed
-    // 1st vector to next level
-    // 2nd vector to next operators
-    Done(Vec<Emit>, Vec<Event>),
+    Done(Vec<Event>),
 }
 
 pub trait ActiveOperator: Debug {

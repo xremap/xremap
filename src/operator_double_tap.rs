@@ -93,7 +93,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
 
                 self.state = State::Emitted;
 
-                OperatorAction::Partial(vec![], events)
+                OperatorAction::Partial(events)
             }
             // Buffer events when matching
             State::Pressed | State::Tapped => {
@@ -127,7 +127,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
             }
             State::Emitted if self.key == key_event.key => {
                 self.state = State::Done;
-                OperatorAction::Done(vec![], map_actions(&self.actions, device, KeyValue::Release))
+                OperatorAction::Done(map_actions(&self.actions, device, KeyValue::Release))
             }
             // Unrelated keys not buffered after emit
             State::Emitted => OperatorAction::Unhandled,
@@ -145,7 +145,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
 
             // Repeat the emitted key.
             State::Emitted if self.key == key_event.key => {
-                OperatorAction::Partial(vec![], map_actions(&self.actions, device, KeyValue::Repeat))
+                OperatorAction::Partial(map_actions(&self.actions, device, KeyValue::Repeat))
             }
 
             // Unrelated keys not buffered after emit

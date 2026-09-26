@@ -199,17 +199,15 @@ fn process_event(
                             left.push(Node::Operator(operator));
                             left.push(Node::Event(event));
                         }
-                        OperatorAction::Partial(emitted, unhandled) => {
+                        OperatorAction::Partial(events) => {
                             // Leave operator where it is.
                             right.push(operator);
-                            emit.extend(emitted);
 
-                            unhandled_back_to_stack(unhandled, &mut left);
+                            unhandled_back_to_stack(events, &mut left);
                         }
-                        OperatorAction::Done(new_emit, unhandled) => {
+                        OperatorAction::Done(events) => {
                             // Implicitly drops operator
-                            emit.extend(new_emit);
-                            unhandled_back_to_stack(unhandled, &mut left);
+                            unhandled_back_to_stack(events, &mut left);
                         }
                     },
 
@@ -306,18 +304,16 @@ fn try_candidates(event: Event, left: &mut Vec<Node>, candidates: &mut Candidate
                             return;
                         }
                     }
-                    OperatorAction::Partial(new_emit, unhandled) => {
-                        candidate.emitted.extend(new_emit);
-                        candidate.unhandled.extend(unhandled);
+                    OperatorAction::Partial(events) => {
+                        candidate.unhandled.extend(events);
 
                         if first {
                             left.push(Node::CandidateChosen(usize));
                             return;
                         }
                     }
-                    OperatorAction::Done(new_emit, unhandled) => {
-                        candidate.emitted.extend(new_emit);
-                        candidate.unhandled.extend(unhandled);
+                    OperatorAction::Done(events) => {
+                        candidate.unhandled.extend(events);
                         candidate.state = CandidateState::Done;
 
                         if first {
