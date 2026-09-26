@@ -6,7 +6,6 @@ use crate::operators::{map_actions, ActiveOperator, OperatorAction, StaticOperat
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use log::error;
-use std::mem::swap;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 use std::vec;
@@ -115,15 +114,14 @@ impl ActiveOperator for ActiveSimOperator {
             State::Pressed { still_missing } => {
                 if vec![key_event.key] == *still_missing {
                     // All keys pressed
-                    let emit = map_actions(&self.actions, device.clone(), KeyValue::Press);
+                    let mut events = map_actions(&self.actions, device.clone(), KeyValue::Press);
 
-                    // Flush buffered events.
-                    let mut buffered = vec![];
-                    swap(&mut buffered, &mut self.buffered);
+                    // Flush buffered events. Leaves self.buffered empty.
+                    events.append(&mut self.buffered);
 
                     self.state = State::Emitted { device: device.clone() };
 
-                    OperatorAction::Partial(emit, buffered)
+                    OperatorAction::Partial(vec![], events)
                 } else if still_missing.contains(&key_event.key) {
                     // One more trigger key pressed, but not all, yet.
 
@@ -178,14 +176,14 @@ impl ActiveOperator for ActiveSimOperator {
                 debug_assert!(self.buffered.is_empty());
 
                 if self.keys.contains(&key_event.key) {
-                    let emit = map_actions(&self.actions, device.clone(), KeyValue::Release);
+                    let events = map_actions(&self.actions, device.clone(), KeyValue::Release);
 
                     let still_pressed: Vec<_> =
                         self.keys.iter().filter(|&&key| key != key_event.key).cloned().collect();
 
                     self.state = State::Released { still_pressed };
 
-                    OperatorAction::Partial(emit, vec![])
+                    OperatorAction::Partial(vec![], events)
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -228,7 +226,7 @@ impl ActiveOperator for ActiveSimOperator {
                     // events be multiplied for the action.
                     // Maybe this should be the last key pressed, because that might be the
                     // only one, that sends repeat signals.
-                    OperatorAction::Partial(map_actions(&self.actions, device.clone(), KeyValue::Repeat), vec![])
+                    OperatorAction::Partial(vec![], map_actions(&self.actions, device.clone(), KeyValue::Repeat))
                 } else if self.keys.contains(&key_event.key) {
                     // These are unneeded
                     OperatorAction::Partial(vec![], vec![])

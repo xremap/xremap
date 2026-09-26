@@ -1,5 +1,4 @@
 use crate::device::InputDeviceInfo;
-use crate::emit_handler::Emit;
 use crate::event::{Event, KeyEvent};
 use crate::operators::{ActiveOperator, OperatorAction, StaticOperator};
 use evdev::KeyCode as Key;
@@ -64,7 +63,7 @@ impl ActiveOperator for ActiveThrottleOperator {
 
                 self.state = State::Active;
                 self.last_emit = Instant::now();
-                OperatorAction::Partial(vec![Emit::key_event(device, key_event.clone())], vec![])
+                OperatorAction::Partial(vec![], vec![Event::local_bypass(device, key_event.clone())])
             }
             State::Active => {
                 if key_event.key == self.key {
@@ -114,7 +113,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Active => {
                 if key_event.key == self.key {
                     self.state = State::Inactive;
-                    OperatorAction::Partial(vec![Emit::key_event(device, key_event.clone())], vec![])
+                    OperatorAction::Partial(vec![], vec![Event::local_bypass(device, key_event.clone())])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -146,7 +145,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::New => unreachable!(),
             State::Active => {
                 if key_event.key == self.key {
-                    OperatorAction::Partial(vec![Emit::key_event(device, key_event.clone())], vec![])
+                    OperatorAction::Partial(vec![], vec![Event::local_bypass(device, key_event.clone())])
                 } else {
                     OperatorAction::Unhandled
                 }

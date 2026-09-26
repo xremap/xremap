@@ -73,11 +73,11 @@ pub trait ActiveOperator: Debug {
     }
 }
 
-pub fn map_actions(actions: &Vec<ExpmapAction>, device: Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Emit> {
+pub fn map_actions(actions: &Vec<ExpmapAction>, device: Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Event> {
     actions
         .iter()
         .filter_map(|action| match action {
-            ExpmapAction::Key(key) => Some(Emit::key_event(device.clone(), KeyEvent::new(*key, value))),
+            ExpmapAction::Key(key) => Some(Event::local_bypass(device.clone(), KeyEvent::new(*key, value))),
         })
         .collect()
 }
