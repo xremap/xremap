@@ -1,7 +1,7 @@
 use crate::client::WMClient;
 use crate::config::expmap::Expmap;
 use crate::config::expmap_operator::ExpmapOperator;
-use crate::emit_handler::{Emit, EmitHandler};
+use crate::emit_handler::EmitHandler;
 use crate::event::Event;
 use crate::event_handler::PRESS;
 use crate::operator_double_tap::DoubleTapOperator;
@@ -144,7 +144,6 @@ enum CandidateState {
 struct Candidate {
     operator: Box<dyn ActiveOperator>,
     state: CandidateState,
-    emitted: Vec<Emit>,
     unhandled: Vec<Event>,
 }
 
@@ -176,9 +175,9 @@ fn process_event(
     candidates: &mut Option<Candidates>,
     lookup_map: &HashMap<Key, Vec<OperatorEntry>>,
     wmclient: &mut WMClient,
-) -> Vec<Emit> {
+) -> Vec<Event> {
     // The events that have passed fully through the operators.
-    let mut emit: Vec<Emit> = vec![];
+    let mut emit: Vec<Event> = vec![];
     // The stack, that still needs processing.
     let mut left: Vec<Node> = vec![Node::Event(event)];
 
@@ -231,8 +230,6 @@ fn process_event(
             Some(Node::CandidateChosen(chosen)) => {
                 let candidate = candidates.take().unwrap().operators.into_iter().nth(chosen).unwrap();
 
-                emit.extend(candidate.emitted);
-
                 if !matches!(candidate.state, CandidateState::Done) {
                     right.push(candidate.operator);
                 }
@@ -244,7 +241,7 @@ fn process_event(
                 let taken = candidates.take().unwrap();
 
                 // start_key didn't match anything, so emit.
-                emit.push(Emit::Single(taken.start_event.clone()));
+                emit.push(taken.start_event.clone());
                 // Start over from the next event.
                 unhandled_back_to_stack(taken.events, &mut left);
             }
@@ -337,9 +334,11 @@ fn static_lookup(
     left: &mut Vec<Node>,
     candidates: &mut Option<Candidates>,
     lookup_map: &HashMap<Key, Vec<OperatorEntry>>,
-    emit: &mut Vec<Emit>,
+    emit: &mut Vec<Event>,
     wmclient: &mut WMClient,
 ) {
+    debug_assert!(candidates.is_none());
+
     let (device, key_event) = match &event {
         Event::KeyEvent(device, key_event) => (device, key_event),
         Event::Tick => {
@@ -347,13 +346,13 @@ fn static_lookup(
             return;
         }
         _ => {
-            emit.push(Emit::Single(event));
+            emit.push(event);
             return;
         }
     };
 
     if key_event.value() != PRESS {
-        emit.push(Emit::key_event(device.clone(), key_event.clone()));
+        emit.push(Event::KeyEvent(device.clone(), key_event.clone()));
         return;
     }
 
@@ -361,7 +360,6 @@ fn static_lookup(
     match lookup_map.get(&key_event.key) {
         Some(entries) => {
             debug_assert!(!entries.is_empty());
-            debug_assert!(candidates.is_none());
 
             let new_candidates: Vec<_> = entries
                 .iter()
@@ -383,7 +381,6 @@ fn static_lookup(
                 .map(|entry| Candidate {
                     operator: entry.operator.get_active_operator(&event),
                     state: CandidateState::Matching,
-                    emitted: vec![],
                     unhandled: vec![],
                 })
                 .collect();
@@ -397,7 +394,7 @@ fn static_lookup(
             try_candidates(event, left, candidates);
         }
         None => {
-            emit.push(Emit::key_event(device.clone(), key_event.clone()));
+            emit.push(Event::KeyEvent(device.clone(), key_event.clone()));
         }
     };
 }

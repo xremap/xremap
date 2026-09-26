@@ -1,20 +1,7 @@
-use crate::device::InputDeviceInfo;
-use crate::event::{Event, KeyEvent};
+use crate::event::Event;
 use crate::event_handler::{MODIFIER_KEYS, PRESS, RELEASE, REPEAT};
 use evdev::KeyCode as Key;
 use log::warn;
-use std::rc::Rc;
-
-#[derive(Debug, Clone)]
-pub enum Emit {
-    Single(Event),
-}
-
-impl Emit {
-    pub fn key_event(device: Rc<InputDeviceInfo>, key_event: KeyEvent) -> Emit {
-        Emit::Single(Event::KeyEvent(device, key_event))
-    }
-}
 
 pub struct EmitHandler {
     // Physical modifiers that are down.
@@ -37,22 +24,18 @@ impl EmitHandler {
         assert!(self.emitted_modifiers.is_empty());
     }
 
-    pub fn map_output(&mut self, events: Vec<Emit>) -> Vec<Event> {
+    pub fn map_output(&mut self, events: Vec<Event>) -> Vec<Event> {
         let mut result = vec![];
 
         for event in events {
-            match event {
-                Emit::Single(event) => {
-                    let event = match event {
-                        // Extract the event, that operators have ignored.
-                        Event::ByPassLocal(event) => *event,
-                        event => event,
-                    };
+            let event = match event {
+                // Extract the event, that operators have ignored.
+                Event::ByPassLocal(event) => *event,
+                event => event,
+            };
 
-                    update_modifier_state(&mut self.emitted_modifiers, &event);
-                    result.push(event);
-                }
-            }
+            update_modifier_state(&mut self.emitted_modifiers, &event);
+            result.push(event);
         }
 
         result
