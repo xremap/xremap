@@ -1,3 +1,5 @@
+mod print_actions;
+mod print_events;
 mod tests;
 mod tests_any_key;
 mod tests_disguised_events_in;

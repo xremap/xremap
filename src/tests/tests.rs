@@ -585,6 +585,9 @@ pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Ev
     let actual = actual.as_ref();
     let expected = expected.as_ref();
 
+    // Useful for writing new test cases
+    // crate::tests::print_events::print_events(actual);
+
     assert_eq!(format!("{actual:?}"), format!("{:?}", expected));
 }
 
@@ -629,6 +632,10 @@ impl EventHandlerForTest {
             .event_handler
             .on_events(events, &self.config, &mut self.wmclient)
             .unwrap();
+
+        // Useful for writing new test cases
+        // crate::tests::print_actions::print_actions(&actual);
+
         assert_eq!(format!("{actions:?}"), format!("{actual:?}"));
     }
 }
