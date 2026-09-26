@@ -519,14 +519,14 @@ fn test_keymap_press_release_repeat_only_actions() {
             - remap:
                 capslock:
                     - { press: A}
-                    - { release: B}
-                    - { repeat: C}
+                    - { repeat: A}
+                    - { release: A}
         "},
         vec![Event::key_press(Key::KEY_CAPSLOCK)],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Repeat)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Repeat)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
         ],
     )
 }
@@ -585,6 +585,9 @@ pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Ev
     let actual = actual.as_ref();
     let expected = expected.as_ref();
 
+    // Useful for writing new test cases
+    // crate::tests::print_events::print_events(actual);
+
     assert_eq!(format!("{actual:?}"), format!("{:?}", expected));
 }
 
@@ -624,11 +627,20 @@ impl EventHandlerForTest {
         }
     }
 
+    #[cfg(test)]
+    pub fn assert_base_state(&self) {
+        self.event_handler.assert_base_state();
+    }
+
     pub fn assert(&mut self, events: Vec<Event>, actions: Vec<Action>) {
         let actual = self
             .event_handler
             .on_events(events, &self.config, &mut self.wmclient)
             .unwrap();
+
+        // Useful for writing new test cases
+        // crate::tests::print_actions::print_actions(&actual);
+
         assert_eq!(format!("{actions:?}"), format!("{actual:?}"));
     }
 }

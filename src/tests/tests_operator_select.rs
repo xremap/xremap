@@ -139,3 +139,52 @@ fn test_expmap_oneshot_after_slow_double_tap() {
 
     handler.assert_base_state();
 }
+
+#[test]
+fn test_expmap_oneshot_after_very_slow_double_tap() {
+    let mut handler = get_oneshot_handler();
+
+    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_A)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
+
+    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_K)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_K)]), vec![]);
+
+    std::thread::sleep(TIMEOUT);
+    // dbltap cancels, and oneshot is emitted.
+    assert_events(
+        handler.map_evs(vec![Event::Tick]),
+        vec![
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_press(Key::KEY_K),
+            Event::key_release(Key::KEY_LEFTSHIFT),
+            Event::key_release(Key::KEY_K),
+        ],
+    );
+
+    handler.assert_base_state();
+}
+
+#[test]
+fn test_expmap_oneshot_after_very_slow_double_tap_modded() {
+    let mut handler = get_oneshot_handler();
+
+    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_A)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_K)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_K)]), vec![]);
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
+
+    std::thread::sleep(TIMEOUT);
+    // dbltap cancels, and oneshot is emitted.
+    assert_events(
+        handler.map_evs(vec![Event::Tick]),
+        vec![
+            Event::key_press(Key::KEY_LEFTSHIFT),
+            Event::key_release(Key::KEY_LEFTSHIFT),
+            Event::key_press(Key::KEY_K),
+            Event::key_release(Key::KEY_K),
+        ],
+    );
+
+    handler.assert_base_state();
+}

@@ -21,7 +21,7 @@ pub fn e2e_device_filter_does_not_match() -> anyhow::Result<()> {
         .stderr
         .contains("Error: Failed to prepare input devices: No device was selected!"));
 
-    ctrl.kill()
+    Ok(())
 }
 
 #[test]
@@ -39,7 +39,7 @@ pub fn e2e_validate_config_does_not_start_xremap() -> anyhow::Result<()> {
 
     assert_eq!(output.stdout, "Config is valid\n");
 
-    ctrl.kill()
+    Ok(())
 }
 
 #[test]
@@ -63,5 +63,5 @@ pub fn e2e_validate_config_fails_on_invalid_config() -> anyhow::Result<()> {
     assert_eq!(output.stdout, "");
     assert!(output.stderr.contains("Error: Failed to load config"));
 
-    ctrl.kill()
+    Ok(())
 }

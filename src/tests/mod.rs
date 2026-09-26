@@ -1,3 +1,5 @@
+mod print_actions;
+mod print_events;
 mod tests;
 mod tests_any_key;
 mod tests_disguised_events_in;
@@ -14,6 +16,7 @@ mod tests_nested_remap;
 mod tests_operator_double_tap;
 mod tests_operator_handler;
 mod tests_operator_oneshot;
+mod tests_operator_oneshot_interaction;
 mod tests_operator_select;
 mod tests_operator_sim;
 mod tests_operator_throttle;

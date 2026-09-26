@@ -19,6 +19,7 @@ fn test_emacs_like() {
             Event::key_press(Key::KEY_LEFTCTRL),
             Event::key_press(Key::KEY_SPACE),
             Event::key_press(Key::KEY_F),
+            Event::key_release(Key::KEY_F),
             // Remove mark again
             Event::key_press(Key::KEY_G),
             // Now it's without shift
@@ -34,6 +35,7 @@ fn test_emacs_like() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::Delay(Duration::from_nanos(0)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_ESC, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_ESC, KeyValue::Release)),
@@ -84,7 +86,22 @@ fn test_mark_triggered_by_shift_combo() {
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
         ],
-    )
+    );
+
+    handler.assert(
+        vec![Event::key_release(Key::KEY_F12)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_LEFTSHIFT)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_B)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release))],
+    );
+
+    handler.assert_base_state();
 }
 
 #[test]
@@ -121,7 +138,22 @@ fn test_mark_triggered_by_shift_combo_and_emits_shift_combo() {
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
         ],
-    )
+    );
+
+    handler.assert(
+        vec![Event::key_release(Key::KEY_F12)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_LEFTSHIFT)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_B)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release))],
+    );
+
+    handler.assert_base_state();
 }
 
 #[test]
@@ -162,6 +194,25 @@ fn test_mark_triggered_with_extra_modifiers() {
             Action::Delay(Duration::from_nanos(0)),
         ],
     );
+
+    handler.assert(
+        vec![Event::key_release(Key::KEY_F12)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_LEFTCTRL)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_LEFTSHIFT)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_B)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release))],
+    );
+
+    handler.assert_base_state();
 }
 
 #[test]
@@ -206,4 +257,22 @@ fn test_mark_triggered_with_extra_modifiers_and_emits_shift_combo() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHTSHIFT, KeyValue::Release)),
         ],
     );
+
+    handler.assert(
+        vec![Event::key_release(Key::KEY_F12)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_F12, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_LEFTCTRL)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_LEFTSHIFT)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_B)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release))],
+    );
+    handler.assert_base_state();
 }

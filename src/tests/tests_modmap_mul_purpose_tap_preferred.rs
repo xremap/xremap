@@ -100,6 +100,33 @@ fn test_tap_preferred_interrupted_before_timeout_and_repeated() {
 }
 
 #[test]
+fn test_tap_preferrred_with_disabled_interrupt() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                CAPSLOCK:
+                    held: SHIFT_L
+                    alone: CAPSLOCK
+                    hold_threshold_millis: 1000
+                    interruptable: { only: A}
+        "},
+        vec![
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_press(Key::KEY_K),
+            Event::key_release(Key::KEY_K),
+            Event::key_release(Key::KEY_CAPSLOCK),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
 fn test_tap_preferred_is_not_repeated_before_timeout() {
     assert_actions(
         indoc! {"
@@ -115,6 +142,32 @@ fn test_tap_preferred_is_not_repeated_before_timeout() {
             Event::key_repeat(Key::KEY_CAPSLOCK),
         ],
         vec![],
+    );
+}
+
+#[test]
+fn test_tap_preferred_surrrounded() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                CAPSLOCK:
+                    held: SHIFT_L
+                    alone: CAPSLOCK
+                    hold_threshold_millis: 1000
+        "},
+        vec![
+            Event::key_press(Key::KEY_K),
+            Event::key_press(Key::KEY_CAPSLOCK),
+            Event::key_release(Key::KEY_K),
+            Event::key_release(Key::KEY_CAPSLOCK),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
+        ],
     );
 }
 
@@ -141,6 +194,8 @@ fn test_tap_preferred_released_in_hold_preferred_state() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_CAPSLOCK, KeyValue::Release)),
         ],
     );
+
+    handler.assert_base_state();
 }
 
 #[test]
@@ -166,4 +221,15 @@ fn test_tap_preferred_interrupted_in_hold_preferred_state() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
         ],
     );
+
+    handler.assert(
+        vec![Event::key_release(Key::KEY_CAPSLOCK)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release))],
+    );
+    handler.assert(
+        vec![Event::key_release(Key::KEY_A)],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release))],
+    );
+
+    handler.assert_base_state();
 }

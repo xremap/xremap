@@ -93,6 +93,18 @@ impl EventHandler {
         }
     }
 
+    #[cfg(test)]
+    pub fn assert_base_state(&self) {
+        assert!(self.modifiers.is_empty());
+        assert!(self.pressed_keys.is_empty());
+        assert!(self.multi_purpose_keys.is_empty());
+        assert!(self.override_remaps.is_empty());
+        assert!(self.override_timeout_key.is_none());
+        assert!(self.actions.is_empty());
+
+        self.operator_handler.as_ref().map(|op| op.assert_base_state());
+    }
+
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_events(
         &mut self,

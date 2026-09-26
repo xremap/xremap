@@ -326,3 +326,25 @@ fn test_oneshot_spuriously_when_interrupted() {
 
     handler.assert_base_state();
 }
+
+#[test]
+fn test_oneshot_used_with_trigger_key() {
+    let mut handler = get_handler_from_config(indoc! {"
+        experimental_map:
+            - remap:
+                A: { oneshot: a_l }
+        "})
+    .unwrap();
+
+    assert_events(handler.map_evs(vec![Event::key_press(Key::KEY_A)]), vec![Event::key_press(Key::KEY_LEFTALT)]);
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![]);
+
+    // It cancels itself when repressed, so it can't be used to oneshot its own trigger key.
+    assert_events(
+        handler.map_evs(vec![Event::key_press(Key::KEY_A)]),
+        vec![Event::key_release(Key::KEY_LEFTALT), Event::key_press(Key::KEY_A)],
+    );
+    assert_events(handler.map_evs(vec![Event::key_release(Key::KEY_A)]), vec![Event::key_release(Key::KEY_A)]);
+
+    handler.assert_base_state();
+}
