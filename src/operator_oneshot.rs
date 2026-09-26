@@ -133,8 +133,12 @@ impl ActiveOperator for ActiveOneshotOperator {
             }
             State::StandardMod => {
                 if key_event.key == self.key {
+                    let events = vec![Event::ByPassLocal(Box::new(Event::key_release2(
+                        device.clone(),
+                        self.action,
+                    )))];
                     self.state = State::Done;
-                    OperatorAction::Done(vec![Emit::key_release(device.clone(), self.action)], vec![])
+                    OperatorAction::Done(vec![], events)
                 } else {
                     OperatorAction::Unhandled
                 }
