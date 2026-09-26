@@ -627,6 +627,11 @@ impl EventHandlerForTest {
         }
     }
 
+    #[cfg(test)]
+    pub fn assert_base_state(&self) {
+        self.event_handler.assert_base_state();
+    }
+
     pub fn assert(&mut self, events: Vec<Event>, actions: Vec<Action>) {
         let actual = self
             .event_handler

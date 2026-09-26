@@ -159,6 +159,8 @@ fn test_multipurpose_released_after_timeout() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
         ],
     );
+
+    handler.assert_base_state();
 }
 
 #[test]
@@ -174,6 +176,8 @@ fn test_multipurpose_is_repeated_after_timeout() {
         "});
 
     handler.assert(vec![Event::key_press(Key::KEY_CAPSLOCK)], vec![]);
+
+    handler.assert(vec![Event::Tick], vec![]); // has no effect
 
     sleep(Duration::from_millis(20)); // To ensure the hold-action is taken.
 
@@ -201,6 +205,8 @@ fn test_multipurpose_is_repeated_after_timeout() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTSHIFT, KeyValue::Release)),
         ],
     );
+
+    handler.assert_base_state();
 }
 
 #[test]
@@ -725,6 +731,35 @@ fn test_multipurpose_hold_by_timeout_then_mode_change() {
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_E, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_multipurpose_press_release() {
+    assert_actions(
+        indoc! {"
+        modmap:
+            - remap:
+                f10:
+                    press: A
+                f11:
+                    held: B
+                    alone: C
+        "},
+        vec![
+            Event::key_press(Key::KEY_F11),
+            // Bug: tap/hold is pressed first, but is emitted in the middle
+            // of press/release key's events.
+            Event::key_press(Key::KEY_F10),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_F10, KeyValue::Press)),
         ],
     );
 }
