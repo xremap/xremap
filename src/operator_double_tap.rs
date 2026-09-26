@@ -5,7 +5,6 @@ use crate::operators::{map_actions, ActiveOperator, OperatorAction, StaticOperat
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use log::error;
-use std::mem::swap;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -87,15 +86,14 @@ impl ActiveOperator for ActiveDoubleTapOperator {
                 OperatorAction::Undecided
             }
             State::Tapped if self.key == key_event.key => {
-                let emit = map_actions(&self.actions, device, KeyValue::Press);
+                let mut events = map_actions(&self.actions, device, KeyValue::Press);
 
-                // Flush buffered events.
-                let mut buffered = vec![];
-                swap(&mut buffered, &mut self.buffered);
+                // Flush buffered events. Leaves self.buffered empty.
+                events.append(&mut self.buffered);
 
                 self.state = State::Emitted;
 
-                OperatorAction::Partial(emit, buffered)
+                OperatorAction::Partial(events)
             }
             // Buffer events when matching
             State::Pressed | State::Tapped => {
@@ -129,7 +127,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
             }
             State::Emitted if self.key == key_event.key => {
                 self.state = State::Done;
-                OperatorAction::Done(map_actions(&self.actions, device, KeyValue::Release), vec![])
+                OperatorAction::Done(map_actions(&self.actions, device, KeyValue::Release))
             }
             // Unrelated keys not buffered after emit
             State::Emitted => OperatorAction::Unhandled,
@@ -147,7 +145,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
 
             // Repeat the emitted key.
             State::Emitted if self.key == key_event.key => {
-                OperatorAction::Partial(map_actions(&self.actions, device, KeyValue::Repeat), vec![])
+                OperatorAction::Partial(map_actions(&self.actions, device, KeyValue::Repeat))
             }
 
             // Unrelated keys not buffered after emit

@@ -1,5 +1,4 @@
 use crate::device::InputDeviceInfo;
-use crate::emit_handler::Emit;
 use crate::event::{Event, KeyEvent};
 use crate::operators::{ActiveOperator, OperatorAction, StaticOperator};
 use evdev::KeyCode as Key;
@@ -64,12 +63,12 @@ impl ActiveOperator for ActiveThrottleOperator {
 
                 self.state = State::Active;
                 self.last_emit = Instant::now();
-                OperatorAction::Partial(vec![Emit::key_event(device, key_event.clone())], vec![])
+                OperatorAction::Partial(vec![Event::local_bypass(device, key_event.clone())])
             }
             State::Active => {
                 if key_event.key == self.key {
                     // spurious
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -77,7 +76,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Squash => {
                 if key_event.key == self.key {
                     // spurious
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -90,13 +89,13 @@ impl ActiveOperator for ActiveThrottleOperator {
                         self.on_press(device, key_event)
                     } else {
                         self.state = State::Done;
-                        OperatorAction::Done(vec![], vec![Event::key_event2(device, key_event.clone())])
+                        OperatorAction::Done(vec![Event::key_event2(device, key_event.clone())])
                     }
                 } else {
                     if key_event.key == self.key {
                         // Begin squash
                         self.state = State::Squash;
-                        OperatorAction::Partial(vec![], vec![])
+                        OperatorAction::Partial(vec![])
                     } else {
                         OperatorAction::Unhandled
                     }
@@ -114,7 +113,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Active => {
                 if key_event.key == self.key {
                     self.state = State::Inactive;
-                    OperatorAction::Partial(vec![Emit::key_event(device, key_event.clone())], vec![])
+                    OperatorAction::Partial(vec![Event::local_bypass(device, key_event.clone())])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -122,7 +121,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Squash => {
                 if key_event.key == self.key {
                     self.state = State::Inactive;
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -130,7 +129,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Inactive => {
                 if key_event.key == self.key {
                     // spurious
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -146,14 +145,14 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::New => unreachable!(),
             State::Active => {
                 if key_event.key == self.key {
-                    OperatorAction::Partial(vec![Emit::key_event(device, key_event.clone())], vec![])
+                    OperatorAction::Partial(vec![Event::local_bypass(device, key_event.clone())])
                 } else {
                     OperatorAction::Unhandled
                 }
             }
             State::Squash => {
                 if key_event.key == self.key {
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -161,7 +160,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Inactive => {
                 if key_event.key == self.key {
                     // spurious
-                    OperatorAction::Partial(vec![], vec![])
+                    OperatorAction::Partial(vec![])
                 } else {
                     OperatorAction::Unhandled
                 }

@@ -32,6 +32,9 @@ impl Event {
     pub fn key_event2(device: Rc<InputDeviceInfo>, key_event: KeyEvent) -> Event {
         Event::KeyEvent(device, key_event)
     }
+    pub fn local_bypass(device: Rc<InputDeviceInfo>, key_event: KeyEvent) -> Event {
+        Event::ByPassLocal(Box::new(Event::KeyEvent(device, key_event)))
+    }
 
     #[cfg(test)]
     pub fn key_release(code: Key) -> Event {
