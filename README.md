@@ -55,6 +55,7 @@ mean `xremap-full` with all supported desktops and auto selection.
 - If you are using Arch there're [packages in AUR](https://aur.archlinux.org/packages?K=xremap).
 - If you are using NixOS, xremap provides a [flake](https://github.com/xremap/nix-flake/).
 - If you are using Fedora, xremap can be installed via a community [Copr](https://copr.fedorainfracloud.org/coprs/blakegardner/xremap/).
+- If you are using Debian or Ubuntu, xremap can be installed via a community [apt repository](https://github.com/BlakeGardner/xremap-debian).
 - If you are using Gentoo Linux, xremap can be installed via [::guru overlay](https://codeberg.org/gentoo/guru/src/branch/master/gui-apps/xremap).
 
 ### Release page
