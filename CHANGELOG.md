@@ -1,3 +1,11 @@
+## v0.15.14
+
+- Add --validate-config commandline argument. https://github.com/xremap/xremap/pull/1008
+- Mention Debian and Ubuntu packages in the README. https://github.com/xremap/xremap/pull/1009
+- Fix: Oneshot when events are buffered. https://github.com/xremap/xremap/pull/1011
+- Add tests. https://github.com/xremap/xremap/pull/1010
+- refactor: Remove Emit enum in OperatorHandler. https://github.com/xremap/xremap/pull/1012
+
 ## v0.15.13
 
 - Auto select desktop client. https://github.com/xremap/xremap/pull/1004
