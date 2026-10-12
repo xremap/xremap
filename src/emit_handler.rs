@@ -30,8 +30,8 @@ impl EmitHandler {
         for event in events {
             match event {
                 // Extract the event, that operators have ignored.
-                Event::ByPassLocal(event) => {
-                    handle_single_event(&mut result, &mut self.emitted_modifiers, *event);
+                Event::ByPassLocal(device, key_event) => {
+                    handle_single_event(&mut result, &mut self.emitted_modifiers, Event::KeyEvent(device, key_event));
                 }
                 Event::ExpmapActions { actions, device, value } => {
                     for key in actions.keys {

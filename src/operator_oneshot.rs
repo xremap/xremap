@@ -59,7 +59,7 @@ impl ActiveOperator for ActiveOneshotOperator {
         match &mut self.state {
             State::New => {
                 self.state = State::Pressed;
-                OperatorAction::Partial(vec![Event::local_bypass(
+                OperatorAction::Partial(vec![Event::ByPassLocal(
                     device.clone(),
                     KeyEvent::new(self.action, KeyValue::Press),
                 )])
@@ -77,15 +77,15 @@ impl ActiveOperator for ActiveOneshotOperator {
                     // Cancel because it's repressed.
                     self.state = State::Cancel;
                     OperatorAction::Partial(vec![
-                        Event::local_bypass(device.clone(), KeyEvent::new(self.action, KeyValue::Release)),
+                        Event::ByPassLocal(device.clone(), KeyEvent::new(self.action, KeyValue::Release)),
                         // This is bypassed, so it doesn't activate the same operator again.
-                        Event::local_bypass(device, key_event.clone()),
+                        Event::ByPassLocal(device, key_event.clone()),
                     ])
                 } else {
                     let events = vec![
                         Event::KeyEvent(device.clone(), key_event.clone()),
                         // Releasing after interrupting key.
-                        Event::local_bypass(device, KeyEvent::new(self.action, KeyValue::Release)),
+                        Event::ByPassLocal(device, KeyEvent::new(self.action, KeyValue::Release)),
                     ];
                     self.state = State::Done;
                     OperatorAction::Done(events)
@@ -137,10 +137,10 @@ impl ActiveOperator for ActiveOneshotOperator {
             }
             State::StandardMod => {
                 if key_event.key == self.key {
-                    let events = vec![Event::ByPassLocal(Box::new(Event::key_release2(
-                        device.clone(),
-                        self.action,
-                    )))];
+                    let events = vec![Event::ByPassLocal(
+                        device,
+                        KeyEvent::new(self.action, KeyValue::Release),
+                    )];
                     self.state = State::Done;
                     OperatorAction::Done(events)
                 } else {
@@ -150,7 +150,7 @@ impl ActiveOperator for ActiveOneshotOperator {
             State::Cancel => {
                 if key_event.key == self.key {
                     self.state = State::Done;
-                    OperatorAction::Done(vec![Event::local_bypass(device, KeyEvent::new(self.key, KeyValue::Release))])
+                    OperatorAction::Done(vec![Event::ByPassLocal(device, KeyEvent::new(self.key, KeyValue::Release))])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -166,7 +166,7 @@ impl ActiveOperator for ActiveOneshotOperator {
             State::New => unreachable!(),
             State::Pressed => {
                 if key_event.key == self.key {
-                    OperatorAction::Partial(vec![Event::local_bypass(
+                    OperatorAction::Partial(vec![Event::ByPassLocal(
                         device,
                         KeyEvent::new(self.action, KeyValue::Repeat),
                     )])
@@ -192,10 +192,7 @@ impl ActiveOperator for ActiveOneshotOperator {
             }
             State::Cancel => {
                 if key_event.key == self.key {
-                    OperatorAction::Partial(vec![Event::local_bypass(
-                        device,
-                        KeyEvent::new(self.key, KeyValue::Repeat),
-                    )])
+                    OperatorAction::Partial(vec![Event::ByPassLocal(device, KeyEvent::new(self.key, KeyValue::Repeat))])
                 } else {
                     OperatorAction::Unhandled
                 }

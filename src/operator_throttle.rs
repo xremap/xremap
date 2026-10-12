@@ -63,7 +63,7 @@ impl ActiveOperator for ActiveThrottleOperator {
 
                 self.state = State::Active;
                 self.last_emit = Instant::now();
-                OperatorAction::Partial(vec![Event::local_bypass(device, key_event.clone())])
+                OperatorAction::Partial(vec![Event::ByPassLocal(device, key_event.clone())])
             }
             State::Active => {
                 if key_event.key == self.key {
@@ -113,7 +113,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Active => {
                 if key_event.key == self.key {
                     self.state = State::Inactive;
-                    OperatorAction::Partial(vec![Event::local_bypass(device, key_event.clone())])
+                    OperatorAction::Partial(vec![Event::ByPassLocal(device, key_event.clone())])
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -145,7 +145,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::New => unreachable!(),
             State::Active => {
                 if key_event.key == self.key {
-                    OperatorAction::Partial(vec![Event::local_bypass(device, key_event.clone())])
+                    OperatorAction::Partial(vec![Event::ByPassLocal(device, key_event.clone())])
                 } else {
                     OperatorAction::Unhandled
                 }
