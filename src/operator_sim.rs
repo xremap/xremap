@@ -1,4 +1,4 @@
-use crate::config::expmap_simkey::Simkey;
+use crate::config::expmap_simkey::SimkeyDefinition;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
 use crate::operators::{map_actions, ActiveOperator, OperatorAction, StaticOperator};
@@ -24,12 +24,15 @@ use std::vec;
 
 #[derive(Debug)]
 pub struct SimOperator {
-    definition: Simkey,
+    definition: SimkeyDefinition,
     timeout_manager: Rc<TimeoutManager>,
 }
 
 impl SimOperator {
-    pub fn get_ops(definition: &Simkey, timeout_manager: Rc<TimeoutManager>) -> Vec<(Key, Box<dyn StaticOperator>)> {
+    pub fn get_ops(
+        definition: SimkeyDefinition,
+        timeout_manager: Rc<TimeoutManager>,
+    ) -> Vec<(Key, Box<dyn StaticOperator>)> {
         if definition.keys.len() < 2 {
             panic!("There must be at least two keys for a chord.");
         }
@@ -86,7 +89,7 @@ enum State {
 
 #[derive(Debug)]
 pub struct ActiveSimOperator {
-    definition: Simkey,
+    definition: SimkeyDefinition,
     // Time of the first press
     start_inst: Instant,
     buffered: Vec<Event>,

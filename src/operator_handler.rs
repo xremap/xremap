@@ -48,7 +48,7 @@ impl OperatorHandler {
 
         for expmap in experimental_map {
             for chord in &expmap.chords {
-                let operators = SimOperator::get_ops(chord, timeout_manager.clone());
+                let operators = SimOperator::get_ops(chord.clone().finish(), timeout_manager.clone());
 
                 append(operators, &mut lookup_map, expmap);
             }

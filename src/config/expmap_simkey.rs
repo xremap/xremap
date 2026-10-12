@@ -5,6 +5,13 @@ use evdev::KeyCode as Key;
 use serde::Deserialize;
 use std::time::Duration;
 
+#[derive(Clone, Debug)]
+pub struct SimkeyDefinition {
+    pub keys: Vec<Key>,
+    pub actions: Vec<ExpmapAction>,
+    pub timeout: Duration,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Simkey {
     #[serde(deserialize_with = "deserialize_keys")]
@@ -17,6 +24,16 @@ pub struct Simkey {
 
 fn default_symkey_timeout() -> Duration {
     Duration::from_millis(30)
+}
+
+impl Simkey {
+    pub fn finish(self) -> SimkeyDefinition {
+        SimkeyDefinition {
+            keys: self.keys,
+            actions: self.actions,
+            timeout: self.timeout,
+        }
+    }
 }
 
 #[cfg(test)]
