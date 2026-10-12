@@ -49,17 +49,8 @@ typing `good`.
 
 ### Possible actions
 
-It's possible to emit nothing, a single key or more keys:
-
-```yml
-double: null       # Emit nothing
-double: A          # A single key
-double: [A, B, C]  # Several keys
-```
-
-With several keys in the action, the keys are pressed in the specified order, and they are
-all held/repeated until a trigger key is released. Then they are released in the same order they were
-pressed.
+The actions emitted by double tap are the same as most remaps
+in `experimental_map` [described here](reference_expmap_actions.md).
 
 ## Examples
 

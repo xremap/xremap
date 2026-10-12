@@ -46,17 +46,8 @@ The output from `experimental_map` goes to the `modmap` and then goes to `keymap
 
 ### Possible actions
 
-It's possible to emit nothing, a single key or more keys:
-
-```yml
-actions: null       # Emit nothing
-actions: A          # A single key
-actions: [A, B, C]  # Several keys
-```
-
-With several keys in the action, the keys are pressed in the specified order, and they are
-all held/repeated until a trigger key is released. Then they are released in the same order they were
-pressed.
+The actions emitted by chords are the same as most remaps
+in `experimental_map` [described here](reference_expmap_actions.md).
 
 ### Remapping normal keys
 
