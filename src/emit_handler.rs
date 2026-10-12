@@ -28,14 +28,19 @@ impl EmitHandler {
         let mut result = vec![];
 
         for event in events {
-            let event = match event {
+            match event {
                 // Extract the event, that operators have ignored.
-                Event::ByPassLocal(event) => *event,
-                event => event,
+                Event::ByPassLocal(event) => {
+                    handle_single_event(&mut result, &mut self.emitted_modifiers, *event);
+                }
+                Event::KeyEvent(..)
+                | Event::RelativeEvent(..)
+                | Event::OtherEvents(..)
+                | Event::OverrideTimeout
+                | Event::Tick => {
+                    handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                }
             };
-
-            update_modifier_state(&mut self.emitted_modifiers, &event);
-            result.push(event);
         }
 
         result
@@ -44,6 +49,11 @@ impl EmitHandler {
     pub fn on_event(&mut self, event: &Event) {
         update_modifier_state(&mut self.physical_modifiers, event)
     }
+}
+
+fn handle_single_event(result: &mut Vec<Event>, emitted_modifiers: &mut Vec<Key>, event: Event) {
+    update_modifier_state(emitted_modifiers, &event);
+    result.push(event);
 }
 
 fn update_modifier_state(modifiers: &mut Vec<Key>, event: &Event) {
