@@ -1,20 +1,23 @@
+use crate::config::expmap_actions::ExpmapActions;
+use crate::config::expmap_operator::ThrottleDefinition;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent};
 use crate::operators::{ActiveOperator, OperatorAction, StaticOperator};
+use crate::KeyValue;
 use evdev::KeyCode as Key;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::vec;
 
 #[derive(Debug, Clone)]
 pub struct ThrottleOperator {
     key: Key,
-    timeout: Duration,
+    definition: ThrottleDefinition,
 }
 
 impl ThrottleOperator {
-    pub fn get_ops(key: Key, timeout: Duration) -> Vec<(Key, Box<dyn StaticOperator>)> {
-        vec![(key, Box::new(ThrottleOperator { key, timeout }))]
+    pub fn get_ops(key: Key, definition: ThrottleDefinition) -> Vec<(Key, Box<dyn StaticOperator>)> {
+        vec![(key, Box::new(ThrottleOperator { key, definition }))]
     }
 }
 
@@ -23,7 +26,8 @@ impl StaticOperator for ThrottleOperator {
         match event {
             Event::KeyEvent(_, _) => Box::new(ActiveThrottleOperator {
                 key: self.key,
-                timeout: self.timeout,
+                definition: self.definition.clone(),
+                actions: ExpmapActions { keys: vec![self.key] },
                 last_emit: Instant::now(),
                 state: State::New,
             }),
@@ -47,9 +51,10 @@ enum State {
 }
 
 #[derive(Debug)]
-pub struct ActiveThrottleOperator {
+struct ActiveThrottleOperator {
     key: Key,
-    timeout: Duration,
+    definition: ThrottleDefinition,
+    actions: ExpmapActions,
     // Is set to 'now' just before entering Active state with press-event.
     last_emit: Instant,
     state: State,
@@ -63,7 +68,7 @@ impl ActiveOperator for ActiveThrottleOperator {
 
                 self.state = State::Active;
                 self.last_emit = Instant::now();
-                OperatorAction::Partial(vec![Event::ByPassLocal(device, key_event.clone())])
+                self.map_actions(device, KeyValue::Press)
             }
             State::Active => {
                 if key_event.key == self.key {
@@ -82,7 +87,7 @@ impl ActiveOperator for ActiveThrottleOperator {
                 }
             }
             State::Inactive => {
-                if Instant::now().duration_since(self.last_emit) > self.timeout {
+                if Instant::now().duration_since(self.last_emit) > self.definition.timeout {
                     if key_event.key == self.key {
                         // Pressed again before timeout.
                         self.state = State::New;
@@ -113,7 +118,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::Active => {
                 if key_event.key == self.key {
                     self.state = State::Inactive;
-                    OperatorAction::Partial(vec![Event::ByPassLocal(device, key_event.clone())])
+                    self.map_actions(device, KeyValue::Release)
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -145,7 +150,7 @@ impl ActiveOperator for ActiveThrottleOperator {
             State::New => unreachable!(),
             State::Active => {
                 if key_event.key == self.key {
-                    OperatorAction::Partial(vec![Event::ByPassLocal(device, key_event.clone())])
+                    self.map_actions(device, KeyValue::Repeat)
                 } else {
                     OperatorAction::Unhandled
                 }
@@ -177,5 +182,11 @@ impl ActiveOperator for ActiveThrottleOperator {
 
     fn on_other(&mut self, _event: &Event) -> OperatorAction {
         OperatorAction::Unhandled
+    }
+}
+
+impl ActiveThrottleOperator {
+    fn map_actions(&self, device: Rc<InputDeviceInfo>, value: KeyValue) -> OperatorAction {
+        OperatorAction::Partial(self.actions.emit(device, value))
     }
 }

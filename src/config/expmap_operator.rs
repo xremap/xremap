@@ -1,5 +1,4 @@
 use crate::config::deserialize_single_field;
-use crate::config::deserializers::DurationWrapper;
 use crate::config::expmap_actions::{ExpmapActions, ParseExpmapActions};
 use crate::config::modmap::KeyWrapper;
 use evdev::KeyCode as Key;
@@ -11,16 +10,11 @@ use std::time::Duration;
 #[serde(untagged)]
 pub enum ExpmapOperator {
     DoubleTap(ParseDoubleTap),
-    #[serde(deserialize_with = "deserialize_throttle")]
-    Throttle(Duration),
+    Throttle(ParseThrottle),
     #[serde(deserialize_with = "deserialize_oneshot")]
     OneShot(Key),
     #[serde(deserialize_with = "deserialize_select")]
     Select(Vec<ExpmapOperator>),
-}
-
-pub fn deserialize_throttle<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Duration, D::Error> {
-    Ok(deserialize_single_field::<D, DurationWrapper>(deserializer, "throttle_ms")?.0)
 }
 
 pub fn deserialize_oneshot<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Key, D::Error> {
@@ -29,6 +23,12 @@ pub fn deserialize_oneshot<'de, D: Deserializer<'de>>(deserializer: D) -> Result
 
 pub fn deserialize_select<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<ExpmapOperator>, D::Error> {
     Ok(deserialize_single_field::<D, Vec<ExpmapOperator>>(deserializer, "select")?)
+}
+
+#[derive(Clone, Debug)]
+pub struct DoubleTapDefinition {
+    pub actions: ExpmapActions,
+    pub timeout: Duration,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -47,7 +47,20 @@ impl ParseDoubleTap {
 }
 
 #[derive(Clone, Debug)]
-pub struct DoubleTapDefinition {
-    pub actions: ExpmapActions,
+pub struct ThrottleDefinition {
     pub timeout: Duration,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParseThrottle {
+    pub throttle_ms: u64,
+}
+
+impl ParseThrottle {
+    pub fn finish(self) -> ThrottleDefinition {
+        ThrottleDefinition {
+            timeout: Duration::from_millis(self.throttle_ms),
+        }
+    }
 }

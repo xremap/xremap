@@ -37,9 +37,6 @@ impl<T> VectorOrSingleOrNull<T> {
     }
 }
 
-#[derive(Deserialize, Debug)]
-pub struct DurationWrapper(#[serde(deserialize_with = "deserialize_duration")] pub Duration);
-
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,
