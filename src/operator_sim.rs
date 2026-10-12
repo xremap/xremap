@@ -1,7 +1,7 @@
 use crate::config::expmap_simkey::SimkeyDefinition;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
-use crate::operators::{map_actions, ActiveOperator, OperatorAction, StaticOperator};
+use crate::operators::{ActiveOperator, OperatorAction, StaticOperator};
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use log::error;
@@ -114,7 +114,7 @@ impl ActiveOperator for ActiveSimOperator {
             State::Pressed { still_missing } => {
                 if vec![key_event.key] == *still_missing {
                     // All keys pressed
-                    let mut events = map_actions(&self.definition.actions, device.clone(), KeyValue::Press);
+                    let mut events = self.definition.actions.emit(device.clone(), KeyValue::Press);
 
                     // Flush buffered events. Leaves self.buffered empty.
                     events.append(&mut self.buffered);
@@ -176,7 +176,7 @@ impl ActiveOperator for ActiveSimOperator {
                 debug_assert!(self.buffered.is_empty());
 
                 if self.definition.keys.contains(&key_event.key) {
-                    let events = map_actions(&self.definition.actions, device.clone(), KeyValue::Release);
+                    let events = self.definition.actions.emit(device.clone(), KeyValue::Release);
 
                     let still_pressed: Vec<_> = self
                         .definition
@@ -231,7 +231,7 @@ impl ActiveOperator for ActiveSimOperator {
                     // events be multiplied for the action.
                     // Maybe this should be the last key pressed, because that might be the
                     // only one, that sends repeat signals.
-                    OperatorAction::Partial(map_actions(&self.definition.actions, device.clone(), KeyValue::Repeat))
+                    OperatorAction::Partial(self.definition.actions.emit(device.clone(), KeyValue::Repeat))
                 } else if self.definition.keys.contains(&key_event.key) {
                     // These are unneeded
                     OperatorAction::Partial(vec![])
