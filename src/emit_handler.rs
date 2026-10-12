@@ -1,4 +1,4 @@
-use crate::event::Event;
+use crate::event::{Event, KeyEvent};
 use crate::event_handler::{MODIFIER_KEYS, PRESS, RELEASE, REPEAT};
 use evdev::KeyCode as Key;
 use log::warn;
@@ -32,6 +32,12 @@ impl EmitHandler {
                 // Extract the event, that operators have ignored.
                 Event::ByPassLocal(event) => {
                     handle_single_event(&mut result, &mut self.emitted_modifiers, *event);
+                }
+                Event::ExpmapActions { actions, device, value } => {
+                    for key in actions.keys {
+                        let event = Event::KeyEvent(device.clone(), KeyEvent::new(key, value));
+                        handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                    }
                 }
                 Event::KeyEvent(..)
                 | Event::RelativeEvent(..)

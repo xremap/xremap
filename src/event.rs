@@ -1,3 +1,4 @@
+use crate::config::expmap_actions::ExpmapActions;
 use crate::device::InputDeviceInfo;
 use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
 use evdev::{EventType, InputEvent, KeyCode as Key};
@@ -23,6 +24,12 @@ pub enum Event {
     // This event is never emitted from EmitHandler, so it's strictly local to the level.
     #[allow(warnings)]
     ByPassLocal(Box<Event>),
+    // Handled by nearest emit_handler.
+    ExpmapActions {
+        actions: ExpmapActions,
+        device: Rc<InputDeviceInfo>,
+        value: KeyValue,
+    },
 }
 
 impl Event {

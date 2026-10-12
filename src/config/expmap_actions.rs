@@ -1,6 +1,6 @@
 use crate::config::modmap_operator::Keys;
 use crate::device::InputDeviceInfo;
-use crate::event::{Event, KeyEvent};
+use crate::event::Event;
 use crate::KeyValue;
 use evdev::KeyCode as Key;
 use serde::Deserialize;
@@ -30,9 +30,10 @@ impl ParseExpmapActions {
 
 impl ExpmapActions {
     pub fn emit(&self, device: Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Event> {
-        self.keys
-            .iter()
-            .filter_map(|key| Some(Event::local_bypass(device.clone(), KeyEvent::new(*key, value))))
-            .collect()
+        vec![Event::ExpmapActions {
+            actions: self.clone(),
+            device,
+            value,
+        }]
     }
 }
