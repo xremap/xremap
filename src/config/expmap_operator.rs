@@ -1,7 +1,5 @@
 use crate::config::deserialize_single_field;
 use crate::config::expmap_actions::{ExpmapActions, ParseExpmapActions};
-use crate::config::modmap::KeyWrapper;
-use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::fmt::Debug;
 use std::time::Duration;
@@ -12,13 +10,13 @@ pub enum ExpmapOperator {
     DoubleTap(ParseDoubleTap),
     Throttle(ParseThrottle),
     #[serde(deserialize_with = "deserialize_oneshot")]
-    OneShot(Key),
+    OneShot(ParseExpmapActions),
     #[serde(deserialize_with = "deserialize_select")]
     Select(Vec<ExpmapOperator>),
 }
 
-pub fn deserialize_oneshot<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Key, D::Error> {
-    Ok(deserialize_single_field::<D, KeyWrapper>(deserializer, "oneshot")?.0)
+pub fn deserialize_oneshot<'de, D: Deserializer<'de>>(deserializer: D) -> Result<ParseExpmapActions, D::Error> {
+    Ok(deserialize_single_field::<D, ParseExpmapActions>(deserializer, "oneshot")?)
 }
 
 pub fn deserialize_select<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<ExpmapOperator>, D::Error> {

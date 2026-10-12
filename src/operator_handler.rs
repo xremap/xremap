@@ -105,7 +105,7 @@ fn get_static_operators(
             DoubleTapOperator::get_ops(key, dbltap.clone().finish(), timeout_manager.clone())
         }
         ExpmapOperator::Throttle(definition) => ThrottleOperator::get_ops(key, definition.clone().finish()),
-        ExpmapOperator::OneShot(action) => OneshotOperator::get_ops(key, *action),
+        ExpmapOperator::OneShot(definition) => OneshotOperator::get_ops(key, definition.clone().finish()),
         ExpmapOperator::Select(operators) => operators
             .iter()
             .flat_map(|operator| get_static_operators(key, operator, &timeout_manager))
