@@ -1,4 +1,3 @@
-use crate::config::expmap_operator::ExpmapAction;
 use crate::config::expmap_simkey::Simkey;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
@@ -7,7 +6,7 @@ use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use log::error;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::vec;
 
 /// Function
@@ -25,27 +24,23 @@ use std::vec;
 
 #[derive(Debug)]
 pub struct SimOperator {
-    keys: Vec<Key>,
-    actions: Vec<ExpmapAction>,
-    timeout: Duration,
+    definition: Simkey,
     timeout_manager: Rc<TimeoutManager>,
 }
 
 impl SimOperator {
-    pub fn get_ops(chord: &Simkey, timeout_manager: Rc<TimeoutManager>) -> Vec<(Key, Box<dyn StaticOperator>)> {
-        if chord.keys.len() < 2 {
+    pub fn get_ops(definition: &Simkey, timeout_manager: Rc<TimeoutManager>) -> Vec<(Key, Box<dyn StaticOperator>)> {
+        if definition.keys.len() < 2 {
             panic!("There must be at least two keys for a chord.");
         }
 
         // Needs a definition for each start_key.
-        chord
+        definition
             .keys
             .iter()
             .map(|&key| {
                 let operator: Box<dyn StaticOperator> = Box::new(SimOperator {
-                    keys: chord.keys.clone(),
-                    actions: chord.actions.clone(),
-                    timeout: chord.timeout,
+                    definition: definition.clone(),
                     timeout_manager: timeout_manager.clone(),
                 });
 
@@ -57,18 +52,16 @@ impl SimOperator {
 
 impl StaticOperator for SimOperator {
     fn get_active_operator(&self, event: &Event) -> Box<dyn ActiveOperator> {
-        if let Err(err) = self.timeout_manager.set_timeout(self.timeout) {
+        if let Err(err) = self.timeout_manager.set_timeout(self.definition.timeout) {
             error!("Failed to set_timeout: {err}");
         }
 
         match event {
             Event::KeyEvent(_, _) => Box::new(ActiveSimOperator {
-                keys: self.keys.clone(),
-                actions: self.actions.clone(),
+                definition: self.definition.clone(),
                 start_inst: Instant::now(),
                 buffered: vec![],
                 state: State::New,
-                timeout: self.timeout,
             }),
             _ => {
                 unreachable!()
@@ -93,9 +86,7 @@ enum State {
 
 #[derive(Debug)]
 pub struct ActiveSimOperator {
-    keys: Vec<Key>,
-    actions: Vec<ExpmapAction>,
-    timeout: Duration,
+    definition: Simkey,
     // Time of the first press
     start_inst: Instant,
     buffered: Vec<Event>,
@@ -107,14 +98,20 @@ impl ActiveOperator for ActiveSimOperator {
         match &mut self.state {
             State::New => {
                 self.state = State::Pressed {
-                    still_missing: self.keys.iter().filter(|&&key| key != key_event.key).cloned().collect(),
+                    still_missing: self
+                        .definition
+                        .keys
+                        .iter()
+                        .filter(|&&key| key != key_event.key)
+                        .cloned()
+                        .collect(),
                 };
                 OperatorAction::Undecided
             }
             State::Pressed { still_missing } => {
                 if vec![key_event.key] == *still_missing {
                     // All keys pressed
-                    let mut events = map_actions(&self.actions, device.clone(), KeyValue::Press);
+                    let mut events = map_actions(&self.definition.actions, device.clone(), KeyValue::Press);
 
                     // Flush buffered events. Leaves self.buffered empty.
                     events.append(&mut self.buffered);
@@ -137,7 +134,7 @@ impl ActiveOperator for ActiveSimOperator {
             State::Emitted { device: _ } => {
                 debug_assert!(self.buffered.is_empty());
 
-                if self.keys.contains(&key_event.key) {
+                if self.definition.keys.contains(&key_event.key) {
                     // All keys are pressed in this state, so can't be pressed again.
                     unreachable!()
                 } else {
@@ -161,7 +158,7 @@ impl ActiveOperator for ActiveSimOperator {
         match &mut self.state {
             State::New => unreachable!(),
             State::Pressed { still_missing } => {
-                if self.keys.contains(&key_event.key) && !still_missing.contains(&key_event.key) {
+                if self.definition.keys.contains(&key_event.key) && !still_missing.contains(&key_event.key) {
                     // A trigger key has been pressed and now released. So cancel.
                     self.state = State::Done;
 
@@ -175,11 +172,16 @@ impl ActiveOperator for ActiveSimOperator {
             State::Emitted { device } => {
                 debug_assert!(self.buffered.is_empty());
 
-                if self.keys.contains(&key_event.key) {
-                    let events = map_actions(&self.actions, device.clone(), KeyValue::Release);
+                if self.definition.keys.contains(&key_event.key) {
+                    let events = map_actions(&self.definition.actions, device.clone(), KeyValue::Release);
 
-                    let still_pressed: Vec<_> =
-                        self.keys.iter().filter(|&&key| key != key_event.key).cloned().collect();
+                    let still_pressed: Vec<_> = self
+                        .definition
+                        .keys
+                        .iter()
+                        .filter(|&&key| key != key_event.key)
+                        .cloned()
+                        .collect();
 
                     self.state = State::Released { still_pressed };
 
@@ -201,7 +203,7 @@ impl ActiveOperator for ActiveSimOperator {
                     still_pressed.retain(|&key| key != key_event.key);
 
                     OperatorAction::Partial(vec![])
-                } else if self.keys.contains(&key_event.key) && !still_pressed.contains(&key_event.key) {
+                } else if self.definition.keys.contains(&key_event.key) && !still_pressed.contains(&key_event.key) {
                     // Already squashed, but now released again.
                     OperatorAction::Unhandled
                 } else {
@@ -221,13 +223,13 @@ impl ActiveOperator for ActiveSimOperator {
             // Suppress repeat when matching
             State::Pressed { still_missing: _ } => OperatorAction::Undecided,
             State::Emitted { device } => {
-                if self.keys[0] == key_event.key {
+                if self.definition.keys[0] == key_event.key {
                     // Only one trigger key must be repeated, otherwise would repeat
                     // events be multiplied for the action.
                     // Maybe this should be the last key pressed, because that might be the
                     // only one, that sends repeat signals.
-                    OperatorAction::Partial(map_actions(&self.actions, device.clone(), KeyValue::Repeat))
-                } else if self.keys.contains(&key_event.key) {
+                    OperatorAction::Partial(map_actions(&self.definition.actions, device.clone(), KeyValue::Repeat))
+                } else if self.definition.keys.contains(&key_event.key) {
                     // These are unneeded
                     OperatorAction::Partial(vec![])
                 } else {
@@ -251,7 +253,7 @@ impl ActiveOperator for ActiveSimOperator {
     fn on_tick(&mut self) -> OperatorAction {
         match &self.state {
             State::New => unreachable!(),
-            State::Pressed { still_missing: _ } if self.start_inst.elapsed() <= self.timeout => {
+            State::Pressed { still_missing: _ } if self.start_inst.elapsed() <= self.definition.timeout => {
                 OperatorAction::Undecided
             }
             State::Pressed { still_missing: _ } => {
