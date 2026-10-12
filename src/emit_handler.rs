@@ -1,4 +1,4 @@
-use crate::event::Event;
+use crate::event::{Event, KeyEvent};
 use crate::event_handler::{MODIFIER_KEYS, PRESS, RELEASE, REPEAT};
 use evdev::KeyCode as Key;
 use log::warn;
@@ -28,14 +28,24 @@ impl EmitHandler {
         let mut result = vec![];
 
         for event in events {
-            let event = match event {
+            match event {
+                Event::KeyEvent(..) => {
+                    handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                }
                 // Extract the event, that operators have ignored.
-                Event::ByPassLocal(event) => *event,
-                event => event,
+                Event::ByPassLocal(device, key_event) => {
+                    handle_single_event(&mut result, &mut self.emitted_modifiers, Event::KeyEvent(device, key_event));
+                }
+                Event::ExpmapActions { actions, device, value } => {
+                    for key in actions.keys {
+                        let event = Event::KeyEvent(device.clone(), KeyEvent::new(key, value));
+                        handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                    }
+                }
+                Event::RelativeEvent(..) | Event::OtherEvents(..) | Event::OverrideTimeout | Event::Tick => {
+                    result.push(event);
+                }
             };
-
-            update_modifier_state(&mut self.emitted_modifiers, &event);
-            result.push(event);
         }
 
         result
@@ -44,6 +54,11 @@ impl EmitHandler {
     pub fn on_event(&mut self, event: &Event) {
         update_modifier_state(&mut self.physical_modifiers, event)
     }
+}
+
+fn handle_single_event(result: &mut Vec<Event>, emitted_modifiers: &mut Vec<Key>, event: Event) {
+    update_modifier_state(emitted_modifiers, &event);
+    result.push(event);
 }
 
 fn update_modifier_state(modifiers: &mut Vec<Key>, event: &Event) {

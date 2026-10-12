@@ -1,7 +1,6 @@
 use crate::config::application::ApplicationMatch;
-use crate::config::expmap_operator::ExpmapAction;
 use crate::device::InputDeviceInfo;
-use crate::event::{Event, KeyEvent, KeyValue};
+use crate::event::{Event, KeyEvent};
 use crate::event_handler::{PRESS, RELEASE, REPEAT};
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -66,15 +65,6 @@ pub trait ActiveOperator: Debug {
     fn on_other(&mut self, _event: &Event) -> OperatorAction {
         unreachable!()
     }
-}
-
-pub fn map_actions(actions: &Vec<ExpmapAction>, device: Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Event> {
-    actions
-        .iter()
-        .filter_map(|action| match action {
-            ExpmapAction::Key(key) => Some(Event::local_bypass(device.clone(), KeyEvent::new(*key, value))),
-        })
-        .collect()
 }
 
 // Internals for efficient operator lookup

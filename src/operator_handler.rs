@@ -48,7 +48,7 @@ impl OperatorHandler {
 
         for expmap in experimental_map {
             for chord in &expmap.chords {
-                let operators = SimOperator::get_ops(chord, timeout_manager.clone());
+                let operators = SimOperator::get_ops(chord.clone().finish(), timeout_manager.clone());
 
                 append(operators, &mut lookup_map, expmap);
             }
@@ -101,9 +101,11 @@ fn get_static_operators(
     timeout_manager: &Rc<TimeoutManager>,
 ) -> Vec<(Key, Box<dyn StaticOperator>)> {
     match op {
-        ExpmapOperator::DoubleTap(dbltap) => DoubleTapOperator::get_ops(key, dbltap, timeout_manager.clone()),
-        ExpmapOperator::Throttle(timeout) => ThrottleOperator::get_ops(key, *timeout),
-        ExpmapOperator::OneShot(action) => OneshotOperator::get_ops(key, *action),
+        ExpmapOperator::DoubleTap(dbltap) => {
+            DoubleTapOperator::get_ops(key, dbltap.clone().finish(), timeout_manager.clone())
+        }
+        ExpmapOperator::Throttle(definition) => ThrottleOperator::get_ops(key, definition.clone().finish()),
+        ExpmapOperator::OneShot(definition) => OneshotOperator::get_ops(key, definition.clone().finish()),
         ExpmapOperator::Select(operators) => operators
             .iter()
             .flat_map(|operator| get_static_operators(key, operator, &timeout_manager))

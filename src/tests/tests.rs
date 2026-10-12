@@ -23,6 +23,9 @@ use std::time::Duration;
 ///
 ///     Escape Next Key
 ///     Any key
+///     Operator Select
+///     Operator Throttle
+///     Operator Oneshot
 ///     Operator Double Tap
 ///     Operator Chords
 ///     Operator Handler
@@ -35,6 +38,7 @@ use std::time::Duration;
 ///     Modifier triggers
 ///     Nested remap in keymap
 ///     Keymap with_mark
+///     Keymap set_mode
 ///     Keymap
 ///
 /// In other words: A feature is responsible for testing
@@ -618,7 +622,8 @@ impl EventHandlerForTest {
     pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
         let config = parse_config_for_test(config_yaml);
-        let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0), None);
+        let operator_handler = Some(OperatorHandler::new(&config.experimental_map, Rc::new(TimeoutManager::new())));
+        let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0), operator_handler);
 
         Self {
             event_handler,

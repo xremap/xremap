@@ -28,8 +28,13 @@ The action is cancelled in that case.
 
 The oneshot action is not interrupted by mouse movement or scroll. But is interrupted by mouse click if `--mouse` argument is used.
 
-Note: Other modifiers and other oneshot keys also interrupt a oneshot action.
+Note: Other modifiers and other oneshot keys also interrupt an oneshot action.
 It might not be the intended behavior, and is subject to change, based on user feedback.
+
+### Possible actions
+
+The actions emitted by oneshot are the same as most remaps
+in `experimental_map` [described here](reference_expmap_actions.md).
 
 ### Example: Use shift as oneshot shift
 

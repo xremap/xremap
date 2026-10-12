@@ -2,6 +2,7 @@ pub mod application;
 pub mod deserializers;
 pub mod device;
 pub mod expmap;
+pub mod expmap_actions;
 pub mod expmap_operator;
 pub mod expmap_simkey;
 pub mod key;

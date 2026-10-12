@@ -20,7 +20,8 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 
 - [Configuration options](reference_config_options.md)
 - [Key names](reference_key_names.md)
-- [Actions](reference_actions.md)
+- [Actions in keymap](reference_actions.md)
+- [Actions in modmap](reference_modmap_actions.md)
 - [Key sequence](reference_key_sequence.md)
 - [Multi-purpose key (alias: tap-hold key)](reference_multipurpose_key.md)
 - [Press/release key](reference_press_release_key.md)
@@ -28,7 +29,7 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 ### Experimental features
 
 - [Double tap](reference_double_tap.md)
-- [Chords (simultaneous keys)](reference_chords.md)
+- [Chords (simultaneous press)](reference_chords.md)
 - [Throttle keys](reference_throttle.md)
 - [Oneshot key](reference_oneshot.md)
 - [Select between operators](reference_select.md)
