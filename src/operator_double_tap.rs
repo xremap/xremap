@@ -1,31 +1,29 @@
-use crate::config::expmap_operator::{DoubleTap, ExpmapAction};
+use crate::config::expmap_operator::DoubleTapDefinition;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
-use crate::operators::{map_actions, ActiveOperator, OperatorAction, StaticOperator};
+use crate::operators::{ActiveOperator, OperatorAction, StaticOperator};
 use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use log::error;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 #[derive(Debug)]
 pub struct DoubleTapOperator {
-    actions: Vec<ExpmapAction>,
-    timeout: Duration,
+    definition: DoubleTapDefinition,
     timeout_manager: Rc<TimeoutManager>,
 }
 
 impl DoubleTapOperator {
     pub fn get_ops(
         key: Key,
-        dbltap: &DoubleTap,
+        definition: DoubleTapDefinition,
         timeout_manager: Rc<TimeoutManager>,
     ) -> Vec<(Key, Box<dyn StaticOperator>)> {
         vec![(
             key.clone(),
             Box::new(DoubleTapOperator {
-                actions: dbltap.actions.clone(),
-                timeout: dbltap.timeout,
+                definition: definition.clone(),
                 timeout_manager: timeout_manager.clone(),
             }),
         )]
@@ -34,15 +32,14 @@ impl DoubleTapOperator {
 
 impl StaticOperator for DoubleTapOperator {
     fn get_active_operator(&self, event: &Event) -> Box<dyn ActiveOperator> {
-        if let Err(err) = self.timeout_manager.set_timeout(self.timeout) {
+        if let Err(err) = self.timeout_manager.set_timeout(self.definition.timeout) {
             error!("Failed to set_timeout: {err}");
         }
 
         match event {
             Event::KeyEvent(_, key_event) => Box::new(ActiveDoubleTapOperator {
                 key: key_event.key,
-                actions: self.actions.clone(),
-                timeout: self.timeout,
+                definition: self.definition.clone(),
                 start_inst: Instant::now(),
                 buffered: vec![],
                 state: State::New,
@@ -66,8 +63,7 @@ enum State {
 #[derive(Debug)]
 pub struct ActiveDoubleTapOperator {
     key: Key,
-    actions: Vec<ExpmapAction>,
-    timeout: Duration,
+    definition: DoubleTapDefinition,
     // Time of the first press
     start_inst: Instant,
     buffered: Vec<Event>,
@@ -86,7 +82,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
                 OperatorAction::Undecided
             }
             State::Tapped if self.key == key_event.key => {
-                let mut events = map_actions(&self.actions, device, KeyValue::Press);
+                let mut events = self.definition.actions.emit(device, KeyValue::Press);
 
                 // Flush buffered events. Leaves self.buffered empty.
                 events.append(&mut self.buffered);
@@ -127,7 +123,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
             }
             State::Emitted if self.key == key_event.key => {
                 self.state = State::Done;
-                OperatorAction::Done(map_actions(&self.actions, device, KeyValue::Release))
+                OperatorAction::Done(self.definition.actions.emit(device, KeyValue::Release))
             }
             // Unrelated keys not buffered after emit
             State::Emitted => OperatorAction::Unhandled,
@@ -145,7 +141,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
 
             // Repeat the emitted key.
             State::Emitted if self.key == key_event.key => {
-                OperatorAction::Partial(map_actions(&self.actions, device, KeyValue::Repeat))
+                OperatorAction::Partial(self.definition.actions.emit(device, KeyValue::Repeat))
             }
 
             // Unrelated keys not buffered after emit
@@ -160,7 +156,7 @@ impl ActiveOperator for ActiveDoubleTapOperator {
         match &mut self.state {
             State::New => unreachable!(),
             State::Pressed | State::Tapped => {
-                if self.start_inst.elapsed() <= self.timeout {
+                if self.start_inst.elapsed() <= self.definition.timeout {
                     OperatorAction::Undecided
                 } else {
                     self.state = State::Done;

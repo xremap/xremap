@@ -101,7 +101,9 @@ fn get_static_operators(
     timeout_manager: &Rc<TimeoutManager>,
 ) -> Vec<(Key, Box<dyn StaticOperator>)> {
     match op {
-        ExpmapOperator::DoubleTap(dbltap) => DoubleTapOperator::get_ops(key, dbltap, timeout_manager.clone()),
+        ExpmapOperator::DoubleTap(dbltap) => {
+            DoubleTapOperator::get_ops(key, dbltap.clone().finish(), timeout_manager.clone())
+        }
         ExpmapOperator::Throttle(timeout) => ThrottleOperator::get_ops(key, *timeout),
         ExpmapOperator::OneShot(action) => OneshotOperator::get_ops(key, *action),
         ExpmapOperator::Select(operators) => operators
