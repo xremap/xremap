@@ -29,6 +29,9 @@ impl EmitHandler {
 
         for event in events {
             match event {
+                Event::KeyEvent(..) => {
+                    handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                }
                 // Extract the event, that operators have ignored.
                 Event::ByPassLocal(device, key_event) => {
                     handle_single_event(&mut result, &mut self.emitted_modifiers, Event::KeyEvent(device, key_event));
@@ -39,12 +42,8 @@ impl EmitHandler {
                         handle_single_event(&mut result, &mut self.emitted_modifiers, event);
                     }
                 }
-                Event::KeyEvent(..)
-                | Event::RelativeEvent(..)
-                | Event::OtherEvents(..)
-                | Event::OverrideTimeout
-                | Event::Tick => {
-                    handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                Event::RelativeEvent(..) | Event::OtherEvents(..) | Event::OverrideTimeout | Event::Tick => {
+                    result.push(event);
                 }
             };
         }
