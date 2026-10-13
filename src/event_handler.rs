@@ -248,24 +248,38 @@ impl EventHandler {
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
-    fn maintain_pressed_keys(&mut self, key: Key, value: i32, events: &mut [(Key, i32)]) {
+    fn maintain_pressed_keys(&mut self, key: Key, value: KeyValue, events: &mut [Event]) {
         // Not handling multi-purpose keys for now; too complicated
-        if events.len() != 1 || value != events[0].1 {
-            // When multiple keys are emitted, then it also comes here which makes it fail.
+        if events.len() != 1 {
             return;
         }
 
-        let event = events[0];
-        if value == PRESS {
-            self.pressed_keys.insert(key, event.0);
-        } else {
-            if let Some(original_key) = self.pressed_keys.get(&key) {
-                events[0].0 = *original_key;
+        match &mut events[0] {
+            Event::KeyEvent(_, key_event) => {
+                if value != key_event.value {
+                    // When multiple keys are emitted, then it also comes here which makes it fail.
+                    return;
+                }
+
+                if value == KeyValue::Press {
+                    self.pressed_keys.insert(key, key_event.key);
+                } else {
+                    if let Some(original_key) = self.pressed_keys.get(&key) {
+                        key_event.key = *original_key;
+                    }
+                    if value == KeyValue::Release {
+                        self.pressed_keys.remove(&key);
+                    }
+                }
             }
-            if value == RELEASE {
-                self.pressed_keys.remove(&key);
-            }
-        }
+            // Cannot be emitted from modmap, so can't come here.
+            Event::RelativeEvent(..)
+            | Event::OtherEvents(..)
+            | Event::OverrideTimeout
+            | Event::Tick
+            | Event::ByPassLocal(..)
+            | Event::ExpmapActions { .. } => unreachable!(),
+        };
     }
 
     fn dispatch_keys(
@@ -446,17 +460,18 @@ impl EventHandler {
                 let key = key_event.key;
                 let value = key_event.value();
 
-                let mut key_values = if let Some(key_action) = self.find_modmap(config, &key, &device, wmclient) {
+                let key_values = if let Some(key_action) = self.find_modmap(config, &key, &device, wmclient) {
                     self.dispatch_keys(key_action, key, value)?
                 } else {
                     vec![(key, value)]
                 };
-                self.maintain_pressed_keys(key, value, &mut key_values);
 
-                let mut events = key_values
+                let mut events: Vec<_> = key_values
                     .into_iter()
                     .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
                     .collect();
+
+                self.maintain_pressed_keys(key, key_event.value, &mut events);
 
                 if !self.multi_purpose_keys.is_empty() {
                     events = self.flush_timeout_keys(device, events)
