@@ -282,7 +282,8 @@ impl EventHandler {
         };
     }
 
-    fn dispatch_keys(
+    // Resembles ActiveOperator::on_event()
+    fn dispatch_to_modmap_operator(
         &mut self,
         key_action: ModmapOperator,
         key: Key,
@@ -457,21 +458,14 @@ impl EventHandler {
     ) -> Result<Vec<Event>, Box<dyn Error>> {
         match &event {
             Event::KeyEvent(device, key_event) => {
-                let key = key_event.key;
-                let value = key_event.value();
-
-                let key_values = if let Some(key_action) = self.find_modmap(config, &key, &device, wmclient) {
-                    self.dispatch_keys(key_action, key, value)?
-                } else {
-                    vec![(key, value)]
-                };
+                let key_values = self.on_modmap_key_event(config, key_event, &device, wmclient)?;
 
                 let mut events: Vec<_> = key_values
                     .into_iter()
                     .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
                     .collect();
 
-                self.maintain_pressed_keys(key, key_event.value, &mut events);
+                self.maintain_pressed_keys(key_event.key, key_event.value, &mut events);
 
                 if !self.multi_purpose_keys.is_empty() {
                     events = self.flush_timeout_keys(device, events)
@@ -496,15 +490,16 @@ impl EventHandler {
         }
     }
 
-    fn find_modmap(
+    // Resembles OperatorHandler::static_lookup()
+    fn on_modmap_key_event(
         &mut self,
         config: &Config,
-        key: &Key,
+        key_event: &KeyEvent,
         device: &InputDeviceInfo,
         wmclient: &mut WMClient,
-    ) -> Option<ModmapOperator> {
+    ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
         for modmap in &config.modmap {
-            if let Some(key_action) = modmap.remap.get(key) {
+            if let Some(key_action) = modmap.remap.get(&key_event.key) {
                 if let Some(window_matcher) = &modmap.window {
                     if !wmclient.match_window(window_matcher) {
                         continue;
@@ -525,10 +520,11 @@ impl EventHandler {
                         continue;
                     }
                 }
-                return Some(key_action.clone());
+                return self.dispatch_to_modmap_operator(key_action.clone(), key_event.key, key_event.value());
             }
         }
-        None
+        // Nothing matched
+        Ok(vec![(key_event.key, key_event.value())])
     }
 
     // The return is a vector of actions, because nested remaps are included
