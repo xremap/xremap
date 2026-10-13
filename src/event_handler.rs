@@ -362,15 +362,7 @@ impl EventHandler {
                     }
                     KeyValue::Release => {
                         if let Some(state) = self.multi_purpose_keys.remove(&key_event.key) {
-                            let events = state
-                                .release()
-                                .into_iter()
-                                .map(|(key, value)| {
-                                    Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value))
-                                })
-                                .collect();
-
-                            Ok(events)
+                            Ok(state.release(device))
                         } else {
                             // fallthrough on state discrepancy, which happens with spurious events.
                             Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())])
@@ -988,7 +980,7 @@ impl MultiPurposeKeyState {
     }
 
     /// This function consumes the MultiPurposeKeyStateEnum, so there's no need to set self.state
-    fn release(mut self) -> Vec<(Key, i32)> {
+    fn release(mut self, device: &Rc<InputDeviceInfo>) -> Vec<Event> {
         if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
             // Timeout. Setting state before going into the switch is necessary
             self.state = MultiPurposeKeyStateEnum::HoldPreferred;
@@ -997,16 +989,19 @@ impl MultiPurposeKeyState {
         match self.state {
             MultiPurposeKeyStateEnum::TapPreferred => {
                 // Before hold_threshold_at timeout
-                self.press_and_release(&self.tap)
+                self.press_and_release_as_events(device, &self.tap)
             }
             MultiPurposeKeyStateEnum::HoldPreferred if Instant::now() < self.tap_timeout_at => {
-                self.press_and_release(&self.tap)
+                self.press_and_release_as_events(device, &self.tap)
             }
-            MultiPurposeKeyStateEnum::HoldPreferred => self.press_and_release(&self.hold),
+            MultiPurposeKeyStateEnum::HoldPreferred => self.press_and_release_as_events(device, &self.hold),
             MultiPurposeKeyStateEnum::HoldDown => {
                 let mut release_keys = self.hold.clone().into_vec();
                 release_keys.sort_by(modifiers_last);
-                release_keys.into_iter().map(|key| (key, RELEASE)).collect()
+                release_keys
+                    .into_iter()
+                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, RELEASE)))
+                    .collect()
             }
             MultiPurposeKeyStateEnum::TapChosen => {
                 vec![] // nothing to release
@@ -1057,6 +1052,21 @@ impl MultiPurposeKeyState {
         let mut events: Vec<(Key, i32)> = press_keys.into_iter().map(|key| (key, PRESS)).collect();
         events.extend(release_events);
         events
+    }
+
+    fn press_and_release_as_events(&self, device: &Rc<InputDeviceInfo>, keys_to_use: &Keys) -> Vec<Event> {
+        let mut release_keys = keys_to_use.clone().into_vec();
+        release_keys.sort_by(modifiers_last);
+        let release_events: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
+
+        let mut press_keys = keys_to_use.clone().into_vec();
+        press_keys.sort_by(modifiers_first);
+        let mut events: Vec<(Key, i32)> = press_keys.into_iter().map(|key| (key, PRESS)).collect();
+        events.extend(release_events);
+        events
+            .into_iter()
+            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+            .collect()
     }
 }
 
