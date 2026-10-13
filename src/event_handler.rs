@@ -985,12 +985,12 @@ impl MultiPurposeKeyState {
         match self.state {
             MultiPurposeKeyStateEnum::TapPreferred => {
                 // Before hold_threshold_at timeout
-                self.press_and_release_as_events(device, &self.tap)
+                self.press_and_release(device, &self.tap)
             }
             MultiPurposeKeyStateEnum::HoldPreferred if Instant::now() < self.tap_timeout_at => {
-                self.press_and_release_as_events(device, &self.tap)
+                self.press_and_release(device, &self.tap)
             }
-            MultiPurposeKeyStateEnum::HoldPreferred => self.press_and_release_as_events(device, &self.hold),
+            MultiPurposeKeyStateEnum::HoldPreferred => self.press_and_release(device, &self.hold),
             MultiPurposeKeyStateEnum::HoldDown => {
                 let mut release_keys = self.hold.clone().into_vec();
                 release_keys.sort_by(modifiers_last);
@@ -1017,40 +1017,25 @@ impl MultiPurposeKeyState {
             self.state = MultiPurposeKeyStateEnum::HoldPreferred;
         }
 
-        let key_values = match self.state {
+        match self.state {
             MultiPurposeKeyStateEnum::TapPreferred => {
                 self.state = MultiPurposeKeyStateEnum::TapChosen;
-                self.press_and_release(&self.tap)
+                self.press_and_release(device, &self.tap)
             }
             MultiPurposeKeyStateEnum::HoldPreferred => {
                 self.state = MultiPurposeKeyStateEnum::HoldDown;
 
                 let mut keys = self.hold.clone().into_vec();
                 keys.sort_by(modifiers_first);
-                keys.into_iter().map(|key| (key, PRESS)).collect()
+                keys.into_iter()
+                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, PRESS)))
+                    .collect()
             }
             MultiPurposeKeyStateEnum::HoldDown | MultiPurposeKeyStateEnum::TapChosen => vec![],
-        };
-
-        key_values
-            .into_iter()
-            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-            .collect()
+        }
     }
 
-    fn press_and_release(&self, keys_to_use: &Keys) -> Vec<(Key, i32)> {
-        let mut release_keys = keys_to_use.clone().into_vec();
-        release_keys.sort_by(modifiers_last);
-        let release_events: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
-
-        let mut press_keys = keys_to_use.clone().into_vec();
-        press_keys.sort_by(modifiers_first);
-        let mut events: Vec<(Key, i32)> = press_keys.into_iter().map(|key| (key, PRESS)).collect();
-        events.extend(release_events);
-        events
-    }
-
-    fn press_and_release_as_events(&self, device: &Rc<InputDeviceInfo>, keys_to_use: &Keys) -> Vec<Event> {
+    fn press_and_release(&self, device: &Rc<InputDeviceInfo>, keys_to_use: &Keys) -> Vec<Event> {
         let mut release_keys = keys_to_use.clone().into_vec();
         release_keys.sort_by(modifiers_last);
         let release_events: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
