@@ -374,22 +374,24 @@ impl EventHandler {
     // Typically only receives one key as argument. It can be more, when also matched
     // in modmap. But that's probably not a meaningful use case, should probably
     // interrupt before modmap, rather than after.
-    fn flush_timeout_keys(&mut self, device: &Rc<InputDeviceInfo>, key_values: Vec<(Key, i32)>) -> Vec<Event> {
-        let mut pressed = vec![];
-        for (key, value) in key_values.iter() {
-            if *value == PRESS {
-                pressed.push(*key);
+    fn flush_timeout_keys(&mut self, device: &Rc<InputDeviceInfo>, events: Vec<Event>) -> Vec<Event> {
+        let mut pressed_keys = vec![];
+        for event in events.iter() {
+            if let Event::KeyEvent(_, key_event) = event {
+                if key_event.value == KeyValue::Press {
+                    pressed_keys.push(key_event.key);
+                }
             }
         }
 
-        if !pressed.is_empty() {
+        if !pressed_keys.is_empty() {
             let mut flushed: Vec<Event> = vec![];
 
             for (_, state) in self.multi_purpose_keys.iter_mut() {
-                flushed.extend(state.interrupted_by_press(device, &*pressed));
+                flushed.extend(state.interrupted_by_press(device, &*pressed_keys));
             }
 
-            // filter out key presses that are part of the flushed events
+            // Take key presses, that comes from the multi purpose keys.
             let flushed_presses: HashSet<Key> = flushed
                 .iter()
                 .filter_map(|event| match event {
@@ -406,19 +408,30 @@ impl EventHandler {
 
             // There's generally no protection against spurious press, so
             // it's probably also not needed here.
-            let events: Vec<_> = key_values
+            let events: Vec<_> = events
                 .into_iter()
-                .filter(|(key, value)| !(*value == PRESS && flushed_presses.contains(key)))
-                .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                .filter(|event| {
+                    match event {
+                        Event::KeyEvent(_, key_event) => {
+                            // All releases/repeats are untouched.
+                            // But presses are removed, if they were also pressed by multi purpose keys.
+                            key_event.value != KeyValue::Press || !flushed_presses.contains(&key_event.key)
+                        }
+                        // Cannot be emitted from modmap, so can't come here.
+                        Event::RelativeEvent(..)
+                        | Event::OtherEvents(..)
+                        | Event::OverrideTimeout
+                        | Event::Tick
+                        | Event::ByPassLocal(..)
+                        | Event::ExpmapActions { .. } => unreachable!(),
+                    }
+                })
                 .collect();
 
             flushed.extend(events);
             flushed
         } else {
-            key_values
-                .into_iter()
-                .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                .collect()
+            events
         }
     }
 
@@ -440,7 +453,11 @@ impl EventHandler {
                 };
                 self.maintain_pressed_keys(key, value, &mut key_values);
                 let events: Vec<_> = if !self.multi_purpose_keys.is_empty() {
-                    self.flush_timeout_keys(device, key_values)
+                    let events = key_values
+                        .into_iter()
+                        .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                        .collect();
+                    self.flush_timeout_keys(device, events)
                 } else {
                     key_values
                         .into_iter()
