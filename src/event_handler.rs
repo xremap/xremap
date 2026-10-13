@@ -458,12 +458,7 @@ impl EventHandler {
     ) -> Result<Vec<Event>, Box<dyn Error>> {
         match &event {
             Event::KeyEvent(device, key_event) => {
-                let key_values = self.on_modmap_key_event(config, key_event, &device, wmclient)?;
-
-                let mut events: Vec<_> = key_values
-                    .into_iter()
-                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                    .collect();
+                let mut events = self.on_modmap_key_event(config, key_event, &device, wmclient)?;
 
                 self.maintain_pressed_keys(key_event.key, key_event.value, &mut events);
 
@@ -495,9 +490,9 @@ impl EventHandler {
         &mut self,
         config: &Config,
         key_event: &KeyEvent,
-        device: &InputDeviceInfo,
+        device: &Rc<InputDeviceInfo>,
         wmclient: &mut WMClient,
-    ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
+    ) -> Result<Vec<Event>, Box<dyn Error>> {
         for modmap in &config.modmap {
             if let Some(key_action) = modmap.remap.get(&key_event.key) {
                 if let Some(window_matcher) = &modmap.window {
@@ -520,11 +515,19 @@ impl EventHandler {
                         continue;
                     }
                 }
-                return self.dispatch_to_modmap_operator(key_action.clone(), key_event.key, key_event.value());
+                let key_values =
+                    self.dispatch_to_modmap_operator(key_action.clone(), key_event.key, key_event.value())?;
+
+                let events = key_values
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                return Ok(events);
             }
         }
         // Nothing matched
-        Ok(vec![(key_event.key, key_event.value())])
+        Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())])
     }
 
     // The return is a vector of actions, because nested remaps are included
