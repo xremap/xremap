@@ -452,17 +452,14 @@ impl EventHandler {
                     vec![(key, value)]
                 };
                 self.maintain_pressed_keys(key, value, &mut key_values);
-                let events: Vec<_> = if !self.multi_purpose_keys.is_empty() {
-                    let events = key_values
-                        .into_iter()
-                        .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                        .collect();
-                    self.flush_timeout_keys(device, events)
-                } else {
-                    key_values
-                        .into_iter()
-                        .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                        .collect()
+
+                let mut events = key_values
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                if !self.multi_purpose_keys.is_empty() {
+                    events = self.flush_timeout_keys(device, events)
                 };
 
                 Ok(events)
