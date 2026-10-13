@@ -383,16 +383,11 @@ impl EventHandler {
         }
 
         if !pressed.is_empty() {
-            let mut flushed: Vec<(Key, i32)> = vec![];
+            let mut flushed: Vec<Event> = vec![];
 
             for (_, state) in self.multi_purpose_keys.iter_mut() {
-                flushed.extend(state.interrupted_by_press(&*pressed));
+                flushed.extend(state.interrupted_by_press(device, &*pressed));
             }
-
-            let mut flushed: Vec<_> = flushed
-                .into_iter()
-                .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                .collect();
 
             // filter out key presses that are part of the flushed events
             let flushed_presses: HashSet<Key> = flushed
@@ -461,13 +456,8 @@ impl EventHandler {
 
                 let mut events = vec![];
                 for (_, state) in self.multi_purpose_keys.iter_mut() {
-                    events.extend(state.interrupted_by_press(&pressed));
+                    events.extend(state.interrupted_by_press(device, &pressed));
                 }
-
-                let mut events: Vec<_> = events
-                    .into_iter()
-                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                    .collect();
 
                 events.push(event);
 
@@ -978,7 +968,7 @@ impl MultiPurposeKeyState {
 
     // Other keys were pressed, so the multipurpose key
     // should emit presses of its held-value if it can be interrupted by those keys.
-    fn interrupted_by_press(&mut self, pressed: &[Key]) -> Vec<(Key, i32)> {
+    fn interrupted_by_press(&mut self, device: &Rc<InputDeviceInfo>, pressed: &[Key]) -> Vec<Event> {
         if !pressed.iter().any(|key| self.interruptable.is_interrupted_by(*key)) {
             return vec![];
         }
@@ -988,7 +978,7 @@ impl MultiPurposeKeyState {
             self.state = MultiPurposeKeyStateEnum::HoldPreferred;
         }
 
-        match self.state {
+        let key_values = match self.state {
             MultiPurposeKeyStateEnum::TapPreferred => {
                 self.state = MultiPurposeKeyStateEnum::TapChosen;
                 self.press_and_release(&self.tap)
@@ -1001,7 +991,12 @@ impl MultiPurposeKeyState {
                 keys.into_iter().map(|key| (key, PRESS)).collect()
             }
             MultiPurposeKeyStateEnum::HoldDown | MultiPurposeKeyStateEnum::TapChosen => vec![],
-        }
+        };
+
+        key_values
+            .into_iter()
+            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+            .collect()
     }
 
     fn press_and_release(&self, keys_to_use: &Keys) -> Vec<(Key, i32)> {
