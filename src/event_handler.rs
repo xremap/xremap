@@ -291,18 +291,13 @@ impl EventHandler {
     ) -> Result<Vec<Event>, Box<dyn Error>> {
         match operator {
             ModmapOperator::Keys(modmap_keys) => {
-                let keys: Vec<_> = modmap_keys
+                let events = modmap_keys
                     .into_vec()
                     .into_iter()
-                    .map(|modmap_key| (modmap_key, key_event.value()))
+                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), key_event.value())))
                     .collect();
 
-                let keys = keys
-                    .into_iter()
-                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                    .collect();
-
-                Ok(keys)
+                Ok(events)
             }
             ModmapOperator::MultiPurposeKey(MultiPurposeKey {
                 hold,
@@ -346,7 +341,8 @@ impl EventHandler {
                                 },
                             },
                         );
-                        return Ok(vec![]); // delay the press
+                        // delay the press
+                        Ok(vec![])
                     }
                     KeyValue::Repeat => {
                         if let Some(state) = self.multi_purpose_keys.get_mut(&key_event.key) {
@@ -358,7 +354,10 @@ impl EventHandler {
                                 })
                                 .collect();
 
-                            return Ok(events);
+                            Ok(events)
+                        } else {
+                            // fallthrough on state discrepancy, which happens with spurious events.
+                            Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())])
                         }
                     }
                     KeyValue::Release => {
@@ -371,19 +370,13 @@ impl EventHandler {
                                 })
                                 .collect();
 
-                            return Ok(events);
+                            Ok(events)
+                        } else {
+                            // fallthrough on state discrepancy, which happens with spurious events.
+                            Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())])
                         }
                     }
                 }
-                // fallthrough on state discrepancy, which happens with spurious events.
-                let keys = vec![(key_event.key, key_event.value())];
-
-                let keys = keys
-                    .into_iter()
-                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                    .collect();
-
-                Ok(keys)
             }
             ModmapOperator::PressReleaseKey(PressReleaseKey {
                 skip_key_event,
@@ -408,17 +401,14 @@ impl EventHandler {
                     false,
                 )?;
 
-                let keys = match skip_key_event {
-                    true => vec![],                                    // do not dispatch the original key
-                    false => vec![(key_event.key, key_event.value())], // dispatch the original key
-                };
+                let mut events = vec![];
 
-                let keys = keys
-                    .into_iter()
-                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                    .collect();
+                if !skip_key_event {
+                    // Dispatch the original key after actions
+                    events.push(Event::KeyEvent(device.clone(), key_event.clone()));
+                }
 
-                Ok(keys)
+                Ok(events)
             }
         }
     }
