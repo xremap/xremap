@@ -6,22 +6,18 @@ use log::warn;
 pub struct EmitHandler {
     // Physical modifiers that are down.
     physical_modifiers: Vec<Key>,
-    // Currently emitted modifier keys
-    emitted_modifiers: Vec<Key>,
 }
 
 impl EmitHandler {
     pub fn new() -> EmitHandler {
         EmitHandler {
             physical_modifiers: vec![],
-            emitted_modifiers: vec![],
         }
     }
 
     #[cfg(test)]
     pub fn assert_base_state(&self) {
         assert!(self.physical_modifiers.is_empty());
-        assert!(self.emitted_modifiers.is_empty());
     }
 
     pub fn map_output(&mut self, events: Vec<Event>) -> Vec<Event> {
@@ -30,16 +26,15 @@ impl EmitHandler {
         for event in events {
             match event {
                 Event::KeyEvent(..) => {
-                    handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                    result.push(event);
                 }
                 // Extract the event, that operators have ignored.
                 Event::ByPassLocal(device, key_event) => {
-                    handle_single_event(&mut result, &mut self.emitted_modifiers, Event::KeyEvent(device, key_event));
+                    result.push(Event::KeyEvent(device, key_event));
                 }
                 Event::ExpmapActions { actions, device, value } => {
                     for key in actions.keys {
-                        let event = Event::KeyEvent(device.clone(), KeyEvent::new(key, value));
-                        handle_single_event(&mut result, &mut self.emitted_modifiers, event);
+                        result.push(Event::KeyEvent(device.clone(), KeyEvent::new(key, value)));
                     }
                 }
                 Event::RelativeEvent(..) | Event::OtherEvents(..) | Event::OverrideTimeout | Event::Tick => {
@@ -54,11 +49,6 @@ impl EmitHandler {
     pub fn on_event(&mut self, event: &Event) {
         update_modifier_state(&mut self.physical_modifiers, event)
     }
-}
-
-fn handle_single_event(result: &mut Vec<Event>, emitted_modifiers: &mut Vec<Key>, event: Event) {
-    update_modifier_state(emitted_modifiers, &event);
-    result.push(event);
 }
 
 fn update_modifier_state(modifiers: &mut Vec<Key>, event: &Event) {
