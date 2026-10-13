@@ -286,15 +286,14 @@ impl EventHandler {
     fn dispatch_to_modmap_operator(
         &mut self,
         operator: ModmapOperator,
-        key: Key,
-        value: i32,
+        key_event: &KeyEvent,
         device: &Rc<InputDeviceInfo>,
     ) -> Result<Vec<Event>, Box<dyn Error>> {
         let keys: Vec<(Key, i32)> = match operator {
             ModmapOperator::Keys(modmap_keys) => modmap_keys
                 .into_vec()
                 .into_iter()
-                .map(|modmap_key| (modmap_key, value))
+                .map(|modmap_key| (modmap_key, key_event.value()))
                 .collect(),
             ModmapOperator::MultiPurposeKey(MultiPurposeKey {
                 hold,
@@ -304,8 +303,8 @@ impl EventHandler {
                 free_hold,
                 interruptable,
             }) => {
-                match value {
-                    PRESS => {
+                match key_event.value {
+                    KeyValue::Press => {
                         // Move this to input validation.
                         let hold_threshold = if hold_threshold <= tap_timeout {
                             hold_threshold
@@ -315,7 +314,7 @@ impl EventHandler {
                         };
 
                         self.multi_purpose_keys.insert(
-                            key,
+                            key_event.key,
                             MultiPurposeKeyState {
                                 hold,
                                 tap,
@@ -340,8 +339,8 @@ impl EventHandler {
                         );
                         return Ok(vec![]); // delay the press
                     }
-                    REPEAT => {
-                        if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
+                    KeyValue::Repeat => {
+                        if let Some(state) = self.multi_purpose_keys.get_mut(&key_event.key) {
                             let events = state
                                 .repeat()
                                 .into_iter()
@@ -353,8 +352,8 @@ impl EventHandler {
                             return Ok(events);
                         }
                     }
-                    RELEASE => {
-                        if let Some(state) = self.multi_purpose_keys.remove(&key) {
+                    KeyValue::Release => {
+                        if let Some(state) = self.multi_purpose_keys.remove(&key_event.key) {
                             let events = state
                                 .release()
                                 .into_iter()
@@ -366,10 +365,9 @@ impl EventHandler {
                             return Ok(events);
                         }
                     }
-                    _ => panic!("unexpected key event value: {value}"),
                 }
-                // fallthrough on state discrepancy
-                vec![(key, value)]
+                // fallthrough on state discrepancy, which happens with spurious events.
+                vec![(key_event.key, key_event.value())]
             }
             ModmapOperator::PressReleaseKey(PressReleaseKey {
                 skip_key_event,
@@ -379,10 +377,10 @@ impl EventHandler {
             }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
-                let actions = match value {
-                    PRESS => press,
-                    RELEASE => release,
-                    _ => repeat,
+                let actions = match key_event.value {
+                    KeyValue::Press => press,
+                    KeyValue::Release => release,
+                    KeyValue::Repeat => repeat,
                 };
                 self.dispatch_actions(
                     &vec![TaggedActions {
@@ -390,13 +388,13 @@ impl EventHandler {
                         exact_match: false,
                         extra_modifiers_pressed: HashSet::new(),
                     }],
-                    &key,
+                    &key_event.key,
                     false,
                 )?;
 
                 match skip_key_event {
-                    true => vec![],              // do not dispatch the original key
-                    false => vec![(key, value)], // dispatch the original key
+                    true => vec![],                                    // do not dispatch the original key
+                    false => vec![(key_event.key, key_event.value())], // dispatch the original key
                 }
             }
         };
@@ -539,12 +537,7 @@ impl EventHandler {
                     }
                 }
 
-                return Ok(self.dispatch_to_modmap_operator(
-                    key_action.clone(),
-                    key_event.key,
-                    key_event.value(),
-                    device,
-                )?);
+                return Ok(self.dispatch_to_modmap_operator(key_action.clone(), key_event, device)?);
             }
         }
         // Nothing matched
