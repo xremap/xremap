@@ -289,12 +289,21 @@ impl EventHandler {
         key_event: &KeyEvent,
         device: &Rc<InputDeviceInfo>,
     ) -> Result<Vec<Event>, Box<dyn Error>> {
-        let keys: Vec<(Key, i32)> = match operator {
-            ModmapOperator::Keys(modmap_keys) => modmap_keys
-                .into_vec()
-                .into_iter()
-                .map(|modmap_key| (modmap_key, key_event.value()))
-                .collect(),
+        match operator {
+            ModmapOperator::Keys(modmap_keys) => {
+                let keys: Vec<_> = modmap_keys
+                    .into_vec()
+                    .into_iter()
+                    .map(|modmap_key| (modmap_key, key_event.value()))
+                    .collect();
+
+                let keys = keys
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                Ok(keys)
+            }
             ModmapOperator::MultiPurposeKey(MultiPurposeKey {
                 hold,
                 tap,
@@ -367,7 +376,14 @@ impl EventHandler {
                     }
                 }
                 // fallthrough on state discrepancy, which happens with spurious events.
-                vec![(key_event.key, key_event.value())]
+                let keys = vec![(key_event.key, key_event.value())];
+
+                let keys = keys
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                Ok(keys)
             }
             ModmapOperator::PressReleaseKey(PressReleaseKey {
                 skip_key_event,
@@ -392,19 +408,19 @@ impl EventHandler {
                     false,
                 )?;
 
-                match skip_key_event {
+                let keys = match skip_key_event {
                     true => vec![],                                    // do not dispatch the original key
                     false => vec![(key_event.key, key_event.value())], // dispatch the original key
-                }
+                };
+
+                let keys = keys
+                    .into_iter()
+                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                    .collect();
+
+                Ok(keys)
             }
-        };
-
-        let keys = keys
-            .into_iter()
-            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-            .collect();
-
-        Ok(keys)
+        }
     }
 
     // Typically only receives one key as argument. It can be more, when also matched
