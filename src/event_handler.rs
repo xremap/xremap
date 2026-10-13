@@ -10,6 +10,7 @@ use crate::config::Config;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
 use crate::operator_handler::OperatorHandler;
+use crate::KeyValue;
 use evdev::KeyCode as Key;
 use log::{debug, warn};
 use nix::sys::time::TimeSpec;
@@ -388,15 +389,24 @@ impl EventHandler {
                 flushed.extend(state.interrupted_by_press(&*pressed));
             }
 
-            // filter out key presses that are part of the flushed events
-            let flushed_presses: HashSet<Key> = flushed
-                .iter()
-                .filter_map(|(k, v)| (*v == PRESS).then_some(*k))
-                .collect();
-
             let mut flushed: Vec<_> = flushed
                 .into_iter()
                 .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                .collect();
+
+            // filter out key presses that are part of the flushed events
+            let flushed_presses: HashSet<Key> = flushed
+                .iter()
+                .filter_map(|event| match event {
+                    Event::KeyEvent(_, key_event) => {
+                        if key_event.value == KeyValue::Press {
+                            Some(key_event.key)
+                        } else {
+                            None
+                        }
+                    }
+                    _ => unreachable!(),
+                })
                 .collect();
 
             // There's generally no protection against spurious press, so
