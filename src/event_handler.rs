@@ -383,6 +383,7 @@ impl EventHandler {
 
         if !pressed.is_empty() {
             let mut flushed: Vec<(Key, i32)> = vec![];
+
             for (_, state) in self.multi_purpose_keys.iter_mut() {
                 flushed.extend(state.interrupted_by_press(&*pressed));
             }
@@ -392,18 +393,22 @@ impl EventHandler {
                 .iter()
                 .filter_map(|(k, v)| (*v == PRESS).then_some(*k))
                 .collect();
-            // There's generally no protection against spurious press, so
-            // it's probably also not needed here.
-            let key_values: Vec<(Key, i32)> = key_values
-                .into_iter()
-                .filter(|(key, value)| !(*value == PRESS && flushed_presses.contains(key)))
-                .collect();
 
-            flushed.extend(key_values);
-            flushed
+            let mut flushed: Vec<_> = flushed
                 .into_iter()
                 .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                .collect()
+                .collect();
+
+            // There's generally no protection against spurious press, so
+            // it's probably also not needed here.
+            let events: Vec<_> = key_values
+                .into_iter()
+                .filter(|(key, value)| !(*value == PRESS && flushed_presses.contains(key)))
+                .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                .collect();
+
+            flushed.extend(events);
+            flushed
         } else {
             key_values
                 .into_iter()
