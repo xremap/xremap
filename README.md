@@ -46,10 +46,6 @@ Otherwise a specific variant can be chosen, with support for just one each.
 
 After installation there're also manual instructions below.
 
-The community has a [task to discuss what the meaning of `xremap`](https://github.com/xremap/xremap/discussions/1005) should be in distro packages
-and on the release page. Should it mean `xremap-minimal` with no desktop support or should it
-mean `xremap-full` with all supported desktops and auto selection.
-
 ### Packages
 
 - If you are using Arch there're [packages in AUR](https://aur.archlinux.org/packages?K=xremap).
