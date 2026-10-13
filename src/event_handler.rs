@@ -285,11 +285,12 @@ impl EventHandler {
     // Resembles ActiveOperator::on_event()
     fn dispatch_to_modmap_operator(
         &mut self,
-        key_action: ModmapOperator,
+        operator: ModmapOperator,
         key: Key,
         value: i32,
-    ) -> Result<Vec<(Key, i32)>, Box<dyn Error>> {
-        let keys = match key_action {
+        device: &Rc<InputDeviceInfo>,
+    ) -> Result<Vec<Event>, Box<dyn Error>> {
+        let keys: Vec<(Key, i32)> = match operator {
             ModmapOperator::Keys(modmap_keys) => modmap_keys
                 .into_vec()
                 .into_iter()
@@ -341,12 +342,28 @@ impl EventHandler {
                     }
                     REPEAT => {
                         if let Some(state) = self.multi_purpose_keys.get_mut(&key) {
-                            return Ok(state.repeat());
+                            let events = state
+                                .repeat()
+                                .into_iter()
+                                .map(|(key, value)| {
+                                    Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value))
+                                })
+                                .collect();
+
+                            return Ok(events);
                         }
                     }
                     RELEASE => {
                         if let Some(state) = self.multi_purpose_keys.remove(&key) {
-                            return Ok(state.release());
+                            let events = state
+                                .release()
+                                .into_iter()
+                                .map(|(key, value)| {
+                                    Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value))
+                                })
+                                .collect();
+
+                            return Ok(events);
                         }
                     }
                     _ => panic!("unexpected key event value: {value}"),
@@ -383,6 +400,12 @@ impl EventHandler {
                 }
             }
         };
+
+        let keys = keys
+            .into_iter()
+            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+            .collect();
+
         Ok(keys)
     }
 
@@ -515,15 +538,13 @@ impl EventHandler {
                         continue;
                     }
                 }
-                let key_values =
-                    self.dispatch_to_modmap_operator(key_action.clone(), key_event.key, key_event.value())?;
 
-                let events = key_values
-                    .into_iter()
-                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                    .collect();
-
-                return Ok(events);
+                return Ok(self.dispatch_to_modmap_operator(
+                    key_action.clone(),
+                    key_event.key,
+                    key_event.value(),
+                    device,
+                )?);
             }
         }
         // Nothing matched
