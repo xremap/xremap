@@ -346,15 +346,7 @@ impl EventHandler {
                     }
                     KeyValue::Repeat => {
                         if let Some(state) = self.multi_purpose_keys.get_mut(&key_event.key) {
-                            let events = state
-                                .repeat()
-                                .into_iter()
-                                .map(|(key, value)| {
-                                    Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value))
-                                })
-                                .collect();
-
-                            Ok(events)
+                            Ok(state.repeat(device))
                         } else {
                             // fallthrough on state discrepancy, which happens with spurious events.
                             Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())])
@@ -948,7 +940,7 @@ impl MultiPurposeKeyState {
     /// It causes a problem, that repeat is used for timeout. Partially because its interval
     /// gives low precision. And because the repeat events will stop if another key is pressed. Also
     /// BTN_RIGHT does not emit repeat events, so mouse buttons can't be remapped this way.   
-    fn repeat(&mut self) -> Vec<(Key, i32)> {
+    fn repeat(&mut self, device: &Rc<InputDeviceInfo>) -> Vec<Event> {
         if matches!(self.state, MultiPurposeKeyStateEnum::TapPreferred) && Instant::now() >= self.hold_threshold_at {
             // Timeout. Setting state before going into the switch is necessary
             self.state = MultiPurposeKeyStateEnum::HoldPreferred;
@@ -966,12 +958,16 @@ impl MultiPurposeKeyState {
                 self.state = MultiPurposeKeyStateEnum::HoldDown;
                 let mut keys = self.hold.clone().into_vec();
                 keys.sort_by(modifiers_first);
-                keys.into_iter().map(|key| (key, PRESS)).collect()
+                keys.into_iter()
+                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, PRESS)))
+                    .collect()
             }
             MultiPurposeKeyStateEnum::HoldDown => {
                 let mut keys = self.hold.clone().into_vec();
                 keys.sort_by(modifiers_first);
-                keys.into_iter().map(|key| (key, REPEAT)).collect()
+                keys.into_iter()
+                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, REPEAT)))
+                    .collect()
             }
             MultiPurposeKeyStateEnum::TapChosen => {
                 vec![] // tap-action already released, so ignores repeat
