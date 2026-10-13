@@ -131,7 +131,7 @@ impl EventHandler {
             let modmap_events = self.apply_modmap(config, event, wmclient)?;
 
             // Apply keymap
-            for event in modmap_events.into_iter() {
+            for event in modmap_events {
                 match event {
                     Event::KeyEvent(device, key_event) => {
                         self.on_key_event(key_event.key, key_event.value(), &device, config, wmclient)?;
@@ -373,7 +373,7 @@ impl EventHandler {
     // Typically only receives one key as argument. It can be more, when also matched
     // in modmap. But that's probably not a meaningful use case, should probably
     // interrupt before modmap, rather than after.
-    fn flush_timeout_keys(&mut self, key_values: Vec<(Key, i32)>) -> Vec<(Key, i32)> {
+    fn flush_timeout_keys(&mut self, device: &Rc<InputDeviceInfo>, key_values: Vec<(Key, i32)>) -> Vec<Event> {
         let mut pressed = vec![];
         for (key, value) in key_values.iter() {
             if *value == PRESS {
@@ -401,8 +401,14 @@ impl EventHandler {
 
             flushed.extend(key_values);
             flushed
+                .into_iter()
+                .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                .collect()
         } else {
             key_values
+                .into_iter()
+                .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                .collect()
         }
     }
 
@@ -423,14 +429,14 @@ impl EventHandler {
                     vec![(key, value)]
                 };
                 self.maintain_pressed_keys(key, value, &mut key_values);
-                if !self.multi_purpose_keys.is_empty() {
-                    key_values = self.flush_timeout_keys(key_values);
-                }
-
-                let events: Vec<_> = key_values
-                    .into_iter()
-                    .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-                    .collect();
+                let events: Vec<_> = if !self.multi_purpose_keys.is_empty() {
+                    self.flush_timeout_keys(device, key_values)
+                } else {
+                    key_values
+                        .into_iter()
+                        .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
+                        .collect()
+                };
 
                 Ok(events)
             }
