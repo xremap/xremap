@@ -22,7 +22,16 @@ pub enum Event {
     //  this synthetic event, that must not have effect on the same level.
     // This event is never emitted from EmitHandler, so it's strictly local to the level.
     ByPassLocal(Rc<InputDeviceInfo>, KeyEvent),
-    // Handled by nearest emit_handler.
+    // Bypass all further processing in event_handler, which means bypass: expmap, modmap and keymap.
+    // ThrottleEmit in actions_dispatcher is not bypassed.
+    // Bypass will not interrupt any active operators like MultiPurposeKey.
+    // It will still be buffered by operators like DoubleTap, and keep its position in the stream.
+    // Bypassed modifier keys will still be used in determining whether key combos match.
+    // Keys declared as virtual modifiers will also be emitted with bypass=true. Normally they're never emitted.
+    ByPass(KeyEvent),
+    // Handled by nearest emit_handler. It lets operators easily
+    // emit actions, that are ignored by others on the same level. EmitHandler
+    // unpacks the actions when the action leaves the level, into fx keys.
     ExpmapActions {
         actions: ExpmapActions,
         device: Rc<InputDeviceInfo>,

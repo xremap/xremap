@@ -4,7 +4,7 @@ use crate::config::key_combo::{KeyCombo, Modifier};
 use crate::config::keymap::{build_override_table, OverrideEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
-use crate::config::modmap_operator::{Interruptable, Keys, ModmapOperator, MultiPurposeKey, PressReleaseKey};
+use crate::config::modmap_operator::{Interruptable, KeyAction, ModmapOperator, MultiPurposeKey, PressReleaseKey};
 use crate::config::nested_remap::Remap;
 use crate::config::Config;
 use crate::device::InputDeviceInfo;
@@ -158,6 +158,14 @@ impl EventHandler {
                     Event::Tick => {
                         // Can be ignored. It's for operators.
                     }
+                    Event::ByPass(key_event) => {
+                        let key = key_event.key;
+                        let value = key_event.value();
+                        if MODIFIER_KEYS.contains(&key) || config.virtual_modifiers.contains(&key) {
+                            self.update_modifier(key, value);
+                        }
+                        self.send_key(&key, value);
+                    }
                     Event::ByPassLocal(..) | Event::ExpmapActions { .. } => unreachable!(),
                 }
             }
@@ -272,6 +280,9 @@ impl EventHandler {
                     }
                 }
             }
+            Event::ByPass(_) => {
+                // Doesn't get the quick fix, because the quick fix works poorly, anyway.
+            }
             // Cannot be emitted from modmap, so can't come here.
             Event::RelativeEvent(..)
             | Event::OtherEvents(..)
@@ -290,15 +301,7 @@ impl EventHandler {
         device: &Rc<InputDeviceInfo>,
     ) -> Result<Vec<Event>, Box<dyn Error>> {
         match operator {
-            ModmapOperator::Keys(modmap_keys) => {
-                let events = modmap_keys
-                    .into_vec()
-                    .into_iter()
-                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), key_event.value())))
-                    .collect();
-
-                Ok(events)
-            }
+            ModmapOperator::Keys(key_action) => Ok(key_action.emit(device.clone(), key_event.value)),
             ModmapOperator::MultiPurposeKey(MultiPurposeKey {
                 hold,
                 tap,
@@ -367,6 +370,7 @@ impl EventHandler {
                 press,
                 repeat,
                 release,
+                bypass,
             }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
@@ -388,8 +392,12 @@ impl EventHandler {
                 let mut events = vec![];
 
                 if !skip_key_event {
-                    // Dispatch the original key after actions
-                    events.push(Event::KeyEvent(device.clone(), key_event.clone()));
+                    if bypass {
+                        events.push(Event::ByPass(key_event.clone()));
+                    } else {
+                        // Dispatch the original key after actions
+                        events.push(Event::KeyEvent(device.clone(), key_event.clone()));
+                    }
                 }
 
                 Ok(events)
@@ -428,6 +436,10 @@ impl EventHandler {
                             None
                         }
                     }
+                    Event::ByPass(_) => {
+                        // Doesn't affect nothing.
+                        None
+                    }
                     _ => unreachable!(),
                 })
                 .collect();
@@ -442,6 +454,11 @@ impl EventHandler {
                             // All releases/repeats are untouched.
                             // But presses are removed, if they were also pressed by multi purpose keys.
                             key_event.value != KeyValue::Press || !flushed_presses.contains(&key_event.key)
+                        }
+                        Event::ByPass(_) => {
+                            // Doesn't get the quick fix, because the quick fix works poorly, anyway.
+                            // Always retained
+                            true
                         }
                         // Cannot be emitted from modmap, so can't come here.
                         Event::RelativeEvent(..)
@@ -504,7 +521,7 @@ impl EventHandler {
         device: &Rc<InputDeviceInfo>,
         wmclient: &mut WMClient,
     ) -> Result<Vec<Event>, Box<dyn Error>> {
-        for modmap in &config.modmap {
+        for modmap in &config.modmaps {
             if let Some(key_action) = modmap.remap.get(&key_event.key) {
                 if let Some(window_matcher) = &modmap.window {
                     if !wmclient.match_window(window_matcher) {
@@ -928,8 +945,8 @@ enum MultiPurposeKeyStateEnum {
 
 #[derive(Debug)]
 struct MultiPurposeKeyState {
-    hold: Keys,
-    tap: Keys,
+    hold: KeyAction,
+    tap: KeyAction,
     interruptable: Interruptable,
     hold_threshold_at: Instant,
     tap_timeout_at: Instant,
@@ -956,19 +973,9 @@ impl MultiPurposeKeyState {
             MultiPurposeKeyStateEnum::HoldPreferred => {
                 // timeout
                 self.state = MultiPurposeKeyStateEnum::HoldDown;
-                let mut keys = self.hold.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                keys.into_iter()
-                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, PRESS)))
-                    .collect()
+                self.hold.emit_mul_pur(device, KeyValue::Press)
             }
-            MultiPurposeKeyStateEnum::HoldDown => {
-                let mut keys = self.hold.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                keys.into_iter()
-                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, REPEAT)))
-                    .collect()
-            }
+            MultiPurposeKeyStateEnum::HoldDown => self.hold.emit_mul_pur(device, KeyValue::Repeat),
             MultiPurposeKeyStateEnum::TapChosen => {
                 vec![] // tap-action already released, so ignores repeat
             }
@@ -991,14 +998,7 @@ impl MultiPurposeKeyState {
                 self.press_and_release(device, &self.tap)
             }
             MultiPurposeKeyStateEnum::HoldPreferred => self.press_and_release(device, &self.hold),
-            MultiPurposeKeyStateEnum::HoldDown => {
-                let mut release_keys = self.hold.clone().into_vec();
-                release_keys.sort_by(modifiers_last);
-                release_keys
-                    .into_iter()
-                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, RELEASE)))
-                    .collect()
-            }
+            MultiPurposeKeyStateEnum::HoldDown => self.hold.emit_mul_pur_release(device),
             MultiPurposeKeyStateEnum::TapChosen => {
                 vec![] // nothing to release
             }
@@ -1024,37 +1024,23 @@ impl MultiPurposeKeyState {
             }
             MultiPurposeKeyStateEnum::HoldPreferred => {
                 self.state = MultiPurposeKeyStateEnum::HoldDown;
-
-                let mut keys = self.hold.clone().into_vec();
-                keys.sort_by(modifiers_first);
-                keys.into_iter()
-                    .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.0, PRESS)))
-                    .collect()
+                self.hold.emit_mul_pur(device, KeyValue::Press)
             }
             MultiPurposeKeyStateEnum::HoldDown | MultiPurposeKeyStateEnum::TapChosen => vec![],
         }
     }
 
-    fn press_and_release(&self, device: &Rc<InputDeviceInfo>, keys_to_use: &Keys) -> Vec<Event> {
-        let mut release_keys = keys_to_use.clone().into_vec();
-        release_keys.sort_by(modifiers_last);
-        let release_events: Vec<(Key, i32)> = release_keys.into_iter().map(|key| (key, RELEASE)).collect();
-
-        let mut press_keys = keys_to_use.clone().into_vec();
-        press_keys.sort_by(modifiers_first);
-        let mut events: Vec<(Key, i32)> = press_keys.into_iter().map(|key| (key, PRESS)).collect();
-        events.extend(release_events);
+    fn press_and_release(&self, device: &Rc<InputDeviceInfo>, keys_to_use: &KeyAction) -> Vec<Event> {
+        let mut events = keys_to_use.emit_mul_pur(device, KeyValue::Press);
+        events.extend(keys_to_use.emit_mul_pur_release(device));
         events
-            .into_iter()
-            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new_with(key.code(), value)))
-            .collect()
     }
 }
 
 /// Orders modifier keys ahead of non-modifier keys.
 /// Unfortunately the underlying type doesn't allow direct
 /// comparison, but that's ok for our purposes.
-fn modifiers_first(a: &Key, b: &Key) -> Ordering {
+pub fn modifiers_first(a: &Key, b: &Key) -> Ordering {
     if MODIFIER_KEYS.contains(a) {
         if MODIFIER_KEYS.contains(b) {
             Ordering::Equal
@@ -1069,6 +1055,6 @@ fn modifiers_first(a: &Key, b: &Key) -> Ordering {
     }
 }
 
-fn modifiers_last(a: &Key, b: &Key) -> Ordering {
+pub fn modifiers_last(a: &Key, b: &Key) -> Ordering {
     modifiers_first(a, b).reverse()
 }

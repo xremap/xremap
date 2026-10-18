@@ -32,9 +32,18 @@ impl EmitHandler {
                 Event::ByPassLocal(device, key_event) => {
                     result.push(Event::KeyEvent(device, key_event));
                 }
+                // Will only happen with multiple expmaps. Because Event::ByPass
+                //  is created first time by EmitHandler.
+                Event::ByPass(_) => unreachable!(),
                 Event::ExpmapActions { actions, device, value } => {
                     for key in actions.keys {
-                        result.push(Event::KeyEvent(device.clone(), KeyEvent::new(key, value)));
+                        if actions.bypass {
+                            // Later levels will ignore these events.
+                            result.push(Event::ByPass(KeyEvent::new(key, value)));
+                        } else {
+                            // These events will be interpreted as 'physical' events by later levels.
+                            result.push(Event::KeyEvent(device.clone(), KeyEvent::new(key, value)));
+                        }
                     }
                 }
                 Event::RelativeEvent(..) | Event::OtherEvents(..) | Event::OverrideTimeout | Event::Tick => {

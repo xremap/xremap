@@ -20,24 +20,60 @@ pub mod validation;
 use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
 use crate::config::keymap::{build_keymap_table, Keymap, KeymapEntry};
+use crate::config::modmap::{Modmap, ParseModmap};
 use crate::config::validation::validate_config_file;
 use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
 use crate::event_handler::MODIFIER_KEYS;
 use evdev::KeyCode as Key;
-use modmap::Modmap;
 use serde::{de::IgnoredAny, Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::{error, fs};
 
+#[derive(Debug)]
+pub struct Config {
+    pub experimental_map: Vec<Expmap>,
+    pub modmaps: Vec<Modmap>,
+    pub default_mode: String,
+    pub virtual_modifiers: Vec<Key>,
+    pub keypress_delay_ms: u64,
+    pub throttle_ms: u64,
+    pub config_watch_debounce_ms: u64,
+    pub notifications: bool,
+    pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
+    pub enable_wheel: bool,
+    pub bypass: ConfigBool,
+}
+
+impl Config {
+    pub fn new(config: ParseConfig) -> Result<Config, Box<dyn error::Error>> {
+        validate_config_file(&config)?;
+        let bypass = ConfigBool(config.bypass);
+
+        Ok(Self {
+            experimental_map: config.experimental_map,
+            modmaps: ParseModmap::finish(config.modmap, bypass),
+            keymap_table: config.keymap_table,
+            default_mode: config.default_mode,
+            virtual_modifiers: config.virtual_modifiers,
+            keypress_delay_ms: config.keypress_delay_ms,
+            throttle_ms: config.throttle_ms,
+            config_watch_debounce_ms: config.config_watch_debounce_ms,
+            notifications: config.notifications,
+            enable_wheel: config.enable_wheel,
+            bypass,
+        })
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Config {
+pub struct ParseConfig {
     // Config interface
     #[serde(default = "Vec::new")]
     pub experimental_map: Vec<Expmap>,
     #[serde(default = "Vec::new")]
-    pub modmap: Vec<Modmap>,
+    pub modmap: Vec<ParseModmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
     #[serde(default = "default_mode")]
@@ -52,6 +88,8 @@ pub struct Config {
     pub config_watch_debounce_ms: u64,
     #[serde(default)]
     pub notifications: bool,
+    #[serde(default)]
+    pub bypass: bool,
 
     // Data is not used by any part of the application.
     // but can be used with Anchors and Aliases
@@ -90,14 +128,14 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
     // Assumes filenames is non-empty
     let config_contents = fs::read_to_string(&filenames[0])?;
 
-    let mut config: Config = match get_file_ext(&filenames[0]) {
+    let mut config: ParseConfig = match get_file_ext(&filenames[0]) {
         ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
         ConfigFiletype::Toml => toml::from_str(&config_contents)?,
     };
 
     for filename in &filenames[1..] {
         let config_contents = fs::read_to_string(filename)?;
-        let c: Config = match get_file_ext(filename) {
+        let c: ParseConfig = match get_file_ext(filename) {
             ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
             ConfigFiletype::Toml => toml::from_str(&config_contents)?,
         };
@@ -110,9 +148,7 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
     // Convert keymap for efficient keymap lookup
     config.keymap_table = build_keymap_table(&config.keymap);
 
-    validate_config_file(&config)?;
-
-    Ok(config)
+    Config::new(config)
 }
 
 fn default_mode() -> String {
@@ -170,4 +206,16 @@ where
     }
 
     Err(serde::de::Error::custom(format!("This error is never shown in an untagged enum")))
+}
+
+/// Make overwriting boolean flags easier to get right.
+#[derive(Debug, Copy, Clone)]
+pub struct ConfigBool(bool);
+
+impl ConfigBool {
+    // The overwrite value is only used if it's set explicit by the user.
+    // value=None indicates the user didn't set an overwrite value.
+    pub fn overwrite(self, value: Option<bool>) -> bool {
+        value.unwrap_or(self.0)
+    }
 }

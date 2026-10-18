@@ -27,7 +27,10 @@ impl StaticOperator for ThrottleOperator {
             Event::KeyEvent(_, _) => Box::new(ActiveThrottleOperator {
                 key: self.key,
                 definition: self.definition.clone(),
-                actions: ExpmapActions { keys: vec![self.key] },
+                actions: ExpmapActions {
+                    keys: vec![self.key],
+                    bypass: self.definition.bypass,
+                },
                 last_emit: Instant::now(),
                 state: State::New,
             }),

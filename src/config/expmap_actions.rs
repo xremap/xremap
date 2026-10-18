@@ -10,6 +10,7 @@ use std::rc::Rc;
 #[derive(Clone, Debug)]
 pub struct ExpmapActions {
     pub keys: Vec<Key>,
+    pub bypass: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -20,10 +21,13 @@ pub enum ParseExpmapActions {
 }
 
 impl ParseExpmapActions {
-    pub fn finish(self) -> ExpmapActions {
+    pub fn finish(self, bypass: bool) -> ExpmapActions {
         match self {
-            ParseExpmapActions::NoAction => ExpmapActions { keys: vec![] },
-            ParseExpmapActions::Keys(keys) => ExpmapActions { keys: keys.into_vec() },
+            ParseExpmapActions::NoAction => ExpmapActions { keys: vec![], bypass },
+            ParseExpmapActions::Keys(keys) => ExpmapActions {
+                keys: keys.into_vec(),
+                bypass,
+            },
         }
     }
 }

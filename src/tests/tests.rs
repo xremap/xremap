@@ -2,8 +2,7 @@ use crate::action::Action;
 use crate::client::WindowInfo;
 use crate::client::{Client, WMClient};
 use crate::config::keymap::build_keymap_table;
-use crate::config::validation::validate_config_file;
-use crate::config::Config;
+use crate::config::{Config, ParseConfig};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
@@ -21,6 +20,7 @@ use std::time::Duration;
 /// Test cases are placed in the file of the most specific feature they test.
 /// With the following definition of specific (ordered by most specific first):
 ///
+///     Bypass
 ///     Escape Next Key
 ///     Any key
 ///     Operator Select
@@ -537,7 +537,7 @@ fn test_keymap_press_release_repeat_only_actions() {
 
 #[test]
 fn test_keymap_action_error() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
     keymap:
         - remap:
             a: { not_a_keymap_action: foo }
@@ -574,15 +574,14 @@ fn test_keymap_repeat() {
 }
 
 pub fn parse_config_for_test(str: &str) -> Config {
-    let mut config: Config = serde_yaml::from_str(str).unwrap();
+    let mut config: ParseConfig = serde_yaml::from_str(str).unwrap();
     config.keymap_table = build_keymap_table(&config.keymap);
-    validate_config_file(&config).unwrap();
-    config
+    Config::new(config).unwrap()
 }
 
 pub fn get_handler_from_config(config: &str) -> anyhow::Result<OperatorHandler> {
     let config = parse_config_for_test(config);
-    Ok(OperatorHandler::new(&config.experimental_map, Rc::new(TimeoutManager::new())))
+    Ok(OperatorHandler::new(&config.experimental_map, config.bypass, Rc::new(TimeoutManager::new())))
 }
 
 pub fn assert_events(actual: impl AsRef<Vec<Event>>, expected: impl AsRef<Vec<Event>>) {
@@ -622,7 +621,8 @@ impl EventHandlerForTest {
     pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
         let config = parse_config_for_test(config_yaml);
-        let operator_handler = Some(OperatorHandler::new(&config.experimental_map, Rc::new(TimeoutManager::new())));
+        let operator_handler =
+            Some(OperatorHandler::new(&config.experimental_map, config.bypass, Rc::new(TimeoutManager::new())));
         let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0), operator_handler);
 
         Self {

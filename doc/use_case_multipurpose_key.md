@@ -1,5 +1,7 @@
 # Multi-purpose key
 
+[Detailed reference, see here](reference_multipurpose_key.md)
+
 ### Multi-purpose key with alone_timeout_millis
 
 To make `capslock` also work as `esc`, if it's pressed and released within a timeout:
@@ -56,7 +58,7 @@ modmap:
       Space:
         held: Shift_L
         alone: Space
-        hold_threshold_millis: 200
+        hold_threshold_millis: 200 # Optional, defaults to 0
         free_hold: true
 ```
 

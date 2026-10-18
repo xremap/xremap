@@ -17,6 +17,7 @@ pub struct Expmap {
     pub remap: IndexMap<Key, ExpmapOperator>,
     pub application: Option<ApplicationMatch>,
     pub window: Option<ApplicationMatch>,
+    pub bypass: Option<bool>,
 }
 
 fn deserialize_experimental_remap<'de, D>(deserializer: D) -> Result<IndexMap<Key, ExpmapOperator>, D::Error>

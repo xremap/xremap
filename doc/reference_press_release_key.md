@@ -17,6 +17,16 @@ modmap:
         press: { launch: ["notify-send", "KEY_A pressed"] }
 ```
 
+### Example: Disable key, and only launch
+
+```yml
+modmap:
+  - remap:
+      F12:
+        press: { launch: ["notify-send", "F12 pressed"] }
+        skip_key_event: true
+```
+
 ### Example: Shift lock
 
 When using `Capslock` it's possible to type uppercase letters, but numbers and symbols will keep their
@@ -44,7 +54,7 @@ modmap:
 Note: It will still lock shift if it's interrupted. The normal way to use shift is to interrupt it.
 So the normal behavior is not preserved with this example.
 
-### Example: Emit key combo on key press
+### Example: Emit key combo with single key
 
 When `Capslock` is pressed will the key combo `ctrl-v` be emitted and it will be held until `Capslock`
 is released. This is different from remapping in `keymap` with `Capslock: c-v`, where the key combo is released right
@@ -96,7 +106,7 @@ modmap:
 
 ### Actions
 
-The same [actions as in keymap](#in-more-detail) are supported.
+The same [actions as in keymap](reference_actions.md) are supported.
 
 The trigger key is emitted after the actions, except if it's disabled with `skip_key_event`.
 

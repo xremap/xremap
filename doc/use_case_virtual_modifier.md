@@ -76,7 +76,7 @@ keymap:
       # etc
 ```
 
-Note: Works for v0.15.0 [See example prior to that](https://github.com/xremap/xremap/blob/f8451418a425fc91451f692d490fc32114b85eb1/doc/use_case_virtual_modifer.md#restoring-the-normal-function)
+Works for v0.15.0 [See example prior to that](https://github.com/xremap/xremap/blob/f8451418a425fc91451f692d490fc32114b85eb1/doc/use_case_virtual_modifer.md#restoring-the-normal-function)
 
 ### Using a more normal key, like `tab`
 
@@ -116,7 +116,7 @@ keymap:
       tab-H: left
 ```
 
-Note: Working since v0.14.18
+Working since v0.14.18
 
 **Convenient `alt-tab`**
 

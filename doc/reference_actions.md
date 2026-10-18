@@ -1,6 +1,6 @@
 ## Actions
 
-Actions can only be used in `keymap` and [press/release keys](reference_press_release_key.md).
+Actions can only be used in `keymap` and with the [press/release keys](reference_press_release_key.md).
 
 ### Without argument
 

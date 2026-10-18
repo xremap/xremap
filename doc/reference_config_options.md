@@ -110,6 +110,20 @@ keymap:
     remap: *some_remaps # and we can reuse a map here.
 ```
 
+### bypass
+
+```yml
+bypass: true # Default is false
+# Rest of your config file
+```
+
+With `true` the events that are remapped in `modmap` or `experimental_map` will
+not be remapped again. In other words, they can only be remapped once.
+
+Bypass can be overwritten on each group of remaps. [It's described in more detail](reference_bypass.md).
+
+Since version 0.15.15.
+
 ### enable_wheel
 
 ```yml

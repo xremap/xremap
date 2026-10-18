@@ -1,17 +1,15 @@
 use crate::event::Event;
 use crate::operator_handler::OperatorHandler;
-use crate::tests::{assert_events, parse_config_for_test};
-use crate::timeout_manager::TimeoutManager;
+use crate::tests::{assert_events, get_handler_from_config};
 use evdev::KeyCode as Key;
 use indoc::indoc;
-use std::rc::Rc;
 use std::thread;
 use std::time::Duration;
 
 static TIMEOUT: Duration = Duration::from_millis(10);
 
 fn get_handler() -> OperatorHandler {
-    let config = parse_config_for_test(indoc! {"
+    get_handler_from_config(indoc! {"
         experimental_map:
             - chords:
                 - keys: [A, B]
@@ -20,9 +18,8 @@ fn get_handler() -> OperatorHandler {
                 - keys: [C, D, E]
                   actions: '2'
                   timeout: 10
-        "});
-
-    OperatorHandler::new(&config.experimental_map, Rc::new(TimeoutManager::new()))
+        "})
+    .unwrap()
 }
 
 #[test]
