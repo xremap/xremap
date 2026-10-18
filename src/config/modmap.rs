@@ -6,9 +6,18 @@ use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
+#[derive(Debug)]
+pub struct Modmap {
+    pub remap: HashMap<Key, ModmapOperator>,
+    pub application: Option<ApplicationMatch>,
+    pub window: Option<ApplicationMatch>,
+    pub device: Option<DeviceMatcher>,
+    pub mode: Option<Vec<String>>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Modmap {
+pub struct ParseModmap {
     #[allow(dead_code)]
     #[serde(default = "String::new")]
     pub name: String,
@@ -19,6 +28,29 @@ pub struct Modmap {
     pub device: Option<DeviceMatcher>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub mode: Option<Vec<String>>,
+}
+
+impl ParseModmap {
+    pub fn finish(modmaps: Vec<ParseModmap>) -> Vec<Modmap> {
+        modmaps
+            .into_iter()
+            .map(|modmap| {
+                let remap = modmap
+                    .remap
+                    .into_iter()
+                    .map(|(key, operator)| (key, operator))
+                    .collect();
+
+                Modmap {
+                    remap,
+                    application: modmap.application,
+                    window: modmap.window,
+                    device: modmap.device,
+                    mode: modmap.mode,
+                }
+            })
+            .collect()
+    }
 }
 
 #[derive(Deserialize, Eq, Hash, PartialEq)]

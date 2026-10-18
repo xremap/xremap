@@ -20,7 +20,7 @@ pub mod validation;
 use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
 use crate::config::keymap::{build_keymap_table, Keymap, KeymapEntry};
-use crate::config::modmap::Modmap;
+use crate::config::modmap::{Modmap, ParseModmap};
 use crate::config::validation::validate_config_file;
 use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
 use crate::event_handler::MODIFIER_KEYS;
@@ -50,7 +50,7 @@ impl Config {
 
         Ok(Self {
             experimental_map: config.experimental_map,
-            modmaps: config.modmap,
+            modmaps: ParseModmap::finish(config.modmap),
             keymap_table: config.keymap_table,
             default_mode: config.default_mode,
             virtual_modifiers: config.virtual_modifiers,
@@ -70,7 +70,7 @@ pub struct ParseConfig {
     #[serde(default = "Vec::new")]
     pub experimental_map: Vec<Expmap>,
     #[serde(default = "Vec::new")]
-    pub modmap: Vec<Modmap>,
+    pub modmap: Vec<ParseModmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
     #[serde(default = "default_mode")]
