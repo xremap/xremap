@@ -6,9 +6,7 @@ use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::time::Duration;
 
-// Values in `modmap.remap`
-#[derive(Clone, Debug, Deserialize)]
-#[serde(untagged)]
+#[derive(Clone, Debug)]
 pub enum ModmapOperator {
     Keys(Keys),
     MultiPurposeKey(MultiPurposeKey),
@@ -16,7 +14,35 @@ pub enum ModmapOperator {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+#[serde(untagged)]
+pub enum ParseModmapOperator {
+    Keys(Keys),
+    MultiPurposeKey(ParseMultiPurposeKey),
+    PressReleaseKey(ParsePressReleaseKey),
+}
+
+impl ParseModmapOperator {
+    pub fn finish(self) -> ModmapOperator {
+        match self {
+            ParseModmapOperator::Keys(definition) => ModmapOperator::Keys(definition),
+            ParseModmapOperator::MultiPurposeKey(definition) => ModmapOperator::MultiPurposeKey(definition.finish()),
+            ParseModmapOperator::PressReleaseKey(definition) => ModmapOperator::PressReleaseKey(definition.finish()),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct MultiPurposeKey {
+    pub hold: Keys,
+    pub tap: Keys,
+    pub hold_threshold: Duration,
+    pub tap_timeout: Duration,
+    pub free_hold: bool,
+    pub interruptable: Interruptable,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ParseMultiPurposeKey {
     #[serde(alias = "held")]
     pub hold: Keys,
     #[serde(alias = "alone")]
@@ -41,8 +67,29 @@ pub struct MultiPurposeKey {
     pub interruptable: Interruptable,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+impl ParseMultiPurposeKey {
+    pub fn finish(self) -> MultiPurposeKey {
+        MultiPurposeKey {
+            tap: self.tap,
+            hold: self.hold,
+            hold_threshold: self.hold_threshold,
+            tap_timeout: self.tap_timeout,
+            free_hold: self.free_hold,
+            interruptable: self.interruptable,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct PressReleaseKey {
+    pub skip_key_event: bool,
+    pub press: Vec<KeymapAction>,
+    pub repeat: Vec<KeymapAction>,
+    pub release: Vec<KeymapAction>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct ParsePressReleaseKey {
     #[serde(default)]
     pub skip_key_event: bool,
     #[serde(default, deserialize_with = "deserialize_actions")]
@@ -52,6 +99,18 @@ pub struct PressReleaseKey {
     #[serde(default, deserialize_with = "deserialize_actions")]
     pub release: Vec<KeymapAction>,
 }
+
+impl ParsePressReleaseKey {
+    pub fn finish(self) -> PressReleaseKey {
+        PressReleaseKey {
+            skip_key_event: self.skip_key_event,
+            press: self.press,
+            repeat: self.repeat,
+            release: self.release,
+        }
+    }
+}
+
 // Used only for deserializing
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]

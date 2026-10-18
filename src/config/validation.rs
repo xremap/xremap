@@ -1,7 +1,7 @@
 use crate::config::key_combo::KeyCombo;
 use crate::config::keymap_action::KeymapAction;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
-use crate::config::modmap_operator::ModmapOperator;
+use crate::config::modmap_operator::ParseModmapOperator;
 use crate::config::ParseConfig;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use anyhow::bail;
@@ -57,16 +57,16 @@ fn traverse_keymap_output_keys(keys: &Vec<Key>) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn traverse_modmap_operator(operator: &ModmapOperator) -> anyhow::Result<()> {
+fn traverse_modmap_operator(operator: &ParseModmapOperator) -> anyhow::Result<()> {
     match operator {
-        ModmapOperator::Keys(keys) => {
+        ParseModmapOperator::Keys(keys) => {
             traverse_modmap_keys(&keys.clone().into_vec())?;
         }
-        ModmapOperator::MultiPurposeKey(multi_purpose_key) => {
+        ParseModmapOperator::MultiPurposeKey(multi_purpose_key) => {
             traverse_modmap_keys(&multi_purpose_key.tap.clone().into_vec())?;
             traverse_modmap_keys(&multi_purpose_key.hold.clone().into_vec())?;
         }
-        ModmapOperator::PressReleaseKey(operator) => {
+        ParseModmapOperator::PressReleaseKey(operator) => {
             // This is keymap actions, though in modmap.
             traverse_actions(&operator.press)?;
             traverse_actions(&operator.repeat)?;
