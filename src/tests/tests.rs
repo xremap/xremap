@@ -2,8 +2,7 @@ use crate::action::Action;
 use crate::client::WindowInfo;
 use crate::client::{Client, WMClient};
 use crate::config::keymap::build_keymap_table;
-use crate::config::validation::validate_config_file;
-use crate::config::Config;
+use crate::config::{Config, ParseConfig};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
@@ -537,7 +536,7 @@ fn test_keymap_press_release_repeat_only_actions() {
 
 #[test]
 fn test_keymap_action_error() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
     keymap:
         - remap:
             a: { not_a_keymap_action: foo }
@@ -574,10 +573,9 @@ fn test_keymap_repeat() {
 }
 
 pub fn parse_config_for_test(str: &str) -> Config {
-    let mut config: Config = serde_yaml::from_str(str).unwrap();
+    let mut config: ParseConfig = serde_yaml::from_str(str).unwrap();
     config.keymap_table = build_keymap_table(&config.keymap);
-    validate_config_file(&config).unwrap();
-    config
+    Config::new(config).unwrap()
 }
 
 pub fn get_handler_from_config(config: &str) -> anyhow::Result<OperatorHandler> {

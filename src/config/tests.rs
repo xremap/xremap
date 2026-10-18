@@ -1,5 +1,5 @@
 use crate::config::validation::validate_config_file;
-use crate::config::Config;
+use crate::config::ParseConfig;
 use indoc::indoc;
 
 #[test]
@@ -53,7 +53,7 @@ fn test_yaml_modmap_application_regex() {
 #[test]
 fn test_yaml_modmap_multi_purpose_key_with_invalid_key() {
     // This fails silently.
-    let _errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let _errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
     modmap:
       - remap:
           Space:
@@ -131,7 +131,7 @@ fn test_yaml_keymap_can_not_emit_relative_events() {
 
 #[test]
 fn test_yaml_fail_on_modifier_missing_sidedness() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         modmap:
           - remap:
               WIN: Control_L
@@ -148,7 +148,7 @@ fn test_yaml_fail_on_modifier_missing_sidedness() {
 
 #[test]
 fn test_yaml_fail_on_modifier_in_modmap_match() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         modmap:
           - remap:
               C-COMMA: Control_L-C
@@ -162,7 +162,7 @@ fn test_yaml_fail_on_modifier_in_modmap_match() {
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_1() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         virtual_modifiers:
             - WIN
         "
@@ -175,7 +175,7 @@ fn test_yaml_invalid_virtual_modifiers_1() {
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_2() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         virtual_modifiers:
             - WIN_L
         "
@@ -188,7 +188,7 @@ fn test_yaml_invalid_virtual_modifiers_2() {
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_3() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         virtual_modifiers:
             - XUPSCROLL
         "
@@ -212,7 +212,7 @@ fn test_yaml_modmap_press_release_key() {
 
 #[test]
 fn test_yaml_press_release_key_wrongly_used_in_keymap() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         keymap:
           - remap:
               CapsLock:
@@ -231,7 +231,7 @@ fn test_yaml_press_release_key_wrongly_used_in_keymap() {
 
 #[test]
 fn test_yaml_modifier_is_missing_sidedness() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         keymap:
           - remap:
               CapsLock: ctrl
@@ -248,7 +248,7 @@ fn test_yaml_modifier_is_missing_sidedness() {
 
 #[test]
 fn test_yaml_key_is_unknown() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
         keymap:
           - remap:
               CapsLock: escape
@@ -292,7 +292,7 @@ fn test_yaml_keymap_remap_timeout_as_sequence() {
 
 #[test]
 fn test_yaml_keymap_remap_timeout_key_invalid() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
     keymap:
       - remap:
           C-x:
@@ -311,7 +311,7 @@ fn test_yaml_keymap_remap_timeout_key_invalid() {
 
 #[test]
 fn test_yaml_keymap_remap_timeout_invalid() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
     keymap:
       - remap:
           C-x:
@@ -331,7 +331,7 @@ fn test_yaml_keymap_remap_timeout_invalid() {
 #[test]
 fn test_yaml_keymap_remap_property_invalid() {
     // Fails silently
-    serde_yaml::from_str::<Config>(indoc! {"
+    serde_yaml::from_str::<ParseConfig>(indoc! {"
     keymap:
       - remap:
           C-x:
@@ -395,7 +395,7 @@ fn test_yaml_shared_data_anchor() {
 
 #[test]
 fn test_yaml_fail_on_data_outside_of_config_model() {
-    let errmsg = serde_yaml::from_str::<Config>(indoc! {"
+    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
     terminals: &terminals
       - Gnome-terminal
       - Kitty
@@ -683,7 +683,7 @@ fn test_toml_shared_data_anchor() {
 
 #[test]
 fn test_toml_fail_on_data_outside_of_config_model() {
-    let errmsg = toml::from_str::<Config>(indoc! {"
+    let errmsg = toml::from_str::<ParseConfig>(indoc! {"
     terminals = [ \"Gnome-terminal\", \"Kitty\" ]
 
     [[modmap]]
@@ -716,21 +716,21 @@ fn test_toml_no_keymap_action() {
 }
 
 fn toml_assert_parse(toml: &str) {
-    let result: Result<Config, toml::de::Error> = toml::from_str(toml);
+    let result: Result<ParseConfig, toml::de::Error> = toml::from_str(toml);
     if let Err(e) = result {
         panic!("{}", e)
     }
 }
 
 fn yaml_assert_parse(yaml: &str) {
-    let result: Result<Config, serde_yaml::Error> = serde_yaml::from_str(yaml);
+    let result: Result<ParseConfig, serde_yaml::Error> = serde_yaml::from_str(yaml);
     if let Err(e) = result {
         panic!("{}", e)
     }
 }
 
 pub fn assert_invalid_config(config: &str, expected: &str) {
-    let errmsg = validate_config_file(&serde_yaml::from_str::<Config>(config).unwrap())
+    let errmsg = validate_config_file(&serde_yaml::from_str::<ParseConfig>(config).unwrap())
         .unwrap_err()
         .to_string();
 

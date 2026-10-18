@@ -504,7 +504,7 @@ impl EventHandler {
         device: &Rc<InputDeviceInfo>,
         wmclient: &mut WMClient,
     ) -> Result<Vec<Event>, Box<dyn Error>> {
-        for modmap in &config.modmap {
+        for modmap in &config.modmaps {
             if let Some(key_action) = modmap.remap.get(&key_event.key) {
                 if let Some(window_matcher) = &modmap.window {
                     if !wmclient.match_window(window_matcher) {

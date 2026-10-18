@@ -2,13 +2,13 @@ use crate::config::key_combo::KeyCombo;
 use crate::config::keymap_action::KeymapAction;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::modmap_operator::ModmapOperator;
-use crate::config::Config;
+use crate::config::ParseConfig;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use anyhow::bail;
 use evdev::KeyCode as Key;
 use indexmap::IndexMap;
 
-pub fn validate_config_file(config: &Config) -> anyhow::Result<()> {
+pub fn validate_config_file(config: &ParseConfig) -> anyhow::Result<()> {
     for modmap in &config.modmap {
         for (key, operator) in &modmap.remap {
             traverse_modmap_keys(&vec![*key])?;
