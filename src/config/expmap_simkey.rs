@@ -26,10 +26,10 @@ fn default_symkey_timeout() -> Duration {
 }
 
 impl Simkey {
-    pub fn finish(self) -> SimkeyDefinition {
+    pub fn finish(self, bypass: bool) -> SimkeyDefinition {
         SimkeyDefinition {
             keys: self.keys,
-            actions: self.actions.finish(),
+            actions: self.actions.finish(bypass),
             timeout: self.timeout,
         }
     }

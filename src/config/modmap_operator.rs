@@ -27,11 +27,15 @@ pub enum ParseModmapOperator {
 }
 
 impl ParseModmapOperator {
-    pub fn finish(self) -> ModmapOperator {
+    pub fn finish(self, bypass: bool) -> ModmapOperator {
         match self {
-            ParseModmapOperator::Keys(definition) => ModmapOperator::Keys(definition.finish()),
-            ParseModmapOperator::MultiPurposeKey(definition) => ModmapOperator::MultiPurposeKey(definition.finish()),
-            ParseModmapOperator::PressReleaseKey(definition) => ModmapOperator::PressReleaseKey(definition.finish()),
+            ParseModmapOperator::Keys(definition) => ModmapOperator::Keys(definition.finish(bypass)),
+            ParseModmapOperator::MultiPurposeKey(definition) => {
+                ModmapOperator::MultiPurposeKey(definition.finish(bypass))
+            }
+            ParseModmapOperator::PressReleaseKey(definition) => {
+                ModmapOperator::PressReleaseKey(definition.finish(bypass))
+            }
         }
     }
 }
@@ -73,10 +77,10 @@ pub struct ParseMultiPurposeKey {
 }
 
 impl ParseMultiPurposeKey {
-    pub fn finish(self) -> MultiPurposeKey {
+    pub fn finish(self, bypass: bool) -> MultiPurposeKey {
         MultiPurposeKey {
-            tap: self.tap.finish(),
-            hold: self.hold.finish(),
+            tap: self.tap.finish(bypass),
+            hold: self.hold.finish(bypass),
             hold_threshold: self.hold_threshold,
             tap_timeout: self.tap_timeout,
             free_hold: self.free_hold,
@@ -91,6 +95,7 @@ pub struct PressReleaseKey {
     pub press: Vec<KeymapAction>,
     pub repeat: Vec<KeymapAction>,
     pub release: Vec<KeymapAction>,
+    pub bypass: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -106,12 +111,13 @@ pub struct ParsePressReleaseKey {
 }
 
 impl ParsePressReleaseKey {
-    pub fn finish(self) -> PressReleaseKey {
+    pub fn finish(self, bypass: bool) -> PressReleaseKey {
         PressReleaseKey {
             skip_key_event: self.skip_key_event,
             press: self.press,
             repeat: self.repeat,
             release: self.release,
+            bypass,
         }
     }
 }
@@ -119,6 +125,7 @@ impl ParsePressReleaseKey {
 #[derive(Clone, Debug)]
 pub struct KeyAction {
     keys: Vec<Key>,
+    bypass: bool,
 }
 
 impl KeyAction {
@@ -126,7 +133,13 @@ impl KeyAction {
     pub fn emit(&self, device: Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Event> {
         self.keys
             .iter()
-            .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new(*key, value)))
+            .map(|key| {
+                if self.bypass {
+                    Event::ByPass(KeyEvent::new(*key, value))
+                } else {
+                    Event::KeyEvent(device.clone(), KeyEvent::new(*key, value))
+                }
+            })
             .collect()
     }
 
@@ -135,7 +148,13 @@ impl KeyAction {
         let mut keys = self.keys.clone();
         keys.sort_by(modifiers_first);
         keys.into_iter()
-            .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new(key, value)))
+            .map(|key| {
+                if self.bypass {
+                    Event::ByPass(KeyEvent::new(key, value))
+                } else {
+                    Event::KeyEvent(device.clone(), KeyEvent::new(key, value))
+                }
+            })
             .collect()
     }
 
@@ -143,7 +162,13 @@ impl KeyAction {
         let mut keys = self.keys.clone();
         keys.sort_by(modifiers_last);
         keys.into_iter()
-            .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new(key, KeyValue::Release)))
+            .map(|key| {
+                if self.bypass {
+                    Event::ByPass(KeyEvent::new(key, KeyValue::Release))
+                } else {
+                    Event::KeyEvent(device.clone(), KeyEvent::new(key, KeyValue::Release))
+                }
+            })
             .collect()
     }
 }
@@ -165,8 +190,11 @@ impl Keys {
             Keys::Keys(keys) => keys,
         }
     }
-    pub fn finish(self) -> KeyAction {
-        KeyAction { keys: self.into_vec() }
+    pub fn finish(self, bypass: bool) -> KeyAction {
+        KeyAction {
+            keys: self.into_vec(),
+            bypass,
+        }
     }
 }
 

@@ -36,9 +36,9 @@ pub struct ParseDoubleTap {
 }
 
 impl ParseDoubleTap {
-    pub fn finish(self) -> DoubleTapDefinition {
+    pub fn finish(self, bypass: bool) -> DoubleTapDefinition {
         DoubleTapDefinition {
-            actions: self.double.finish(),
+            actions: self.double.finish(bypass),
             timeout: Duration::from_millis(self.timeout.unwrap_or(200)),
         }
     }
@@ -47,6 +47,7 @@ impl ParseDoubleTap {
 #[derive(Clone, Debug)]
 pub struct ThrottleDefinition {
     pub timeout: Duration,
+    pub bypass: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -56,9 +57,10 @@ pub struct ParseThrottle {
 }
 
 impl ParseThrottle {
-    pub fn finish(self) -> ThrottleDefinition {
+    pub fn finish(self, bypass: bool) -> ThrottleDefinition {
         ThrottleDefinition {
             timeout: Duration::from_millis(self.throttle_ms),
+            bypass,
         }
     }
 }

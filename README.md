@@ -132,7 +132,8 @@ modmap:
 
 The remapping will also be used in `keymap`, e.g. definitions with
 `Esc` in `keymap` will match the physical `Capslock` key. This is because
-the output of `modmap` goes through `keymap`.
+the output of `modmap` goes through `keymap`. If this is not desired, then
+there's a [bypass option](doc/reference_bypass.md).
 
 #### Disable a key
 
@@ -232,6 +233,9 @@ modmap:
 
     # Match only in these modes
     mode: [default, my_mode]
+
+    # After a match: let output be mapped in keymap as well. Default is true.
+    bypass: true
 ```
 
 Read more about matching on: [`application/window-title`](#application),

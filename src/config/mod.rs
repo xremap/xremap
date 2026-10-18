@@ -42,15 +42,17 @@ pub struct Config {
     pub notifications: bool,
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
     pub enable_wheel: bool,
+    pub bypass: ConfigBool,
 }
 
 impl Config {
     pub fn new(config: ParseConfig) -> Result<Config, Box<dyn error::Error>> {
         validate_config_file(&config)?;
+        let bypass = ConfigBool(config.bypass);
 
         Ok(Self {
             experimental_map: config.experimental_map,
-            modmaps: ParseModmap::finish(config.modmap),
+            modmaps: ParseModmap::finish(config.modmap, bypass),
             keymap_table: config.keymap_table,
             default_mode: config.default_mode,
             virtual_modifiers: config.virtual_modifiers,
@@ -59,6 +61,7 @@ impl Config {
             config_watch_debounce_ms: config.config_watch_debounce_ms,
             notifications: config.notifications,
             enable_wheel: config.enable_wheel,
+            bypass,
         })
     }
 }
@@ -85,6 +88,8 @@ pub struct ParseConfig {
     pub config_watch_debounce_ms: u64,
     #[serde(default)]
     pub notifications: bool,
+    #[serde(default)]
+    pub bypass: bool,
 
     // Data is not used by any part of the application.
     // but can be used with Anchors and Aliases
@@ -201,4 +206,16 @@ where
     }
 
     Err(serde::de::Error::custom(format!("This error is never shown in an untagged enum")))
+}
+
+/// Make overwriting boolean flags easier to get right.
+#[derive(Debug, Copy, Clone)]
+pub struct ConfigBool(bool);
+
+impl ConfigBool {
+    // The overwrite value is only used if it's set explicit by the user.
+    // value=None indicates the user didn't set an overwrite value.
+    pub fn overwrite(self, value: Option<bool>) -> bool {
+        value.unwrap_or(self.0)
+    }
 }

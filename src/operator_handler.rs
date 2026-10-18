@@ -1,6 +1,7 @@
 use crate::client::WMClient;
 use crate::config::expmap::Expmap;
 use crate::config::expmap_operator::ExpmapOperator;
+use crate::config::ConfigBool;
 use crate::emit_handler::EmitHandler;
 use crate::event::Event;
 use crate::event_handler::PRESS;
@@ -43,18 +44,24 @@ pub struct OperatorHandler {
 /// handles the last part 'AB'. If operators were only static, then it would be more complicated
 /// because they would have to keep track of the whether 'b' should be squashed or let through.
 impl OperatorHandler {
-    pub fn new(experimental_map: &Vec<Expmap>, timeout_manager: Rc<TimeoutManager>) -> OperatorHandler {
+    pub fn new(
+        experimental_map: &Vec<Expmap>,
+        bypass: ConfigBool,
+        timeout_manager: Rc<TimeoutManager>,
+    ) -> OperatorHandler {
         let mut lookup_map: HashMap<Key, Vec<OperatorEntry>> = HashMap::new();
 
         for expmap in experimental_map {
+            let bypass = bypass.overwrite(expmap.bypass);
+
             for chord in &expmap.chords {
-                let operators = SimOperator::get_ops(chord.clone().finish(), timeout_manager.clone());
+                let operators = SimOperator::get_ops(chord.clone().finish(bypass), timeout_manager.clone());
 
                 append(operators, &mut lookup_map, expmap);
             }
 
             for (key, op) in &expmap.remap {
-                let operators = get_static_operators(*key, op, &timeout_manager);
+                let operators = get_static_operators(*key, op, &timeout_manager, bypass);
                 append(operators, &mut lookup_map, expmap);
             }
         }
@@ -99,16 +106,17 @@ fn get_static_operators(
     key: Key,
     op: &ExpmapOperator,
     timeout_manager: &Rc<TimeoutManager>,
+    bypass: bool,
 ) -> Vec<(Key, Box<dyn StaticOperator>)> {
     match op {
         ExpmapOperator::DoubleTap(dbltap) => {
-            DoubleTapOperator::get_ops(key, dbltap.clone().finish(), timeout_manager.clone())
+            DoubleTapOperator::get_ops(key, dbltap.clone().finish(bypass), timeout_manager.clone())
         }
-        ExpmapOperator::Throttle(definition) => ThrottleOperator::get_ops(key, definition.clone().finish()),
-        ExpmapOperator::OneShot(definition) => OneshotOperator::get_ops(key, definition.clone().finish()),
+        ExpmapOperator::Throttle(definition) => ThrottleOperator::get_ops(key, definition.clone().finish(bypass)),
+        ExpmapOperator::OneShot(definition) => OneshotOperator::get_ops(key, definition.clone().finish(bypass)),
         ExpmapOperator::Select(operators) => operators
             .iter()
-            .flat_map(|operator| get_static_operators(key, operator, &timeout_manager))
+            .flat_map(|operator| get_static_operators(key, operator, &timeout_manager, bypass))
             .collect(),
     }
 }

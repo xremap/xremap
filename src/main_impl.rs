@@ -258,7 +258,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
 
         // OperatorHandler
         let operator_handler = if config.experimental_map.len() > 0 {
-            Some(OperatorHandler::new(&config.experimental_map, timeout_manager.clone()))
+            Some(OperatorHandler::new(&config.experimental_map, config.bypass, timeout_manager.clone()))
         } else {
             None
         };

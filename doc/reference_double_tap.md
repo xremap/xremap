@@ -68,22 +68,24 @@ To use mouse buttons xremap must be started with the `--mouse` argument.
 
 ### Example: Double tap to decide alone-action
 
-The multi-purpose key doesn't currently allow repeating the alone-action, because
+The multi-purpose key doesn't allow repeating the alone-action, because
 holding the key emits the hold-action.
 
-A usual trick is to double tap the multi-purpose key to repeat it:
+A usual trick is to double tap the multi-purpose key to repeat it. `bypass`
+makes sure the `space` key goes around `modmap`.
 
 ```yml
 experimental_map:
-  - remap:
+  - bypass: true
+    remap:
       space:
-        # Needed to side-step the remapping below.
-        double: BTN_TRIGGER_HAPPY1
+        double: space
 
 modmap:
   - remap:
-      BTN_TRIGGER_HAPPY1: space
       space:
         held: shift_l
         alone: space
 ```
+
+Works for v0.15.15 [See example prior to that](https://github.com/xremap/xremap/blob/e418175570a6b10d3b39867730802439d2ce6979/doc/reference_double_tap.md#example-double-tap-to-decide-alone-action)

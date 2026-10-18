@@ -13,6 +13,8 @@ mod tests_modmap_mul_purpose;
 mod tests_modmap_mul_purpose_tap_preferred;
 mod tests_modmap_press_release_key;
 mod tests_nested_remap;
+mod tests_operator_bypass_expmap;
+mod tests_operator_bypass_modmap;
 mod tests_operator_double_tap;
 mod tests_operator_expmap_actions;
 mod tests_operator_handler;

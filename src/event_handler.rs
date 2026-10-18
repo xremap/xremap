@@ -158,6 +158,14 @@ impl EventHandler {
                     Event::Tick => {
                         // Can be ignored. It's for operators.
                     }
+                    Event::ByPass(key_event) => {
+                        let key = key_event.key;
+                        let value = key_event.value();
+                        if MODIFIER_KEYS.contains(&key) || config.virtual_modifiers.contains(&key) {
+                            self.update_modifier(key, value);
+                        }
+                        self.send_key(&key, value);
+                    }
                     Event::ByPassLocal(..) | Event::ExpmapActions { .. } => unreachable!(),
                 }
             }
@@ -272,6 +280,9 @@ impl EventHandler {
                     }
                 }
             }
+            Event::ByPass(_) => {
+                // Doesn't get the quick fix, because the quick fix works poorly, anyway.
+            }
             // Cannot be emitted from modmap, so can't come here.
             Event::RelativeEvent(..)
             | Event::OtherEvents(..)
@@ -359,6 +370,7 @@ impl EventHandler {
                 press,
                 repeat,
                 release,
+                bypass,
             }) => {
                 // Just hook actions, and then emit the original event. We might want to
                 // support reordering the key event and dispatched actions later.
@@ -380,8 +392,12 @@ impl EventHandler {
                 let mut events = vec![];
 
                 if !skip_key_event {
-                    // Dispatch the original key after actions
-                    events.push(Event::KeyEvent(device.clone(), key_event.clone()));
+                    if bypass {
+                        events.push(Event::ByPass(key_event.clone()));
+                    } else {
+                        // Dispatch the original key after actions
+                        events.push(Event::KeyEvent(device.clone(), key_event.clone()));
+                    }
                 }
 
                 Ok(events)
@@ -420,6 +436,10 @@ impl EventHandler {
                             None
                         }
                     }
+                    Event::ByPass(_) => {
+                        // Doesn't affect nothing.
+                        None
+                    }
                     _ => unreachable!(),
                 })
                 .collect();
@@ -434,6 +454,11 @@ impl EventHandler {
                             // All releases/repeats are untouched.
                             // But presses are removed, if they were also pressed by multi purpose keys.
                             key_event.value != KeyValue::Press || !flushed_presses.contains(&key_event.key)
+                        }
+                        Event::ByPass(_) => {
+                            // Doesn't get the quick fix, because the quick fix works poorly, anyway.
+                            // Always retained
+                            true
                         }
                         // Cannot be emitted from modmap, so can't come here.
                         Event::RelativeEvent(..)
