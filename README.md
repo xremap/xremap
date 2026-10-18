@@ -107,9 +107,9 @@ There are examples of [a more realistic config](example/config.yml) and [an emac
 All possible keys are [listed here](https://github.com/emberian/evdev/blob/1d020f11b283b0648427a2844b6b980f1a268221/src/scancodes.rs#L26-L572).
 You can skip `KEY_` and the names are case-insensitive. So `KEY_CAPSLOCK`, `CAPSLOCK`, and `CapsLock` are the same thing.
 
-The keys are described in more detail in [Key names](doc/reference_key_names.md). Some custom aliases like `Shift_R` and `Control_L` also exists.
+The keys are described in more detail in [Key names](doc/reference_key_names.md). Some custom aliases like `Shift_R` and `Control_L` also exist.
 
-In case you don't know the name of a key, you can find out by enabling debug output:
+In case you don't know the name of a key, you can find it by enabling debug output:
 
 ```bash
 RUST_LOG=debug xremap config.yml
@@ -142,7 +142,7 @@ modmap:
       F9: []
 ```
 
-The meaning of the config is: `F9` remaps to an empty list of keys.
+`F9` remaps to an empty list of keys.
 
 #### Remap a key combo to another key combo
 
@@ -153,12 +153,14 @@ keymap:
       Ctrl-N: Down
 ```
 
-This configuration allows extra modfiers to be pressed. This means if `Ctrl`, `Shift` and `P` are pressed,
+This configuration allows extra modfiers to be pressed. This means when `Ctrl`, `Shift` and `P` are pressed,
 it will remap to `Shift-Up`, allowing to select text up and down.
+
+Only possible in `keymap`.
 
 #### Remap an exact key combo
 
-To make the remapping `Ctrl-P: Up` only match with the exact modifiers pressed:
+To disallow extra modifiers and make `Ctrl-P: Up` match only the exact modifiers:
 
 ```yml
 keymap:
@@ -168,7 +170,7 @@ keymap:
       Ctrl-N: Down
 ```
 
-This means if `Ctrl`, `Shift` and `P` are pressed, it won't match. The keys are
+This means when `Ctrl`, `Shift` and `P` are pressed, it won't match. The keys are
 passed through as is, and the combo `Ctrl-Shift-P` does the same thing it does without xremap running.
 
 #### Different remap for left and right modifiers
@@ -180,7 +182,8 @@ keymap:
       Ctrl_R-X: Home
 ```
 
-Pressing right `Ctrl` and `C` remaps to `End`. This leaves the normal remapping of `Ctrl-C` using left `Ctrl` to copy text.
+Whwn pressing right `Ctrl` and `KEY_C`, it remaps to `End`.
+This leaves the normal behavior of `Ctrl-C` using left `Ctrl` to copy text.
 
 #### Reload xremap with a key combo
 
@@ -194,54 +197,55 @@ keymap:
 
 ### modmap
 
-`modmap` is for key-to-key remapping like xmodmap.
-Note that remapping a key to a modifier key, e.g. CapsLock to Control_L,
-is supported only in `modmap` since `keymap` handles modifier keys differently.
+`modmap` supports key-to-key remapping described below, [multi purpose key](doc/reference_multipurpose_key.md)
+and [press/release key](doc/reference_press_release_key.md).
+
+In `modmap` press of a trigger key causes a press-action, and release of trigger key
+causes a release-action. This differs from `keymap`, where the trigger key causes
+both press-/release-action immediately.
+
+`keymap` allows remapping based on pressed modifiers (key combos), `modmap` on the other hand
+remaps without considering modifiers.
 
 ```yml
-default_mode: default # Optional
 modmap:
   - name: Name # Optional
     remap:
-      # Replace a key with multiple keys (pressed and released simultaneously)
-      KEY_XXX2: [KEY_YYY, KEY_ZZZ]
-      # Dispatch different keys depending on whether you hold it or press it alone
-      KEY_XXX4:
-        held: KEY_YYY # Required, also accepts arrays
-        alone: KEY_ZZZ # Required, also accepts arrays
-        hold_threshold_millis: 100 # Optional, defaults to 0
-        alone_timeout_millis: 1000 # Optional, defaults to 1000
-      # Dispatch keymap-action when key is pressed or releaseed.
-      KEY_XXX5:
-        skip_key_event: true # Optional, skip original key event, defaults to false
-        press: [{ press: KEY_YYY }, { launch: ["xdotool", "mousemove", "0", "7200"] }] # Optional, default to no action
-        repeat: { repeat: KEY_YYY } # Optional, default to no action
-        release: [{ release: KEY_YYY }, { set_mode: my_mode }] # Optional, defaults to no action
-    application: # Optional
-      not: [Application, ...]
-      # or
-      only: [Application, ...]
-    window: # Optional
-      not: [/regex of window title/, ...]
-      # or
-      only: [/regex of window title/, ...]
-    device: # Optional
-      not: [Device, ...]
-      # or
-      only: [Device, ...]
-    mode: default # Optional
-    # or
-    mode: [ default, my_mode ]
+      # Disable a key
+      KEY_f10: []
+      # Replace a key
+      Esc: CapsLock
+      # Use capslock to press and hold all modifiers simutaneously.
+      CapsLock: [C_L, S_L, W_L, A_L]
+
+    # Match app_id, aka app_class
+    application:
+      not: [Application, ...] # not/only is possible
+
+    # Match window title
+    window:
+      not: [/regex of window title/, ...] # not/only is possible
+
+    # Match specific keyboard/mouse
+    device:
+      not: [Device, ...] # not/only is possible
+
+    # Match only in these modes
+    mode: [default, my_mode]
 ```
+
+Read more about matching on: [`application/window-title`](#application),
+[`device`](#device), [`mode`](#mode) and [`bypass`](doc/reference_bypass.md).
 
 ### keymap
 
-`keymap` is for remapping a sequence of key combinations to another sequence of key combinations or other actions.
-Key actions in `keymap` will generally press and release keys right away
-when the last key in the trigger combination is pressed.
+`keymap` is for remapping key combos or [key sequences](doc/reference_key_sequence.md).
+When things match in `keymap` their actions will generally be pressed and released right away.
+
+`keymap` supports matching based on application, window-title, device and mode
+the same way as `modmap` does.
 
 ```yml
-default_mode: default # Optional
 keymap:
   - name: Name # Optional
     exact_match: false # Optional, defaults to false
@@ -267,26 +271,11 @@ keymap:
       MOD1-KEY_XXX8: { set_mode: default }
       # Illustrate a nested mapping that times out;
       # also useful for timing out double-key sequences if the second key is never pressed.
-      space:  # Use timeout to fix a bouncy spacebar
+      space: # Use timeout to fix a bouncy spacebar
         remap:
-          space: null          # make space output nothing; null is equivalent to []
-          timeout_key: space   # output space after timeout or a non-mapped key (only space is mapped above)
-          timeout_millis: 150  # timeout duration in ms
-    application: # Optional
-      not: [Application, ...]
-      # or
-      only: [Application, ...]
-    window: # Optional
-      not: [/regex of window title/, ...]
-      # or
-      only: [/regex of window title/, ...]
-    device: # Optional
-      not: [Device, ...]
-      # or
-      only: [Device, ...]
-    mode: default # Optional
-    # or
-    mode: [ default, my_mode ]
+          space: null # make space output nothing; null is equivalent to []
+          timeout_key: space # output space after timeout or a non-mapped key (only space is mapped above)
+          timeout_millis: 150 # timeout duration in ms
 ```
 
 What to use for modifiers, the `MOD-` part, is described in [Key names](doc/reference_key_names.md).

@@ -13,6 +13,10 @@ at `tap_timeout_millis` it will emit the hold-action.
 The default `held_threshold_millis` is set to 0. Meaning the multi-purpose key is hold-preferred by default.
 The parameters `tap_timeout_millis` and `held_threshold_millis` denote time since the multi-purpose key was pressed.
 
+### Use cases
+
+[See here](use_case_multipurpose_key.md)
+
 ### In more detail
 
 - Tap-preferred from `0ms` to `held_threshold_millis`:
