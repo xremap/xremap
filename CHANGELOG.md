@@ -1,3 +1,9 @@
+## v0.15.15
+
+- Add bypass option. https://github.com/xremap/xremap/pull/1023
+- Refactor modmap. https://github.com/xremap/xremap/pull/1019
+- Allow more then one key in oneshot actions. https://github.com/xremap/xremap/pull/1018
+
 ## v0.15.14
 
 - Add --validate-config commandline argument. https://github.com/xremap/xremap/pull/1008

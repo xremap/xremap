@@ -1,10 +1,10 @@
 [package]
 name = "xremap"
-version = "0.15.14"
+version = "0.15.15"
 edition = "2021"
 description = "Dynamic key remap for X and Wayland"
 license = "MIT"
-repository = "https://github.com/k0kubun/xremap"
+repository = "https://github.com/xremap/xremap"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
