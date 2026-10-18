@@ -2,13 +2,18 @@ use super::deserialize_keys;
 use super::keymap_action::KeymapAction;
 use crate::config::deserializers::{deserialize_duration, deserialize_key, VectorOrSingleOrNull};
 use crate::config::key::parse_key;
+use crate::device::InputDeviceInfo;
+use crate::event::{Event, KeyEvent};
+use crate::event_handler::{modifiers_first, modifiers_last};
+use crate::KeyValue;
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
+use std::rc::Rc;
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub enum ModmapOperator {
-    Keys(Keys),
+    Keys(KeyAction),
     MultiPurposeKey(MultiPurposeKey),
     PressReleaseKey(PressReleaseKey),
 }
@@ -24,7 +29,7 @@ pub enum ParseModmapOperator {
 impl ParseModmapOperator {
     pub fn finish(self) -> ModmapOperator {
         match self {
-            ParseModmapOperator::Keys(definition) => ModmapOperator::Keys(definition),
+            ParseModmapOperator::Keys(definition) => ModmapOperator::Keys(definition.finish()),
             ParseModmapOperator::MultiPurposeKey(definition) => ModmapOperator::MultiPurposeKey(definition.finish()),
             ParseModmapOperator::PressReleaseKey(definition) => ModmapOperator::PressReleaseKey(definition.finish()),
         }
@@ -33,8 +38,8 @@ impl ParseModmapOperator {
 
 #[derive(Clone, Debug)]
 pub struct MultiPurposeKey {
-    pub hold: Keys,
-    pub tap: Keys,
+    pub hold: KeyAction,
+    pub tap: KeyAction,
     pub hold_threshold: Duration,
     pub tap_timeout: Duration,
     pub free_hold: bool,
@@ -70,8 +75,8 @@ pub struct ParseMultiPurposeKey {
 impl ParseMultiPurposeKey {
     pub fn finish(self) -> MultiPurposeKey {
         MultiPurposeKey {
-            tap: self.tap,
-            hold: self.hold,
+            tap: self.tap.finish(),
+            hold: self.hold.finish(),
             hold_threshold: self.hold_threshold,
             tap_timeout: self.tap_timeout,
             free_hold: self.free_hold,
@@ -111,6 +116,38 @@ impl ParsePressReleaseKey {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct KeyAction {
+    keys: Vec<Key>,
+}
+
+impl KeyAction {
+    /// For emitting key-to-key remaps.
+    pub fn emit(&self, device: Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Event> {
+        self.keys
+            .iter()
+            .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new(*key, value)))
+            .collect()
+    }
+
+    /// For emitting MultiPurposeKey press or repeat.
+    pub fn emit_mul_pur(&self, device: &Rc<InputDeviceInfo>, value: KeyValue) -> Vec<Event> {
+        let mut keys = self.keys.clone();
+        keys.sort_by(modifiers_first);
+        keys.into_iter()
+            .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new(key, value)))
+            .collect()
+    }
+
+    pub fn emit_mul_pur_release(&self, device: &Rc<InputDeviceInfo>) -> Vec<Event> {
+        let mut keys = self.keys.clone();
+        keys.sort_by(modifiers_last);
+        keys.into_iter()
+            .map(|key| Event::KeyEvent(device.clone(), KeyEvent::new(key, KeyValue::Release)))
+            .collect()
+    }
+}
+
 // Used only for deserializing
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
@@ -127,6 +164,9 @@ impl Keys {
             Keys::Key(key) => vec![key],
             Keys::Keys(keys) => keys,
         }
+    }
+    pub fn finish(self) -> KeyAction {
+        KeyAction { keys: self.into_vec() }
     }
 }
 
