@@ -1,3 +1,7 @@
+## v0.15.16
+
+- Update dependencies. https://github.com/xremap/xremap/pull/1024, https://github.com/xremap/xremap/pull/1025
+
 ## v0.15.15
 
 - Add bypass option. https://github.com/xremap/xremap/pull/1023
