@@ -92,34 +92,3 @@ pub fn parse_modifier_alias(modifier: &str) -> Option<Modifier> {
         _ => None,
     }
 }
-
-#[test]
-fn test_parse_key_press() {
-    // Can have modifiers with unspecified sidedness
-    assert_eq!(
-        parse_key_combo("Shift-2").unwrap(),
-        KeyCombo {
-            key: Key::KEY_2,
-            modifiers: vec![Modifier::Shift]
-        }
-    );
-
-    // Can use custom key names. Defined in `parse_key`.
-    assert_eq!(
-        parse_key_combo("Shift_L-2").unwrap(),
-        KeyCombo {
-            key: Key::KEY_2,
-            modifiers: vec![Modifier::Key(Key::KEY_LEFTSHIFT)]
-        }
-    );
-
-    // All keys are accepted as modifiers, because it's not possible to know
-    // if the key is listed in virtual_modifiers at this point.
-    assert_eq!(
-        parse_key_combo("Enter-2").unwrap(),
-        KeyCombo {
-            key: Key::KEY_2,
-            modifiers: vec![Modifier::Key(Key::KEY_ENTER)]
-        }
-    );
-}

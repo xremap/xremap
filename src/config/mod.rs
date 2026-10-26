@@ -6,6 +6,7 @@ pub mod expmap_actions;
 pub mod expmap_operator;
 pub mod expmap_simkey;
 pub mod key;
+pub mod key_aliases;
 pub mod key_combo;
 pub mod keymap;
 pub mod keymap_action;
@@ -14,11 +15,12 @@ pub mod modmap;
 pub mod modmap_operator;
 pub mod nested_remap;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 pub mod validation;
 
 use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
+use crate::config::key_aliases::pre_load_key_aliases;
 use crate::config::keymap::{build_keymap_table, Keymap, KeymapEntry};
 use crate::config::modmap::{Modmap, ParseModmap};
 use crate::config::validation::validate_config_file;
@@ -91,6 +93,11 @@ pub struct ParseConfig {
     #[serde(default)]
     pub bypass: bool,
 
+    // Key aliases are parsed in a pre-step, to make sure
+    // they're available when the rest of the config is parsed.
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub key_aliases: IgnoredAny,
     // Data is not used by any part of the application.
     // but can be used with Anchors and Aliases
     #[allow(dead_code)]
@@ -104,7 +111,8 @@ pub struct ParseConfig {
     pub enable_wheel: bool,
 }
 
-enum ConfigFiletype {
+#[derive(Copy, Clone)]
+pub enum ConfigFiletype {
     Yaml,
     Toml,
 }
@@ -128,10 +136,7 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
     // Assumes filenames is non-empty
     let config_contents = fs::read_to_string(&filenames[0])?;
 
-    let mut config: ParseConfig = match get_file_ext(&filenames[0]) {
-        ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
-        ConfigFiletype::Toml => toml::from_str(&config_contents)?,
-    };
+    let mut config = load_first_config(&config_contents, get_file_ext(&filenames[0]))?;
 
     for filename in &filenames[1..] {
         let config_contents = fs::read_to_string(filename)?;
@@ -149,6 +154,17 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
     config.keymap_table = build_keymap_table(&config.keymap);
 
     Config::new(config)
+}
+
+pub fn load_first_config(content: &str, file_type: ConfigFiletype) -> Result<ParseConfig, Box<dyn error::Error>> {
+    pre_load_key_aliases(content, file_type)?;
+
+    let config: ParseConfig = match file_type {
+        ConfigFiletype::Yaml => serde_yaml::from_str(content)?,
+        ConfigFiletype::Toml => toml::from_str(content)?,
+    };
+
+    Ok(config)
 }
 
 fn default_mode() -> String {

@@ -1,7 +1,7 @@
 use super::deserialize_keys;
 use super::keymap_action::KeymapAction;
 use crate::config::deserializers::{deserialize_duration, deserialize_key, VectorOrSingleOrNull};
-use crate::config::key::parse_key;
+use crate::config::key::{XDOWNCURSOR, XLEFTCURSOR, XRIGHTCURSOR, XUPCURSOR};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent};
 use crate::event_handler::{modifiers_first, modifiers_last};
@@ -222,12 +222,7 @@ impl Default for Interruptable {
     fn default() -> Self {
         Interruptable::Not {
             // Multipurpose key is not interrupted by mouse movement by default.
-            not: Keys::Keys(vec![
-                parse_key("XRIGHTCURSOR").unwrap(),
-                parse_key("XLEFTCURSOR").unwrap(),
-                parse_key("XDOWNCURSOR").unwrap(),
-                parse_key("XUPCURSOR").unwrap(),
-            ]),
+            not: Keys::Keys(vec![XRIGHTCURSOR, XLEFTCURSOR, XDOWNCURSOR, XUPCURSOR]),
         }
     }
 }
