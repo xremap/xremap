@@ -6,6 +6,11 @@ use evdev::KeyCode as Key;
 use std::error::Error;
 use std::str::FromStr;
 
+pub const XRIGHTCURSOR: Key = Key(DISGUISED_EVENT_OFFSETTER);
+pub const XLEFTCURSOR: Key = Key(DISGUISED_EVENT_OFFSETTER + 1);
+pub const XDOWNCURSOR: Key = Key(DISGUISED_EVENT_OFFSETTER + 2);
+pub const XUPCURSOR: Key = Key(DISGUISED_EVENT_OFFSETTER + 3);
+
 // Correspondence between pseudo keys created by xremap and evdev relative events
 // Alias for pseudo key is disguised relative event.
 //
@@ -87,11 +92,11 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
 
         // Pseudo keys for evdev relative events.
         // REL_X
-        "XRIGHTCURSOR" => Ok(Key(DISGUISED_EVENT_OFFSETTER)),
-        "XLEFTCURSOR" => Ok(Key(DISGUISED_EVENT_OFFSETTER + 1)),
+        "XRIGHTCURSOR" => Ok(XRIGHTCURSOR),
+        "XLEFTCURSOR" => Ok(XLEFTCURSOR),
         // REL_Y
-        "XDOWNCURSOR" => Ok(Key(DISGUISED_EVENT_OFFSETTER + 2)),
-        "XUPCURSOR" => Ok(Key(DISGUISED_EVENT_OFFSETTER + 3)),
+        "XDOWNCURSOR" => Ok(XDOWNCURSOR),
+        "XUPCURSOR" => Ok(XUPCURSOR),
         // REL_Z
         "XREL_Z_AXIS_1" => Ok(Key(DISGUISED_EVENT_OFFSETTER + 4)),
         "XREL_Z_AXIS_2" => Ok(Key(DISGUISED_EVENT_OFFSETTER + 5)),
