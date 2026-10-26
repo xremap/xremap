@@ -5,7 +5,7 @@ use evdev::KeyCode as Key;
 use indoc::indoc;
 use std::time::Duration;
 
-static TIMEOUT: Duration = Duration::from_millis(10);
+const TIMEOUT: Duration = Duration::from_millis(10);
 
 fn get_dbltap_handler() -> OperatorHandler {
     get_handler_from_config(indoc! {"

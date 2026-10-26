@@ -40,7 +40,7 @@ impl KwinScripts {
     }
 }
 
-static COMMON_FUNCTIONS: &str = r#"
+const COMMON_FUNCTIONS: &str = r#"
 function notifyActiveWindow(client) {
     if (!client) {
         // Ignore when there is no active window.

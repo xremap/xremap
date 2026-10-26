@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use std::os::fd::{AsFd, BorrowedFd};
 use std::time::{Duration, Instant};
 
-static RESOLUTION: Duration = Duration::from_millis(1);
+const RESOLUTION: Duration = Duration::from_millis(1);
 
 #[derive(Debug)]
 pub struct TimeoutManager {

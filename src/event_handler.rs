@@ -899,7 +899,7 @@ fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
     false
 }
 
-pub static MODIFIER_KEYS: [Key; 8] = [
+pub const MODIFIER_KEYS: [Key; 8] = [
     // Shift
     Key::KEY_LEFTSHIFT,
     Key::KEY_RIGHTSHIFT,
