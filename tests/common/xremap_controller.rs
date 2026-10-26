@@ -30,6 +30,7 @@ pub struct XremapBuilder {
     watch_config_: bool,
     validate_config_: bool,
     config_file: Option<String>,
+    env_var: Option<(String, String)>,
 }
 
 impl XremapBuilder {
@@ -47,6 +48,7 @@ impl XremapBuilder {
             watch_config_: false,
             validate_config_: false,
             config_file: None,
+            env_var: None,
         }
     }
 
@@ -107,6 +109,11 @@ impl XremapBuilder {
         std::fs::write(&config_file, config)?;
 
         Ok(self)
+    }
+
+    pub fn env_var(&mut self, name: &str, value: &str) -> &mut Self {
+        self.env_var = Some((name.to_string(), value.to_string()));
+        self
     }
 
     pub fn build(&mut self) -> anyhow::Result<XremapController> {
@@ -220,6 +227,10 @@ impl XremapController {
 
         if let Some(ignore_device) = &def.ignore_device_ {
             builder.arg("--ignore").arg(ignore_device);
+        }
+
+        if let Some((name, value)) = &def.env_var {
+            builder.env(name, value);
         }
 
         let child = builder.spawn()?;

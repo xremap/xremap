@@ -53,8 +53,13 @@ impl Client for DeviceTestClient {
     }
 
     fn run(&mut self, command: &Vec<String>) -> anyhow::Result<bool> {
-        println!("{:?}", command);
-        Ok(true)
+        let do_launch = std::env::var("DO_REAL_LAUNCH").unwrap_or_default();
+        if do_launch == "true" {
+            Ok(false)
+        } else {
+            println!("{:?}", command);
+            Ok(true)
+        }
     }
 
     fn window_list(&mut self) -> anyhow::Result<Vec<WindowInfo>> {
