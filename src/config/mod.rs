@@ -14,7 +14,7 @@ pub mod modmap;
 pub mod modmap_operator;
 pub mod nested_remap;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 pub mod validation;
 
 use crate::config::expmap::Expmap;

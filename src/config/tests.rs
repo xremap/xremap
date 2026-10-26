@@ -1,5 +1,5 @@
 use crate::config::validation::validate_config_file;
-use crate::config::{load_first_config, ConfigFiletype, ParseConfig};
+use crate::config::{load_first_config, ConfigFiletype};
 use indoc::indoc;
 
 #[test]
@@ -53,14 +53,14 @@ fn test_yaml_modmap_application_regex() {
 #[test]
 fn test_yaml_modmap_multi_purpose_key_with_invalid_key() {
     // This fails silently.
-    let _errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    yaml_assert_parse(indoc! {"
     modmap:
       - remap:
           Space:
             alone: A
             held: SomeCustomKey
         "
-    });
+    })
 }
 
 #[test]
@@ -131,72 +131,64 @@ fn test_yaml_keymap_can_not_emit_relative_events() {
 
 #[test]
 fn test_yaml_fail_on_modifier_missing_sidedness() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         modmap:
           - remap:
               WIN: Control_L
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(
-        &errmsg,
-        "modmap[0].remap: Modifiers must have left/right specified when used as key: 'WIN' at line 3 column 7"
+        },
+        "modmap[0].remap: Modifiers must have left/right specified when used as key: 'WIN' at line 3 column 7",
     );
 }
 
 #[test]
 fn test_yaml_fail_on_modifier_in_modmap_match() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         modmap:
           - remap:
               C-COMMA: Control_L-C
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(&errmsg, "modmap[0].remap: Unknown key 'C-COMMA' at line 3 column 7");
+        },
+        "modmap[0].remap: Unknown key 'C-COMMA' at line 3 column 7",
+    );
 }
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_1() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         virtual_modifiers:
             - WIN
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(&errmsg, "Modifiers must have left/right specified when used as key: 'WIN'");
+        },
+        "Modifiers must have left/right specified when used as key: 'WIN'",
+    );
 }
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_2() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         virtual_modifiers:
             - WIN_L
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(errmsg, "Can't use 'WIN_L' as virtual modifier");
+        },
+        "Can't use 'WIN_L' as virtual modifier",
+    );
 }
 
 #[test]
 fn test_yaml_invalid_virtual_modifiers_3() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         virtual_modifiers:
             - XUPSCROLL
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(errmsg, "Can't use a relative-event (XUPSCROLL) as virtual modifier");
+        },
+        "Can't use a relative-event (XUPSCROLL) as virtual modifier",
+    );
 }
 
 #[test]
@@ -212,54 +204,42 @@ fn test_yaml_modmap_press_release_key() {
 
 #[test]
 fn test_yaml_press_release_key_wrongly_used_in_keymap() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         keymap:
           - remap:
               CapsLock:
                 press: esc
                 release: esc
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(
-        &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
+        },
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
     );
 }
 
 #[test]
 fn test_yaml_modifier_is_missing_sidedness() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         keymap:
           - remap:
               CapsLock: ctrl
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(
-        &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
+        },
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
     );
 }
 
 #[test]
 fn test_yaml_key_is_unknown() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
         keymap:
           - remap:
               CapsLock: escape
         "
-    })
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(
-        &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
+        },
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
     );
 }
 
@@ -292,54 +272,45 @@ fn test_yaml_keymap_remap_timeout_as_sequence() {
 
 #[test]
 fn test_yaml_keymap_remap_timeout_key_invalid() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
     keymap:
       - remap:
           C-x:
             timeout_key: invalid_key
             remap:
               s: C-w
-    "})
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(
-        &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
+    "},
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
     );
 }
 
 #[test]
 fn test_yaml_keymap_remap_timeout_invalid() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    assert_invalid_config(
+        indoc! {"
     keymap:
       - remap:
           C-x:
             timeout_millis: k
             remap:
               s: C-w
-    "})
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(
-        &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7"
+    "},
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
     );
 }
 
 #[test]
 fn test_yaml_keymap_remap_property_invalid() {
     // Fails silently
-    serde_yaml::from_str::<ParseConfig>(indoc! {"
+    yaml_assert_parse(indoc! {"
     keymap:
       - remap:
           C-x:
             not_valid_property: k
             remap:
               s: C-w
-    "})
-    .ok();
+    "});
 }
 
 #[test]

@@ -2,7 +2,8 @@ use crate::action::Action;
 use crate::client::WindowInfo;
 use crate::client::{Client, WMClient};
 use crate::config::keymap::build_keymap_table;
-use crate::config::{load_first_config, Config, ConfigFiletype, ParseConfig};
+use crate::config::tests::assert_invalid_config;
+use crate::config::{load_first_config, Config, ConfigFiletype};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
@@ -537,17 +538,13 @@ fn test_keymap_press_release_repeat_only_actions() {
 
 #[test]
 fn test_keymap_action_error() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
-    keymap:
-        - remap:
-            a: { not_a_keymap_action: foo }
-    "})
-    .unwrap_err()
-    .to_string();
-
-    assert_eq!(
-        &errmsg,
-        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 9"
+    assert_invalid_config(
+        indoc! {"
+                keymap:
+                    - remap:
+                        a: { not_a_keymap_action: foo }
+                "},
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 9",
     );
 }
 
