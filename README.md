@@ -196,6 +196,23 @@ keymap:
 
 [List of all actions](doc/reference_actions.md).
 
+#### Key aliases
+
+It's possible to choose custom key aliases.
+
+```yml
+key_aliases:
+  λ: KEY_L
+  lambda: KEY_L
+keymap:
+  - remap:
+      C-λ: A
+      S-lambda: lambda
+```
+
+The left hand side is completely up to the user. The right hand side must be one of the
+usual keys. [More details](doc/reference_config_options.md#key_aliases)
+
 ### modmap
 
 `modmap` supports key-to-key remapping described below, [multi purpose key](doc/reference_multipurpose_key.md)
@@ -206,7 +223,7 @@ causes a release-action. This differs from `keymap`, where the trigger key cause
 both press-/release-action immediately.
 
 `keymap` allows remapping based on pressed modifiers (key combos), `modmap` on the other hand
-remaps without considering modifiers.
+remaps without consideration to modifiers.
 
 ```yml
 modmap:
@@ -234,8 +251,8 @@ modmap:
     # Match only in these modes
     mode: [default, my_mode]
 
-    # After a match: let output be mapped in keymap as well. Default is true.
-    bypass: true
+    # After match: bypass further remapping in keymap. Default is false.
+    bypass: false
 ```
 
 Read more about matching on: [`application/window-title`](#application),
@@ -244,7 +261,7 @@ Read more about matching on: [`application/window-title`](#application),
 ### keymap
 
 `keymap` is for remapping key combos or [key sequences](doc/reference_key_sequence.md).
-When things match in `keymap` their actions will generally be pressed and released right away.
+When things match in `keymap` will actions generally be pressed and released right away.
 
 `keymap` supports matching based on application, window-title, device and mode
 the same way as `modmap` does.

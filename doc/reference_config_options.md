@@ -86,6 +86,49 @@ be used and therefore are all the 'wrong' events just ignored.
 
 Since version 0.15.1.
 
+### key_aliases
+
+```yml
+key_aliases:
+  # The left side is completely up to the user.
+  # The right side must be one of the usual keys.
+  λ: KEY_L
+  # Useful to give names to keys, that don't have one already.
+  special_key: CODE_123
+keymap:
+  - remap:
+      C-λ: A
+```
+
+The aliases are case insensitive.
+
+The original keys are still available with the prefix `KEY_`. And their meaning
+doesn't change, so they can be used to refer to the physical position of keys, while aliases
+can be configured to follow the labels on the keyboard.
+
+Example: Use french keyboard layout
+
+```yml
+key_aliases:
+  A: KEY_Q
+  Z: KEY_W
+  Q: KEY_A
+  W: KEY_Z
+  # more changes to complete the layout
+```
+
+Example: Give new names to scroll events:
+
+```yml
+key_aliases:
+  WheelRight: XRIGHTSCROLL
+  WheelLeft: XLEFTSCROLL
+  WheelUp: XUPSCROLL
+  WheelDown: XDOWNSCROLL
+```
+
+Since version 0.15.17.
+
 ### Shared data field
 
 You can declare data that does not directly go into the config under the `shared` field.  

@@ -6,6 +6,7 @@ pub mod expmap_actions;
 pub mod expmap_operator;
 pub mod expmap_simkey;
 pub mod key;
+pub mod key_aliases;
 pub mod key_combo;
 pub mod keymap;
 pub mod keymap_action;
@@ -19,6 +20,7 @@ pub mod validation;
 
 use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
+use crate::config::key_aliases::pre_load_key_aliases;
 use crate::config::keymap::{build_keymap_table, Keymap, KeymapEntry};
 use crate::config::modmap::{Modmap, ParseModmap};
 use crate::config::validation::validate_config_file;
@@ -91,6 +93,11 @@ pub struct ParseConfig {
     #[serde(default)]
     pub bypass: bool,
 
+    // Key aliases are parsed in a pre-step, to make sure
+    // they're available when the rest of the config is parsed.
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub key_aliases: IgnoredAny,
     // Data is not used by any part of the application.
     // but can be used with Anchors and Aliases
     #[allow(dead_code)]
@@ -150,6 +157,8 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
 }
 
 pub fn load_first_config(content: &str, file_type: ConfigFiletype) -> Result<ParseConfig, Box<dyn error::Error>> {
+    pre_load_key_aliases(content, file_type)?;
+
     let config: ParseConfig = match file_type {
         ConfigFiletype::Yaml => serde_yaml::from_str(content)?,
         ConfigFiletype::Toml => toml::from_str(content)?,

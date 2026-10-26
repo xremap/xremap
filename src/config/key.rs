@@ -1,3 +1,4 @@
+use crate::config::key_aliases::lookup_key_alias;
 use crate::config::key_combo::parse_modifier_alias;
 use crate::event_handler::{DISGUISED_EVENT_OFFSETTER, KEY_MATCH_ANY};
 use anyhow::Context;
@@ -28,6 +29,13 @@ use std::str::FromStr;
 pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
     // Everything is case-insensitive
     let name = input.to_uppercase();
+
+    // Replace custom keys defined by the user with evdev keys.
+    // It's tested first, so the custom keys overwrite evdev keys.
+    // So it wont break users' config, if evdev adds more keys.
+    if let Some(key) = lookup_key_alias(&name) {
+        return Ok(key);
+    }
 
     // Original evdev scancodes should always work
     if let Ok(key) = Key::from_str(&name) {

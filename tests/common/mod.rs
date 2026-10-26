@@ -159,6 +159,9 @@ pub fn assert_str_contains(expected: &str, str: &str) {
 pub fn assert_events(actual: impl AsRef<Vec<InputEvent>>, expected: &str) {
     let actual = get_pretty_events(actual.as_ref());
 
+    // Useful for writing new test cases
+    println!("{}", actual);
+
     assert_eq!(actual, expected);
 }
 
