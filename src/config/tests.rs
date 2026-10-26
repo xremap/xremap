@@ -1,5 +1,5 @@
 use crate::config::validation::validate_config_file;
-use crate::config::ParseConfig;
+use crate::config::{load_first_config, ConfigFiletype, ParseConfig};
 use indoc::indoc;
 
 #[test]
@@ -395,7 +395,8 @@ fn test_yaml_shared_data_anchor() {
 
 #[test]
 fn test_yaml_fail_on_data_outside_of_config_model() {
-    let errmsg = serde_yaml::from_str::<ParseConfig>(indoc! {"
+    let errmsg = load_first_config(
+        indoc! {"
     terminals: &terminals
       - Gnome-terminal
       - Kitty
@@ -409,7 +410,9 @@ fn test_yaml_fail_on_data_outside_of_config_model() {
           Shift_R: Win_R
         application:
           only: Google-chrome
-    "})
+    "},
+        ConfigFiletype::Yaml,
+    )
     .unwrap_err()
     .to_string();
 
@@ -683,7 +686,8 @@ fn test_toml_shared_data_anchor() {
 
 #[test]
 fn test_toml_fail_on_data_outside_of_config_model() {
-    let errmsg = toml::from_str::<ParseConfig>(indoc! {"
+    let errmsg = load_first_config(
+        indoc! {"
     terminals = [ \"Gnome-terminal\", \"Kitty\" ]
 
     [[modmap]]
@@ -699,7 +703,9 @@ fn test_toml_fail_on_data_outside_of_config_model() {
 
     [modmap.application]
     only = \"Google-chrome\"
-    "})
+    "},
+        ConfigFiletype::Toml,
+    )
     .unwrap_err()
     .to_string();
 
@@ -716,23 +722,25 @@ fn test_toml_no_keymap_action() {
 }
 
 fn toml_assert_parse(toml: &str) {
-    let result: Result<ParseConfig, toml::de::Error> = toml::from_str(toml);
+    let result = load_first_config(toml, ConfigFiletype::Toml);
     if let Err(e) = result {
         panic!("{}", e)
     }
 }
 
 fn yaml_assert_parse(yaml: &str) {
-    let result: Result<ParseConfig, serde_yaml::Error> = serde_yaml::from_str(yaml);
+    let result = load_first_config(yaml, ConfigFiletype::Yaml);
     if let Err(e) = result {
         panic!("{}", e)
     }
 }
 
 pub fn assert_invalid_config(config: &str, expected: &str) {
-    let errmsg = validate_config_file(&serde_yaml::from_str::<ParseConfig>(config).unwrap())
-        .unwrap_err()
-        .to_string();
+    let config = load_first_config(config, ConfigFiletype::Yaml);
+    let errmsg = match config {
+        Ok(config) => validate_config_file(&config).unwrap_err().to_string(),
+        Err(err) => err.to_string(),
+    };
 
     assert_eq!(&errmsg, expected);
 }

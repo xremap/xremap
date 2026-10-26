@@ -104,7 +104,8 @@ pub struct ParseConfig {
     pub enable_wheel: bool,
 }
 
-enum ConfigFiletype {
+#[derive(Copy, Clone)]
+pub enum ConfigFiletype {
     Yaml,
     Toml,
 }
@@ -128,10 +129,7 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
     // Assumes filenames is non-empty
     let config_contents = fs::read_to_string(&filenames[0])?;
 
-    let mut config: ParseConfig = match get_file_ext(&filenames[0]) {
-        ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
-        ConfigFiletype::Toml => toml::from_str(&config_contents)?,
-    };
+    let mut config = load_first_config(&config_contents, get_file_ext(&filenames[0]))?;
 
     for filename in &filenames[1..] {
         let config_contents = fs::read_to_string(filename)?;
@@ -149,6 +147,15 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
     config.keymap_table = build_keymap_table(&config.keymap);
 
     Config::new(config)
+}
+
+pub fn load_first_config(content: &str, file_type: ConfigFiletype) -> Result<ParseConfig, Box<dyn error::Error>> {
+    let config: ParseConfig = match file_type {
+        ConfigFiletype::Yaml => serde_yaml::from_str(content)?,
+        ConfigFiletype::Toml => toml::from_str(content)?,
+    };
+
+    Ok(config)
 }
 
 fn default_mode() -> String {

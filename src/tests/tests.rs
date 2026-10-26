@@ -2,7 +2,7 @@ use crate::action::Action;
 use crate::client::WindowInfo;
 use crate::client::{Client, WMClient};
 use crate::config::keymap::build_keymap_table;
-use crate::config::{Config, ParseConfig};
+use crate::config::{load_first_config, Config, ConfigFiletype, ParseConfig};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
@@ -574,7 +574,7 @@ fn test_keymap_repeat() {
 }
 
 pub fn parse_config_for_test(str: &str) -> Config {
-    let mut config: ParseConfig = serde_yaml::from_str(str).unwrap();
+    let mut config = load_first_config(str, ConfigFiletype::Yaml).unwrap();
     config.keymap_table = build_keymap_table(&config.keymap);
     Config::new(config).unwrap()
 }
