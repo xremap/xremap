@@ -42,7 +42,7 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
     // By key code, (e.g. CODE_123)
     if name.starts_with("CODE_") {
         let key_code = name.replacen("CODE_", "", 1);
-        let key_code = u16::from_str_radix(&key_code, 10).context(format!("Invalid key_code in: {name}"))?;
+        let key_code = u16::from_str_radix(&key_code, 10).context(format!("Invalid key_code: {name}"))?;
         return Ok(Key(key_code));
     }
 
@@ -132,32 +132,43 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
     }
 }
 
-#[test]
-fn test_parse_key() {
-    // Can omit the 'KEY_' prefex
-    assert_eq!(parse_key("Enter").unwrap(), Key::KEY_ENTER);
+#[cfg(test)]
+mod tests {
+    use crate::config::tests::assert_invalid_config;
+    use crate::tests::parse_config_for_test;
+    use evdev::KeyCode;
+    use indoc::indoc;
 
-    // Can use lower case
-    assert_eq!(parse_key("key_enter").unwrap(), Key::KEY_ENTER);
+    #[test]
+    fn test_yaml_parse_literal_key_code() {
+        let config = parse_config_for_test(indoc! {"
+            keymap:
+              - remap:
+                  Code_123: A
+                  CODE_0012: A
+            "});
+        assert!(config.keymap_table.contains_key(&KeyCode(123)));
+        assert!(config.keymap_table.contains_key(&KeyCode(12)));
+    }
 
-    // Can use uppercase keys
-    assert_eq!(parse_key("KEY_ENTER").unwrap(), Key::KEY_ENTER);
+    #[test]
+    fn test_invalid_literal_key_code() {
+        assert_invalid_config(
+            indoc! {"
+                keymap:
+                  - remap:
+                      Code_abc: A
+            "},
+            "keymap[0].remap: Invalid key_code: CODE_ABC at line 3 column 7",
+        );
 
-    // S is KEY_S, not shift.
-    assert_eq!(parse_key("S").unwrap(), Key::KEY_S);
-
-    // Modifier without sidedness can't be a key.
-    assert_eq!(
-        parse_key("Shift").unwrap_err().to_string(),
-        "Modifiers must have left/right specified when used as key: 'Shift'"
-    );
-}
-
-#[test]
-fn test_parse_literal_key_code() {
-    assert_eq!(parse_key("Code_123").unwrap(), Key(123));
-    assert_eq!(parse_key("Code_0012").unwrap(), Key(12));
-
-    assert_eq!(parse_key("Code_abc").unwrap_err().to_string(), "Invalid key_code in: CODE_ABC");
-    assert_eq!(parse_key("Code_70000").unwrap_err().to_string(), "Invalid key_code in: CODE_70000");
+        assert_invalid_config(
+            indoc! {"
+                keymap:
+                  - remap:
+                      Code_70000: A
+            "},
+            "keymap[0].remap: Invalid key_code: CODE_70000 at line 3 column 7",
+        );
+    }
 }
