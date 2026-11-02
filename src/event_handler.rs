@@ -623,6 +623,8 @@ impl EventHandler {
                     }
                     if !remaps.is_empty() {
                         return Ok(Some(remaps));
+                    } else {
+                        // Continue to look for inexact matches.
                     }
                 }
             }
@@ -683,6 +685,8 @@ impl EventHandler {
                     }
                     if !remaps.is_empty() {
                         return Ok(Some(remaps));
+                    } else {
+                        // Continue to look for inexact matches.
                     }
                 }
             }
