@@ -37,8 +37,8 @@ impl<'de> Deserialize<'de> for KeyCombo {
     where
         D: Deserializer<'de>,
     {
-        let key_press = String::deserialize(deserializer)?;
-        parse_key_combo(&key_press).map_err(serde::de::Error::custom)
+        let key_combo = String::deserialize(deserializer)?;
+        parse_key_combo(&key_combo).map_err(serde::de::Error::custom)
     }
 }
 
@@ -55,7 +55,7 @@ fn parse_key_combo(input: &str) -> Result<KeyCombo, Box<dyn Error>> {
             modifiers,
         })
     } else {
-        Err(format!("empty key_press: {input}").into())
+        Err(format!("empty key_combo: {input}").into())
     }
 }
 

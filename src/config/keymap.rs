@@ -35,7 +35,7 @@ where
     let remap = IndexMap::<KeyCombo, VectorOrSingleOrNull<KeymapAction>>::deserialize(deserializer)?;
     Ok(remap
         .into_iter()
-        .map(|(key_press, actions)| (key_press, actions.into_vec()))
+        .map(|(key_combo, actions)| (key_combo, actions.into_vec()))
         .collect())
 }
 
@@ -60,22 +60,22 @@ pub struct KeymapEntry {
 pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry>> {
     let mut table: HashMap<Key, Vec<KeymapEntry>> = HashMap::new();
     for keymap in keymaps {
-        for (key_press, actions) in keymap.remap.iter() {
+        for (key_combo, actions) in keymap.remap.iter() {
             let entry = KeymapEntry {
                 actions: actions.to_vec(),
-                modifiers: key_press.modifiers.clone(),
+                modifiers: key_combo.modifiers.clone(),
                 application: keymap.application.clone(),
                 title: keymap.window.clone(),
                 device: keymap.device.clone(),
                 mode: keymap.mode.clone(),
                 exact_match: keymap.exact_match,
             };
-            match table.get_mut(&key_press.key) {
+            match table.get_mut(&key_combo.key) {
                 Some(entries) => {
                     entries.push(entry);
                 }
                 None => {
-                    table.insert(key_press.key, vec![entry]);
+                    table.insert(key_combo.key, vec![entry]);
                 }
             };
         }
@@ -97,17 +97,17 @@ pub fn build_override_table(
     exact_match: bool,
 ) -> HashMap<Key, Vec<OverrideEntry>> {
     let mut table: HashMap<Key, Vec<OverrideEntry>> = HashMap::new();
-    for (key_press, actions) in remap.iter() {
-        let mut entries: Vec<OverrideEntry> = match table.get(&key_press.key) {
+    for (key_combo, actions) in remap.iter() {
+        let mut entries: Vec<OverrideEntry> = match table.get(&key_combo.key) {
             Some(entries) => entries.to_vec(),
             None => vec![],
         };
         entries.push(OverrideEntry {
             actions: actions.to_vec(),
-            modifiers: key_press.modifiers.clone(),
+            modifiers: key_combo.modifiers.clone(),
             exact_match,
         });
-        table.insert(key_press.key, entries);
+        table.insert(key_combo.key, entries);
     }
     table
 }

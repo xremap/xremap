@@ -727,7 +727,7 @@ impl EventHandler {
         mod_trigger: bool,
     ) -> Result<(), Box<dyn Error>> {
         match action {
-            KeymapAction::KeyCombo(key_press) => self.send_key_combo(key_press, extra_modifiers_pressed),
+            KeymapAction::KeyCombo(key_combo) => self.send_key_combo(key_combo, extra_modifiers_pressed),
             KeymapAction::KeyPress(key) => self.send_key(key, PRESS),
             KeymapAction::KeyRepeat(key) => self.send_key(key, REPEAT),
             KeymapAction::KeyRelease(key) => self.send_key(key, RELEASE),
@@ -767,8 +767,8 @@ impl EventHandler {
                 println!("mode: {mode}");
             }
             KeymapAction::SetMark(set) => self.mark_set = *set,
-            KeymapAction::WithMark(key_press) => {
-                self.send_key_combo(&self.with_mark(key_press), extra_modifiers_pressed)
+            KeymapAction::WithMark(key_combo) => {
+                self.send_key_combo(&self.with_mark(key_combo), extra_modifiers_pressed)
             }
             KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
             KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
@@ -797,10 +797,10 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_combo(&mut self, key_press: &KeyCombo, extra_modifiers_pressed: &HashSet<Key>) {
+    fn send_key_combo(&mut self, key_combo: &KeyCombo, extra_modifiers_pressed: &HashSet<Key>) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because virtual modifiers shouldn't make an impact outside xremap.
-        let (mut extra_modifiers, mut missing_modifiers) = Self::diff_modifiers(&self.modifiers, &key_press.modifiers);
+        let (mut extra_modifiers, mut missing_modifiers) = Self::diff_modifiers(&self.modifiers, &key_combo.modifiers);
         extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !extra_modifiers_pressed.contains(key));
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
 
@@ -809,8 +809,8 @@ impl EventHandler {
         self.send_keys(&extra_modifiers, RELEASE);
 
         // Press the main key
-        self.send_key(&key_press.key, PRESS);
-        self.send_key(&key_press.key, RELEASE);
+        self.send_key(&key_combo.key, PRESS);
+        self.send_key(&key_combo.key, RELEASE);
 
         self.send_action(Action::Delay(self.keypress_delay));
 
@@ -820,20 +820,20 @@ impl EventHandler {
         self.send_keys(&missing_modifiers, RELEASE);
     }
 
-    fn with_mark(&self, key_press: &KeyCombo) -> KeyCombo {
-        let has_shift = key_press.modifiers.contains(&Modifier::Shift)
-            || key_press.modifiers.contains(&Modifier::Key(Key::KEY_LEFTSHIFT))
-            || key_press.modifiers.contains(&Modifier::Key(Key::KEY_RIGHTSHIFT));
+    fn with_mark(&self, key_combo: &KeyCombo) -> KeyCombo {
+        let has_shift = key_combo.modifiers.contains(&Modifier::Shift)
+            || key_combo.modifiers.contains(&Modifier::Key(Key::KEY_LEFTSHIFT))
+            || key_combo.modifiers.contains(&Modifier::Key(Key::KEY_RIGHTSHIFT));
 
         if self.mark_set && !has_shift {
-            let mut modifiers = key_press.modifiers.clone();
+            let mut modifiers = key_combo.modifiers.clone();
             modifiers.push(Modifier::Shift);
             KeyCombo {
-                key: key_press.key,
+                key: key_combo.key,
                 modifiers,
             }
         } else {
-            key_press.clone()
+            key_combo.clone()
         }
     }
 

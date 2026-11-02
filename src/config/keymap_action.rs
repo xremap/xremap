@@ -126,9 +126,9 @@ where
     D: Deserializer<'de>,
 {
     let mut action = HashMap::<String, KeyCombo>::deserialize(deserializer)?;
-    if let Some(key_press) = action.remove("with_mark") {
+    if let Some(key_combo) = action.remove("with_mark") {
         if action.is_empty() {
-            return Ok(key_press);
+            return Ok(key_combo);
         }
     }
     Err(de::Error::custom("not a map with a single \"with_mark\" key"))

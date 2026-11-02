@@ -93,8 +93,8 @@ fn traverse_actions(actions: &Vec<KeymapAction>) -> anyhow::Result<()> {
             KeymapAction::Remap(remap) => {
                 traverse_remap(&remap.remap)?;
             }
-            KeymapAction::KeyCombo(key_press) | KeymapAction::WithMark(key_press) => {
-                traverse_keymap_output_keys(&vec![key_press.key])?;
+            KeymapAction::KeyCombo(key_combo) | KeymapAction::WithMark(key_combo) => {
+                traverse_keymap_output_keys(&vec![key_combo.key])?;
             }
             KeymapAction::KeyPress(key) | KeymapAction::KeyRepeat(key) | KeymapAction::KeyRelease(key) => {
                 traverse_keymap_output_keys(&vec![*key])?;
