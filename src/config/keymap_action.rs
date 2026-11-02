@@ -1,6 +1,6 @@
 use crate::config::deserialize_single_field;
 use crate::config::key::parse_key;
-use crate::config::key_combo::{KeyCombo, ParseCombo};
+use crate::config::key_combo::{EmitMode, KeyCombo, ParseCombo};
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::nested_remap::{ParseRemap, Remap};
 use evdev::KeyCode as Key;
@@ -57,11 +57,11 @@ pub enum ParseKeymapAction {
 }
 
 impl ParseKeymapAction {
-    pub fn finish(actions: Vec<ParseKeymapAction>) -> Vec<KeymapAction> {
+    pub fn finish(actions: Vec<ParseKeymapAction>, mode: EmitMode) -> Vec<KeymapAction> {
         actions
             .into_iter()
             .flat_map(|action| match action {
-                ParseKeymapAction::KeyCombo(value) => value.finish(),
+                ParseKeymapAction::KeyCombo(value) => value.finish(mode),
                 ParseKeymapAction::KeyPress(value) => vec![KeymapAction::KeyPress(value)],
                 ParseKeymapAction::KeyRepeat(value) => vec![KeymapAction::KeyRepeat(value)],
                 ParseKeymapAction::KeyRelease(value) => vec![KeymapAction::KeyRelease(value)],
@@ -70,6 +70,7 @@ impl ParseKeymapAction {
                 ParseKeymapAction::SetMode(value) => vec![KeymapAction::SetMode(value)],
                 ParseKeymapAction::SetMark(value) => vec![KeymapAction::SetMark(value)],
                 ParseKeymapAction::WithMark(key_combo) => {
+                    // WithMark would not make sense with EmitMode::Key, so ignoring default value.
                     vec![KeymapAction::WithMark(key_combo.as_is())]
                 }
                 ParseKeymapAction::EscapeNextKey(value) => vec![KeymapAction::EscapeNextKey(value)],

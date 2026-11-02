@@ -3,6 +3,13 @@ use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
 
+#[derive(Copy, Clone)]
+pub enum EmitMode {
+    #[allow(unused)]
+    Key,
+    Combo,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct KeyCombo {
     pub key: Key,
@@ -10,6 +17,8 @@ pub struct KeyCombo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
+// This type essentially just ensures, that EmitMode is
+// considered for all ParseCombos.
 pub struct ParseCombo {
     pub key: Key,
     pub modifiers: Vec<Modifier>,
@@ -23,8 +32,22 @@ impl ParseCombo {
         }
     }
 
-    pub fn finish(self) -> Vec<KeymapAction> {
-        vec![KeymapAction::KeyCombo(self.as_is())]
+    pub fn finish(self, mode: EmitMode) -> Vec<KeymapAction> {
+        if self.modifiers.is_empty() {
+            match mode {
+                EmitMode::Key => {
+                    // Default key-tap when no explicit modifiers.
+                    vec![KeymapAction::KeyPress(self.key), KeymapAction::KeyRelease(self.key)]
+                }
+                EmitMode::Combo => {
+                    // Default key-combo when no explicit modifiers.
+                    vec![KeymapAction::KeyCombo(self.as_is())]
+                }
+            }
+        } else {
+            // If user has chosen explicit modifiers, it has to be a key combo.
+            vec![KeymapAction::KeyCombo(self.as_is())]
+        }
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::config::deserializers::{VecOrSingle, VectorOrSingleOrNull};
-use crate::config::key_combo::{KeyCombo, ParseCombo};
+use crate::config::key_combo::{EmitMode, KeyCombo, ParseCombo};
 use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use crate::config::modmap::KeyWrapper;
 use evdev::KeyCode as Key;
@@ -39,7 +39,7 @@ impl ParseRemap {
             remap: self
                 .remap
                 .into_iter()
-                .map(|(combo, actions)| (combo.as_is(), ParseKeymapAction::finish(actions.into_vec())))
+                .map(|(combo, actions)| (combo.as_is(), ParseKeymapAction::finish(actions.into_vec(), EmitMode::Combo)))
                 .collect(),
             timeout: self.timeout_millis.map(Duration::from_millis),
             timeout_key: self

@@ -2,7 +2,7 @@ use super::device::DeviceMatcher;
 use super::key_combo::Modifier;
 use crate::config::application::ApplicationMatch;
 use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
-use crate::config::key_combo::{KeyCombo, ParseCombo};
+use crate::config::key_combo::{EmitMode, KeyCombo, ParseCombo};
 use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use evdev::KeyCode as Key;
 use indexmap::IndexMap;
@@ -39,7 +39,7 @@ impl Keymap {
         for keymap in keymaps {
             for (key_combo, actions) in keymap.remap {
                 let entry = KeymapEntry {
-                    actions: ParseKeymapAction::finish(actions),
+                    actions: ParseKeymapAction::finish(actions, EmitMode::Combo),
                     modifiers: key_combo.modifiers,
                     application: keymap.application.clone(),
                     title: keymap.window.clone(),

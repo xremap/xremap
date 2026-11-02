@@ -1,6 +1,7 @@
 use super::deserialize_keys;
 use crate::config::deserializers::{deserialize_duration, deserialize_key, VectorOrSingleOrNull};
 use crate::config::key::{XDOWNCURSOR, XLEFTCURSOR, XRIGHTCURSOR, XUPCURSOR};
+use crate::config::key_combo::EmitMode;
 use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent};
@@ -114,9 +115,9 @@ impl ParsePressReleaseKey {
     pub fn finish(self, bypass: bool) -> PressReleaseKey {
         PressReleaseKey {
             skip_key_event: self.skip_key_event,
-            press: ParseKeymapAction::finish(self.press.into_vec()),
-            release: ParseKeymapAction::finish(self.release.into_vec()),
-            repeat: ParseKeymapAction::finish(self.repeat.into_vec()),
+            press: ParseKeymapAction::finish(self.press.into_vec(), EmitMode::Combo),
+            release: ParseKeymapAction::finish(self.release.into_vec(), EmitMode::Combo),
+            repeat: ParseKeymapAction::finish(self.repeat.into_vec(), EmitMode::Combo),
             bypass,
         }
     }
