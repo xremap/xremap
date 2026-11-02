@@ -1,3 +1,8 @@
+## v0.15.17
+
+- Allow actions in key sequence timeout. https://github.com/xremap/xremap/pull/1037
+- Add key_aliases option. https://github.com/xremap/xremap/pull/1028
+
 ## v0.15.16
 
 - Update dependencies. https://github.com/xremap/xremap/pull/1024, https://github.com/xremap/xremap/pull/1025
