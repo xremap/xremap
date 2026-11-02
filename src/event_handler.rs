@@ -362,7 +362,17 @@ impl EventHandler {
                 };
 
                 for action in &actions {
-                    self.dispatch_action(action, &key_event.key, false, &HashSet::new(), false)?;
+                    Self::dispatch_action(
+                        &self.modifiers,
+                        &mut self.matching_state,
+                        self.keypress_delay,
+                        action,
+                        &key_event.key,
+                        false,
+                        &HashSet::new(),
+                        false,
+                        &mut self.emit,
+                    )?;
                 }
 
                 let mut events = vec![];
@@ -681,12 +691,16 @@ impl EventHandler {
                     // Because exact_match will never be able to have extra modifiers.
                     debug_assert!(tagged_actions.extra_modifiers_pressed.is_empty());
                 }
-                self.dispatch_action(
+                Self::dispatch_action(
+                    &self.modifiers,
+                    &mut self.matching_state,
+                    self.keypress_delay,
                     action,
                     key,
                     tagged_actions.exact_match,
                     &tagged_actions.extra_modifiers_pressed,
                     mod_trigger,
+                    &mut self.emit,
                 )?;
             }
         }
@@ -694,37 +708,36 @@ impl EventHandler {
     }
 
     fn dispatch_action(
-        &mut self,
+        emitted_modifiers: &Vec<Key>,
+        matching_state: &mut MatchingState,
+        keypress_delay: Duration,
         action: &KeymapAction,
         key: &Key,
         exact_match: bool,
         extra_modifiers_pressed: &HashSet<Key>,
         mod_trigger: bool,
+        emit: &mut Vec<Action>,
     ) -> Result<(), Box<dyn Error>> {
         match action {
-            KeymapAction::KeyCombo(key_combo) => Self::send_key_combo(
-                &self.modifiers,
-                self.keypress_delay,
-                key_combo,
-                extra_modifiers_pressed,
-                &mut self.emit,
-            ),
+            KeymapAction::KeyCombo(key_combo) => {
+                Self::send_key_combo(emitted_modifiers, keypress_delay, key_combo, extra_modifiers_pressed, emit)
+            }
             KeymapAction::KeyPress(key) => {
-                self.emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+                emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
             }
             KeymapAction::KeyRepeat(key) => {
-                self.emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Repeat)));
+                emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Repeat)));
             }
             KeymapAction::KeyRelease(key) => {
-                self.emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+                emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
             }
             KeymapAction::Remap(Remap {
                 remap,
                 timeout,
                 timeout_key,
             }) => {
-                let set_timeout = self.matching_state.override_remaps.is_empty();
-                self.matching_state
+                let set_timeout = matching_state.override_remaps.is_empty();
+                matching_state
                     .override_remaps
                     .push(build_override_table(remap, exact_match));
 
@@ -744,50 +757,50 @@ impl EventHandler {
                     if let Some(timeout) = timeout {
                         let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
                         // TODO: Consider handling the timer in ActionDispatcher
-                        self.matching_state.override_timer.unset()?;
-                        self.matching_state
+                        matching_state.override_timer.unset()?;
+                        matching_state
                             .override_timer
                             .set(expiration, TimerSetTimeFlags::empty())?;
-                        self.matching_state.override_timeout_key = keys;
+                        matching_state.override_timeout_key = keys;
                     }
                 }
             }
             KeymapAction::Launch(command) => {
-                self.emit.push(Action::Command(command.clone()));
+                emit.push(Action::Command(command.clone()));
             }
             KeymapAction::SetMode(mode) => {
-                self.matching_state.mode = mode.clone();
+                matching_state.mode = mode.clone();
                 println!("mode: {mode}");
             }
-            KeymapAction::SetMark(set) => self.matching_state.mark_set = *set,
+            KeymapAction::SetMark(set) => matching_state.mark_set = *set,
             KeymapAction::WithMark(key_combo) => Self::send_key_combo(
-                &self.modifiers,
-                self.keypress_delay,
-                &self.matching_state.with_mark(key_combo),
+                emitted_modifiers,
+                keypress_delay,
+                &matching_state.with_mark(key_combo),
                 extra_modifiers_pressed,
-                &mut self.emit,
+                emit,
             ),
-            KeymapAction::EscapeNextKey(escape_next_key) => self.matching_state.escape_next_key = *escape_next_key,
-            KeymapAction::Sleep(millis) => self.emit.push(Action::Delay(Duration::from_millis(*millis))),
-            KeymapAction::CloseByAppClass(app_class) => self.emit.push(Action::CloseByAppClass(app_class.clone())),
+            KeymapAction::EscapeNextKey(escape_next_key) => matching_state.escape_next_key = *escape_next_key,
+            KeymapAction::Sleep(millis) => emit.push(Action::Delay(Duration::from_millis(*millis))),
+            KeymapAction::CloseByAppClass(app_class) => emit.push(Action::CloseByAppClass(app_class.clone())),
             KeymapAction::Action(action) => match action {
                 ActionWithoutArgs::PopWindowInfo => {
-                    self.emit.push(Action::PopWindowInfo);
+                    emit.push(Action::PopWindowInfo);
                 }
                 ActionWithoutArgs::PrintWindowInfo => {
-                    self.emit.push(Action::PrintWindowInfo);
+                    emit.push(Action::PrintWindowInfo);
                 }
                 ActionWithoutArgs::PrintWindowList => {
-                    self.emit.push(Action::PrintWindowList);
+                    emit.push(Action::PrintWindowList);
                 }
                 ActionWithoutArgs::Exit => {
-                    self.emit.push(Action::Exit);
+                    emit.push(Action::Exit);
                 }
                 ActionWithoutArgs::Reload => {
-                    self.emit.push(Action::Reload);
+                    emit.push(Action::Reload);
                 }
                 ActionWithoutArgs::ReloadConfig => {
-                    self.emit.push(Action::ReloadConfig);
+                    emit.push(Action::ReloadConfig);
                 }
             },
         }
