@@ -698,11 +698,8 @@ impl EventHandler {
             KeymapAction::Launch(command) => {
                 emit.push(Action::Command(command.clone()));
             }
-            KeymapAction::SetMode(mode) => {
-                matching_state.mode = mode.clone();
-                println!("mode: {mode}");
-            }
-            KeymapAction::SetMark(set) => matching_state.mark_set = *set,
+            KeymapAction::SetMode(mode) => matching_state.set_mode(mode),
+            KeymapAction::SetMark(mark) => matching_state.set_mark(*mark),
             KeymapAction::WithMark(key_combo) => Self::send_key_combo(
                 emitted_modifiers,
                 matching_state.keypress_delay,
@@ -710,7 +707,7 @@ impl EventHandler {
                 extra_modifiers_pressed,
                 emit,
             ),
-            KeymapAction::EscapeNextKey(escape_next_key) => matching_state.escape_next_key = *escape_next_key,
+            KeymapAction::EscapeNextKey(escape_next_key) => matching_state.escape_next_key(*escape_next_key),
             KeymapAction::Sleep(millis) => emit.push(Action::Delay(Duration::from_millis(*millis))),
             KeymapAction::CloseByAppClass(app_class) => emit.push(Action::CloseByAppClass(app_class.clone())),
             KeymapAction::Action(action) => match action {
@@ -1015,6 +1012,19 @@ impl MatchingState {
             override_timeout_key: None,
             override_timer,
         }
+    }
+
+    fn set_mode(&mut self, mode: &str) {
+        self.mode = mode.to_string();
+        println!("mode: {mode}");
+    }
+
+    fn set_mark(&mut self, mark: bool) {
+        self.mark_set = mark;
+    }
+
+    fn escape_next_key(&mut self, escape_next_key: bool) {
+        self.escape_next_key = escape_next_key;
     }
 
     fn get_entries(&mut self, key: &Key, mod_trigger: bool) -> Result<Option<Vec<KeymapEntry>>, Box<dyn Error>> {
