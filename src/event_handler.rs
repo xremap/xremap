@@ -232,12 +232,6 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_keys(&mut self, keys: &Vec<Key>, value: i32) {
-        for key in keys {
-            self.send_key(key, value);
-        }
-    }
-
     fn send_key(&mut self, key: &Key, value: i32) {
         let event = KeyEvent::new_with(key.code(), value);
         self.send_action(Action::KeyEvent(event));
@@ -714,9 +708,15 @@ impl EventHandler {
     ) -> Result<(), Box<dyn Error>> {
         match action {
             KeymapAction::KeyCombo(key_combo) => self.send_key_combo(key_combo, extra_modifiers_pressed),
-            KeymapAction::KeyPress(key) => self.send_key(key, PRESS),
-            KeymapAction::KeyRepeat(key) => self.send_key(key, REPEAT),
-            KeymapAction::KeyRelease(key) => self.send_key(key, RELEASE),
+            KeymapAction::KeyPress(key) => {
+                self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+            }
+            KeymapAction::KeyRepeat(key) => {
+                self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Repeat)));
+            }
+            KeymapAction::KeyRelease(key) => {
+                self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+            }
             KeymapAction::Remap(Remap {
                 remap,
                 timeout,
@@ -751,7 +751,9 @@ impl EventHandler {
                     }
                 }
             }
-            KeymapAction::Launch(command) => self.run_command(command.clone()),
+            KeymapAction::Launch(command) => {
+                self.send_action(Action::Command(command.clone()));
+            }
             KeymapAction::SetMode(mode) => {
                 self.matching_state.mode = mode.clone();
                 println!("mode: {mode}");
@@ -795,23 +797,27 @@ impl EventHandler {
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
 
         // Emulate the modifiers of KeyPress
-        self.send_keys(&missing_modifiers, PRESS);
-        self.send_keys(&extra_modifiers, RELEASE);
+        for key in &missing_modifiers {
+            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+        }
+        for key in &extra_modifiers {
+            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+        }
 
         // Press the main key
-        self.send_key(&key_combo.key, PRESS);
-        self.send_key(&key_combo.key, RELEASE);
+        self.send_action(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Press)));
+        self.send_action(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Release)));
 
         self.send_action(Action::Delay(self.keypress_delay));
 
         // Resurrect the original modifiers
-        self.send_keys(&extra_modifiers, PRESS);
+        for key in &extra_modifiers {
+            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+        }
         self.send_action(Action::Delay(self.keypress_delay));
-        self.send_keys(&missing_modifiers, RELEASE);
-    }
-
-    fn run_command(&mut self, command: Vec<String>) {
-        self.send_action(Action::Command(command));
+        for key in &missing_modifiers {
+            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+        }
     }
 
     // Return (extra_modifiers, missing_modifiers)
