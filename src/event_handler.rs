@@ -702,6 +702,10 @@ impl EventHandler {
     ) -> Result<(), Box<dyn Error>> {
         for tagged_actions in actions {
             for action in &tagged_actions.actions {
+                if tagged_actions.exact_match {
+                    // Because exact_match will never be able to have extra modifiers.
+                    debug_assert!(tagged_actions.extra_modifiers_pressed.is_empty());
+                }
                 self.dispatch_action(
                     action,
                     key,
