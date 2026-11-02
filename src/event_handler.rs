@@ -666,11 +666,18 @@ impl EventHandler {
                     exact_match: entry.exact_match,
                     extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
                 };
-                let has_remap = has_remap(&entry.actions);
 
-                // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
+                let has_remap = if entry.actions.is_empty() {
+                    // Don't fetch all nested remaps, when the user choose explicitly no actions.
+                    false
+                } else {
+                    entry.actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
+                };
+
+                // If the first match was a remap, continue to find rest of the eligible remaps for this key
                 if remaps.is_empty() && !has_remap {
                     return Some(vec![actions]);
+                // When fetching all nested remaps ignore entries that contain ordinary actions.
                 } else if has_remap {
                     remaps.push(actions)
                 }
@@ -867,20 +874,6 @@ impl EventHandler {
             self.modifiers.retain(|&x| x != key);
         }
     }
-}
-
-fn has_remap(actions: &[KeymapAction]) -> bool {
-    if actions.is_empty() {
-        // When actions are empty it could either be regarded as an empty remap
-        //  or no actions. In principle that shouldn't matter, but remap is
-        //  implemented to gather all defined remaps, not just the first match.
-        // Here we regard empty actions as non-remap, so the matching will stop
-        //  here, and no actions are performed. The possibly following remaps are
-        //  hence ignored.
-        return false;
-    }
-
-    actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
 }
 
 fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
