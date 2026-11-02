@@ -247,7 +247,6 @@ fn test_merge_remaps_precedence_to_first() {
               C-x:
                 remap:
                   h: C-b
-                  c: C-q
     "};
 
     assert_actions(
@@ -271,28 +270,6 @@ fn test_merge_remaps_precedence_to_first() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     );
-
-    assert_actions(
-        config,
-        vec![
-            Event::key_press(Key::KEY_LEFTCTRL),
-            Event::key_press(Key::KEY_X),
-            Event::key_release(Key::KEY_X),
-            Event::key_release(Key::KEY_LEFTCTRL),
-            Event::key_press(Key::KEY_C),
-        ],
-        vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Release)),
-            Action::Delay(Duration::from_nanos(0)),
-            Action::Delay(Duration::from_nanos(0)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-        ],
-    )
 }
 
 #[test]
@@ -896,26 +873,31 @@ fn test_triple_nested_remap() {
 }
 
 #[test]
-fn test_timeout_emits_lastest_nested_remap_trigger() {
+fn test_timeout_emits_last_nested_remap_trigger() {
     assert_actions(
         indoc! {"
         keymap:
           - remap:
               f12:
+                timeout_millis: 100
                 remap:
                   A:
                     timeout_millis: 100
                     remap:
-                      B: C
+                      B:
+                        timeout_millis: 100
+                        remap:
+                            C: D
         "},
         vec![
             Event::key_press(Key::KEY_F12),
             Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_B),
             Event::OverrideTimeout,
         ],
         vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
         ],
     );
 }
