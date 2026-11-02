@@ -159,7 +159,8 @@ mod tests {
               - remap:
                   Code_123: A
                   CODE_0012: A
-            "});
+            "})
+        .unwrap();
         assert!(config.keymap_table.contains_key(&KeyCode(123)));
         assert!(config.keymap_table.contains_key(&KeyCode(12)));
     }

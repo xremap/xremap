@@ -68,9 +68,9 @@ impl Config {
     }
 
     #[cfg(test)]
-    pub fn new_from_str(str: &str) -> Config {
-        let config = load_first_config(str, ConfigFiletype::Yaml).unwrap();
-        Config::new(config).unwrap()
+    pub fn new_from_str(str: &str) -> Result<Config, Box<dyn error::Error>> {
+        let config = load_first_config(str, ConfigFiletype::Yaml)?;
+        Config::new(config)
     }
 }
 

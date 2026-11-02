@@ -570,7 +570,7 @@ fn test_keymap_repeat() {
 }
 
 pub fn get_handler_from_config(config: &str) -> anyhow::Result<OperatorHandler> {
-    let config = Config::new_from_str(config);
+    let config = Config::new_from_str(config).unwrap();
     Ok(OperatorHandler::new(&config.experimental_map, config.bypass, Rc::new(TimeoutManager::new())))
 }
 
@@ -610,7 +610,7 @@ impl EventHandlerForTest {
 
     pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
-        let config = Config::new_from_str(config_yaml);
+        let config = Config::new_from_str(config_yaml).unwrap();
         let operator_handler =
             Some(OperatorHandler::new(&config.experimental_map, config.bypass, Rc::new(TimeoutManager::new())));
         let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0), operator_handler);
