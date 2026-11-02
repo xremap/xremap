@@ -1,4 +1,4 @@
-use crate::config::key::parse_key;
+use crate::config::{key::parse_key, keymap_action::KeymapAction};
 use evdev::KeyCode as Key;
 use serde::{Deserialize, Deserializer};
 use std::error::Error;
@@ -9,7 +9,26 @@ pub struct KeyCombo {
     pub modifiers: Vec<Modifier>,
 }
 
-impl<'de> Deserialize<'de> for KeyCombo {
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ParseCombo {
+    pub key: Key,
+    pub modifiers: Vec<Modifier>,
+}
+
+impl ParseCombo {
+    pub fn as_is(self) -> KeyCombo {
+        KeyCombo {
+            key: self.key,
+            modifiers: self.modifiers,
+        }
+    }
+
+    pub fn finish(self) -> Vec<KeymapAction> {
+        vec![KeymapAction::KeyCombo(self.as_is())]
+    }
+}
+
+impl<'de> Deserialize<'de> for ParseCombo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -19,7 +38,7 @@ impl<'de> Deserialize<'de> for KeyCombo {
     }
 }
 
-fn parse_key_combo(input: &str) -> Result<KeyCombo, Box<dyn Error>> {
+pub fn parse_key_combo(input: &str) -> Result<ParseCombo, Box<dyn Error>> {
     let keys: Vec<&str> = input.split('-').collect();
     if let Some((key, modifier_keys)) = keys.split_last() {
         let mut modifiers = vec![];
@@ -27,7 +46,7 @@ fn parse_key_combo(input: &str) -> Result<KeyCombo, Box<dyn Error>> {
             modifiers.push(parse_modifier(modifier_key)?);
         }
 
-        Ok(KeyCombo {
+        Ok(ParseCombo {
             key: parse_key(key)?,
             modifiers,
         })

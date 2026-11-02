@@ -2,7 +2,7 @@ use super::device::DeviceMatcher;
 use super::key_combo::Modifier;
 use crate::config::application::ApplicationMatch;
 use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
-use crate::config::key_combo::KeyCombo;
+use crate::config::key_combo::{KeyCombo, ParseCombo};
 use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use evdev::KeyCode as Key;
 use indexmap::IndexMap;
@@ -17,7 +17,7 @@ pub struct Keymap {
     #[serde(default = "String::new")]
     pub name: String,
     #[serde(deserialize_with = "deserialize_remap")]
-    pub remap: IndexMap<KeyCombo, Vec<ParseKeymapAction>>,
+    pub remap: IndexMap<ParseCombo, Vec<ParseKeymapAction>>,
     pub application: Option<ApplicationMatch>,
     pub window: Option<ApplicationMatch>,
     pub device: Option<DeviceMatcher>,
@@ -61,12 +61,12 @@ impl Keymap {
     }
 }
 
-fn deserialize_remap<'de, D>(deserializer: D) -> Result<IndexMap<KeyCombo, Vec<ParseKeymapAction>>, D::Error>
+fn deserialize_remap<'de, D>(deserializer: D) -> Result<IndexMap<ParseCombo, Vec<ParseKeymapAction>>, D::Error>
 where
     D: Deserializer<'de>,
 {
     // IndexMap preserves the order from the config file, which is why it's used instead of HashMap.
-    let remap = IndexMap::<KeyCombo, VectorOrSingleOrNull<ParseKeymapAction>>::deserialize(deserializer)?;
+    let remap = IndexMap::<ParseCombo, VectorOrSingleOrNull<ParseKeymapAction>>::deserialize(deserializer)?;
     Ok(remap
         .into_iter()
         .map(|(key_combo, actions)| (key_combo, actions.into_vec()))

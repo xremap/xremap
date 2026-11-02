@@ -1,6 +1,6 @@
 use crate::config::deserialize_single_field;
 use crate::config::key::parse_key;
-use crate::config::key_combo::KeyCombo;
+use crate::config::key_combo::{KeyCombo, ParseCombo};
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::nested_remap::{ParseRemap, Remap};
 use evdev::KeyCode as Key;
@@ -30,7 +30,7 @@ pub enum KeymapAction {
 #[serde(untagged)]
 pub enum ParseKeymapAction {
     // Config interface
-    KeyCombo(KeyCombo),
+    KeyCombo(ParseCombo),
     #[serde(deserialize_with = "deserialize_key_press")]
     KeyPress(Key),
     #[serde(deserialize_with = "deserialize_key_repeat")]
@@ -45,7 +45,7 @@ pub enum ParseKeymapAction {
     #[serde(deserialize_with = "deserialize_set_mark")]
     SetMark(bool),
     #[serde(deserialize_with = "deserialize_with_mark")]
-    WithMark(KeyCombo),
+    WithMark(ParseCombo),
     #[serde(deserialize_with = "deserialize_escape_next_key")]
     EscapeNextKey(bool),
     #[serde(deserialize_with = "deserialize_sleep")]
@@ -61,7 +61,7 @@ impl ParseKeymapAction {
         actions
             .into_iter()
             .flat_map(|action| match action {
-                ParseKeymapAction::KeyCombo(value) => vec![KeymapAction::KeyCombo(value)],
+                ParseKeymapAction::KeyCombo(value) => value.finish(),
                 ParseKeymapAction::KeyPress(value) => vec![KeymapAction::KeyPress(value)],
                 ParseKeymapAction::KeyRepeat(value) => vec![KeymapAction::KeyRepeat(value)],
                 ParseKeymapAction::KeyRelease(value) => vec![KeymapAction::KeyRelease(value)],
@@ -69,7 +69,9 @@ impl ParseKeymapAction {
                 ParseKeymapAction::Launch(value) => vec![KeymapAction::Launch(value)],
                 ParseKeymapAction::SetMode(value) => vec![KeymapAction::SetMode(value)],
                 ParseKeymapAction::SetMark(value) => vec![KeymapAction::SetMark(value)],
-                ParseKeymapAction::WithMark(value) => vec![KeymapAction::WithMark(value)],
+                ParseKeymapAction::WithMark(key_combo) => {
+                    vec![KeymapAction::WithMark(key_combo.as_is())]
+                }
                 ParseKeymapAction::EscapeNextKey(value) => vec![KeymapAction::EscapeNextKey(value)],
                 ParseKeymapAction::Sleep(value) => vec![KeymapAction::Sleep(value)],
                 ParseKeymapAction::CloseByAppClass(value) => vec![KeymapAction::CloseByAppClass(value)],
@@ -160,11 +162,11 @@ where
     Err(de::Error::custom("not a map with a single \"set_mark\" key"))
 }
 
-fn deserialize_with_mark<'de, D>(deserializer: D) -> Result<KeyCombo, D::Error>
+fn deserialize_with_mark<'de, D>(deserializer: D) -> Result<ParseCombo, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let mut action = HashMap::<String, KeyCombo>::deserialize(deserializer)?;
+    let mut action = HashMap::<String, ParseCombo>::deserialize(deserializer)?;
     if let Some(key_combo) = action.remove("with_mark") {
         if action.is_empty() {
             return Ok(key_combo);

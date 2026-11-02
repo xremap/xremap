@@ -1,5 +1,5 @@
 use crate::config::deserializers::{VecOrSingle, VectorOrSingleOrNull};
-use crate::config::key_combo::KeyCombo;
+use crate::config::key_combo::{KeyCombo, ParseCombo};
 use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use crate::config::modmap::KeyWrapper;
 use evdev::KeyCode as Key;
@@ -18,7 +18,7 @@ pub struct Remap {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ParseRemap {
-    pub remap: IndexMap<KeyCombo, VectorOrSingleOrNull<ParseKeymapAction>>,
+    pub remap: IndexMap<ParseCombo, VectorOrSingleOrNull<ParseKeymapAction>>,
     pub timeout_millis: Option<u64>,
     #[serde(default, deserialize_with = "deserialize_timeout_key")]
     pub timeout_key: Option<Vec<KeyWrapper>>,
@@ -39,7 +39,7 @@ impl ParseRemap {
             remap: self
                 .remap
                 .into_iter()
-                .map(|(combo, actions)| (combo, ParseKeymapAction::finish(actions.into_vec())))
+                .map(|(combo, actions)| (combo.as_is(), ParseKeymapAction::finish(actions.into_vec())))
                 .collect(),
             timeout: self.timeout_millis.map(Duration::from_millis),
             timeout_key: self

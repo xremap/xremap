@@ -1,4 +1,4 @@
-use crate::config::key_combo::KeyCombo;
+use crate::config::key_combo::ParseCombo;
 use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::modmap_operator::ParseModmapOperator;
@@ -78,7 +78,7 @@ fn traverse_modmap_operator(operator: &ParseModmapOperator) -> anyhow::Result<()
     Ok(())
 }
 
-fn traverse_remap(keymap: &IndexMap<KeyCombo, Vec<ParseKeymapAction>>) -> anyhow::Result<()> {
+fn traverse_remap(keymap: &IndexMap<ParseCombo, Vec<ParseKeymapAction>>) -> anyhow::Result<()> {
     for (_, actions) in keymap {
         traverse_actions(&ParseKeymapAction::finish(actions.clone()))?;
     }
