@@ -70,15 +70,7 @@ impl EventHandler {
             modifiers: vec![],
             pressed_keys: HashMap::new(),
             multi_purpose_keys: HashMap::new(),
-            matching_state: MatchingState {
-                keypress_delay,
-                mode: mode.to_string(),
-                mark_set: false,
-                escape_next_key: false,
-                override_remaps: vec![],
-                override_timeout_key: None,
-                override_timer,
-            },
+            matching_state: MatchingState::new(override_timer, mode, keypress_delay),
             emit: vec![],
             operator_handler,
         }
@@ -535,21 +527,7 @@ impl EventHandler {
             .copied()
             .collect();
 
-        if !self.matching_state.override_remaps.is_empty() {
-            let entries: Vec<KeymapEntry> = self
-                .matching_state
-                .override_remaps
-                .iter()
-                .flat_map(|map| map.get(key).cloned().unwrap_or_default())
-                .collect();
-
-            // Empty if the key isn't defined in any of the nested remaps, that are active.
-            if !entries.is_empty() {
-                if !mod_trigger {
-                    self.matching_state.remove_override()?;
-                }
-            }
-
+        if let Some(entries) = self.matching_state.get_entries(key, mod_trigger)? {
             match Self::lookup(&self.matching_state, &entries, device, &pressed_modifiers, wmclient) {
                 Some(actions) => return Ok(Some(actions)),
                 None => {
@@ -1057,6 +1035,39 @@ struct MatchingState {
 }
 
 impl MatchingState {
+    pub fn new(override_timer: TimerFd, mode: &str, keypress_delay: Duration) -> Self {
+        Self {
+            keypress_delay,
+            mode: mode.to_string(),
+            mark_set: false,
+            escape_next_key: false,
+            override_remaps: vec![],
+            override_timeout_key: None,
+            override_timer,
+        }
+    }
+
+    fn get_entries(&mut self, key: &Key, mod_trigger: bool) -> Result<Option<Vec<KeymapEntry>>, Box<dyn Error>> {
+        if self.override_remaps.is_empty() {
+            return Ok(None);
+        }
+
+        let entries: Vec<_> = self
+            .override_remaps
+            .iter()
+            .flat_map(|map| map.get(key).cloned().unwrap_or_default())
+            .collect();
+
+        // Empty if the key isn't defined in any of the nested remaps, that are active.
+        if !entries.is_empty() {
+            if !mod_trigger {
+                self.remove_override()?;
+            }
+        }
+
+        Ok(Some(entries))
+    }
+
     fn with_mark(&self, key_combo: &KeyCombo) -> KeyCombo {
         let has_shift = key_combo.modifiers.contains(&Modifier::Shift)
             || key_combo.modifiers.contains(&Modifier::Key(Key::KEY_LEFTSHIFT))
