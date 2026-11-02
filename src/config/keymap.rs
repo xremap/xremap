@@ -83,28 +83,24 @@ pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry
     table
 }
 
-// Subset of KeymapEntry for override_remap
-#[derive(Clone)]
-pub struct OverrideEntry {
-    pub actions: Vec<KeymapAction>,
-    pub modifiers: Vec<Modifier>,
-    pub exact_match: bool,
-}
-
 // This is executed on runtime unlike build_keymap_table, but hopefully not called so often.
 pub fn build_override_table(
     remap: &IndexMap<KeyCombo, Vec<KeymapAction>>,
     exact_match: bool,
-) -> HashMap<Key, Vec<OverrideEntry>> {
-    let mut table: HashMap<Key, Vec<OverrideEntry>> = HashMap::new();
+) -> HashMap<Key, Vec<KeymapEntry>> {
+    let mut table: HashMap<Key, Vec<KeymapEntry>> = HashMap::new();
     for (key_combo, actions) in remap.iter() {
-        let mut entries: Vec<OverrideEntry> = match table.get(&key_combo.key) {
+        let mut entries: Vec<KeymapEntry> = match table.get(&key_combo.key) {
             Some(entries) => entries.to_vec(),
             None => vec![],
         };
-        entries.push(OverrideEntry {
+        entries.push(KeymapEntry {
             actions: actions.to_vec(),
             modifiers: key_combo.modifiers.clone(),
+            application: None,
+            title: None,
+            device: None,
+            mode: None,
             exact_match,
         });
         table.insert(key_combo.key, entries);

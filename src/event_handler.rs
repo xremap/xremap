@@ -1,7 +1,7 @@
 use crate::action::Action;
 use crate::client::WMClient;
 use crate::config::key_combo::{KeyCombo, Modifier};
-use crate::config::keymap::{build_override_table, OverrideEntry};
+use crate::config::keymap::{build_override_table, KeymapEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::modmap_operator::{Interruptable, KeyAction, ModmapOperator, MultiPurposeKey, PressReleaseKey};
@@ -37,7 +37,7 @@ pub struct EventHandler {
     // State machine for multi-purpose keys
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     // Current nested remaps
-    override_remaps: Vec<HashMap<Key, Vec<OverrideEntry>>>,
+    override_remaps: Vec<HashMap<Key, Vec<KeymapEntry>>>,
     // Key triggered on a timeout of nested remaps
     override_timeout_key: Option<Vec<Key>>,
     // Trigger a timeout of nested remaps through select(2)
@@ -583,7 +583,7 @@ impl EventHandler {
             .collect();
 
         if !self.override_remaps.is_empty() {
-            let entries: Vec<OverrideEntry> = self
+            let entries: Vec<KeymapEntry> = self
                 .override_remaps
                 .iter()
                 .flat_map(|map| map.get(key).cloned().unwrap_or_default())
@@ -605,6 +605,27 @@ impl EventHandler {
                             Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
                         if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
                             continue;
+                        }
+                        if let Some(window_matcher) = &entry.title {
+                            if !wmclient.match_window(window_matcher) {
+                                continue;
+                            }
+                        }
+
+                        if let Some(application_matcher) = &entry.application {
+                            if !wmclient.match_application(application_matcher) {
+                                continue;
+                            }
+                        }
+                        if let Some(device_matcher) = &entry.device {
+                            if !device_matcher.matches(device) {
+                                continue;
+                            }
+                        }
+                        if let Some(modes) = &entry.mode {
+                            if !modes.contains(&self.mode) {
+                                continue;
+                            }
                         }
 
                         let actions = TaggedActions {
