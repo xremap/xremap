@@ -2,7 +2,7 @@ use crate::config::deserialize_single_field;
 use crate::config::key::parse_key;
 use crate::config::key_combo::KeyCombo;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
-use crate::config::nested_remap::{deserialize_nested_remap, Remap};
+use crate::config::nested_remap::{ParseRemap, Remap};
 use evdev::KeyCode as Key;
 use serde::{de, Deserialize, Deserializer};
 use std::collections::HashMap;
@@ -37,8 +37,7 @@ pub enum ParseKeymapAction {
     KeyRepeat(Key),
     #[serde(deserialize_with = "deserialize_key_release")]
     KeyRelease(Key),
-    #[serde(deserialize_with = "deserialize_nested_remap")]
-    Remap(Remap),
+    Remap(ParseRemap),
     #[serde(deserialize_with = "deserialize_launch")]
     Launch(Vec<String>),
     #[serde(deserialize_with = "deserialize_set_mode")]
@@ -66,7 +65,7 @@ impl ParseKeymapAction {
                 ParseKeymapAction::KeyPress(value) => vec![KeymapAction::KeyPress(value)],
                 ParseKeymapAction::KeyRepeat(value) => vec![KeymapAction::KeyRepeat(value)],
                 ParseKeymapAction::KeyRelease(value) => vec![KeymapAction::KeyRelease(value)],
-                ParseKeymapAction::Remap(value) => vec![KeymapAction::Remap(value)],
+                ParseKeymapAction::Remap(value) => vec![KeymapAction::Remap(value.finish())],
                 ParseKeymapAction::Launch(value) => vec![KeymapAction::Launch(value)],
                 ParseKeymapAction::SetMode(value) => vec![KeymapAction::SetMode(value)],
                 ParseKeymapAction::SetMark(value) => vec![KeymapAction::SetMark(value)],
