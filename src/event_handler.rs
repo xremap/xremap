@@ -38,8 +38,6 @@ pub struct EventHandler {
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
     // State that influence which remaps match events.
     matching_state: MatchingState,
-    // keypress_delay_ms
-    keypress_delay: Duration,
     // Buffered actions to be dispatched.
     emit: Vec<Action>,
     // Handler to perform some of the remapping
@@ -73,6 +71,7 @@ impl EventHandler {
             pressed_keys: HashMap::new(),
             multi_purpose_keys: HashMap::new(),
             matching_state: MatchingState {
+                keypress_delay,
                 mode: mode.to_string(),
                 mark_set: false,
                 escape_next_key: false,
@@ -80,7 +79,6 @@ impl EventHandler {
                 override_timeout_key: None,
                 override_timer,
             },
-            keypress_delay,
             emit: vec![],
             operator_handler,
         }
@@ -146,7 +144,9 @@ impl EventHandler {
                     }
 
                     Event::OtherEvents(event) => self.emit.push(Action::InputEvent(event)),
-                    Event::OverrideTimeout => self.timeout_override()?,
+                    Event::OverrideTimeout => {
+                        self.matching_state.timeout_override(&mut self.emit)?;
+                    }
                     Event::Tick => {
                         // Can be ignored. It's for operators.
                     }
@@ -217,23 +217,6 @@ impl EventHandler {
 
         // The return value is irrelevant here.
         Ok(true)
-    }
-
-    fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
-        if let Some(keys) = self.matching_state.override_timeout_key.take() {
-            for key in keys {
-                self.emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Press)));
-                self.emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Release)));
-            }
-        }
-        self.remove_override()
-    }
-
-    fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
-        self.matching_state.override_timer.unset()?;
-        self.matching_state.override_remaps.clear();
-        self.matching_state.override_timeout_key = None;
-        Ok(())
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
@@ -365,7 +348,6 @@ impl EventHandler {
                     Self::dispatch_action(
                         &self.modifiers,
                         &mut self.matching_state,
-                        self.keypress_delay,
                         action,
                         &key_event.key,
                         false,
@@ -566,7 +548,7 @@ impl EventHandler {
             // Empty if the key isn't defined in any of the nested remaps, that are active.
             if !entries.is_empty() {
                 if !mod_trigger {
-                    self.remove_override()?;
+                    self.matching_state.remove_override()?;
                 }
             }
 
@@ -575,7 +557,7 @@ impl EventHandler {
                 None => {
                     // An override remap is set but not used. Flush the pending key.
                     if !mod_trigger {
-                        self.timeout_override()?;
+                        self.matching_state.timeout_override(&mut self.emit)?;
                     }
                 }
             };
@@ -694,7 +676,6 @@ impl EventHandler {
                 Self::dispatch_action(
                     &self.modifiers,
                     &mut self.matching_state,
-                    self.keypress_delay,
                     action,
                     key,
                     tagged_actions.exact_match,
@@ -710,7 +691,6 @@ impl EventHandler {
     fn dispatch_action(
         emitted_modifiers: &Vec<Key>,
         matching_state: &mut MatchingState,
-        keypress_delay: Duration,
         action: &KeymapAction,
         key: &Key,
         exact_match: bool,
@@ -719,9 +699,13 @@ impl EventHandler {
         emit: &mut Vec<Action>,
     ) -> Result<(), Box<dyn Error>> {
         match action {
-            KeymapAction::KeyCombo(key_combo) => {
-                Self::send_key_combo(emitted_modifiers, keypress_delay, key_combo, extra_modifiers_pressed, emit)
-            }
+            KeymapAction::KeyCombo(key_combo) => Self::send_key_combo(
+                emitted_modifiers,
+                matching_state.keypress_delay,
+                key_combo,
+                extra_modifiers_pressed,
+                emit,
+            ),
             KeymapAction::KeyPress(key) => {
                 emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
             }
@@ -775,7 +759,7 @@ impl EventHandler {
             KeymapAction::SetMark(set) => matching_state.mark_set = *set,
             KeymapAction::WithMark(key_combo) => Self::send_key_combo(
                 emitted_modifiers,
-                keypress_delay,
+                matching_state.keypress_delay,
                 &matching_state.with_mark(key_combo),
                 extra_modifiers_pressed,
                 emit,
@@ -1058,6 +1042,8 @@ pub fn modifiers_last(a: &Key, b: &Key) -> Ordering {
 }
 
 struct MatchingState {
+    // keypress_delay_ms
+    keypress_delay: Duration,
     // { set_mode: String }
     mode: String,
     // { set_mark: true }
@@ -1088,5 +1074,22 @@ impl MatchingState {
         } else {
             key_combo.clone()
         }
+    }
+
+    fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
+        self.override_timer.unset()?;
+        self.override_remaps.clear();
+        self.override_timeout_key = None;
+        Ok(())
+    }
+
+    fn timeout_override(&mut self, emit: &mut Vec<Action>) -> Result<(), Box<dyn Error>> {
+        if let Some(keys) = self.override_timeout_key.take() {
+            for key in keys {
+                emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Press)));
+                emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Release)));
+            }
+        }
+        self.remove_override()
     }
 }
