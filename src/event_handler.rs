@@ -128,18 +128,22 @@ impl EventHandler {
                         self.on_key_event(key_event.key, key_event.value(), &device, config, wmclient)?;
                     }
                     Event::RelativeEvent(device, relative_event) => {
-                        let key = relative_event.to_disguised_key();
-
-                        // Send as disguised-event
-                        let was_remapped = self.on_key_event(key, PRESS, &device, config, wmclient)?;
-
-                        if !was_remapped {
-                            if relative_event.code <= 2 {
-                                // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
-                                mouse_movement_collection.push(relative_event);
-                            } else {
-                                self.emit.push(Action::RelativeEvent(relative_event));
+                        if self.matching_state.escape_next_key {
+                            self.matching_state.escape_next_key = false;
+                        } else {
+                            // Send as disguised-event
+                            let key = relative_event.to_disguised_key();
+                            if let Some(actions) = self.find_keymap(config, &key, &device, wmclient, false)? {
+                                self.dispatch_actions(&actions, &key, false)?;
+                                continue;
                             }
+                        }
+
+                        if relative_event.code <= 2 {
+                            // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
+                            mouse_movement_collection.push(relative_event);
+                        } else {
+                            self.emit.push(Action::RelativeEvent(relative_event));
                         }
                     }
 
@@ -180,7 +184,7 @@ impl EventHandler {
         device: &Rc<InputDeviceInfo>,
         config: &Config,
         wmclient: &mut WMClient,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         let mod_trigger = config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key);
         // Apply keymap
         let mut matched = false;
@@ -194,11 +198,6 @@ impl EventHandler {
                 self.dispatch_actions(&actions, &key, mod_trigger)?;
                 matched = true;
             }
-        }
-
-        if key.code() >= DISGUISED_EVENT_OFFSETTER {
-            // Only disguised keys care about return value.
-            return Ok(matched);
         }
 
         if config.virtual_modifiers.contains(&key) {
@@ -215,8 +214,7 @@ impl EventHandler {
                 .push(Action::KeyEvent(KeyEvent::new(key, KeyValue::new(value).unwrap())));
         }
 
-        // The return value is irrelevant here.
-        Ok(true)
+        Ok(())
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
