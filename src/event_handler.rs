@@ -40,8 +40,8 @@ pub struct EventHandler {
     matching_state: MatchingState,
     // keypress_delay_ms
     keypress_delay: Duration,
-    // Buffered actions to be dispatched. TODO: Just return actions from each function instead of using this.
-    actions: Vec<Action>,
+    // Buffered actions to be dispatched.
+    emit: Vec<Action>,
     // Handler to perform some of the remapping
     operator_handler: Option<OperatorHandler>,
 }
@@ -81,7 +81,7 @@ impl EventHandler {
                 override_timer,
             },
             keypress_delay,
-            actions: vec![],
+            emit: vec![],
             operator_handler,
         }
     }
@@ -93,7 +93,7 @@ impl EventHandler {
         assert!(self.multi_purpose_keys.is_empty());
         assert!(self.matching_state.override_remaps.is_empty());
         assert!(self.matching_state.override_timeout_key.is_none());
-        assert!(self.actions.is_empty());
+        assert!(self.emit.is_empty());
 
         self.operator_handler.as_ref().map(|op| op.assert_base_state());
     }
@@ -110,7 +110,7 @@ impl EventHandler {
             events = handler.map_events(events, wmclient);
         };
 
-        debug_assert!(self.actions.is_empty());
+        debug_assert!(self.emit.is_empty());
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
@@ -140,12 +140,12 @@ impl EventHandler {
                                 // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
                                 mouse_movement_collection.push(relative_event);
                             } else {
-                                self.send_action(Action::RelativeEvent(relative_event));
+                                self.emit.push(Action::RelativeEvent(relative_event));
                             }
                         }
                     }
 
-                    Event::OtherEvents(event) => self.send_action(Action::InputEvent(event)),
+                    Event::OtherEvents(event) => self.emit.push(Action::InputEvent(event)),
                     Event::OverrideTimeout => self.timeout_override()?,
                     Event::Tick => {
                         // Can be ignored. It's for operators.
@@ -164,9 +164,10 @@ impl EventHandler {
         }
         // if there is at least one mouse movement event, sending all of them as one MouseMovementEventCollection
         if !mouse_movement_collection.is_empty() {
-            self.send_action(Action::MouseMovementEventCollection(mouse_movement_collection));
+            self.emit
+                .push(Action::MouseMovementEventCollection(mouse_movement_collection));
         }
-        Ok(self.actions.drain(..).collect())
+        Ok(self.emit.drain(..).collect())
     }
 
     // Handle EventType::KEY
@@ -234,11 +235,7 @@ impl EventHandler {
 
     fn send_key(&mut self, key: &Key, value: i32) {
         let event = KeyEvent::new_with(key.code(), value);
-        self.send_action(Action::KeyEvent(event));
-    }
-
-    fn send_action(&mut self, action: Action) {
-        self.actions.push(action);
+        self.emit.push(Action::KeyEvent(event));
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
@@ -712,16 +709,16 @@ impl EventHandler {
                 self.keypress_delay,
                 key_combo,
                 extra_modifiers_pressed,
-                &mut self.actions,
+                &mut self.emit,
             ),
             KeymapAction::KeyPress(key) => {
-                self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+                self.emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
             }
             KeymapAction::KeyRepeat(key) => {
-                self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Repeat)));
+                self.emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Repeat)));
             }
             KeymapAction::KeyRelease(key) => {
-                self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+                self.emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
             }
             KeymapAction::Remap(Remap {
                 remap,
@@ -758,7 +755,7 @@ impl EventHandler {
                 }
             }
             KeymapAction::Launch(command) => {
-                self.send_action(Action::Command(command.clone()));
+                self.emit.push(Action::Command(command.clone()));
             }
             KeymapAction::SetMode(mode) => {
                 self.matching_state.mode = mode.clone();
@@ -770,29 +767,29 @@ impl EventHandler {
                 self.keypress_delay,
                 &self.matching_state.with_mark(key_combo),
                 extra_modifiers_pressed,
-                &mut self.actions,
+                &mut self.emit,
             ),
             KeymapAction::EscapeNextKey(escape_next_key) => self.matching_state.escape_next_key = *escape_next_key,
-            KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
-            KeymapAction::CloseByAppClass(app_class) => self.actions.push(Action::CloseByAppClass(app_class.clone())),
+            KeymapAction::Sleep(millis) => self.emit.push(Action::Delay(Duration::from_millis(*millis))),
+            KeymapAction::CloseByAppClass(app_class) => self.emit.push(Action::CloseByAppClass(app_class.clone())),
             KeymapAction::Action(action) => match action {
                 ActionWithoutArgs::PopWindowInfo => {
-                    self.send_action(Action::PopWindowInfo);
+                    self.emit.push(Action::PopWindowInfo);
                 }
                 ActionWithoutArgs::PrintWindowInfo => {
-                    self.send_action(Action::PrintWindowInfo);
+                    self.emit.push(Action::PrintWindowInfo);
                 }
                 ActionWithoutArgs::PrintWindowList => {
-                    self.send_action(Action::PrintWindowList);
+                    self.emit.push(Action::PrintWindowList);
                 }
                 ActionWithoutArgs::Exit => {
-                    self.send_action(Action::Exit);
+                    self.emit.push(Action::Exit);
                 }
                 ActionWithoutArgs::Reload => {
-                    self.send_action(Action::Reload);
+                    self.emit.push(Action::Reload);
                 }
                 ActionWithoutArgs::ReloadConfig => {
-                    self.send_action(Action::ReloadConfig);
+                    self.emit.push(Action::ReloadConfig);
                 }
             },
         }
