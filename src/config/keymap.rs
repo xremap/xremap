@@ -27,6 +27,40 @@ pub struct Keymap {
     pub exact_match: bool,
 }
 
+impl Keymap {
+    // Convert an array of keymaps to a single hashmap whose key is a triggering key.
+    //
+    // For each key, Vec<KeymapEntry> is scanned once, matching the exact modifiers,
+    // and then it's scanned again, allowing extra modifiers.
+    //
+    // First matching KeymapEntry wins at each iteration.
+    pub fn finish(keymaps: Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry>> {
+        let mut table: HashMap<Key, Vec<KeymapEntry>> = HashMap::new();
+        for keymap in keymaps {
+            for (key_combo, actions) in keymap.remap {
+                let entry = KeymapEntry {
+                    actions,
+                    modifiers: key_combo.modifiers,
+                    application: keymap.application.clone(),
+                    title: keymap.window.clone(),
+                    device: keymap.device.clone(),
+                    mode: keymap.mode.clone(),
+                    exact_match: keymap.exact_match,
+                };
+                match table.get_mut(&key_combo.key) {
+                    Some(entries) => {
+                        entries.push(entry);
+                    }
+                    None => {
+                        table.insert(key_combo.key, vec![entry]);
+                    }
+                };
+            }
+        }
+        table
+    }
+}
+
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<IndexMap<KeyCombo, Vec<KeymapAction>>, D::Error>
 where
     D: Deserializer<'de>,
@@ -51,38 +85,6 @@ pub struct KeymapEntry {
     pub exact_match: bool,
 }
 
-// Convert an array of keymaps to a single hashmap whose key is a triggering key.
-//
-// For each key, Vec<KeymapEntry> is scanned once, matching the exact modifiers,
-// and then it's scanned again, allowing extra modifiers.
-//
-// First matching KeymapEntry wins at each iteration.
-pub fn build_keymap_table(keymaps: &Vec<Keymap>) -> HashMap<Key, Vec<KeymapEntry>> {
-    let mut table: HashMap<Key, Vec<KeymapEntry>> = HashMap::new();
-    for keymap in keymaps {
-        for (key_combo, actions) in keymap.remap.iter() {
-            let entry = KeymapEntry {
-                actions: actions.to_vec(),
-                modifiers: key_combo.modifiers.clone(),
-                application: keymap.application.clone(),
-                title: keymap.window.clone(),
-                device: keymap.device.clone(),
-                mode: keymap.mode.clone(),
-                exact_match: keymap.exact_match,
-            };
-            match table.get_mut(&key_combo.key) {
-                Some(entries) => {
-                    entries.push(entry);
-                }
-                None => {
-                    table.insert(key_combo.key, vec![entry]);
-                }
-            };
-        }
-    }
-    table
-}
-
 // This is executed on runtime unlike build_keymap_table, but hopefully not called so often.
 pub fn build_override_table(
     remap: &IndexMap<KeyCombo, Vec<KeymapAction>>,
@@ -91,7 +93,7 @@ pub fn build_override_table(
     let mut table: HashMap<Key, Vec<KeymapEntry>> = HashMap::new();
     for (key_combo, actions) in remap.iter() {
         let mut entries: Vec<KeymapEntry> = match table.get(&key_combo.key) {
-            Some(entries) => entries.to_vec(),
+            Some(entries) => entries.clone(),
             None => vec![],
         };
         entries.push(KeymapEntry {

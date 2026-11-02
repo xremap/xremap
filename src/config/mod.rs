@@ -21,7 +21,7 @@ pub mod validation;
 use crate::config::expmap::Expmap;
 use crate::config::key::parse_key;
 use crate::config::key_aliases::pre_load_key_aliases;
-use crate::config::keymap::{build_keymap_table, Keymap, KeymapEntry};
+use crate::config::keymap::{Keymap, KeymapEntry};
 use crate::config::modmap::{Modmap, ParseModmap};
 use crate::config::validation::validate_config_file;
 use crate::event_handler::DISGUISED_EVENT_OFFSETTER;
@@ -55,7 +55,7 @@ impl Config {
         Ok(Self {
             experimental_map: config.experimental_map,
             modmaps: ParseModmap::finish(config.modmap, bypass),
-            keymap_table: config.keymap_table,
+            keymap_table: Keymap::finish(config.keymap),
             default_mode: config.default_mode,
             virtual_modifiers: config.virtual_modifiers,
             keypress_delay_ms: config.keypress_delay_ms,
@@ -65,6 +65,12 @@ impl Config {
             enable_wheel: config.enable_wheel,
             bypass,
         })
+    }
+
+    #[cfg(test)]
+    pub fn new_from_str(str: &str) -> Config {
+        let config = load_first_config(str, ConfigFiletype::Yaml).unwrap();
+        Config::new(config).unwrap()
     }
 }
 
@@ -104,9 +110,6 @@ pub struct ParseConfig {
     #[serde(default)]
     pub shared: IgnoredAny,
 
-    // Internals
-    #[serde(skip)]
-    pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
     #[serde(default = "const_true")]
     pub enable_wheel: bool,
 }
@@ -149,9 +152,6 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
         config.keymap.extend(c.keymap);
         config.virtual_modifiers.extend(c.virtual_modifiers);
     }
-
-    // Convert keymap for efficient keymap lookup
-    config.keymap_table = build_keymap_table(&config.keymap);
 
     Config::new(config)
 }
