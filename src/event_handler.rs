@@ -557,15 +557,20 @@ impl EventHandler {
     //  for not only the first match, but all remappings that match. This can happen
     //  if keymap-actions have more than one remap:
     //      keymap:
-    //        A:
-    //          - remap: { B: 1 }
-    //          - remap: { C: 2 }
+    //        - remap:
+    //            A:
+    //              - remap: { B: 1 }
+    //              - remap: { C: 2 }
     //  or inexact modifiers:
     //      keymap:
-    //        A:
-    //          remap: { B: 1 }
-    //        C-A
-    //          remap: { C: 2 }
+    //        - remap:
+    //            A:
+    //              remap: { B: 1 }
+    //            C-A:
+    //              remap: { C: 2 }
+    //  For this to occur, they must have the same trigger key, and must both
+    //   match modifiers and all the other matching state.
+    //  In addition all be exact xor inexact match.
     //
     // Resembles OperatorHandler::static_lookup()
     fn lookup(
