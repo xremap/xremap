@@ -379,15 +379,10 @@ impl EventHandler {
                     KeyValue::Release => release,
                     KeyValue::Repeat => repeat,
                 };
-                self.dispatch_actions(
-                    &vec![TaggedActions {
-                        actions,
-                        exact_match: false,
-                        extra_modifiers_pressed: HashSet::new(),
-                    }],
-                    &key_event.key,
-                    false,
-                )?;
+
+                for action in &actions {
+                    self.dispatch_action(action, &key_event.key, false, &HashSet::new(), false)?;
+                }
 
                 let mut events = vec![];
 
