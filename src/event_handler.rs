@@ -691,39 +691,8 @@ impl EventHandler {
             KeymapAction::KeyRelease(key) => {
                 emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
             }
-            KeymapAction::Remap(Remap {
-                remap,
-                timeout,
-                timeout_key,
-            }) => {
-                let set_timeout = matching_state.override_remaps.is_empty();
-                matching_state
-                    .override_remaps
-                    .push(build_override_table(remap, exact_match));
-
-                let keys = match timeout_key {
-                    Some(timeout_key) => Some(timeout_key.clone()),
-                    None if mod_trigger => {
-                        // Modifier-triggers don't need a timeout key, because they are pressed no
-                        // matter if they timeout or not. Therefore they have no default.
-                        None
-                    }
-                    None => Some(vec![*key]),
-                };
-
-                // Set timeout only if this is the first of multiple eligible remaps,
-                // so the behaviour is consistent with how current normal keymap override works
-                if set_timeout && keys.is_some() {
-                    if let Some(timeout) = timeout {
-                        let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
-                        // TODO: Consider handling the timer in ActionDispatcher
-                        matching_state.override_timer.unset()?;
-                        matching_state
-                            .override_timer
-                            .set(expiration, TimerSetTimeFlags::empty())?;
-                        matching_state.override_timeout_key = keys;
-                    }
-                }
+            KeymapAction::Remap(remap) => {
+                matching_state.add_override(remap, key, mod_trigger, exact_match)?;
             }
             KeymapAction::Launch(command) => {
                 emit.push(Action::Command(command.clone()));
@@ -1083,6 +1052,43 @@ impl MatchingState {
         } else {
             key_combo.clone()
         }
+    }
+
+    fn add_override(
+        &mut self,
+        definition: &Remap,
+        key: &Key,
+        mod_trigger: bool,
+        exact_match: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        let set_timeout = self.override_remaps.is_empty();
+        self.override_remaps
+            .push(build_override_table(&definition.remap, exact_match));
+
+        let keys = match &definition.timeout_key {
+            Some(timeout_key) => Some(timeout_key.clone()),
+            None if mod_trigger => {
+                // Modifier-triggers don't need a timeout key, because they are pressed no
+                // matter if they timeout or not. Therefore they have no default.
+                None
+            }
+            None => Some(vec![*key]),
+        };
+
+        // Only set timeout if it's the first of multiple eligible remaps
+        //  in a group of remaps.
+        // The timeout is reset for each new key in the key-sequence. So it's possible
+        //  to have a timeout in the beginning, and then no timeout later in the sequence.
+        if set_timeout && keys.is_some() {
+            if let Some(timeout) = definition.timeout {
+                let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
+                self.override_timer.unset()?;
+                self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
+                self.override_timeout_key = keys;
+            }
+        }
+
+        Ok(())
     }
 
     fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
