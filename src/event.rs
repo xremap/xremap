@@ -152,7 +152,7 @@ impl RelativeEvent {
 }
 
 impl KeyValue {
-    fn new(value: i32) -> Option<KeyValue> {
+    pub fn new(value: i32) -> Option<KeyValue> {
         let event_value = match value {
             0 => KeyValue::Release,
             1 => KeyValue::Press,

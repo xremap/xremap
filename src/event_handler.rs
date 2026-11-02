@@ -156,7 +156,8 @@ impl EventHandler {
                         if MODIFIER_KEYS.contains(&key) || config.virtual_modifiers.contains(&key) {
                             self.update_modifier(key, value);
                         }
-                        self.send_key(&key, value);
+                        self.emit
+                            .push(Action::KeyEvent(KeyEvent::new(key, KeyValue::new(value).unwrap())));
                     }
                     Event::ByPassLocal(..) | Event::ExpmapActions { .. } => unreachable!(),
                 }
@@ -206,10 +207,12 @@ impl EventHandler {
         } else if MODIFIER_KEYS.contains(&key) {
             // Modifiers are always sent and updated. No matter if they match or not.
             self.update_modifier(key, value);
-            self.send_key(&key, value);
+            self.emit
+                .push(Action::KeyEvent(KeyEvent::new(key, KeyValue::new(value).unwrap())));
         } else if !matched {
             // Normal keys are only sent if not matching.
-            self.send_key(&key, value);
+            self.emit
+                .push(Action::KeyEvent(KeyEvent::new(key, KeyValue::new(value).unwrap())));
         }
 
         // The return value is irrelevant here.
@@ -217,10 +220,10 @@ impl EventHandler {
     }
 
     fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
-        if let Some(keys) = &self.matching_state.override_timeout_key.take() {
+        if let Some(keys) = self.matching_state.override_timeout_key.take() {
             for key in keys {
-                self.send_key(key, PRESS);
-                self.send_key(key, RELEASE);
+                self.emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Press)));
+                self.emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Release)));
             }
         }
         self.remove_override()
@@ -231,11 +234,6 @@ impl EventHandler {
         self.matching_state.override_remaps.clear();
         self.matching_state.override_timeout_key = None;
         Ok(())
-    }
-
-    fn send_key(&mut self, key: &Key, value: i32) {
-        let event = KeyEvent::new_with(key.code(), value);
-        self.emit.push(Action::KeyEvent(event));
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
