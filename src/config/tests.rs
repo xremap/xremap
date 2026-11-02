@@ -1,5 +1,4 @@
-use crate::config::validation::validate_config_file;
-use crate::config::{load_first_config, ConfigFiletype};
+use crate::config::{load_first_config, Config, ConfigFiletype};
 use indoc::indoc;
 
 #[test]
@@ -366,8 +365,7 @@ fn test_yaml_shared_data_anchor() {
 
 #[test]
 fn test_yaml_fail_on_data_outside_of_config_model() {
-    let errmsg = load_first_config(
-        indoc! {"
+    let errmsg = Config::new_from_str(indoc! {"
     terminals: &terminals
       - Gnome-terminal
       - Kitty
@@ -381,9 +379,7 @@ fn test_yaml_fail_on_data_outside_of_config_model() {
           Shift_R: Win_R
         application:
           only: Google-chrome
-    "},
-        ConfigFiletype::Yaml,
-    )
+    "})
     .unwrap_err()
     .to_string();
 
@@ -700,18 +696,13 @@ fn toml_assert_parse(toml: &str) {
 }
 
 fn yaml_assert_parse(yaml: &str) {
-    let result = load_first_config(yaml, ConfigFiletype::Yaml);
+    let result = Config::new_from_str(yaml);
     if let Err(e) = result {
         panic!("{}", e)
     }
 }
 
 pub fn assert_invalid_config(config: &str, expected: &str) {
-    let config = load_first_config(config, ConfigFiletype::Yaml);
-    let errmsg = match config {
-        Ok(config) => validate_config_file(&config).unwrap_err().to_string(),
-        Err(err) => err.to_string(),
-    };
-
+    let errmsg = Config::new_from_str(config).unwrap_err().to_string();
     assert_eq!(&errmsg, expected);
 }

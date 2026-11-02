@@ -297,3 +297,82 @@ fn test_modifier_trigger_with_nested_remap_timeout() {
         ],
     )
 }
+
+#[test]
+fn test_modifier_trigger_with_doubly_nested_remap() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              s_r:
+                remap:
+                  c_r: A
+                  B: K
+        "},
+        vec![
+            Event::key_press(Key::KEY_RIGHTSHIFT),
+            Event::key_press(Key::KEY_RIGHTCTRL),
+            Event::key_press(Key::KEY_B),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            // Modifiers are kept in-sync after match.
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHTCTRL, KeyValue::Press)),
+            // Modifiers don't cancel key sequence, even when they match.
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
+    )
+}
+
+#[test]
+fn test_modifier_trigger_with_doubly_nested_remap_cancelled() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              s_r:
+                remap:
+                  c_r: A
+        "},
+        vec![
+            Event::key_press(Key::KEY_RIGHTSHIFT),
+            Event::key_press(Key::KEY_K),
+            Event::key_press(Key::KEY_RIGHTCTRL),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHTCTRL, KeyValue::Press)),
+        ],
+    )
+}
+
+#[test]
+fn test_modifier_trigger_with_doubly_nested_remap_timeout() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              s_r:
+                timeout_millis: 100
+                remap:
+                  c_r: A
+        "},
+        vec![
+            Event::key_press(Key::KEY_RIGHTSHIFT),
+            Event::OverrideTimeout,
+            Event::key_press(Key::KEY_RIGHTCTRL),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHTSHIFT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_RIGHTCTRL, KeyValue::Press)),
+        ],
+    )
+}

@@ -1,44 +1,49 @@
-use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
-use crate::config::key::parse_key;
-use crate::config::key_combo::KeyCombo;
-use crate::config::keymap_action::KeymapAction;
-use evdev::KeyCode as Key;
+use crate::config::deserializers::{VecOrSingle, VectorOrSingleOrNull};
+use crate::config::key_combo::{EmitMode, KeyCombo, ParseCombo};
+use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
+use crate::config::simple_action::ParseSimpleAction;
 use indexmap::IndexMap;
-use serde::{de, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer};
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct Remap {
     pub remap: IndexMap<KeyCombo, Vec<KeymapAction>>,
     pub timeout: Option<Duration>,
-    pub timeout_key: Option<Vec<Key>>,
+    // Option is retained here, because it shows the user wants the default. The value can
+    // only be determined at remap-time, because it depends on mod_trigger and any-key behavior.
+    pub timeout_actions: Option<Vec<KeymapAction>>,
 }
 
-// Used only for deserialization
-#[derive(Debug, Deserialize)]
-pub struct RemapActions {
-    pub remap: IndexMap<KeyCombo, VectorOrSingleOrNull<KeymapAction>>,
+#[derive(Debug, Deserialize, Clone)]
+pub struct ParseRemap {
+    pub remap: IndexMap<ParseCombo, VectorOrSingleOrNull<ParseKeymapAction>>,
     pub timeout_millis: Option<u64>,
-    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
-    pub timeout_key: Option<Vec<String>>,
+    #[serde(default, alias = "timeout_key", deserialize_with = "deserialize_timeout_key")]
+    pub timeout: Option<Vec<ParseSimpleAction>>,
 }
 
-pub fn deserialize_nested_remap<'de, D>(deserializer: D) -> Result<Remap, D::Error>
+pub fn deserialize_timeout_key<'de, D>(deserializer: D) -> Result<Option<Vec<ParseSimpleAction>>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let action = RemapActions::deserialize(deserializer)?;
-    Ok(Remap {
-        remap: action.remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect(),
-        timeout: action.timeout_millis.map(Duration::from_millis),
-        timeout_key: if let Some(keys) = action.timeout_key {
-            let parsed_keys: Result<Vec<_>, _> = keys.into_iter().map(|key| parse_key(&key)).collect();
-            match parsed_keys {
-                Ok(parsed_keys) => Some(parsed_keys),
-                Err(e) => return Err(de::Error::custom(e.to_string())),
-            }
-        } else {
-            None
-        },
-    })
+    // This disallows null, even though Option<T> would regard
+    // missing fields and null the same.
+    Ok(Some(VecOrSingle::<ParseSimpleAction>::deserialize(deserializer)?.into_vec()))
+}
+
+impl ParseRemap {
+    pub fn finish(self) -> Remap {
+        Remap {
+            remap: self
+                .remap
+                .into_iter()
+                .map(|(combo, actions)| (combo.as_is(), ParseKeymapAction::finish(actions.into_vec(), EmitMode::Combo)))
+                .collect(),
+            timeout: self.timeout_millis.map(Duration::from_millis),
+            timeout_actions: self
+                .timeout
+                .map(|actions| ParseSimpleAction::finish(actions, EmitMode::Key)),
+        }
+    }
 }

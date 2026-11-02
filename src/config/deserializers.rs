@@ -37,6 +37,12 @@ impl<T> VectorOrSingleOrNull<T> {
     }
 }
 
+impl<T> Default for VectorOrSingleOrNull<T> {
+    fn default() -> Self {
+        Self::NoAction
+    }
+}
+
 pub fn deserialize_duration<'de, D>(deserializer: D) -> Result<Duration, D::Error>
 where
     D: Deserializer<'de>,

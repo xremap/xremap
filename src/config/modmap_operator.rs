@@ -1,13 +1,14 @@
 use super::deserialize_keys;
-use super::keymap_action::KeymapAction;
 use crate::config::deserializers::{deserialize_duration, deserialize_key, VectorOrSingleOrNull};
 use crate::config::key::{XDOWNCURSOR, XLEFTCURSOR, XRIGHTCURSOR, XUPCURSOR};
+use crate::config::key_combo::EmitMode;
+use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent};
 use crate::event_handler::{modifiers_first, modifiers_last};
 use crate::KeyValue;
 use evdev::KeyCode as Key;
-use serde::{Deserialize, Deserializer};
+use serde::Deserialize;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -93,8 +94,8 @@ impl ParseMultiPurposeKey {
 pub struct PressReleaseKey {
     pub skip_key_event: bool,
     pub press: Vec<KeymapAction>,
-    pub repeat: Vec<KeymapAction>,
     pub release: Vec<KeymapAction>,
+    pub repeat: Vec<KeymapAction>,
     pub bypass: bool,
 }
 
@@ -102,21 +103,21 @@ pub struct PressReleaseKey {
 pub struct ParsePressReleaseKey {
     #[serde(default)]
     pub skip_key_event: bool,
-    #[serde(default, deserialize_with = "deserialize_actions")]
-    pub press: Vec<KeymapAction>,
-    #[serde(default, deserialize_with = "deserialize_actions")]
-    pub repeat: Vec<KeymapAction>,
-    #[serde(default, deserialize_with = "deserialize_actions")]
-    pub release: Vec<KeymapAction>,
+    #[serde(default)]
+    pub press: VectorOrSingleOrNull<ParseKeymapAction>,
+    #[serde(default)]
+    pub release: VectorOrSingleOrNull<ParseKeymapAction>,
+    #[serde(default)]
+    pub repeat: VectorOrSingleOrNull<ParseKeymapAction>,
 }
 
 impl ParsePressReleaseKey {
     pub fn finish(self, bypass: bool) -> PressReleaseKey {
         PressReleaseKey {
             skip_key_event: self.skip_key_event,
-            press: self.press,
-            repeat: self.repeat,
-            release: self.release,
+            press: ParseKeymapAction::finish(self.press.into_vec(), EmitMode::Combo),
+            release: ParseKeymapAction::finish(self.release.into_vec(), EmitMode::Combo),
+            repeat: ParseKeymapAction::finish(self.repeat.into_vec(), EmitMode::Combo),
             bypass,
         }
     }
@@ -225,14 +226,6 @@ impl Default for Interruptable {
             not: Keys::Keys(vec![XRIGHTCURSOR, XLEFTCURSOR, XDOWNCURSOR, XUPCURSOR]),
         }
     }
-}
-
-pub fn deserialize_actions<'de, D>(deserializer: D) -> Result<Vec<KeymapAction>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let actions = VectorOrSingleOrNull::<KeymapAction>::deserialize(deserializer)?;
-    Ok(actions.into_vec())
 }
 
 fn default_tap_timeout() -> Duration {

@@ -56,7 +56,7 @@ impl ParseModmap {
     }
 }
 
-#[derive(Deserialize, Eq, Hash, PartialEq)]
+#[derive(Deserialize, Eq, Hash, PartialEq, Debug, Clone)]
 pub struct KeyWrapper(#[serde(deserialize_with = "deserialize_key")] pub Key);
 
 fn deserialize_remap<'de, D>(deserializer: D) -> Result<HashMap<Key, ParseModmapOperator>, D::Error>

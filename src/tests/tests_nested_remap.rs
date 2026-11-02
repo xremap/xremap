@@ -1,4 +1,5 @@
 use crate::action::Action;
+use crate::config::tests::assert_invalid_config;
 use crate::event::Event;
 use crate::event::{KeyEvent, KeyValue};
 use crate::tests::assert_actions;
@@ -70,7 +71,22 @@ fn test_exact_match_false_nested() {
 }
 
 #[test]
-fn test_nested_remap_with_on_action() {
+fn test_nested_remap_with_null_action() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                remap:
+                    A: null
+        "},
+        vec![Event::key_press(Key::KEY_F12), Event::key_press(Key::KEY_A)],
+        vec![],
+    );
+}
+
+#[test]
+fn test_nested_remap_with_empty_action() {
     assert_actions(
         indoc! {"
         keymap:
@@ -81,6 +97,50 @@ fn test_nested_remap_with_on_action() {
         "},
         vec![Event::key_press(Key::KEY_F12), Event::key_press(Key::KEY_A)],
         vec![],
+    );
+}
+
+#[test]
+fn test_nested_remap_with_int_action() {
+    assert_invalid_config(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                remap:
+                    A: 1
+    "},
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
+    );
+}
+
+#[test]
+fn test_nested_remap_with_multiple_actions() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                remap:
+                    A: [C, A-D, '1']
+        "},
+        vec![Event::key_press(Key::KEY_F12), Event::key_press(Key::KEY_A)],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+        ],
     );
 }
 
@@ -128,6 +188,7 @@ fn test_merge_remaps() {
                   k: C-w
     "};
 
+    // Match in first
     assert_actions(
         config,
         vec![
@@ -150,6 +211,7 @@ fn test_merge_remaps() {
         ],
     );
 
+    // Match in second
     assert_actions(
         config,
         vec![
@@ -174,7 +236,7 @@ fn test_merge_remaps() {
 }
 
 #[test]
-fn test_merge_remaps_with_override() {
+fn test_merge_remaps_precedence_to_first() {
     let config = indoc! {"
         keymap:
           - remap:
@@ -185,7 +247,6 @@ fn test_merge_remaps_with_override() {
               C-x:
                 remap:
                   h: C-b
-                  c: C-q
     "};
 
     assert_actions(
@@ -209,28 +270,41 @@ fn test_merge_remaps_with_override() {
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
     );
+}
+
+#[test]
+fn test_non_remap_actions_are_ignored_in_merge() {
+    let config = indoc! {"
+        keymap:
+          - remap:
+              C-x:
+                remap:
+                  h: C-a
+          - remap:
+              # Does not suddenly emit actions, when collecting nested remaps.
+              C-x: K
+          - remap:
+              C-x:
+                remap:
+                  # Is prioritized as exact match, even though first can match inexact.
+                  C-h: C-b
+    "};
 
     assert_actions(
         config,
         vec![
             Event::key_press(Key::KEY_LEFTCTRL),
             Event::key_press(Key::KEY_X),
-            Event::key_release(Key::KEY_X),
-            Event::key_release(Key::KEY_LEFTCTRL),
-            Event::key_press(Key::KEY_C),
+            Event::key_press(Key::KEY_H),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_Q, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
             Action::Delay(Duration::from_nanos(0)),
             Action::Delay(Duration::from_nanos(0)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
         ],
-    )
+    );
 }
 
 #[test]
@@ -245,6 +319,7 @@ fn test_merge_nested_sibling_remaps() {
                     c: d
     "};
 
+    // Match first
     assert_actions(
         config,
         vec![
@@ -263,6 +338,7 @@ fn test_merge_nested_sibling_remaps() {
         ],
     );
 
+    // Match second
     assert_actions(
         config,
         vec![
@@ -341,7 +417,7 @@ fn test_merge_nested_sibling_remaps_timeout_key_precedence_to_first() {
 }
 
 #[test]
-fn test_merge_nested_sibling_remaps_only_timeout_key_from_first_remap_is_used() {
+fn test_merge_nested_sibling_remaps_only_timeout_info_from_first_sibling_is_used() {
     assert_actions(
         indoc! {"
         keymap:
@@ -440,7 +516,7 @@ fn test_the_event_canceling_remap_gets_emitted_when_same_as_trigger_key_when_exp
 }
 
 #[test]
-fn test_modifier_canceling_remap_gets_emitted() {
+fn test_modifier_does_not_cancel_remap_and_is_emitted() {
     assert_actions(
         indoc! {"
         keymap:
@@ -454,11 +530,18 @@ fn test_modifier_canceling_remap_gets_emitted() {
             Event::key_release(Key::KEY_A),
             Event::key_press(Key::KEY_LEFTCTRL),
             Event::key_release(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_C),
+            Event::key_release(Key::KEY_C),
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
         ],
     )
 }
@@ -526,7 +609,7 @@ fn test_modifier_canceling_remap_is_used_for_matching() {
 }
 
 #[test]
-fn test_cancel_by_timeout_emits_nothing() {
+fn test_cancel_by_timeout_emits_nothing_by_default() {
     assert_actions(
         indoc! {"
         keymap:
@@ -660,6 +743,12 @@ fn test_cancel_by_key_with_defined_timeout_key_but_no_match() {
         ],
         vec![
             Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            // Confusing, that timeout_key isn't emitted here.
+            // It happens because `remove_override` is called in `find_keymap`,
+            //  if a key exists in the lookup-table, before modifiers are considered.
+            //  Then on non-match it falls through to `timeout_override`, which has nothing
+            //  to timeout, because it was 'maybe-wrongly' cancelled.
+            // Or maybe it's confusing, when timeout_key is emitted on cancel. Both possible.
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
             Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
         ],
@@ -784,27 +873,218 @@ fn test_triple_nested_remap() {
 }
 
 #[test]
-fn test_timeout_emits_lastest_nested_remap_trigger() {
+fn test_timeout_emits_last_nested_remap_trigger() {
     assert_actions(
         indoc! {"
         keymap:
           - remap:
               f12:
+                timeout_millis: 100
                 remap:
                   A:
                     timeout_millis: 100
+                    remap:
+                      B:
+                        timeout_millis: 100
+                        remap:
+                            C: D
+        "},
+        vec![
+            Event::key_press(Key::KEY_F12),
+            Event::key_press(Key::KEY_A),
+            Event::key_press(Key::KEY_B),
+            Event::OverrideTimeout,
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_B, KeyValue::Release)),
+        ],
+    );
+}
+
+#[test]
+fn test_timeout_is_replaced_at_each_remap_level() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                timeout_millis: 100
+                remap:
+                  A:
+                    # no-timeout is respected here
                     remap:
                       B: C
         "},
         vec![
             Event::key_press(Key::KEY_F12),
             Event::key_press(Key::KEY_A),
-            Event::OverrideTimeout,
+            // Even though a cancel at level-A would have emitted the timeout key.
+            // Cancel here at level-B doesn't care about the timeout setting in the previous level.
+            Event::key_press(Key::KEY_K),
+        ],
+        vec![Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press))],
+    );
+}
+
+#[test]
+fn test_timeout_key_is_emitted_as_taps() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              C-f12:
+                timeout_millis: 100
+                timeout_key: [X, '1']
+                remap:
+                  A: B
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_F12),
+            Event::key_press(Key::KEY_K),
         ],
         vec![
-            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Press)),
-            Action::KeyEvent(KeyEvent::new(Key::KEY_A, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_X, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
         ],
+    );
+}
+
+#[test]
+fn test_timeout_key_with_null_actions() {
+    assert_invalid_config(
+        indoc! {"
+        keymap:
+          - remap:
+              C-f12:
+                timeout_millis: 100
+                timeout_key: null
+                remap:
+                  A: B
+    "},
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
+    );
+}
+
+#[test]
+fn test_timeout_key_with_empty_actions() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              c_l-f12:
+                timeout_millis: 100
+                timeout_key: []
+                remap:
+                  A: B
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_F12),
+            Event::key_press(Key::KEY_K),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+        ],
+    );
+}
+
+#[test]
+fn test_timeout_key_with_int_actions() {
+    assert_invalid_config(
+        indoc! {"
+        keymap:
+          - remap:
+              c_l-f12:
+                timeout_millis: 100
+                timeout_key: 1
+                remap:
+                  A: B
+    "},
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
+    );
+}
+
+#[test]
+fn test_timeout_with_multiple_actions() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              c_l-f12:
+                timeout_millis: 100
+                timeout: [C, A-D, '1']
+                remap:
+                  A: B
+        "},
+        vec![
+            Event::key_press(Key::KEY_LEFTCTRL),
+            Event::key_press(Key::KEY_F12),
+            Event::key_press(Key::KEY_K),
+        ],
+        vec![
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            // Key-emit-mode is default for unspecified keys in timeout_key/timeout options.
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_C, KeyValue::Release)),
+            // Explicit combo-emit-mode
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_D, KeyValue::Release)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTCTRL, KeyValue::Press)),
+            Action::Delay(Duration::from_nanos(0)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_LEFTALT, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Press)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_1, KeyValue::Release)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+        ],
+    );
+}
+
+#[test]
+fn test_timeout_with_timeout_simple_action() {
+    assert_actions(
+        indoc! {"
+        keymap:
+          - remap:
+              f12:
+                timeout_millis: 100
+                timeout: { sleep: 10 }
+                remap:
+                  A: B
+        "},
+        vec![Event::key_press(Key::KEY_F12), Event::key_press(Key::KEY_K)],
+        vec![
+            Action::Delay(Duration::from_millis(10)),
+            Action::KeyEvent(KeyEvent::new(Key::KEY_K, KeyValue::Press)),
+        ],
+    );
+}
+
+#[test]
+fn test_timeout_with_timeout_remap_action() {
+    // Nested remap is not allowed in simple actions.
+    assert_invalid_config(
+        indoc! {"
+        keymap:
+          - remap:
+              c_l-f12:
+                timeout_millis: 100
+                timeout: 
+                  remap:
+                    A: B
+                remap:
+                  A: B
+    "},
+        "keymap[0].remap: data did not match any variant of untagged enum VectorOrSingleOrNull at line 3 column 7",
     );
 }
 

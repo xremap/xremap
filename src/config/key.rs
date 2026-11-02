@@ -148,18 +148,19 @@ pub fn parse_key(input: &str) -> Result<Key, Box<dyn Error>> {
 #[cfg(test)]
 mod tests {
     use crate::config::tests::assert_invalid_config;
-    use crate::tests::parse_config_for_test;
+    use crate::config::Config;
     use evdev::KeyCode;
     use indoc::indoc;
 
     #[test]
     fn test_yaml_parse_literal_key_code() {
-        let config = parse_config_for_test(indoc! {"
+        let config = Config::new_from_str(indoc! {"
             keymap:
               - remap:
                   Code_123: A
                   CODE_0012: A
-            "});
+            "})
+        .unwrap();
         assert!(config.keymap_table.contains_key(&KeyCode(123)));
         assert!(config.keymap_table.contains_key(&KeyCode(12)));
     }

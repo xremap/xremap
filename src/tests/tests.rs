@@ -1,9 +1,8 @@
 use crate::action::Action;
 use crate::client::WindowInfo;
 use crate::client::{Client, WMClient};
-use crate::config::keymap::build_keymap_table;
 use crate::config::tests::assert_invalid_config;
-use crate::config::{load_first_config, Config, ConfigFiletype};
+use crate::config::Config;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
@@ -570,14 +569,8 @@ fn test_keymap_repeat() {
     );
 }
 
-pub fn parse_config_for_test(str: &str) -> Config {
-    let mut config = load_first_config(str, ConfigFiletype::Yaml).unwrap();
-    config.keymap_table = build_keymap_table(&config.keymap);
-    Config::new(config).unwrap()
-}
-
 pub fn get_handler_from_config(config: &str) -> anyhow::Result<OperatorHandler> {
-    let config = parse_config_for_test(config);
+    let config = Config::new_from_str(config).unwrap();
     Ok(OperatorHandler::new(&config.experimental_map, config.bypass, Rc::new(TimeoutManager::new())))
 }
 
@@ -617,7 +610,7 @@ impl EventHandlerForTest {
 
     pub fn new_with_current_application(config_yaml: &str, current_application: Option<String>) -> Self {
         let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
-        let config = parse_config_for_test(config_yaml);
+        let config = Config::new_from_str(config_yaml).unwrap();
         let operator_handler =
             Some(OperatorHandler::new(&config.experimental_map, config.bypass, Rc::new(TimeoutManager::new())));
         let event_handler = EventHandler::new(timer, &config.default_mode, Duration::from_micros(0), operator_handler);

@@ -1,7 +1,7 @@
 use crate::action::Action;
 use crate::client::WMClient;
 use crate::config::key_combo::{KeyCombo, Modifier};
-use crate::config::keymap::{build_override_table, OverrideEntry};
+use crate::config::keymap::{build_override_table, KeymapEntry};
 use crate::config::keymap_action::KeymapAction;
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::modmap_operator::{Interruptable, KeyAction, ModmapOperator, MultiPurposeKey, PressReleaseKey};
@@ -36,22 +36,10 @@ pub struct EventHandler {
     pressed_keys: HashMap<Key, Key>,
     // State machine for multi-purpose keys
     multi_purpose_keys: HashMap<Key, MultiPurposeKeyState>,
-    // Current nested remaps
-    override_remaps: Vec<HashMap<Key, Vec<OverrideEntry>>>,
-    // Key triggered on a timeout of nested remaps
-    override_timeout_key: Option<Vec<Key>>,
-    // Trigger a timeout of nested remaps through select(2)
-    override_timer: TimerFd,
-    // { set_mode: String }
-    mode: String,
-    // { set_mark: true }
-    mark_set: bool,
-    // { escape_next_key: true }
-    escape_next_key: bool,
-    // keypress_delay_ms
-    keypress_delay: Duration,
-    // Buffered actions to be dispatched. TODO: Just return actions from each function instead of using this.
-    actions: Vec<Action>,
+    // State that influence which remaps match events.
+    matching_state: MatchingState,
+    // Buffered actions to be dispatched.
+    emit: Vec<Action>,
     // Handler to perform some of the remapping
     operator_handler: Option<OperatorHandler>,
 }
@@ -67,7 +55,7 @@ struct TaggedActions {
 
 impl AsFd for EventHandler {
     fn as_fd(&self) -> BorrowedFd<'_> {
-        self.override_timer.as_fd()
+        self.matching_state.override_timer.as_fd()
     }
 }
 
@@ -82,14 +70,8 @@ impl EventHandler {
             modifiers: vec![],
             pressed_keys: HashMap::new(),
             multi_purpose_keys: HashMap::new(),
-            override_remaps: vec![],
-            override_timeout_key: None,
-            override_timer,
-            mode: mode.to_string(),
-            mark_set: false,
-            escape_next_key: false,
-            keypress_delay,
-            actions: vec![],
+            matching_state: MatchingState::new(override_timer, mode, keypress_delay),
+            emit: vec![],
             operator_handler,
         }
     }
@@ -99,9 +81,9 @@ impl EventHandler {
         assert!(self.modifiers.is_empty());
         assert!(self.pressed_keys.is_empty());
         assert!(self.multi_purpose_keys.is_empty());
-        assert!(self.override_remaps.is_empty());
-        assert!(self.override_timeout_key.is_none());
-        assert!(self.actions.is_empty());
+        assert!(self.matching_state.override_remaps.is_empty());
+        assert!(self.matching_state.override_timeout_actions.is_none());
+        assert!(self.emit.is_empty());
 
         self.operator_handler.as_ref().map(|op| op.assert_base_state());
     }
@@ -118,7 +100,7 @@ impl EventHandler {
             events = handler.map_events(events, wmclient);
         };
 
-        debug_assert!(self.actions.is_empty());
+        debug_assert!(self.emit.is_empty());
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
         for event in events {
@@ -138,23 +120,27 @@ impl EventHandler {
                         self.on_key_event(key_event.key, key_event.value(), &device, config, wmclient)?;
                     }
                     Event::RelativeEvent(device, relative_event) => {
-                        let key = relative_event.to_disguised_key();
-
                         // Send as disguised-event
-                        let was_remapped = self.on_key_event(key, PRESS, &device, config, wmclient)?;
-
-                        if !was_remapped {
-                            if relative_event.code <= 2 {
-                                // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
-                                mouse_movement_collection.push(relative_event);
-                            } else {
-                                self.send_action(Action::RelativeEvent(relative_event));
+                        let key = relative_event.to_disguised_key();
+                        match self.find_keymap(config, &key, &device, wmclient, false)? {
+                            Some(actions) => {
+                                self.dispatch_actions(&actions, &key, false)?;
                             }
-                        }
+                            None => {
+                                if relative_event.code <= 2 {
+                                    // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
+                                    mouse_movement_collection.push(relative_event);
+                                } else {
+                                    self.emit.push(Action::RelativeEvent(relative_event));
+                                }
+                            }
+                        };
                     }
 
-                    Event::OtherEvents(event) => self.send_action(Action::InputEvent(event)),
-                    Event::OverrideTimeout => self.timeout_override()?,
+                    Event::OtherEvents(event) => self.emit.push(Action::InputEvent(event)),
+                    Event::OverrideTimeout => {
+                        self.matching_state.timeout_override(&self.modifiers, &mut self.emit)?;
+                    }
                     Event::Tick => {
                         // Can be ignored. It's for operators.
                     }
@@ -164,7 +150,8 @@ impl EventHandler {
                         if MODIFIER_KEYS.contains(&key) || config.virtual_modifiers.contains(&key) {
                             self.update_modifier(key, value);
                         }
-                        self.send_key(&key, value);
+                        self.emit
+                            .push(Action::KeyEvent(KeyEvent::new(key, KeyValue::new(value).unwrap())));
                     }
                     Event::ByPassLocal(..) | Event::ExpmapActions { .. } => unreachable!(),
                 }
@@ -172,9 +159,10 @@ impl EventHandler {
         }
         // if there is at least one mouse movement event, sending all of them as one MouseMovementEventCollection
         if !mouse_movement_collection.is_empty() {
-            self.send_action(Action::MouseMovementEventCollection(mouse_movement_collection));
+            self.emit
+                .push(Action::MouseMovementEventCollection(mouse_movement_collection));
         }
-        Ok(self.actions.drain(..).collect())
+        Ok(self.emit.drain(..).collect())
     }
 
     // Handle EventType::KEY
@@ -186,25 +174,15 @@ impl EventHandler {
         device: &Rc<InputDeviceInfo>,
         config: &Config,
         wmclient: &mut WMClient,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         let mod_trigger = config.virtual_modifiers.contains(&key) || MODIFIER_KEYS.contains(&key);
         // Apply keymap
         let mut matched = false;
         if is_pressed(value) {
-            if self.escape_next_key {
-                // Modifiers are escaped, but they don't stop escaping.
-                if !mod_trigger {
-                    self.escape_next_key = false
-                }
-            } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient, mod_trigger)? {
+            if let Some(actions) = self.find_keymap(config, &key, device, wmclient, mod_trigger)? {
                 self.dispatch_actions(&actions, &key, mod_trigger)?;
                 matched = true;
             }
-        }
-
-        if key.code() >= DISGUISED_EVENT_OFFSETTER {
-            // Only disguised keys care about return value.
-            return Ok(matched);
         }
 
         if config.virtual_modifiers.contains(&key) {
@@ -213,46 +191,15 @@ impl EventHandler {
         } else if MODIFIER_KEYS.contains(&key) {
             // Modifiers are always sent and updated. No matter if they match or not.
             self.update_modifier(key, value);
-            self.send_key(&key, value);
+            self.emit
+                .push(Action::KeyEvent(KeyEvent::new(key, KeyValue::new(value).unwrap())));
         } else if !matched {
             // Normal keys are only sent if not matching.
-            self.send_key(&key, value);
+            self.emit
+                .push(Action::KeyEvent(KeyEvent::new(key, KeyValue::new(value).unwrap())));
         }
 
-        // The return value is irrelevant here.
-        Ok(true)
-    }
-
-    fn timeout_override(&mut self) -> Result<(), Box<dyn Error>> {
-        if let Some(keys) = &self.override_timeout_key.take() {
-            for key in keys {
-                self.send_key(key, PRESS);
-                self.send_key(key, RELEASE);
-            }
-        }
-        self.remove_override()
-    }
-
-    fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
-        self.override_timer.unset()?;
-        self.override_remaps.clear();
-        self.override_timeout_key = None;
         Ok(())
-    }
-
-    fn send_keys(&mut self, keys: &Vec<Key>, value: i32) {
-        for key in keys {
-            self.send_key(key, value);
-        }
-    }
-
-    fn send_key(&mut self, key: &Key, value: i32) {
-        let event = KeyEvent::new_with(key.code(), value);
-        self.send_action(Action::KeyEvent(event));
-    }
-
-    fn send_action(&mut self, action: Action) {
-        self.actions.push(action);
     }
 
     // Repeat/Release what's originally pressed even if remapping changes while holding it
@@ -379,15 +326,19 @@ impl EventHandler {
                     KeyValue::Release => release,
                     KeyValue::Repeat => repeat,
                 };
-                self.dispatch_actions(
-                    &vec![TaggedActions {
-                        actions,
-                        exact_match: false,
-                        extra_modifiers_pressed: HashSet::new(),
-                    }],
-                    &key_event.key,
-                    false,
-                )?;
+
+                for action in &actions {
+                    Self::dispatch_action(
+                        &self.modifiers,
+                        &mut self.matching_state,
+                        action,
+                        &key_event.key,
+                        false,
+                        &HashSet::new(),
+                        false,
+                        &mut self.emit,
+                    )?;
+                }
 
                 let mut events = vec![];
 
@@ -539,7 +490,7 @@ impl EventHandler {
                     }
                 }
                 if let Some(modes) = &modmap.mode {
-                    if !modes.contains(&self.mode) {
+                    if !modes.contains(&self.matching_state.mode) {
                         continue;
                     }
                 }
@@ -551,19 +502,6 @@ impl EventHandler {
         Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())])
     }
 
-    // The return is a vector of actions, because nested remaps are included
-    //  for not only the first match, but all remappings that match. This can happen
-    //  if keymap-actions has more than one remap:
-    //      keymap:
-    //        A:
-    //          - remap: { B: 1}
-    //          - remap: { C: 2}
-    //  or inexact modifiers:
-    //      keymap:
-    //        A:
-    //          remap: { B: 1}
-    //        C-A
-    //          remap: { C: 2}
     fn find_keymap(
         &mut self,
         config: &Config,
@@ -572,6 +510,14 @@ impl EventHandler {
         wmclient: &mut WMClient,
         mod_trigger: bool,
     ) -> Result<Option<Vec<TaggedActions>>, Box<dyn Error>> {
+        if self.matching_state.escape_next_key {
+            // Modifiers are escaped, but they don't stop escaping.
+            if !mod_trigger {
+                self.matching_state.escape_next_key = false
+            }
+            return Ok(None);
+        };
+
         let pressed_modifiers = self
             .modifiers
             .iter()
@@ -582,112 +528,119 @@ impl EventHandler {
             .copied()
             .collect();
 
-        if !self.override_remaps.is_empty() {
-            let entries: Vec<OverrideEntry> = self
-                .override_remaps
-                .iter()
-                .flat_map(|map| map.get(key).cloned().unwrap_or_default())
-                .collect();
-
-            // Empty if the key isn't defined in any of the nested remaps, that are active.
-            if !entries.is_empty() {
-                if !mod_trigger {
-                    self.remove_override()?;
-                }
-
-                for exact_match in [true, false] {
-                    let mut remaps = vec![];
-                    for entry in &entries {
-                        if entry.exact_match && !exact_match {
-                            continue;
-                        }
-                        let (extra_modifiers, missing_modifiers) =
-                            Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
-                        if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
-                            continue;
-                        }
-
-                        let actions = TaggedActions {
-                            actions: entry.actions.clone(),
-                            exact_match: entry.exact_match,
-                            extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
-                        };
-                        let has_remap = has_remap(&entry.actions);
-
-                        // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
-                        if remaps.is_empty() && !has_remap {
-                            return Ok(Some(vec![actions]));
-                        } else if has_remap {
-                            remaps.push(actions);
-                        }
-                    }
-                    if !remaps.is_empty() {
-                        return Ok(Some(remaps));
+        if let Some(entries) = self.matching_state.get_entries(key, mod_trigger)? {
+            match Self::lookup(&self.matching_state, &entries, device, &pressed_modifiers, wmclient) {
+                Some(actions) => return Ok(Some(actions)),
+                None => {
+                    // An override remap is set but not used. Flush the pending key.
+                    if !mod_trigger {
+                        self.matching_state.timeout_override(&self.modifiers, &mut self.emit)?;
                     }
                 }
-            }
-            // An override remap is set but not used. Flush the pending key.
-            if !mod_trigger {
-                self.timeout_override()?;
-            }
+            };
         }
 
         for key in [key, &KEY_MATCH_ANY] {
             if let Some(entries) = config.keymap_table.get(key) {
-                for exact_match in [true, false] {
-                    let mut remaps = vec![];
-                    for entry in entries {
-                        if entry.exact_match && !exact_match {
-                            continue;
-                        }
-                        let (extra_modifiers, missing_modifiers) =
-                            Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
-                        if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
-                            continue;
-                        }
-                        if let Some(window_matcher) = &entry.title {
-                            if !wmclient.match_window(window_matcher) {
-                                continue;
-                            }
-                        }
-
-                        if let Some(application_matcher) = &entry.application {
-                            if !wmclient.match_application(application_matcher) {
-                                continue;
-                            }
-                        }
-                        if let Some(device_matcher) = &entry.device {
-                            if !device_matcher.matches(device) {
-                                continue;
-                            }
-                        }
-                        if let Some(modes) = &entry.mode {
-                            if !modes.contains(&self.mode) {
-                                continue;
-                            }
-                        }
-
-                        let actions = TaggedActions {
-                            actions: entry.actions.clone(),
-                            exact_match: entry.exact_match,
-                            extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
-                        };
-                        let has_remap = has_remap(&entry.actions);
-
-                        // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
-                        if remaps.is_empty() && !has_remap {
-                            return Ok(Some(vec![actions]));
-                        } else if has_remap {
-                            remaps.push(actions)
-                        }
+                match Self::lookup(&self.matching_state, entries, device, &pressed_modifiers, wmclient) {
+                    Some(actions) => return Ok(Some(actions)),
+                    None => {
+                        // continue with any-key
                     }
-                    if !remaps.is_empty() {
-                        return Ok(Some(remaps));
-                    }
-                }
+                };
             }
         }
         Ok(None)
+    }
+
+    // The return is a vector of actions, because nested remaps are included
+    //  for not only the first match, but all remappings that match. This can happen
+    //  if keymap-actions have more than one remap:
+    //      keymap:
+    //        - remap:
+    //            A:
+    //              - remap: { B: 1 }
+    //              - remap: { C: 2 }
+    //  or inexact modifiers:
+    //      keymap:
+    //        - remap:
+    //            A:
+    //              remap: { B: 1 }
+    //            C-A:
+    //              remap: { C: 2 }
+    //  For this to occur, they must have the same trigger key, and must both
+    //   match modifiers and all the other matching state.
+    //  In addition all be exact xor inexact match.
+    //
+    // Resembles OperatorHandler::static_lookup()
+    fn lookup(
+        matching_state: &MatchingState,
+        entries: &Vec<KeymapEntry>,
+        device: &InputDeviceInfo,
+        pressed_modifiers: &Vec<Key>,
+        wmclient: &mut WMClient,
+    ) -> Option<Vec<TaggedActions>> {
+        for exact_match in [true, false] {
+            let mut remaps = vec![];
+            for entry in entries {
+                if entry.exact_match && !exact_match {
+                    continue;
+                }
+                let (extra_modifiers, missing_modifiers) = Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
+                if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
+                    continue;
+                }
+                if let Some(window_matcher) = &entry.title {
+                    if !wmclient.match_window(window_matcher) {
+                        continue;
+                    }
+                }
+
+                if let Some(application_matcher) = &entry.application {
+                    if !wmclient.match_application(application_matcher) {
+                        continue;
+                    }
+                }
+                if let Some(device_matcher) = &entry.device {
+                    if !device_matcher.matches(device) {
+                        continue;
+                    }
+                }
+                if let Some(modes) = &entry.mode {
+                    if !modes.contains(&matching_state.mode) {
+                        continue;
+                    }
+                }
+
+                let actions = TaggedActions {
+                    actions: entry.actions.clone(),
+                    exact_match: entry.exact_match,
+                    extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
+                };
+
+                let has_remap = if entry.actions.is_empty() {
+                    // Don't fetch all nested remaps, when the user choose explicitly no actions.
+                    false
+                } else {
+                    entry.actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
+                };
+
+                // If the first match was a remap, continue to find rest of the eligible remaps for this key
+                if remaps.is_empty() && !has_remap {
+                    return Some(vec![actions]);
+                // When fetching all nested remaps ignore entries that contain ordinary actions.
+                } else if has_remap {
+                    remaps.push(actions)
+                }
+            }
+            if !remaps.is_empty() {
+                return Some(remaps);
+            } else {
+                // Continue to look for inexact matches.
+            }
+        }
+
+        None
     }
 
     fn dispatch_actions(
@@ -698,12 +651,19 @@ impl EventHandler {
     ) -> Result<(), Box<dyn Error>> {
         for tagged_actions in actions {
             for action in &tagged_actions.actions {
-                self.dispatch_action(
+                if tagged_actions.exact_match {
+                    // Because exact_match will never be able to have extra modifiers.
+                    debug_assert!(tagged_actions.extra_modifiers_pressed.is_empty());
+                }
+                Self::dispatch_action(
+                    &self.modifiers,
+                    &mut self.matching_state,
                     action,
                     key,
                     tagged_actions.exact_match,
                     &tagged_actions.extra_modifiers_pressed,
                     mod_trigger,
+                    &mut self.emit,
                 )?;
             }
         }
@@ -711,126 +671,110 @@ impl EventHandler {
     }
 
     fn dispatch_action(
-        &mut self,
+        emitted_modifiers: &Vec<Key>,
+        matching_state: &mut MatchingState,
         action: &KeymapAction,
         key: &Key,
         exact_match: bool,
         extra_modifiers_pressed: &HashSet<Key>,
         mod_trigger: bool,
+        emit: &mut Vec<Action>,
     ) -> Result<(), Box<dyn Error>> {
         match action {
-            KeymapAction::KeyCombo(key_press) => self.send_key_combo(key_press, extra_modifiers_pressed),
-            KeymapAction::KeyPress(key) => self.send_key(key, PRESS),
-            KeymapAction::KeyRepeat(key) => self.send_key(key, REPEAT),
-            KeymapAction::KeyRelease(key) => self.send_key(key, RELEASE),
-            KeymapAction::Remap(Remap {
-                remap,
-                timeout,
-                timeout_key,
-            }) => {
-                let set_timeout = self.override_remaps.is_empty();
-                self.override_remaps.push(build_override_table(remap, exact_match));
-
-                let keys = match timeout_key {
-                    Some(timeout_key) => Some(timeout_key.clone()),
-                    None if mod_trigger => {
-                        // Modifier-triggers don't need a timeout key, because they are pressed no
-                        // matter if they timeout or not. Therefore they have no default.
-                        None
-                    }
-                    None => Some(vec![*key]),
-                };
-
-                // Set timeout only if this is the first of multiple eligible remaps,
-                // so the behaviour is consistent with how current normal keymap override works
-                if set_timeout && keys.is_some() {
-                    if let Some(timeout) = timeout {
-                        let expiration = Expiration::OneShot(TimeSpec::from_duration(*timeout));
-                        // TODO: Consider handling the timer in ActionDispatcher
-                        self.override_timer.unset()?;
-                        self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                        self.override_timeout_key = keys;
-                    }
-                }
+            KeymapAction::KeyCombo(key_combo) => Self::send_key_combo(
+                emitted_modifiers,
+                matching_state.keypress_delay,
+                key_combo,
+                extra_modifiers_pressed,
+                emit,
+            ),
+            KeymapAction::KeyPress(key) => {
+                emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
             }
-            KeymapAction::Launch(command) => self.run_command(command.clone()),
-            KeymapAction::SetMode(mode) => {
-                self.mode = mode.clone();
-                println!("mode: {mode}");
+            KeymapAction::KeyRepeat(key) => {
+                emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Repeat)));
             }
-            KeymapAction::SetMark(set) => self.mark_set = *set,
-            KeymapAction::WithMark(key_press) => {
-                self.send_key_combo(&self.with_mark(key_press), extra_modifiers_pressed)
+            KeymapAction::KeyRelease(key) => {
+                emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
             }
-            KeymapAction::EscapeNextKey(escape_next_key) => self.escape_next_key = *escape_next_key,
-            KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
-            KeymapAction::CloseByAppClass(app_class) => self.actions.push(Action::CloseByAppClass(app_class.clone())),
+            KeymapAction::Remap(remap) => {
+                matching_state.add_override(remap, key, mod_trigger, exact_match)?;
+            }
+            KeymapAction::Launch(command) => {
+                emit.push(Action::Command(command.clone()));
+            }
+            KeymapAction::SetMode(mode) => matching_state.set_mode(mode),
+            KeymapAction::SetMark(mark) => matching_state.set_mark(*mark),
+            KeymapAction::WithMark(key_combo) => Self::send_key_combo(
+                emitted_modifiers,
+                matching_state.keypress_delay,
+                &matching_state.with_mark(key_combo),
+                extra_modifiers_pressed,
+                emit,
+            ),
+            KeymapAction::EscapeNextKey(escape_next_key) => matching_state.escape_next_key(*escape_next_key),
+            KeymapAction::Sleep(millis) => emit.push(Action::Delay(Duration::from_millis(*millis))),
+            KeymapAction::CloseByAppClass(app_class) => emit.push(Action::CloseByAppClass(app_class.clone())),
             KeymapAction::Action(action) => match action {
                 ActionWithoutArgs::PopWindowInfo => {
-                    self.send_action(Action::PopWindowInfo);
+                    emit.push(Action::PopWindowInfo);
                 }
                 ActionWithoutArgs::PrintWindowInfo => {
-                    self.send_action(Action::PrintWindowInfo);
+                    emit.push(Action::PrintWindowInfo);
                 }
                 ActionWithoutArgs::PrintWindowList => {
-                    self.send_action(Action::PrintWindowList);
+                    emit.push(Action::PrintWindowList);
                 }
                 ActionWithoutArgs::Exit => {
-                    self.send_action(Action::Exit);
+                    emit.push(Action::Exit);
                 }
                 ActionWithoutArgs::Reload => {
-                    self.send_action(Action::Reload);
+                    emit.push(Action::Reload);
                 }
                 ActionWithoutArgs::ReloadConfig => {
-                    self.send_action(Action::ReloadConfig);
+                    emit.push(Action::ReloadConfig);
                 }
             },
         }
         Ok(())
     }
 
-    fn send_key_combo(&mut self, key_press: &KeyCombo, extra_modifiers_pressed: &HashSet<Key>) {
+    fn send_key_combo(
+        emitted_modifiers: &Vec<Key>,
+        keypress_delay: Duration,
+        key_combo: &KeyCombo,
+        extra_modifiers_pressed: &HashSet<Key>,
+        emit: &mut Vec<Action>,
+    ) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because virtual modifiers shouldn't make an impact outside xremap.
-        let (mut extra_modifiers, mut missing_modifiers) = Self::diff_modifiers(&self.modifiers, &key_press.modifiers);
+        let (mut extra_modifiers, mut missing_modifiers) =
+            Self::diff_modifiers(emitted_modifiers, &key_combo.modifiers);
         extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !extra_modifiers_pressed.contains(key));
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
 
         // Emulate the modifiers of KeyPress
-        self.send_keys(&missing_modifiers, PRESS);
-        self.send_keys(&extra_modifiers, RELEASE);
+        for key in &missing_modifiers {
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+        }
+        for key in &extra_modifiers {
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+        }
 
         // Press the main key
-        self.send_key(&key_press.key, PRESS);
-        self.send_key(&key_press.key, RELEASE);
+        emit.push(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Press)));
+        emit.push(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Release)));
 
-        self.send_action(Action::Delay(self.keypress_delay));
+        emit.push(Action::Delay(keypress_delay));
 
         // Resurrect the original modifiers
-        self.send_keys(&extra_modifiers, PRESS);
-        self.send_action(Action::Delay(self.keypress_delay));
-        self.send_keys(&missing_modifiers, RELEASE);
-    }
-
-    fn with_mark(&self, key_press: &KeyCombo) -> KeyCombo {
-        let has_shift = key_press.modifiers.contains(&Modifier::Shift)
-            || key_press.modifiers.contains(&Modifier::Key(Key::KEY_LEFTSHIFT))
-            || key_press.modifiers.contains(&Modifier::Key(Key::KEY_RIGHTSHIFT));
-
-        if self.mark_set && !has_shift {
-            let mut modifiers = key_press.modifiers.clone();
-            modifiers.push(Modifier::Shift);
-            KeyCombo {
-                key: key_press.key,
-                modifiers,
-            }
-        } else {
-            key_press.clone()
+        for key in &extra_modifiers {
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
         }
-    }
-
-    fn run_command(&mut self, command: Vec<String>) {
-        self.send_action(Action::Command(command));
+        emit.push(Action::Delay(keypress_delay));
+        for key in &missing_modifiers {
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+        }
     }
 
     // Return (extra_modifiers, missing_modifiers)
@@ -868,20 +812,6 @@ impl EventHandler {
             self.modifiers.retain(|&x| x != key);
         }
     }
-}
-
-fn has_remap(actions: &[KeymapAction]) -> bool {
-    if actions.is_empty() {
-        // When actions are empty it could either be regarded as an empty remap
-        //  or no actions. In principle that shouldn't matter, but remap is
-        //  implemented to gather all defined remaps, not just the first match.
-        // Here we regard empty actions as non-remap, so the matching will stop
-        //  here, and no actions are performed. The possibly following remaps are
-        //  hence ignored.
-        return false;
-    }
-
-    actions.iter().all(|x| matches!(x, KeymapAction::Remap(..)))
 }
 
 fn contains_modifier(modifiers: &[Modifier], key: &Key) -> bool {
@@ -1057,4 +987,176 @@ pub fn modifiers_first(a: &Key, b: &Key) -> Ordering {
 
 pub fn modifiers_last(a: &Key, b: &Key) -> Ordering {
     modifiers_first(a, b).reverse()
+}
+
+/// A simpler way to emit actions than `find_keymap`.
+///
+/// Because find_keymap supports key sequeneces (nested remap) does it
+/// have some extra things to think about. It uses TaggedActions to comminucate
+/// this information.
+/// But other features are likely not interested in the nested remap. For
+/// timeout_actions it would be particularly strange, if a timeout of a
+/// nested remap could emit a new nested remap. It's a large amount of
+/// complexity that should have a clear benefit.
+fn dispatch_simple_actions(
+    emitted_modifiers: &Vec<Key>,
+    matching_state: &mut MatchingState,
+    actions: &Vec<KeymapAction>,
+    emit: &mut Vec<Action>,
+) -> Result<(), Box<dyn Error>> {
+    for action in actions {
+        if matches!(action, KeymapAction::Remap { .. }) {
+            unreachable!(); // Because it's checked when parsing config file.
+        }
+
+        EventHandler::dispatch_action(
+            emitted_modifiers,
+            matching_state,
+            &action,
+            // Dummy, only used for nested remap
+            &Key::KEY_UNKNOWN,
+            // Dummy, only used for nested remap
+            false,
+            // Dummy, only used for exact_match/inexact_match.
+            &mut HashSet::new(),
+            // Dummy, only used for nested remap
+            false,
+            emit,
+        )?;
+    }
+
+    Ok(())
+}
+
+struct MatchingState {
+    // keypress_delay_ms
+    keypress_delay: Duration,
+    // { set_mode: String }
+    mode: String,
+    // { set_mark: true }
+    mark_set: bool,
+    // { escape_next_key: true }
+    escape_next_key: bool,
+    // Current nested remaps
+    override_remaps: Vec<HashMap<Key, Vec<KeymapEntry>>>,
+    // Action emitted on a timeout of nested remaps
+    override_timeout_actions: Option<Vec<KeymapAction>>,
+    // Trigger a timeout of nested remaps through select(2)
+    override_timer: TimerFd,
+}
+
+impl MatchingState {
+    pub fn new(override_timer: TimerFd, mode: &str, keypress_delay: Duration) -> Self {
+        Self {
+            keypress_delay,
+            mode: mode.to_string(),
+            mark_set: false,
+            escape_next_key: false,
+            override_remaps: vec![],
+            override_timeout_actions: None,
+            override_timer,
+        }
+    }
+
+    fn set_mode(&mut self, mode: &str) {
+        self.mode = mode.to_string();
+        println!("mode: {mode}");
+    }
+
+    fn set_mark(&mut self, mark: bool) {
+        self.mark_set = mark;
+    }
+
+    fn escape_next_key(&mut self, escape_next_key: bool) {
+        self.escape_next_key = escape_next_key;
+    }
+
+    fn get_entries(&mut self, key: &Key, mod_trigger: bool) -> Result<Option<Vec<KeymapEntry>>, Box<dyn Error>> {
+        if self.override_remaps.is_empty() {
+            return Ok(None);
+        }
+
+        let entries: Vec<_> = self
+            .override_remaps
+            .iter()
+            .flat_map(|map| map.get(key).cloned().unwrap_or_default())
+            .collect();
+
+        // Empty if the key isn't defined in any of the nested remaps, that are active.
+        if !entries.is_empty() {
+            if !mod_trigger {
+                self.remove_override()?;
+            }
+        }
+
+        Ok(Some(entries))
+    }
+
+    fn with_mark(&self, key_combo: &KeyCombo) -> KeyCombo {
+        let has_shift = key_combo.modifiers.contains(&Modifier::Shift)
+            || key_combo.modifiers.contains(&Modifier::Key(Key::KEY_LEFTSHIFT))
+            || key_combo.modifiers.contains(&Modifier::Key(Key::KEY_RIGHTSHIFT));
+
+        if self.mark_set && !has_shift {
+            let mut modifiers = key_combo.modifiers.clone();
+            modifiers.push(Modifier::Shift);
+            KeyCombo {
+                key: key_combo.key,
+                modifiers,
+            }
+        } else {
+            key_combo.clone()
+        }
+    }
+
+    fn add_override(
+        &mut self,
+        definition: &Remap,
+        key: &Key,
+        mod_trigger: bool,
+        exact_match: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        let set_timeout = self.override_remaps.is_empty();
+        self.override_remaps
+            .push(build_override_table(&definition.remap, exact_match));
+
+        let actions = match &definition.timeout_actions {
+            Some(actions) => Some(actions.clone()),
+            None if mod_trigger => {
+                // Modifier-triggers don't need a timeout key, because they are pressed no
+                // matter if they timeout or not. Therefore they have no default.
+                None
+            }
+            None => Some(vec![KeymapAction::KeyPress(*key), KeymapAction::KeyRelease(*key)]),
+        };
+
+        // Only set timeout if it's the first of multiple eligible remaps
+        //  in a group of remaps.
+        // The timeout is reset for each new key in the key-sequence. So it's possible
+        //  to have a timeout in the beginning, and then no timeout later in the sequence.
+        if set_timeout && actions.is_some() {
+            if let Some(timeout) = definition.timeout {
+                let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
+                self.override_timer.unset()?;
+                self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
+                self.override_timeout_actions = actions;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
+        self.override_timer.unset()?;
+        self.override_remaps.clear();
+        self.override_timeout_actions = None;
+        Ok(())
+    }
+
+    fn timeout_override(&mut self, emitted_modifiers: &Vec<Key>, emit: &mut Vec<Action>) -> Result<(), Box<dyn Error>> {
+        if let Some(actions) = self.override_timeout_actions.take() {
+            dispatch_simple_actions(emitted_modifiers, self, &actions, emit)?;
+        }
+        self.remove_override()
+    }
 }
