@@ -120,23 +120,21 @@ impl EventHandler {
                         self.on_key_event(key_event.key, key_event.value(), &device, config, wmclient)?;
                     }
                     Event::RelativeEvent(device, relative_event) => {
-                        if self.matching_state.escape_next_key {
-                            self.matching_state.escape_next_key = false;
-                        } else {
-                            // Send as disguised-event
-                            let key = relative_event.to_disguised_key();
-                            if let Some(actions) = self.find_keymap(config, &key, &device, wmclient, false)? {
+                        // Send as disguised-event
+                        let key = relative_event.to_disguised_key();
+                        match self.find_keymap(config, &key, &device, wmclient, false)? {
+                            Some(actions) => {
                                 self.dispatch_actions(&actions, &key, false)?;
-                                continue;
                             }
-                        }
-
-                        if relative_event.code <= 2 {
-                            // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
-                            mouse_movement_collection.push(relative_event);
-                        } else {
-                            self.emit.push(Action::RelativeEvent(relative_event));
-                        }
+                            None => {
+                                if relative_event.code <= 2 {
+                                    // The relative event keycodes 1 and 2 is REL_X and REL_Y. Meaning mouse move.
+                                    mouse_movement_collection.push(relative_event);
+                                } else {
+                                    self.emit.push(Action::RelativeEvent(relative_event));
+                                }
+                            }
+                        };
                     }
 
                     Event::OtherEvents(event) => self.emit.push(Action::InputEvent(event)),
@@ -181,12 +179,7 @@ impl EventHandler {
         // Apply keymap
         let mut matched = false;
         if is_pressed(value) {
-            if self.matching_state.escape_next_key {
-                // Modifiers are escaped, but they don't stop escaping.
-                if !mod_trigger {
-                    self.matching_state.escape_next_key = false
-                }
-            } else if let Some(actions) = self.find_keymap(config, &key, device, wmclient, mod_trigger)? {
+            if let Some(actions) = self.find_keymap(config, &key, device, wmclient, mod_trigger)? {
                 self.dispatch_actions(&actions, &key, mod_trigger)?;
                 matched = true;
             }
@@ -517,6 +510,14 @@ impl EventHandler {
         wmclient: &mut WMClient,
         mod_trigger: bool,
     ) -> Result<Option<Vec<TaggedActions>>, Box<dyn Error>> {
+        if self.matching_state.escape_next_key {
+            // Modifiers are escaped, but they don't stop escaping.
+            if !mod_trigger {
+                self.matching_state.escape_next_key = false
+            }
+            return Ok(None);
+        };
+
         let pressed_modifiers = self
             .modifiers
             .iter()
