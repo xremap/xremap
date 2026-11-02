@@ -551,19 +551,6 @@ impl EventHandler {
         Ok(vec![Event::KeyEvent(device.clone(), key_event.clone())])
     }
 
-    // The return is a vector of actions, because nested remaps are included
-    //  for not only the first match, but all remappings that match. This can happen
-    //  if keymap-actions has more than one remap:
-    //      keymap:
-    //        A:
-    //          - remap: { B: 1}
-    //          - remap: { C: 2}
-    //  or inexact modifiers:
-    //      keymap:
-    //        A:
-    //          remap: { B: 1}
-    //        C-A
-    //          remap: { C: 2}
     fn find_keymap(
         &mut self,
         config: &Config,
@@ -594,125 +581,108 @@ impl EventHandler {
                 if !mod_trigger {
                     self.remove_override()?;
                 }
+            }
 
-                for exact_match in [true, false] {
-                    let mut remaps = vec![];
-                    for entry in &entries {
-                        if entry.exact_match && !exact_match {
-                            continue;
-                        }
-                        let (extra_modifiers, missing_modifiers) =
-                            Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
-                        if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
-                            continue;
-                        }
-                        if let Some(window_matcher) = &entry.title {
-                            if !wmclient.match_window(window_matcher) {
-                                continue;
-                            }
-                        }
-
-                        if let Some(application_matcher) = &entry.application {
-                            if !wmclient.match_application(application_matcher) {
-                                continue;
-                            }
-                        }
-                        if let Some(device_matcher) = &entry.device {
-                            if !device_matcher.matches(device) {
-                                continue;
-                            }
-                        }
-                        if let Some(modes) = &entry.mode {
-                            if !modes.contains(&self.mode) {
-                                continue;
-                            }
-                        }
-
-                        let actions = TaggedActions {
-                            actions: entry.actions.clone(),
-                            exact_match: entry.exact_match,
-                            extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
-                        };
-                        let has_remap = has_remap(&entry.actions);
-
-                        // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
-                        if remaps.is_empty() && !has_remap {
-                            return Ok(Some(vec![actions]));
-                        } else if has_remap {
-                            remaps.push(actions);
-                        }
-                    }
-                    if !remaps.is_empty() {
-                        return Ok(Some(remaps));
-                    } else {
-                        // Continue to look for inexact matches.
+            match self.lookup(&entries, device, &pressed_modifiers, wmclient) {
+                Some(actions) => return Ok(Some(actions)),
+                None => {
+                    // An override remap is set but not used. Flush the pending key.
+                    if !mod_trigger {
+                        self.timeout_override()?;
                     }
                 }
-            }
-            // An override remap is set but not used. Flush the pending key.
-            if !mod_trigger {
-                self.timeout_override()?;
-            }
+            };
         }
 
         for key in [key, &KEY_MATCH_ANY] {
             if let Some(entries) = config.keymap_table.get(key) {
-                for exact_match in [true, false] {
-                    let mut remaps = vec![];
-                    for entry in entries {
-                        if entry.exact_match && !exact_match {
-                            continue;
-                        }
-                        let (extra_modifiers, missing_modifiers) =
-                            Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
-                        if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
-                            continue;
-                        }
-                        if let Some(window_matcher) = &entry.title {
-                            if !wmclient.match_window(window_matcher) {
-                                continue;
-                            }
-                        }
-
-                        if let Some(application_matcher) = &entry.application {
-                            if !wmclient.match_application(application_matcher) {
-                                continue;
-                            }
-                        }
-                        if let Some(device_matcher) = &entry.device {
-                            if !device_matcher.matches(device) {
-                                continue;
-                            }
-                        }
-                        if let Some(modes) = &entry.mode {
-                            if !modes.contains(&self.mode) {
-                                continue;
-                            }
-                        }
-
-                        let actions = TaggedActions {
-                            actions: entry.actions.clone(),
-                            exact_match: entry.exact_match,
-                            extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
-                        };
-                        let has_remap = has_remap(&entry.actions);
-
-                        // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
-                        if remaps.is_empty() && !has_remap {
-                            return Ok(Some(vec![actions]));
-                        } else if has_remap {
-                            remaps.push(actions)
-                        }
+                match self.lookup(entries, device, &pressed_modifiers, wmclient) {
+                    Some(actions) => return Ok(Some(actions)),
+                    None => {
+                        // continue with any-key
                     }
-                    if !remaps.is_empty() {
-                        return Ok(Some(remaps));
-                    } else {
-                        // Continue to look for inexact matches.
-                    }
-                }
+                };
             }
         }
         Ok(None)
+    }
+
+    // The return is a vector of actions, because nested remaps are included
+    //  for not only the first match, but all remappings that match. This can happen
+    //  if keymap-actions have more than one remap:
+    //      keymap:
+    //        A:
+    //          - remap: { B: 1 }
+    //          - remap: { C: 2 }
+    //  or inexact modifiers:
+    //      keymap:
+    //        A:
+    //          remap: { B: 1 }
+    //        C-A
+    //          remap: { C: 2 }
+    //
+    // Resembles OperatorHandler::static_lookup()
+    fn lookup(
+        &mut self,
+        entries: &Vec<KeymapEntry>,
+        device: &InputDeviceInfo,
+        pressed_modifiers: &Vec<Key>,
+        wmclient: &mut WMClient,
+    ) -> Option<Vec<TaggedActions>> {
+        for exact_match in [true, false] {
+            let mut remaps = vec![];
+            for entry in entries {
+                if entry.exact_match && !exact_match {
+                    continue;
+                }
+                let (extra_modifiers, missing_modifiers) = Self::diff_modifiers(&pressed_modifiers, &entry.modifiers);
+                if (exact_match && !extra_modifiers.is_empty()) || !missing_modifiers.is_empty() {
+                    continue;
+                }
+                if let Some(window_matcher) = &entry.title {
+                    if !wmclient.match_window(window_matcher) {
+                        continue;
+                    }
+                }
+
+                if let Some(application_matcher) = &entry.application {
+                    if !wmclient.match_application(application_matcher) {
+                        continue;
+                    }
+                }
+                if let Some(device_matcher) = &entry.device {
+                    if !device_matcher.matches(device) {
+                        continue;
+                    }
+                }
+                if let Some(modes) = &entry.mode {
+                    if !modes.contains(&self.mode) {
+                        continue;
+                    }
+                }
+
+                let actions = TaggedActions {
+                    actions: entry.actions.clone(),
+                    exact_match: entry.exact_match,
+                    extra_modifiers_pressed: extra_modifiers.iter().cloned().collect(),
+                };
+                let has_remap = has_remap(&entry.actions);
+
+                // If the first/top match was a remap, continue to find rest of the eligible remaps for this key
+                if remaps.is_empty() && !has_remap {
+                    return Some(vec![actions]);
+                } else if has_remap {
+                    remaps.push(actions)
+                }
+            }
+            if !remaps.is_empty() {
+                return Some(remaps);
+            } else {
+                // Continue to look for inexact matches.
+            }
+        }
+
+        None
     }
 
     fn dispatch_actions(
