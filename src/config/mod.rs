@@ -14,6 +14,7 @@ pub mod keymap_action_without_args;
 pub mod modmap;
 pub mod modmap_operator;
 pub mod nested_remap;
+pub mod simple_action;
 #[cfg(test)]
 pub mod tests;
 pub mod validation;

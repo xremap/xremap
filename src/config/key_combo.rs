@@ -5,7 +5,6 @@ use std::error::Error;
 
 #[derive(Copy, Clone)]
 pub enum EmitMode {
-    #[allow(unused)]
     Key,
     Combo,
 }

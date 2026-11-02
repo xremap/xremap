@@ -82,7 +82,7 @@ impl EventHandler {
         assert!(self.pressed_keys.is_empty());
         assert!(self.multi_purpose_keys.is_empty());
         assert!(self.matching_state.override_remaps.is_empty());
-        assert!(self.matching_state.override_timeout_key.is_none());
+        assert!(self.matching_state.override_timeout_actions.is_none());
         assert!(self.emit.is_empty());
 
         self.operator_handler.as_ref().map(|op| op.assert_base_state());
@@ -139,7 +139,7 @@ impl EventHandler {
 
                     Event::OtherEvents(event) => self.emit.push(Action::InputEvent(event)),
                     Event::OverrideTimeout => {
-                        self.matching_state.timeout_override(&mut self.emit)?;
+                        self.matching_state.timeout_override(&self.modifiers, &mut self.emit)?;
                     }
                     Event::Tick => {
                         // Can be ignored. It's for operators.
@@ -534,7 +534,7 @@ impl EventHandler {
                 None => {
                     // An override remap is set but not used. Flush the pending key.
                     if !mod_trigger {
-                        self.matching_state.timeout_override(&mut self.emit)?;
+                        self.matching_state.timeout_override(&self.modifiers, &mut self.emit)?;
                     }
                 }
             };
@@ -984,6 +984,45 @@ pub fn modifiers_last(a: &Key, b: &Key) -> Ordering {
     modifiers_first(a, b).reverse()
 }
 
+/// A simpler way to emit actions than `find_keymap`.
+///
+/// Because find_keymap supports key sequeneces (nested remap) does it
+/// have some extra things to think about. It uses TaggedActions to comminucate
+/// this information.
+/// But other features are likely not interested in the nested remap. For
+/// timeout_actions it would be particularly strange, if a timeout of a
+/// nested remap could emit a new nested remap. It's a large amount of
+/// complexity that should have a clear benefit.
+fn dispatch_simple_actions(
+    emitted_modifiers: &Vec<Key>,
+    matching_state: &mut MatchingState,
+    actions: &Vec<KeymapAction>,
+    emit: &mut Vec<Action>,
+) -> Result<(), Box<dyn Error>> {
+    for action in actions {
+        if matches!(action, KeymapAction::Remap { .. }) {
+            unreachable!(); // Because it's checked when parsing config file.
+        }
+
+        EventHandler::dispatch_action(
+            emitted_modifiers,
+            matching_state,
+            &action,
+            // Dummy, only used for nested remap
+            &Key::KEY_UNKNOWN,
+            // Dummy, only used for nested remap
+            false,
+            // Dummy, only used for exact_match/inexact_match.
+            &mut HashSet::new(),
+            // Dummy, only used for nested remap
+            false,
+            emit,
+        )?;
+    }
+
+    Ok(())
+}
+
 struct MatchingState {
     // keypress_delay_ms
     keypress_delay: Duration,
@@ -995,8 +1034,8 @@ struct MatchingState {
     escape_next_key: bool,
     // Current nested remaps
     override_remaps: Vec<HashMap<Key, Vec<KeymapEntry>>>,
-    // Key triggered on a timeout of nested remaps
-    override_timeout_key: Option<Vec<Key>>,
+    // Action emitted on a timeout of nested remaps
+    override_timeout_actions: Option<Vec<KeymapAction>>,
     // Trigger a timeout of nested remaps through select(2)
     override_timer: TimerFd,
 }
@@ -1009,7 +1048,7 @@ impl MatchingState {
             mark_set: false,
             escape_next_key: false,
             override_remaps: vec![],
-            override_timeout_key: None,
+            override_timeout_actions: None,
             override_timer,
         }
     }
@@ -1076,26 +1115,26 @@ impl MatchingState {
         self.override_remaps
             .push(build_override_table(&definition.remap, exact_match));
 
-        let keys = match &definition.timeout_key {
-            Some(timeout_key) => Some(timeout_key.clone()),
+        let actions = match &definition.timeout_actions {
+            Some(actions) => Some(actions.clone()),
             None if mod_trigger => {
                 // Modifier-triggers don't need a timeout key, because they are pressed no
                 // matter if they timeout or not. Therefore they have no default.
                 None
             }
-            None => Some(vec![*key]),
+            None => Some(vec![KeymapAction::KeyPress(*key), KeymapAction::KeyRelease(*key)]),
         };
 
         // Only set timeout if it's the first of multiple eligible remaps
         //  in a group of remaps.
         // The timeout is reset for each new key in the key-sequence. So it's possible
         //  to have a timeout in the beginning, and then no timeout later in the sequence.
-        if set_timeout && keys.is_some() {
+        if set_timeout && actions.is_some() {
             if let Some(timeout) = definition.timeout {
                 let expiration = Expiration::OneShot(TimeSpec::from_duration(timeout));
                 self.override_timer.unset()?;
                 self.override_timer.set(expiration, TimerSetTimeFlags::empty())?;
-                self.override_timeout_key = keys;
+                self.override_timeout_actions = actions;
             }
         }
 
@@ -1105,16 +1144,13 @@ impl MatchingState {
     fn remove_override(&mut self) -> Result<(), Box<dyn Error>> {
         self.override_timer.unset()?;
         self.override_remaps.clear();
-        self.override_timeout_key = None;
+        self.override_timeout_actions = None;
         Ok(())
     }
 
-    fn timeout_override(&mut self, emit: &mut Vec<Action>) -> Result<(), Box<dyn Error>> {
-        if let Some(keys) = self.override_timeout_key.take() {
-            for key in keys {
-                emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Press)));
-                emit.push(Action::KeyEvent(KeyEvent::new(key, KeyValue::Release)));
-            }
+    fn timeout_override(&mut self, emitted_modifiers: &Vec<Key>, emit: &mut Vec<Action>) -> Result<(), Box<dyn Error>> {
+        if let Some(actions) = self.override_timeout_actions.take() {
+            dispatch_simple_actions(emitted_modifiers, self, &actions, emit)?;
         }
         self.remove_override()
     }
