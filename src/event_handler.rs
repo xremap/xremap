@@ -707,7 +707,13 @@ impl EventHandler {
         mod_trigger: bool,
     ) -> Result<(), Box<dyn Error>> {
         match action {
-            KeymapAction::KeyCombo(key_combo) => self.send_key_combo(key_combo, extra_modifiers_pressed),
+            KeymapAction::KeyCombo(key_combo) => Self::send_key_combo(
+                &self.modifiers,
+                self.keypress_delay,
+                key_combo,
+                extra_modifiers_pressed,
+                &mut self.actions,
+            ),
             KeymapAction::KeyPress(key) => {
                 self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
             }
@@ -759,9 +765,13 @@ impl EventHandler {
                 println!("mode: {mode}");
             }
             KeymapAction::SetMark(set) => self.matching_state.mark_set = *set,
-            KeymapAction::WithMark(key_combo) => {
-                self.send_key_combo(&self.matching_state.with_mark(key_combo), extra_modifiers_pressed)
-            }
+            KeymapAction::WithMark(key_combo) => Self::send_key_combo(
+                &self.modifiers,
+                self.keypress_delay,
+                &self.matching_state.with_mark(key_combo),
+                extra_modifiers_pressed,
+                &mut self.actions,
+            ),
             KeymapAction::EscapeNextKey(escape_next_key) => self.matching_state.escape_next_key = *escape_next_key,
             KeymapAction::Sleep(millis) => self.send_action(Action::Delay(Duration::from_millis(*millis))),
             KeymapAction::CloseByAppClass(app_class) => self.actions.push(Action::CloseByAppClass(app_class.clone())),
@@ -789,34 +799,41 @@ impl EventHandler {
         Ok(())
     }
 
-    fn send_key_combo(&mut self, key_combo: &KeyCombo, extra_modifiers_pressed: &HashSet<Key>) {
+    fn send_key_combo(
+        emitted_modifiers: &Vec<Key>,
+        keypress_delay: Duration,
+        key_combo: &KeyCombo,
+        extra_modifiers_pressed: &HashSet<Key>,
+        emit: &mut Vec<Action>,
+    ) {
         // Build extra or missing modifiers. Note that only MODIFIER_KEYS are handled
         // because virtual modifiers shouldn't make an impact outside xremap.
-        let (mut extra_modifiers, mut missing_modifiers) = Self::diff_modifiers(&self.modifiers, &key_combo.modifiers);
+        let (mut extra_modifiers, mut missing_modifiers) =
+            Self::diff_modifiers(emitted_modifiers, &key_combo.modifiers);
         extra_modifiers.retain(|key| MODIFIER_KEYS.contains(key) && !extra_modifiers_pressed.contains(key));
         missing_modifiers.retain(|key| MODIFIER_KEYS.contains(key));
 
         // Emulate the modifiers of KeyPress
         for key in &missing_modifiers {
-            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
         }
         for key in &extra_modifiers {
-            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
         }
 
         // Press the main key
-        self.send_action(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Press)));
-        self.send_action(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Release)));
+        emit.push(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Press)));
+        emit.push(Action::KeyEvent(KeyEvent::new(key_combo.key, KeyValue::Release)));
 
-        self.send_action(Action::Delay(self.keypress_delay));
+        emit.push(Action::Delay(keypress_delay));
 
         // Resurrect the original modifiers
         for key in &extra_modifiers {
-            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Press)));
         }
-        self.send_action(Action::Delay(self.keypress_delay));
+        emit.push(Action::Delay(keypress_delay));
         for key in &missing_modifiers {
-            self.send_action(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
+            emit.push(Action::KeyEvent(KeyEvent::new(*key, KeyValue::Release)));
         }
     }
 
