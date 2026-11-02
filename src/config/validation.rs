@@ -1,5 +1,5 @@
 use crate::config::key_combo::KeyCombo;
-use crate::config::keymap_action::KeymapAction;
+use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use crate::config::keymap_action_without_args::ActionWithoutArgs;
 use crate::config::modmap_operator::ParseModmapOperator;
 use crate::config::ParseConfig;
@@ -67,6 +67,7 @@ fn traverse_modmap_operator(operator: &ParseModmapOperator) -> anyhow::Result<()
             traverse_modmap_keys(&multi_purpose_key.hold.clone().into_vec())?;
         }
         ParseModmapOperator::PressReleaseKey(operator) => {
+            let operator = operator.clone().finish(false);
             // This is keymap actions, though in modmap.
             traverse_actions(&operator.press)?;
             traverse_actions(&operator.repeat)?;
@@ -77,9 +78,9 @@ fn traverse_modmap_operator(operator: &ParseModmapOperator) -> anyhow::Result<()
     Ok(())
 }
 
-fn traverse_remap(keymap: &IndexMap<KeyCombo, Vec<KeymapAction>>) -> anyhow::Result<()> {
+fn traverse_remap(keymap: &IndexMap<KeyCombo, Vec<ParseKeymapAction>>) -> anyhow::Result<()> {
     for (_, actions) in keymap {
-        traverse_actions(actions)?;
+        traverse_actions(&ParseKeymapAction::finish(actions.clone()))?;
     }
 
     Ok(())
@@ -91,7 +92,9 @@ fn traverse_actions(actions: &Vec<KeymapAction>) -> anyhow::Result<()> {
     for action in actions {
         match action {
             KeymapAction::Remap(remap) => {
-                traverse_remap(&remap.remap)?;
+                for (_, actions) in &remap.remap {
+                    traverse_actions(&actions)?;
+                }
             }
             KeymapAction::KeyCombo(key_combo) | KeymapAction::WithMark(key_combo) => {
                 traverse_keymap_output_keys(&vec![key_combo.key])?;

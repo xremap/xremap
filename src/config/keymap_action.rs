@@ -8,10 +8,27 @@ use serde::{de, Deserialize, Deserializer};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
+#[derive(Clone, Debug)]
+pub enum KeymapAction {
+    KeyCombo(KeyCombo),
+    KeyPress(Key),
+    KeyRepeat(Key),
+    KeyRelease(Key),
+    Remap(Remap),
+    Launch(Vec<String>),
+    SetMode(String),
+    SetMark(bool),
+    WithMark(KeyCombo),
+    EscapeNextKey(bool),
+    Sleep(u64),
+    CloseByAppClass(String),
+    Action(ActionWithoutArgs),
+}
+
 // Values in `keymap.remap`
 #[derive(Clone, Debug, Deserialize)]
 #[serde(untagged)]
-pub enum KeymapAction {
+pub enum ParseKeymapAction {
     // Config interface
     KeyCombo(KeyCombo),
     #[serde(deserialize_with = "deserialize_key_press")]
@@ -38,6 +55,29 @@ pub enum KeymapAction {
     CloseByAppClass(String),
     #[serde(deserialize_with = "deserialize_action_without_args")]
     Action(ActionWithoutArgs),
+}
+
+impl ParseKeymapAction {
+    pub fn finish(actions: Vec<ParseKeymapAction>) -> Vec<KeymapAction> {
+        actions
+            .into_iter()
+            .flat_map(|action| match action {
+                ParseKeymapAction::KeyCombo(value) => vec![KeymapAction::KeyCombo(value)],
+                ParseKeymapAction::KeyPress(value) => vec![KeymapAction::KeyPress(value)],
+                ParseKeymapAction::KeyRepeat(value) => vec![KeymapAction::KeyRepeat(value)],
+                ParseKeymapAction::KeyRelease(value) => vec![KeymapAction::KeyRelease(value)],
+                ParseKeymapAction::Remap(value) => vec![KeymapAction::Remap(value)],
+                ParseKeymapAction::Launch(value) => vec![KeymapAction::Launch(value)],
+                ParseKeymapAction::SetMode(value) => vec![KeymapAction::SetMode(value)],
+                ParseKeymapAction::SetMark(value) => vec![KeymapAction::SetMark(value)],
+                ParseKeymapAction::WithMark(value) => vec![KeymapAction::WithMark(value)],
+                ParseKeymapAction::EscapeNextKey(value) => vec![KeymapAction::EscapeNextKey(value)],
+                ParseKeymapAction::Sleep(value) => vec![KeymapAction::Sleep(value)],
+                ParseKeymapAction::CloseByAppClass(value) => vec![KeymapAction::CloseByAppClass(value)],
+                ParseKeymapAction::Action(value) => vec![KeymapAction::Action(value)],
+            })
+            .collect()
+    }
 }
 
 fn deserialize_key_press<'de, D>(deserializer: D) -> Result<Key, D::Error>

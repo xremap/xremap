@@ -9,29 +9,6 @@ pub struct KeyCombo {
     pub modifiers: Vec<Modifier>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub enum Modifier {
-    // Matches left, right, or both
-    Shift,
-    Control,
-    Alt,
-    Windows,
-    // Matches exactly this key
-    Key(Key),
-}
-
-impl Modifier {
-    pub fn is_in(&self, modifiers: &Vec<Key>) -> bool {
-        match self {
-            Modifier::Shift => modifiers.contains(&Key::KEY_LEFTSHIFT) || modifiers.contains(&Key::KEY_RIGHTSHIFT),
-            Modifier::Control => modifiers.contains(&Key::KEY_LEFTCTRL) || modifiers.contains(&Key::KEY_RIGHTCTRL),
-            Modifier::Alt => modifiers.contains(&Key::KEY_LEFTALT) || modifiers.contains(&Key::KEY_RIGHTALT),
-            Modifier::Windows => modifiers.contains(&Key::KEY_LEFTMETA) || modifiers.contains(&Key::KEY_RIGHTMETA),
-            Modifier::Key(key) => modifiers.contains(key),
-        }
-    }
-}
-
 impl<'de> Deserialize<'de> for KeyCombo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -90,5 +67,28 @@ pub fn parse_modifier_alias(modifier: &str) -> Option<Modifier> {
         "WIN" => Some(Modifier::Windows),
         "WINDOWS" => Some(Modifier::Windows),
         _ => None,
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Modifier {
+    // Matches left, right, or both
+    Shift,
+    Control,
+    Alt,
+    Windows,
+    // Matches exactly this key
+    Key(Key),
+}
+
+impl Modifier {
+    pub fn is_in(&self, modifiers: &Vec<Key>) -> bool {
+        match self {
+            Modifier::Shift => modifiers.contains(&Key::KEY_LEFTSHIFT) || modifiers.contains(&Key::KEY_RIGHTSHIFT),
+            Modifier::Control => modifiers.contains(&Key::KEY_LEFTCTRL) || modifiers.contains(&Key::KEY_RIGHTCTRL),
+            Modifier::Alt => modifiers.contains(&Key::KEY_LEFTALT) || modifiers.contains(&Key::KEY_RIGHTALT),
+            Modifier::Windows => modifiers.contains(&Key::KEY_LEFTMETA) || modifiers.contains(&Key::KEY_RIGHTMETA),
+            Modifier::Key(key) => modifiers.contains(key),
+        }
     }
 }

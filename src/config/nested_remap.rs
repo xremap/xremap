@@ -1,7 +1,7 @@
 use crate::config::deserializers::{deserialize_string_or_vec, VectorOrSingleOrNull};
 use crate::config::key::parse_key;
 use crate::config::key_combo::KeyCombo;
-use crate::config::keymap_action::KeymapAction;
+use crate::config::keymap_action::{KeymapAction, ParseKeymapAction};
 use evdev::KeyCode as Key;
 use indexmap::IndexMap;
 use serde::{de, Deserialize, Deserializer};
@@ -17,7 +17,7 @@ pub struct Remap {
 // Used only for deserialization
 #[derive(Debug, Deserialize)]
 pub struct RemapActions {
-    pub remap: IndexMap<KeyCombo, VectorOrSingleOrNull<KeymapAction>>,
+    pub remap: IndexMap<KeyCombo, VectorOrSingleOrNull<ParseKeymapAction>>,
     pub timeout_millis: Option<u64>,
     #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub timeout_key: Option<Vec<String>>,
@@ -29,7 +29,11 @@ where
 {
     let action = RemapActions::deserialize(deserializer)?;
     Ok(Remap {
-        remap: action.remap.into_iter().map(|(k, v)| (k, v.into_vec())).collect(),
+        remap: action
+            .remap
+            .into_iter()
+            .map(|(combo, actions)| (combo, ParseKeymapAction::finish(actions.into_vec())))
+            .collect(),
         timeout: action.timeout_millis.map(Duration::from_millis),
         timeout_key: if let Some(keys) = action.timeout_key {
             let parsed_keys: Result<Vec<_>, _> = keys.into_iter().map(|key| parse_key(&key)).collect();
