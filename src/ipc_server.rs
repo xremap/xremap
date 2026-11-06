@@ -12,6 +12,7 @@ use crate::action::Action;
 use crate::config::key::parse_key;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
+use crate::typist::Typist;
 use evdev::KeyCode as Key;
 use std::rc::Rc;
 
@@ -30,13 +31,18 @@ use std::rc::Rc;
 //   wheel / hwheel AMOUNT  scroll vertically / horizontally
 //   mousemove X Y      move the pointer
 //   sleep MILLISECONDS pause command processing (max 5000)
+//   type TEXT          Type text using the XKB layout. → "ok"
 //
 // Replies: "ok\n", "MODE\n", "pong\n", "err REASON\n".
 
-pub const MAX_LINE_LEN: usize = 256;
+pub const MAX_LINE_LEN: usize = 16384;
 const MAX_MODE_LEN: usize = 64;
 const MAX_CHORDS: usize = 16;
 const MAX_SLEEP_MS: u64 = 5000;
+const MAX_TYPE_CHARS: usize = 4096;
+/// Decoded size limit for `type --base64`, which is how clients send raw
+/// multi-line text without escaping it onto the line protocol.
+const MAX_BASE64_TEXT_BYTES: usize = 8192;
 const MAX_CONNECTIONS: usize = 64;
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(500);
 
@@ -239,12 +245,21 @@ fn valid_mode_name(mode: &str) -> bool {
 
 /// Pure command handling, testable without a socket.
 /// Returns the command to apply in the main loop (if any) and the reply.
-pub fn handle_command(line: &str, current_mode: &str, inject_enabled: bool) -> (Option<IpcCommand>, Reply) {
-    let line = line.trim();
+pub fn handle_command(
+    line: &str,
+    current_mode: &str,
+    inject_enabled: bool,
+    typist: &mut Typist,
+) -> (Option<IpcCommand>, Reply) {
+    // Only the line terminator is stripped: the argument of `type` is literal
+    // text, where leading and trailing spaces are meaningful.
+    let line = line.trim_start().trim_end_matches(['\r', '\n']);
     let (verb, arg) = match line.split_once(' ') {
-        Some((verb, arg)) => (verb, arg.trim()),
+        Some((verb, arg)) => (verb, arg),
         None => (line, ""),
     };
+    let raw_arg = arg;
+    let arg = arg.trim();
     match verb {
         "ping" => (None, Reply::Pong),
         "get-mode" => (None, Reply::Mode(current_mode.to_string())),
@@ -273,6 +288,15 @@ pub fn handle_command(line: &str, current_mode: &str, inject_enabled: bool) -> (
                     }),
                     Reply::Ok,
                 ),
+                Err(reason) => (None, Reply::Err(reason)),
+            }
+        }
+        "type" => {
+            if !inject_enabled {
+                return (None, Reply::Err("injection disabled".to_string()));
+            }
+            match parse_type_command(raw_arg, typist) {
+                Ok(command) => (Some(command), Reply::Ok),
                 Err(reason) => (None, Reply::Err(reason)),
             }
         }
@@ -329,6 +353,123 @@ pub fn handle_command(line: &str, current_mode: &str, inject_enabled: bool) -> (
         "" => (None, Reply::Err("empty command".to_string())),
         _ => (None, Reply::Err("unknown command".to_string())),
     }
+}
+
+/// `type [--layout LAYOUT] [--variant VARIANT] [--] TEXT`
+/// — TEXT is the rest of the line, with `\\n`, `\\t` and `\\\\` escapes so
+/// newlines can be sent over the line-based protocol.
+fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, String> {
+    // Options come first, each a `--token`; everything after them is literal
+    // text. Unknown tokens are an error instead of being typed out, and `--`
+    // ends the options so text that starts with a dash stays reachable.
+    let mut rest = arg;
+    let mut layout: Option<String> = None;
+    let mut variant: Option<String> = None;
+    let mut base64 = false;
+    while rest.starts_with("--") {
+        let (token, tail) = split_first_word(rest);
+        if token == "--" {
+            rest = tail;
+            break;
+        }
+        if token == "--base64" {
+            base64 = true;
+            rest = tail;
+            continue;
+        }
+        if matches!(token, "--layout" | "--variant") {
+            let (value, next) = split_first_word(tail);
+            if value.is_empty() {
+                return Err(match token {
+                    "--layout" => "--layout requires a layout name",
+                    _ => "--variant requires a variant name",
+                }
+                .to_string());
+            }
+            match token {
+                "--layout" => layout = Some(value.to_string()),
+                _ => variant = Some(value.to_string()),
+            }
+            rest = next;
+            continue;
+        }
+        return Err(format!("unknown option '{token}' (use `type -- TEXT` for literal text)"));
+    }
+    if rest.is_empty() {
+        return Err("type requires text".to_string());
+    }
+    let text = if base64 {
+        decode_base64_text(rest)?
+    } else {
+        unescape(rest)?
+    };
+    if text.chars().count() > MAX_TYPE_CHARS {
+        return Err(format!("text too long (max {MAX_TYPE_CHARS} characters)"));
+    }
+    let chords = typist
+        .chords(layout.as_deref(), variant.as_deref(), &text)
+        .map_err(|err| err.to_string())?
+        .into_iter()
+        .map(|chord| Chord {
+            modifiers: chord.modifiers,
+            key: chord.key,
+        })
+        .collect();
+    Ok(IpcCommand::SendKey {
+        scope: InjectScope::Raw,
+        device: None,
+        chords,
+        phases: KeyPhases::Tap,
+    })
+}
+
+/// Split off the first whitespace-delimited word. Exactly one separator
+/// character is consumed, so leading spaces that belong to the following text
+/// survive (`--layout de  x` leaves `" x"`).
+fn split_first_word(input: &str) -> (&str, &str) {
+    let input = input.trim_start();
+    match input.find(char::is_whitespace) {
+        Some(pos) => {
+            let tail = &input[pos..];
+            let tail = tail.chars().next().map_or("", |c| &tail[c.len_utf8()..]);
+            (&input[..pos], tail)
+        }
+        None => (input, ""),
+    }
+}
+
+/// Decode a `--base64` payload. Base64 contains no whitespace and no line
+/// break, so arbitrary text (notably multi-line text) travels over the
+/// line-based protocol without any escaping.
+fn decode_base64_text(payload: &str) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(payload)
+        .map_err(|err| format!("invalid base64: {err}"))?;
+    if bytes.len() > MAX_BASE64_TEXT_BYTES {
+        return Err(format!("text too long (max {MAX_BASE64_TEXT_BYTES} bytes)"));
+    }
+    String::from_utf8(bytes).map_err(|_| "base64 payload is not valid UTF-8".to_string())
+}
+
+/// `\\n` → newline, `\\t` → tab, `\\\\` → backslash.
+fn unescape(text: &str) -> Result<String, String> {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            out.push(ch);
+            continue;
+        }
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('\\') => out.push('\\'),
+            Some(other) => return Err(format!("unknown escape: \\{other}")),
+            None => return Err("trailing backslash".to_string()),
+        }
+    }
+    Ok(out)
 }
 
 /// `key [--device NAME] [SCOPE] CHORD...` — both the device and the scope
@@ -769,10 +910,13 @@ mod tests {
         let fd = *server.connections.keys().next().unwrap();
         client.write_all(&vec![b'a'; MAX_LINE_LEN + 1]).unwrap();
         client.write_all(b"\n").unwrap();
-        let mut batch = server
-            .handle_readable(fd)
-            .or_else(|| server.handle_readable(fd))
-            .unwrap();
+        // A read returns at most 4096 bytes, so a line above the cap spans
+        // several reads; only the last one can report it as overlong.
+        let mut batch = loop {
+            if let Some(batch) = server.handle_readable(fd) {
+                break batch;
+            }
+        };
         assert_eq!(batch.lines, [Err("line too long".into())]);
         batch.reply(&Reply::Err("line too long".into())).unwrap();
         drop(batch);
@@ -795,7 +939,7 @@ mod tests {
     /// Parse a command after initializing the aliases used by key parsing.
     fn cmd(line: &str, mode: &str, inject: bool) -> (Option<IpcCommand>, Reply) {
         init_aliases();
-        handle_command(line, mode, inject)
+        handle_command(line, mode, inject, &mut Typist::new())
     }
 
     #[test]
@@ -1179,5 +1323,181 @@ mod tests {
         drop(server);
         assert!(!path.exists(), "socket file should be removed on drop");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn type_requires_injection_enabled() {
+        assert_eq!(cmd("type hello", "insert", false).1, Reply::Err("injection disabled".into()));
+    }
+
+    #[test]
+    fn type_requires_text() {
+        assert_eq!(cmd("type", "insert", true).1, Reply::Err("type requires text".into()));
+        assert_eq!(cmd("type --layout us", "insert", true).1, Reply::Err("type requires text".into()));
+        assert_eq!(cmd("type --layout", "insert", true).1, Reply::Err("--layout requires a layout name".into()));
+        assert_eq!(cmd("type --variant", "insert", true).1, Reply::Err("--variant requires a variant name".into()));
+    }
+
+    #[test]
+    fn type_rejects_unknown_escapes() {
+        assert_eq!(cmd(r"type a\qb", "insert", true).1, Reply::Err("unknown escape: \\q".into()));
+    }
+
+    #[test]
+    fn type_builds_raw_chords() {
+        if !crate::typist::available() {
+            return;
+        }
+        let (command, reply) = cmd("type --layout us aA", "insert", true);
+        assert_eq!(reply, Reply::Ok);
+        match command.unwrap() {
+            IpcCommand::SendKey {
+                scope,
+                device,
+                chords,
+                phases,
+            } => {
+                assert_eq!(scope, InjectScope::Raw);
+                assert_eq!(device, None);
+                assert_eq!(phases, KeyPhases::Tap);
+                assert_eq!(chords.len(), 2);
+                assert_eq!(chords[0].key, Key::KEY_A);
+                assert!(chords[0].modifiers.is_empty());
+                assert_eq!(chords[1].key, Key::KEY_A);
+                assert_eq!(chords[1].modifiers, vec![Key::KEY_LEFTSHIFT]);
+            }
+            other => panic!("expected SendKey, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn type_rejects_unsupported_characters() {
+        if !crate::typist::available() {
+            return;
+        }
+        let (command, reply) = cmd("type --layout us hej中", "insert", true);
+        assert!(command.is_none());
+        let Reply::Err(reason) = reply else {
+            panic!("expected err")
+        };
+        assert!(reason.contains("not available on layout"), "{reason}");
+    }
+
+    #[test]
+    fn type_rejects_unknown_options() {
+        init_aliases();
+        // Typo'd options must not be typed out as text.
+        let (command, reply) = cmd("type ---layout us 中文", "insert", true);
+        assert!(command.is_none());
+        assert_eq!(reply, Reply::Err("unknown option '---layout' (use `type -- TEXT` for literal text)".into()));
+        assert_eq!(
+            cmd("type --layouts us hi", "insert", true).1,
+            Reply::Err("unknown option '--layouts' (use `type -- TEXT` for literal text)".into())
+        );
+        assert!(matches!(cmd("type --bogus hi", "insert", true).1, Reply::Err(_)));
+    }
+
+    #[test]
+    fn type_double_dash_ends_the_options() {
+        init_aliases();
+        let (command, reply) = cmd("type --layout us -- --not-an-option", "insert", true);
+        assert_eq!(reply, Reply::Ok);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(chords.len(), "--not-an-option".chars().count());
+
+        // A single dash is plain text, not an option.
+        let (command, _) = cmd("type -layout hi", "insert", true);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(chords.len(), "-layout hi".chars().count());
+    }
+
+    #[test]
+    fn type_keeps_spaces_verbatim() {
+        if !crate::typist::available() {
+            return;
+        }
+        // One separator space is consumed, the rest is literal text.
+        let (command, _) = cmd("type --layout us  a b ", "insert", true);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        // ' ' + 'a' + ' ' + 'b' + ' '
+        assert_eq!(chords.len(), 5);
+        assert_eq!(chords[0].key, Key::KEY_SPACE);
+        assert_eq!(chords[4].key, Key::KEY_SPACE);
+    }
+
+    #[test]
+    fn long_type_payload_fits_the_line_cap() {
+        if !crate::typist::available() {
+            return;
+        }
+        let text = "a".repeat(MAX_TYPE_CHARS);
+        let (command, reply) = cmd(&format!("type --layout us {text}"), "insert", true);
+        assert_eq!(reply, Reply::Ok);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(chords.len(), MAX_TYPE_CHARS);
+    }
+
+    #[test]
+    fn type_base64_decodes_multi_line_text() {
+        if !crate::typist::available() {
+            return;
+        }
+        // "a\nb" → base64, so a newline travels without any `\\n` escape.
+        let payload = {
+            use base64::Engine;
+            base64::engine::general_purpose::STANDARD.encode("a\nb")
+        };
+        let (command, reply) = cmd(&format!("type --layout us --base64 {payload}"), "insert", true);
+        assert_eq!(reply, Reply::Ok);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(chords.len(), 3);
+        assert_eq!(chords[0].key, Key::KEY_A);
+        assert_eq!(chords[1].key, Key::KEY_ENTER);
+        assert_eq!(chords[2].key, Key::KEY_B);
+    }
+
+    #[test]
+    fn type_base64_rejects_bad_payloads() {
+        let (command, reply) = cmd("type --base64 !!!not-base64!!!", "insert", true);
+        assert!(command.is_none());
+        assert!(matches!(&reply, Reply::Err(reason) if reason.starts_with("invalid base64:")), "{reply:?}");
+
+        // 0xff 0xff is valid base64 but not UTF-8 text.
+        let (command, reply) = cmd("type --base64 //4=", "insert", true);
+        assert!(command.is_none());
+        assert_eq!(reply, Reply::Err("base64 payload is not valid UTF-8".into()));
+
+        // Decoded size is bounded independently of the line cap.
+        let payload = {
+            use base64::Engine;
+            base64::engine::general_purpose::STANDARD.encode("a".repeat(MAX_BASE64_TEXT_BYTES + 1))
+        };
+        let (command, reply) = cmd(&format!("type --base64 {payload}"), "insert", true);
+        assert!(command.is_none());
+        assert!(matches!(&reply, Reply::Err(reason) if reason.contains("text too long")), "{reply:?}");
+    }
+
+    #[test]
+    fn escaped_text_limit_counts_decoded_characters() {
+        if !crate::typist::available() {
+            return;
+        }
+        let input = format!("type --layout us {}", r"\n".repeat(MAX_TYPE_CHARS));
+        let (command, reply) = cmd(&input, "insert", true);
+        assert_eq!(reply, Reply::Ok);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(chords.len(), MAX_TYPE_CHARS);
     }
 }

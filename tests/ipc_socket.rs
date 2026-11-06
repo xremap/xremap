@@ -264,3 +264,40 @@ fn wheel_fails_loudly_when_enable_wheel_is_false() {
     assert_eq!(replies, [wheel_error, wheel_error, "ok\n", "ok\n", "pong\n"],);
     assert!(daemon.child.try_wait().unwrap().is_none());
 }
+#[test]
+fn type_subcommand_uses_the_socket_option_after_text() {
+    let daemon = DaemonGuard::start(false);
+    let output = Command::new(env!("CARGO_BIN_EXE_xremap"))
+        .args(["type", "hello", "world", "--socket"])
+        .arg(&daemon.socket)
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert_eq!(output.stdout, b"err injection disabled\n", "{}", String::from_utf8_lossy(&output.stderr));
+}
+
+#[test]
+fn type_stdin_with_inline_text_is_rejected_locally() {
+    // A conflicting invocation must fail in the CLI, before anything reaches
+    // the server, so no text can be typed into the session.
+    let daemon = DaemonGuard::start(false);
+    let output = Command::new(env!("CARGO_BIN_EXE_xremap"))
+        .arg("--socket")
+        .arg(&daemon.socket)
+        .args(["type", "--stdin", "extra"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty(), "must not reach the server");
+}
+
+#[test]
+fn invalid_base64_is_reported_by_the_server() {
+    let mut daemon = DaemonGuard::start(true);
+    let mut stream = connect(&daemon.socket).unwrap();
+    let replies = exchange(&mut stream, "type --base64 !!!\ntype --base64 //4=\nping\n", 3);
+    assert!(replies[0].starts_with("err invalid base64:"), "{replies:?}");
+    assert_eq!(replies[1], "err base64 payload is not valid UTF-8\n");
+    assert_eq!(replies[2], "pong\n");
+    assert!(daemon.child.try_wait().unwrap().is_none());
+}

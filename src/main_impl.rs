@@ -465,9 +465,12 @@ fn event_loop(
             let mut lines = std::mem::take(&mut batch.lines).into_iter();
             while let Some(line) = lines.next() {
                 let (command, mut reply) = match (line, ipc.as_mut()) {
-                    (Ok(line), Some(state)) => {
-                        crate::ipc_server::handle_command(&line, handler.current_mode(), state.inject_enabled)
-                    }
+                    (Ok(line), Some(state)) => crate::ipc_server::handle_command(
+                        &line,
+                        handler.current_mode(),
+                        state.inject_enabled,
+                        &mut state.typist,
+                    ),
                     (Err(reason), _) => (None, crate::ipc_server::Reply::Err(reason)),
                     (_, None) => (None, crate::ipc_server::Reply::Err("IPC disabled".to_string())),
                 };
@@ -563,6 +566,8 @@ fn select_readable<'a>(
 struct IpcState {
     server: IpcServer,
     inject_enabled: bool,
+    /// Resolves text to key chords for the `type` command.
+    typist: crate::typist::Typist,
 }
 
 const IPC_DEFAULT_DEVICE: &str = "xremap-ipc";
@@ -575,6 +580,7 @@ fn build_ipc(config: &Config) -> anyhow::Result<Option<IpcState>> {
     Ok(Some(IpcState {
         server,
         inject_enabled: ipc.inject,
+        typist: crate::typist::Typist::new(),
     }))
 }
 
@@ -584,6 +590,7 @@ fn sync_ipc(ipc: &mut Option<IpcState>, config: &Config) -> anyhow::Result<()> {
     match (&mut *ipc, &config.ipc) {
         (Some(state), Some(new_ipc)) if state.server.path() == new_ipc.socket => {
             state.inject_enabled = new_ipc.inject;
+            state.typist = crate::typist::Typist::new();
         }
         _ => {
             let replacement = build_ipc(config)?;
@@ -840,5 +847,62 @@ mod cli_tests {
                 buttons: vec!["left".into(), "right".into()]
             })
         );
+    }
+
+    #[test]
+    fn type_recognizes_socket_options_before_between_and_after_words() {
+        for args in [
+            vec![
+                "xremap",
+                "--socket",
+                "/tmp/control.sock",
+                "type",
+                "--layout",
+                "us",
+                "hello",
+                "world",
+            ],
+            vec![
+                "xremap",
+                "type",
+                "--layout",
+                "us",
+                "hello",
+                "--socket",
+                "/tmp/control.sock",
+                "world",
+            ],
+            vec![
+                "xremap",
+                "type",
+                "--layout",
+                "us",
+                "hello",
+                "world",
+                "--socket",
+                "/tmp/control.sock",
+            ],
+        ] {
+            let parsed = Args::try_parse_from(args).unwrap();
+            assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+            match parsed.command.unwrap() {
+                ClientCommand::Type { layout, text, .. } => {
+                    assert_eq!(layout.as_deref(), Some("us"));
+                    assert_eq!(text, ["hello", "world"]);
+                }
+                other => panic!("unexpected command: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn type_literal_separator_preserves_option_like_text() {
+        let parsed = Args::try_parse_from(["xremap", "type", "--", "--socket", "literal", "-text"]).unwrap();
+        assert_eq!(parsed.socket, None);
+        match parsed.command.unwrap() {
+            ClientCommand::Type { text, .. } => assert_eq!(text, ["--socket", "literal", "-text"]),
+            other => panic!("unexpected command: {other:?}"),
+        }
+        assert!(Args::try_parse_from(["xremap", "type", "---layout", "us", "hello"]).is_err());
     }
 }

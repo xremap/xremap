@@ -45,4 +45,5 @@ mod operators;
 mod plugin;
 mod throttle_emit;
 mod timeout_manager;
+mod typist;
 mod util;

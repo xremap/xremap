@@ -64,8 +64,8 @@ jobs:
         with:
           key: ubuntu-latest-glibc-${{ matrix.feature }}
 
-      - name: Install libudev dependencies
-        run: sudo apt-get update && sudo apt-get -y install pkg-config libudev1 libudev-dev
+      - name: Install libudev and libxkbcommon dependencies
+        run: sudo apt-get update && sudo apt-get -y install pkg-config libudev1 libudev-dev libxkbcommon-dev
 
       - name: Build
         run: cargo build --release --features ${{ matrix.feature }}
@@ -83,7 +83,10 @@ jobs:
           run: |
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
             . "$HOME/.cargo/env"
-            cargo build
+            sudo pkg install -y libxkbcommon
+            # FreeBSD's base `cc` does not search /usr/local/lib, where pkg
+            # installs libxkbcommon.
+            RUSTFLAGS="-L /usr/local/lib" cargo build
 
   test:
     runs-on: ubuntu-latest
@@ -96,7 +99,9 @@ jobs:
         with:
           key: ubuntu-latest
       - name: Run unit tests
-        run: cargo test
+        run: |
+          sudo apt-get update && sudo apt-get -y install libxkbcommon-dev
+          cargo test
       - name: Run device tests
         run: sudo -E env "PATH=$PATH" cargo test --tests --features socket,device-test
 
