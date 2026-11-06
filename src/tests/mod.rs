@@ -5,6 +5,7 @@ mod tests_any_key;
 mod tests_disguised_events_in;
 mod tests_escape_next_key;
 mod tests_extra_modifiers;
+mod tests_ipc_key;
 mod tests_keymap_mark;
 mod tests_keymap_mode;
 mod tests_keymap_modifier_triggers;
