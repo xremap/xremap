@@ -12,7 +12,7 @@ use crate::action::Action;
 use crate::config::key::parse_key;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue};
-use crate::typist::Typist;
+use crate::typist::{TextMethod, Typist};
 use evdev::KeyCode as Key;
 use std::rc::Rc;
 
@@ -31,7 +31,7 @@ use std::rc::Rc;
 //   wheel / hwheel AMOUNT  scroll vertically / horizontally
 //   mousemove X Y      move the pointer
 //   sleep MILLISECONDS pause command processing (max 5000)
-//   type TEXT          Type text using the XKB layout. → "ok"
+//   type TEXT          Type text using the active XKB layout. → "ok"
 //
 // Replies: "ok\n", "MODE\n", "pong\n", "err REASON\n".
 
@@ -173,6 +173,13 @@ pub enum IpcCommand {
         chords: Vec<Chord>,
         phases: KeyPhases,
     },
+    /// Put text on the clipboard and send a paste keystroke.
+    ClipboardPaste {
+        text: String,
+        paste: Chord,
+        /// Restore the previous clipboard contents afterwards.
+        restore: bool,
+    },
     /// Pause command processing; maps to the existing Action::Delay.
     Sleep(std::time::Duration),
     /// Scroll by `amount` lines (REL_WHEEL) or columns (REL_HWHEEL).
@@ -225,6 +232,7 @@ impl Reply {
             // order, and a failure is any line starting with `err`.
             Reply::Mode(mode) => format!("{}\n", escape_reply_text(mode)),
             Reply::Pong => "pong\n".to_string(),
+            // Errors may come from multiline config/parser diagnostics.
             Reply::Err(reason) => format!("err {}\n", escape_reply_text(reason)),
         }
     }
@@ -354,8 +362,7 @@ pub fn handle_command(
         _ => (None, Reply::Err("unknown command".to_string())),
     }
 }
-
-/// `type [--layout LAYOUT] [--variant VARIANT] [--] TEXT`
+/// `type [--method METHOD] [--layout LAYOUT] [--variant VARIANT] [--paste CHORD] [--restore] [--] TEXT`
 /// — TEXT is the rest of the line, with `\\n`, `\\t` and `\\\\` escapes so
 /// newlines can be sent over the line-based protocol.
 fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, String> {
@@ -365,6 +372,9 @@ fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, Stri
     let mut rest = arg;
     let mut layout: Option<String> = None;
     let mut variant: Option<String> = None;
+    let mut method = TextMethod::Auto;
+    let mut paste: Option<Chord> = None;
+    let mut restore = false;
     let mut base64 = false;
     while rest.starts_with("--") {
         let (token, tail) = split_first_word(rest);
@@ -377,20 +387,32 @@ fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, Stri
             rest = tail;
             continue;
         }
-        if matches!(token, "--layout" | "--variant") {
+        if matches!(token, "--layout" | "--variant" | "--paste" | "--method") {
             let (value, next) = split_first_word(tail);
             if value.is_empty() {
                 return Err(match token {
                     "--layout" => "--layout requires a layout name",
-                    _ => "--variant requires a variant name",
+                    "--variant" => "--variant requires a variant name",
+                    "--paste" => "--paste requires a chord",
+                    _ => "--method requires a value",
                 }
                 .to_string());
             }
             match token {
                 "--layout" => layout = Some(value.to_string()),
-                _ => variant = Some(value.to_string()),
+                "--variant" => variant = Some(value.to_string()),
+                "--paste" => paste = Some(Chord::parse(value).map_err(|err| format!("invalid --paste chord: {err}"))?),
+                _ => {
+                    method = TextMethod::parse(value)
+                        .ok_or_else(|| format!("unknown --method '{value}' (auto, layout, unicode, clipboard)"))?
+                }
             }
             rest = next;
+            continue;
+        }
+        if token == "--restore" {
+            restore = true;
+            rest = tail;
             continue;
         }
         return Err(format!("unknown option '{token}' (use `type -- TEXT` for literal text)"));
@@ -406,8 +428,17 @@ fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, Stri
     if text.chars().count() > MAX_TYPE_CHARS {
         return Err(format!("text too long (max {MAX_TYPE_CHARS} characters)"));
     }
+    if method == TextMethod::Clipboard {
+        // Typing arbitrary Unicode needs the clipboard, and the paste
+        // keystroke differs per application (Ctrl+V, Ctrl+Shift+V, C-y).
+        let paste = paste.unwrap_or_else(|| Chord {
+            modifiers: vec![Key::KEY_LEFTCTRL],
+            key: Key::KEY_V,
+        });
+        return Ok(IpcCommand::ClipboardPaste { text, paste, restore });
+    }
     let chords = typist
-        .chords(layout.as_deref(), variant.as_deref(), &text)
+        .chords(layout.as_deref(), variant.as_deref(), method, &text)
         .map_err(|err| err.to_string())?
         .into_iter()
         .map(|chord| Chord {
@@ -813,6 +844,23 @@ impl Drop for IpcServer {
 mod tests {
     use super::*;
 
+    /// `parse_key` consults the global key-alias table, which is normally
+    /// populated while parsing a config file. Set it once here so these tests
+    /// do not depend on other tests having parsed a config first.
+    fn init_aliases() {
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            crate::config::key_aliases::pre_load_key_aliases("", crate::config::ConfigFiletype::Yaml).unwrap();
+        });
+    }
+
+    /// `handle_command` needs a typist; `type` itself is covered by the
+    /// typist tests, so a fresh (lazily compiled) one is enough here.
+    fn cmd(line: &str, mode: &str, inject: bool) -> (Option<IpcCommand>, Reply) {
+        init_aliases();
+        handle_command(line, mode, inject, &mut Typist::new())
+    }
+
     struct SocketDir(PathBuf);
 
     impl SocketDir {
@@ -924,22 +972,6 @@ mod tests {
         client.read_to_string(&mut reply).unwrap();
         assert_eq!(reply, "err line too long\n");
         assert!(!server.holds_fd(fd));
-    }
-
-    /// `parse_key` consults the global key-alias table, which is normally
-    /// populated while parsing a config file. Set it once here so these tests
-    /// do not depend on other tests having parsed a config first.
-    fn init_aliases() {
-        static ONCE: std::sync::Once = std::sync::Once::new();
-        ONCE.call_once(|| {
-            crate::config::key_aliases::pre_load_key_aliases("", crate::config::ConfigFiletype::Yaml).unwrap();
-        });
-    }
-
-    /// Parse a command after initializing the aliases used by key parsing.
-    fn cmd(line: &str, mode: &str, inject: bool) -> (Option<IpcCommand>, Reply) {
-        init_aliases();
-        handle_command(line, mode, inject, &mut Typist::new())
     }
 
     #[test]
@@ -1371,11 +1403,11 @@ mod tests {
     }
 
     #[test]
-    fn type_rejects_unsupported_characters() {
+    fn type_reports_unsupported_character_with_layout_method() {
         if !crate::typist::available() {
             return;
         }
-        let (command, reply) = cmd("type --layout us hej中", "insert", true);
+        let (command, reply) = cmd("type --method layout --layout us hej中", "insert", true);
         assert!(command.is_none());
         let Reply::Err(reason) = reply else {
             panic!("expected err")
@@ -1384,15 +1416,95 @@ mod tests {
     }
 
     #[test]
+    fn type_falls_back_to_unicode_by_default() {
+        if !crate::typist::available() {
+            return;
+        }
+        // 中 = U+4E2D → Ctrl+Shift+U 4 e 2 d Enter
+        let (command, reply) = cmd("type --layout us 中", "insert", true);
+        assert_eq!(reply, Reply::Ok);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(chords.len(), 6);
+        assert_eq!(chords[0].modifiers, vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT]);
+        assert_eq!(chords[0].key, Key::KEY_U);
+        assert_eq!(chords[1].key, Key::KEY_4);
+        assert_eq!(chords[5].key, Key::KEY_ENTER);
+    }
+
+    #[test]
+    fn type_method_option() {
+        assert_eq!(cmd("type --method", "insert", true).1, Reply::Err("--method requires a value".into()));
+        assert_eq!(
+            cmd("type --method bogus x", "insert", true).1,
+            Reply::Err("unknown --method 'bogus' (auto, layout, unicode, clipboard)".into())
+        );
+    }
+
+    #[test]
+    fn type_clipboard_method_builds_a_paste() {
+        init_aliases();
+        let (command, reply) = cmd("type --method clipboard 中文", "insert", true);
+        assert_eq!(reply, Reply::Ok);
+        let IpcCommand::ClipboardPaste { text, paste, restore } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(text, "中文");
+        assert_eq!(paste.key, Key::KEY_V);
+        assert_eq!(paste.modifiers, vec![Key::KEY_LEFTCTRL]);
+        assert!(!restore, "clipboard restore is opt-in");
+    }
+
+    #[test]
+    fn type_clipboard_paste_chord_is_configurable() {
+        init_aliases();
+        // Terminals need Ctrl+Shift+V, Emacs Ctrl+Y. Chords use the
+        // `modifier+key` syntax, not the config file's `C-y` short form.
+        let (command, _) = cmd("type --method clipboard --paste ctrl+shift+v hi", "insert", true);
+        let IpcCommand::ClipboardPaste { paste, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(paste.key, Key::KEY_V);
+        assert_eq!(paste.modifiers, vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT]);
+
+        let (command, _) = cmd("type --method clipboard --paste ctrl+y hi", "insert", true);
+        let IpcCommand::ClipboardPaste { paste, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(paste.key, Key::KEY_Y);
+    }
+
+    #[test]
+    fn type_clipboard_restore_flag() {
+        init_aliases();
+        let (command, _) = cmd("type --method clipboard --restore hi", "insert", true);
+        let IpcCommand::ClipboardPaste { text, restore, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(text, "hi");
+        assert!(restore);
+    }
+
+    #[test]
+    fn type_clipboard_rejects_bad_paste_chord() {
+        assert!(matches!(cmd("type --method clipboard --paste nope+hi hi", "insert", true).1, Reply::Err(_)));
+        assert_eq!(
+            cmd("type --method clipboard --paste", "insert", true).1,
+            Reply::Err("--paste requires a chord".into())
+        );
+    }
+
+    #[test]
     fn type_rejects_unknown_options() {
         init_aliases();
         // Typo'd options must not be typed out as text.
-        let (command, reply) = cmd("type ---layout us 中文", "insert", true);
+        let (command, reply) = cmd("type ---paste ctrl+shift+v --restore 中文", "insert", true);
         assert!(command.is_none());
-        assert_eq!(reply, Reply::Err("unknown option '---layout' (use `type -- TEXT` for literal text)".into()));
+        assert_eq!(reply, Reply::Err("unknown option '---paste' (use `type -- TEXT` for literal text)".into()));
         assert_eq!(
-            cmd("type --layouts us hi", "insert", true).1,
-            Reply::Err("unknown option '--layouts' (use `type -- TEXT` for literal text)".into())
+            cmd("type --restorex hi", "insert", true).1,
+            Reply::Err("unknown option '--restorex' (use `type -- TEXT` for literal text)".into())
         );
         assert!(matches!(cmd("type --bogus hi", "insert", true).1, Reply::Err(_)));
     }
@@ -1400,19 +1512,19 @@ mod tests {
     #[test]
     fn type_double_dash_ends_the_options() {
         init_aliases();
-        let (command, reply) = cmd("type --layout us -- --not-an-option", "insert", true);
+        let (command, reply) = cmd("type --method clipboard --paste f20 -- --not-an-option", "insert", true);
         assert_eq!(reply, Reply::Ok);
-        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+        let IpcCommand::ClipboardPaste { text, .. } = command.unwrap() else {
             panic!()
         };
-        assert_eq!(chords.len(), "--not-an-option".chars().count());
+        assert_eq!(text, "--not-an-option");
 
         // A single dash is plain text, not an option.
-        let (command, _) = cmd("type -layout hi", "insert", true);
+        let (command, _) = cmd("type -restore hi", "insert", true);
         let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
             panic!()
         };
-        assert_eq!(chords.len(), "-layout hi".chars().count());
+        assert_eq!(chords.len(), "-restore hi".chars().count());
     }
 
     #[test]
@@ -1492,12 +1604,25 @@ mod tests {
         if !crate::typist::available() {
             return;
         }
-        let input = format!("type --layout us {}", r"\n".repeat(MAX_TYPE_CHARS));
+        let input = format!("type --method layout --layout us {}", r"\n".repeat(MAX_TYPE_CHARS));
         let (command, reply) = cmd(&input, "insert", true);
         assert_eq!(reply, Reply::Ok);
         let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
             panic!()
         };
         assert_eq!(chords.len(), MAX_TYPE_CHARS);
+    }
+
+    #[test]
+    fn type_unescapes_newlines() {
+        if !crate::typist::available() {
+            return;
+        }
+        let (command, _) = cmd(r"type --layout us a\nb", "insert", true);
+        let IpcCommand::SendKey { chords, .. } = command.unwrap() else {
+            panic!()
+        };
+        assert_eq!(chords.len(), 3);
+        assert_eq!(chords[1].key, Key::KEY_ENTER);
     }
 }

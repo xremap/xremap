@@ -1,8 +1,9 @@
 #![cfg(feature = "device-test")]
 //! Process-level IPC regressions require uinput permissions. No test emits
-//! keys.
+//! keys or accesses the real clipboard; failing clipboard helpers are local.
 
 use std::io::{BufRead, BufReader, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -42,18 +43,18 @@ struct DaemonGuard {
 }
 
 impl DaemonGuard {
-    fn start(inject: bool) -> Self {
-        Self::start_with_config(inject, "")
+    fn start(stub_clipboard: bool) -> Self {
+        Self::start_with_config(stub_clipboard, "")
     }
 
-    /// `inject` gates the key commands; the mode tests do not need it.
-    fn start_with_config(inject: bool, extra: &str) -> Self {
+    /// `stub_clipboard` enables injection; the mode tests do not need it.
+    fn start_with_config(stub_clipboard: bool, extra: &str) -> Self {
         let dir = std::env::temp_dir().join(format!("xremap-ipc-{}-{:x}", std::process::id(), fastrand::u64(..)));
         std::fs::create_dir_all(&dir).unwrap();
         let config = dir.join("config.yml");
         let socket = dir.join("test.sock");
         let log = dir.join("daemon.log");
-        std::fs::write(&config, format!("{extra}ipc:\n  socket: {}\n  inject: {}\n", socket.display(), inject))
+        std::fs::write(&config, format!("{extra}ipc:\n  socket: {}\n  inject: {}\n", socket.display(), stub_clipboard))
             .unwrap();
         let logfile = std::fs::File::create(&log).unwrap();
         let mut command = Command::new(env!("CARGO_BIN_EXE_xremap"));
@@ -68,6 +69,16 @@ impl DaemonGuard {
             ])
             .stdout(Stdio::from(logfile.try_clone().unwrap()))
             .stderr(Stdio::from(logfile));
+        if stub_clipboard {
+            let helpers = dir.join("helpers");
+            std::fs::create_dir(&helpers).unwrap();
+            for name in ["wl-copy", "xsel", "xclip"] {
+                let helper = helpers.join(name);
+                std::fs::write(&helper, "#!/bin/sh\nexit 1\n").unwrap();
+                std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o700)).unwrap();
+            }
+            command.env("PATH", helpers);
+        }
         let child = command.spawn().unwrap();
         let mut guard = Self {
             child,
@@ -264,6 +275,7 @@ fn wheel_fails_loudly_when_enable_wheel_is_false() {
     assert_eq!(replies, [wheel_error, wheel_error, "ok\n", "ok\n", "pong\n"],);
     assert!(daemon.child.try_wait().unwrap().is_none());
 }
+
 #[test]
 fn type_subcommand_uses_the_socket_option_after_text() {
     let daemon = DaemonGuard::start(false);
@@ -299,5 +311,15 @@ fn invalid_base64_is_reported_by_the_server() {
     assert!(replies[0].starts_with("err invalid base64:"), "{replies:?}");
     assert_eq!(replies[1], "err base64 payload is not valid UTF-8\n");
     assert_eq!(replies[2], "pong\n");
+    assert!(daemon.child.try_wait().unwrap().is_none());
+}
+
+#[test]
+fn clipboard_failure_is_reported_without_exiting_daemon() {
+    let mut daemon = DaemonGuard::start(true);
+    let mut stream = connect(&daemon.socket).unwrap();
+    let replies = exchange(&mut stream, "type --method clipboard 中文\nping\n", 2);
+    assert!(replies[0].starts_with("err failed to write clipboard: no working clipboard helper"), "{replies:?}");
+    assert_eq!(replies[1], "pong\n");
     assert!(daemon.child.try_wait().unwrap().is_none());
 }

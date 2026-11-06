@@ -82,6 +82,15 @@ pub enum ClientCommand {
         /// XKB variant name.
         #[arg(long, value_name = "VARIANT")]
         variant: Option<String>,
+        /// How to produce characters: auto, layout, unicode or clipboard.
+        #[arg(long, value_name = "METHOD")]
+        method: Option<String>,
+        /// Chord that pastes the clipboard for `--method clipboard`.
+        #[arg(long, value_name = "CHORD")]
+        paste: Option<String>,
+        /// Restore the previous clipboard after `--method clipboard`.
+        #[arg(long)]
+        restore: bool,
         /// Read the text from stdin instead of the arguments.
         #[arg(long, conflicts_with_all = ["text", "payload"])]
         stdin: bool,
@@ -108,10 +117,22 @@ impl ClientCommand {
             ClientCommand::Type {
                 layout,
                 variant,
+                method,
+                paste,
+                restore,
                 stdin,
                 payload,
                 text,
-            } => render_type_command(layout.as_deref(), variant.as_deref(), *stdin, payload.as_deref(), text),
+            } => render_type_command(
+                layout.as_deref(),
+                variant.as_deref(),
+                method.as_deref(),
+                paste.as_deref(),
+                *restore,
+                *stdin,
+                payload.as_deref(),
+                text,
+            ),
             ClientCommand::Key { device, args }
             | ClientCommand::Keydown { device, args }
             | ClientCommand::Keyup { device, args } => {
@@ -180,6 +201,9 @@ pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()
 fn render_type_command(
     layout: Option<&str>,
     variant: Option<&str>,
+    method: Option<&str>,
+    paste: Option<&str>,
+    restore: bool,
     from_stdin: bool,
     payload: Option<&str>,
     text: &[String],
@@ -192,6 +216,17 @@ fn render_type_command(
     if let Some(variant) = variant {
         line.push_str(" --variant ");
         line.push_str(variant);
+    }
+    if let Some(method) = method {
+        line.push_str(" --method ");
+        line.push_str(method);
+    }
+    if let Some(paste) = paste {
+        line.push_str(" --paste ");
+        line.push_str(paste);
+    }
+    if restore {
+        line.push_str(" --restore");
     }
     if let Some(payload) = payload {
         line.push_str(" --base64 ");
@@ -233,6 +268,9 @@ mod tests {
         let cmd = ClientCommand::Type {
             layout: Some("de".into()),
             variant: None,
+            method: None,
+            paste: None,
+            restore: false,
             stdin: false,
             payload: None,
             text: vec!["Grüße".into()],
@@ -245,6 +283,9 @@ mod tests {
         let cmd = ClientCommand::Type {
             layout: None,
             variant: Some("nodeadkeys".into()),
+            method: None,
+            paste: None,
+            restore: false,
             stdin: false,
             payload: Some("aGVsbG8=".into()),
             text: Vec::new(),
@@ -257,11 +298,29 @@ mod tests {
         let cmd = ClientCommand::Type {
             layout: None,
             variant: None,
+            method: None,
+            paste: None,
+            restore: false,
             stdin: false,
             payload: None,
             text: Vec::new(),
         };
         assert!(cmd.protocol_line().is_err());
+    }
+
+    #[test]
+    fn type_clipboard_options_are_rendered() {
+        let cmd = ClientCommand::Type {
+            layout: None,
+            variant: None,
+            method: Some("clipboard".into()),
+            paste: Some("ctrl+v".into()),
+            restore: true,
+            stdin: false,
+            payload: None,
+            text: vec!["中文".into()],
+        };
+        assert_eq!(cmd.protocol_line().unwrap(), "type --method clipboard --paste ctrl+v --restore -- 中文");
     }
 
     #[test]

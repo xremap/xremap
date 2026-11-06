@@ -19,7 +19,7 @@ fork = "0.10"
 futures-util = {version = "0.3", optional = true}
 indoc = "2.0"
 log = "0.4.31"
-nix = { version = "0.31", features = ["inotify", "poll", "socket", "time", "signal", "user"] }
+nix = { version = "0.31", features = ["fs", "inotify", "poll", "socket", "time", "signal", "user"] }
 niri-ipc = { version = "25.11.0", optional = true }
 regex = "1.12.2"
 serde = { version = "1.0", features = ["derive"] }
