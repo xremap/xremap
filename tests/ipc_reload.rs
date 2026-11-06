@@ -279,3 +279,46 @@ fn wheel_fails_loudly_when_enable_wheel_is_false() {
     );
     assert!(daemon.child.try_wait().unwrap().is_none());
 }
+#[test]
+fn stdin_and_file_sources_fail_without_touching_keys() {
+    // Only error paths: none of these may inject text into the session.
+    let daemon = DaemonGuard::start(false);
+    let missing = daemon.dir.join("nope.txt");
+    for command in [
+        format!("type --file {}", missing.display()),
+        "type --file".to_string(),
+        "type --stdin extra".to_string(),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_xremap"))
+            .arg("--socket").arg(&daemon.socket)
+            .arg("--client").arg(&command)
+            .output().unwrap();
+        assert!(!output.status.success(), "{command:?} should fail");
+        assert!(output.stdout.is_empty(), "{command:?} must not reach the server");
+    }
+
+    // `--client -` already reads stdin, so `type --stdin` cannot be used there.
+    let output = Command::new(env!("CARGO_BIN_EXE_xremap"))
+        .arg("--socket").arg(&daemon.socket)
+        .arg("--client").arg("-")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn().unwrap();
+    let mut child = output;
+    child.stdin.as_mut().unwrap().write_all(b"type --stdin\n").unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("stdin already carries commands"));
+}
+
+#[test]
+fn invalid_base64_is_reported_by_the_server() {
+    let mut daemon = DaemonGuard::start(true);
+    let mut stream = connect(&daemon.socket).unwrap();
+    let replies = exchange(&mut stream, "type --base64 !!!\ntype --base64 //4=\nping\n", 3);
+    assert!(replies[0].starts_with("err invalid base64:"), "{replies:?}");
+    assert_eq!(replies[1], "err base64 payload is not valid UTF-8\n");
+    assert_eq!(replies[2], "pong\n");
+    assert!(daemon.child.try_wait().unwrap().is_none());
+}

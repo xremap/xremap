@@ -38,6 +38,7 @@ ping\n                                   → pong\n
 key [--device NAME] [SCOPE] CHORD...\n   → ok\n
 keydown [--device NAME] [SCOPE] CHORD...\n → ok\n
 keyup [--device NAME] [SCOPE] CHORD...\n   → ok\n
+type [--layout LAYOUT] [--variant VARIANT] [--base64 PAYLOAD] [--] TEXT\n → ok\n
 click [left/middle/right]...        → ok\n
 wheel AMOUNT\n                        → ok\n
 hwheel AMOUNT\n                       → ok\n
@@ -55,7 +56,7 @@ xremap processing, not that the focused application has consumed its input.
 
 Errors are `err REASON\n`. Free-form reply text escapes backslashes, CR and LF
 as `\\`, `\r` and `\n` so every reply stays on one line; this applies to
-`REASON` and to `MODE`. Input must be valid UTF-8. Lines longer than 256 bytes
+`REASON` and to `MODE`. Input must be valid UTF-8. Lines longer than 4096 bytes
 are rejected and the connection is closed.
 
 
@@ -98,11 +99,82 @@ are rejected and the connection is closed.
 - `mousemove X Y` moves the pointer by X/Y units (REL_X / REL_Y), dispatched
   as one batch. Both are integers; there is no absolute positioning, which
   would require a second, absolute virtual device.
+- `type` types `TEXT`. The rest of the line is the text; `\\n`, `\\t` and `\\\\`
+  escapes let newlines and tabs travel over the line-based protocol. A bare
+  newline cannot appear in `TEXT`: it terminates the command, and letting it
+  through would turn typed text into commands. `--base64 PAYLOAD` takes the
+  same text encoded as base64 instead (see [Typing large text](#typing-large-text)).
+  `--layout`/`--variant` select the XKB layout, defaulting to
+  `$XKB_DEFAULT_LAYOUT` and then `us`. The layout must be the one the
+  receiving application decodes with — normally the session layout, not "the
+  layout of the keycaps": injection sends keycodes, so `--layout de` on a `us`
+  session types `ü` as `[` and `ß` as `-`. Layout resolution uses libxkbcommon,
+  loaded at runtime — no build-time dependency.
+
+  Because injection sends keycodes, a locked CapsLock in the session flips the
+  case of the letters: `type hello` types `HELLO`. The CapsLock state is not
+  observable on the injection path.
+
+  Two- and three-key dead-key sequences are resolved through libxkbcommon's
+  Compose table (`$XCOMPOSEFILE`, user XCompose files, or the locale table).
+  For example, a matching layout can produce `é` via `dead_acute` then `e`.
+  The receiving application must use compatible composition rules. The keys
+  involved must exist on the layout; otherwise the method's fallback applies.
+  Custom Compose results containing several characters or exceeding the result
+  buffer are not registered as single-character mappings.
+
+  ```console
+  $ xremap --client 'type --layout de Grüße'
+  ```
+
+  Options are `--token` style and must come first. A misspelt option is an
+
+  Limits for `type`: `TEXT` is at most 4096 characters, a protocol line at
+  most 16384 bytes, and a `--base64` payload at most 8192 bytes once decoded.
 - `sleep` pauses command processing for 1..=5000 ms, so a command stream can
   sequence keys with delays for applications that need them:
   `printf 'key raw alt+f\nsleep 100\nkey raw down\n' | xremap --client`.
   Note that it blocks xremap's event loop: no physical keys are remapped
   while it sleeps, so keep the duration short.
+
+## Typing large text
+
+Escaping is fine for a sentence, not for a paragraph. `TEXT` must stay on one
+line and is capped, so multi-line or long text should not be assembled by hand:
+
+```console
+$ cat notes.txt | xremap --client 'type --stdin'
+$ cat notes.txt | xremap --client 'type --stdin --layout de --restore'
+$ xremap --client 'type --file notes.txt'
+$ printf 'a\r\nb\r\n' | xremap --client 'type --stdin'   # CRLF is normalised
+```
+
+`--stdin` and `--file PATH` are expanded by the **client**: it reads the text,
+normalises CRLF and lone CR to LF (xremap can inject Enter but has no CR
+key), base64-encodes it, and sends a single `type --base64 PAYLOAD` command.
+Consequences:
+
+- Nothing is chunked or re-sent per line: multi-line text is one command, so
+  order and newlines come from the text itself, not from extra `key` commands.
+- No escaping is involved anywhere: the payload is base64, which cannot
+  contain a line break.
+- The server never reads files or stdin; `--file` is client-side only.
+- `--stdin` cannot be combined with `xremap --client -`, because stdin already
+  carries commands there.
+- Inline text cannot be combined with `--stdin`/`--file`.
+
+`--base64` is also usable directly by any client that already has the text
+encoded; a bad payload returns `err invalid base64: ...`, non-UTF-8 bytes
+return `err base64 payload is not valid UTF-8`, and oversized text returns
+`err text too long (...)`.
+
+### Why not raw multi-line text?
+
+The protocol is line-based, so a bare newline is a frame boundary. Accepting it
+inside `TEXT` would let typed text be executed as commands — for example a
+pasted line `key raw ctrl+alt+delete` would press those keys. dotool has the
+same constraint and simply cannot type a newline at all; xremap can, via `\\n`
+or `--base64`.
 
 ## The `key` scopes
 

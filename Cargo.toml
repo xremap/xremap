@@ -9,6 +9,7 @@ repository = "https://github.com/xremap/xremap"
 
 [dependencies]
 anyhow = "1.0.102"
+base64 = "0.22.1"
 clap = { version = "4.3.19", features = ["derive"] }
 clap_complete = "4.3.2"
 derive-where = "1.6.1"
@@ -35,6 +36,7 @@ wayland-protocols = { version = "0.32.10", features = ["client"], optional = tru
 wayland-scanner = { version = "0.31.10", optional = true }
 wayland-backend = { version = "0.3.15", optional = true }
 indexmap = { version = "2.14.0", features = ["serde"] }
+xkbcommon-dl = "0.4.2"
 
 [dev-dependencies]
 fastrand = "2.4.1"
