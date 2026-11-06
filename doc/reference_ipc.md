@@ -20,7 +20,7 @@ ipc:                    # omit the whole section to disable IPC entirely
 | Option | Default | Meaning |
 |---|---|---|
 | `socket` | (none — IPC off) | `true` for the default path, or an explicit path. `false` explicitly disables. |
-| `inject` | `false` | Gate for the whole injection command family (`key`, `keydown`, `keyup`, `click`, `wheel`, `hwheel`, `mousemove`, `sleep`). When off, the server answers `err injection disabled`. |
+| `inject` | `false` | Gate for the whole injection command family (`key`, `keydown`, `keyup`, `type`, `click`, `wheel`, `hwheel`, `mousemove`, `sleep`). When off, the server answers `err injection disabled`. |
 
 The default socket path falls back to `$TMPDIR/xremap-<uid>.sock` when
 `$XDG_RUNTIME_DIR` is unset.
@@ -38,7 +38,7 @@ ping\n                                   → pong\n
 key [--device NAME] [SCOPE] CHORD...\n   → ok\n
 keydown [--device NAME] [SCOPE] CHORD...\n → ok\n
 keyup [--device NAME] [SCOPE] CHORD...\n   → ok\n
-type [--layout LAYOUT] [--variant VARIANT] [--base64 PAYLOAD] [--] TEXT\n → ok\n
+type [OPTIONS] TEXT\n                    → ok\n  (--method auto|layout|unicode|clipboard, --layout, --variant,\n   --paste CHORD, --restore, --base64 PAYLOAD)\n
 click [left/middle/right]...        → ok\n
 wheel AMOUNT\n                        → ok\n
 hwheel AMOUNT\n                       → ok\n
@@ -58,7 +58,6 @@ Errors are `err REASON\n`. Free-form reply text escapes backslashes, CR and LF
 as `\\`, `\r` and `\n` so every reply stays on one line; this applies to
 `REASON` and to `MODE`. Input must be valid UTF-8. Lines longer than 4096 bytes
 are rejected and the connection is closed.
-
 
 - `MODE` is an opaque string matched against `mode:` keymap conditions
   (`[a-zA-Z0-9_-]`, max 64 bytes for `set-mode`). It switches the mode exactly
@@ -123,14 +122,55 @@ are rejected and the connection is closed.
   Custom Compose results containing several characters or exceeding the result
   buffer are not registered as single-character mappings.
 
+  `--method` picks how characters are produced:
+
+  | `--method` | Behaviour |
+  |---|---|
+  | `auto` (default) | Use a real key of the layout; anything the layout cannot produce falls back to `Ctrl+Shift+U`, the hex codepoint and Enter. |
+  | `layout` | Use only real keys. Characters the layout cannot produce are an error naming the character. |
+  | `unicode` | Always use the `Ctrl+Shift+U` sequence. |
+  | `clipboard` | Put the text on the clipboard and send a paste keystroke. |
+
+  `Ctrl+Shift+U` is an application/input-method convention, not a universal
+  X11/XKB input mechanism. It works in supporting environments (for example,
+  some GTK input contexts); support cannot be inferred just from Qt, Chromium,
+  Electron, or terminal use. In unsupported applications it may type literal
+  hex digits or trigger shortcuts. Use `--method layout` for strict layout-only
+  typing, or `--method clipboard` when the target supports pasting.
+
+  `--method unicode` and `--method clipboard` do not depend on the layout's
+  keycode levels, so they also bypass the CapsLock case flip described above.
+
   ```console
   $ xremap --client 'type --layout de Grüße'
+  $ xremap --client 'type --method clipboard 中文'
+  $ xremap --client 'type --method clipboard --paste ctrl+shift+v 中文'   # terminals
+  $ xremap --client 'type --method clipboard --paste ctrl+y 中文'         # Emacs
+  $ xremap --client 'type --method clipboard --restore --paste ctrl+shift+v 中文'
   ```
 
   Options are `--token` style and must come first. A misspelt option is an
+  error (`unknown option '---paste'`) rather than being typed out as text;
+  write `type -- TEXT` to type text that itself starts with a dash. `--restore`
+  may appear anywhere among the options.
 
   Limits for `type`: `TEXT` is at most 4096 characters, a protocol line at
   most 16384 bytes, and a `--base64` payload at most 8192 bytes once decoded.
+
+  `--paste` is the keystroke that pastes, `modifier+key` syntax, default
+  `ctrl+v`. `--restore` best-effort restores the previous text clipboard 500 ms
+  after dispatching the paste. This snapshots at most 16 MiB of UTF-8 text, not
+  images or other MIME types. Snapshot failure leaves the newly written text.
+  The delay is not a paste acknowledgment: a late reader can get the restored
+  text, and intervening user clipboard changes or concurrent paste commands
+  can race with restoration. Without this flag the clipboard keeps the text.
+
+  Clipboard mode runs `wl-copy`, `xsel` or `xclip` with fixed arguments, so it
+  is independent of `allow_launch`. It synchronously blocks the input event
+  loop while accessing the clipboard: reads have a 200 ms deadline per helper,
+  writes a 1 s deadline per helper, followed by 50 ms settling on success.
+  Failed helpers may be tried sequentially. Ordinary helper failures return
+  `err` rather than terminating xremap.
 - `sleep` pauses command processing for 1..=5000 ms, so a command stream can
   sequence keys with delays for applications that need them:
   `printf 'key raw alt+f\nsleep 100\nkey raw down\n' | xremap --client`.
@@ -216,7 +256,8 @@ same output device and throttle as remapped keys.
   peer; access control then rests on the 0600 socket mode and its parent
   directory, not on peer credentials.
 - The command set is a fixed whitelist; clients cannot supply arbitrary
-  executable names or arguments. Pipeline key injection can trigger configured actions under the normal
+  executable names or arguments. Clipboard operations use fixed helpers, and
+  pipeline key injection can trigger configured actions under the normal
   `allow_launch` policy.
 - At most 64 connections are admitted. Accept resource errors back off for
   500 ms instead of stopping the daemon or spinning in the input loop.

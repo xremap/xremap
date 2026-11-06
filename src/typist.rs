@@ -20,6 +20,32 @@ use xkbcommon_dl::{
     xkb_rule_names, xkb_state, xkbcommon_compose_option, xkbcommon_option, XkbCommonCompose,
 };
 
+/// How characters that the layout cannot produce are handled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextMethod {
+    /// Use the layout, and fall back to `Ctrl+Shift+U` for anything else.
+    Auto,
+    /// Only type what the layout produces; unsupported characters are an error.
+    Layout,
+    /// Always use the `Ctrl+Shift+U` Unicode input sequence.
+    Unicode,
+    /// Paste through the clipboard instead of typing. Handled outside the
+    /// typist, since no layout is involved.
+    Clipboard,
+}
+
+impl TextMethod {
+    pub fn parse(word: &str) -> Option<TextMethod> {
+        match word {
+            "auto" => Some(TextMethod::Auto),
+            "layout" => Some(TextMethod::Layout),
+            "unicode" => Some(TextMethod::Unicode),
+            "clipboard" => Some(TextMethod::Clipboard),
+            _ => None,
+        }
+    }
+}
+
 /// A character that can be typed: the key to press and the modifiers to hold.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CharChord {
@@ -167,6 +193,7 @@ impl Typist {
         &mut self,
         layout: Option<&str>,
         variant: Option<&str>,
+        method: TextMethod,
         text: &str,
     ) -> Result<Vec<CharChord>, String> {
         let layout = layout
@@ -188,6 +215,10 @@ impl Typist {
                 chords.push(CharChord { modifiers: vec![], key });
                 continue;
             }
+            if method == TextMethod::Unicode {
+                chords.extend(keymap.unicode_chord(ch).ok_or_else(|| unicode_error(ch))?);
+                continue;
+            }
             if let Some(chord) = keymap.chars.get(&ch) {
                 chords.push(chord.clone());
                 continue;
@@ -197,10 +228,17 @@ impl Typist {
                 chords.extend(sequence.iter().cloned());
                 continue;
             }
-            return Err(format!(
-                "character {ch:?} is not available on layout '{layout}'{}",
-                if variant.is_empty() { String::new() } else { format!(" ({variant})") }
-            ));
+            match method {
+                // The layout cannot produce it: fall back to the X11 Unicode
+                // input sequence, which GUI toolkits implement themselves.
+                TextMethod::Auto => chords.extend(keymap.unicode_chord(ch).ok_or_else(|| unicode_error(ch))?),
+                _ => {
+                    return Err(format!(
+                        "character {ch:?} is not available on layout '{layout}'{}",
+                        if variant.is_empty() { String::new() } else { format!(" ({variant})") }
+                    ))
+                }
+            }
         }
         Ok(chords)
     }
@@ -215,7 +253,35 @@ impl Typist {
     }
 }
 
+fn unicode_error(ch: char) -> String {
+    format!("cannot type {ch:?}: the layout has no key for it and the Ctrl+Shift+U sequence is not available")
+}
+
 impl Keymap {
+    /// `Ctrl+Shift+U`, the hex digits of the codepoint, then Enter.
+    /// This is the X11/XKB Unicode input convention that GTK, Qt, Chromium and
+    /// Electron-based applications implement.
+    fn unicode_chord(&self, ch: char) -> Option<Vec<CharChord>> {
+        let digits = format!("{:x}", ch as u32);
+        let mut chords = Vec::with_capacity(digits.len() + 2);
+        // Note: on layouts where `u` sits on the AltGr level this produces
+        // Ctrl+Shift+AltGr+u, which some applications do not recognize. Use
+        // `--method clipboard` there instead.
+        let u = self.chars.get(&'u')?;
+        let mut modifiers = u.modifiers.clone();
+        for modifier in [Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT] {
+            if !modifiers.contains(&modifier) {
+                modifiers.push(modifier);
+            }
+        }
+        chords.push(CharChord { modifiers, key: u.key });
+        for digit in digits.chars() {
+            chords.push(self.chars.get(&digit)?.clone());
+        }
+        chords.push(CharChord { modifiers: vec![], key: Key::KEY_ENTER });
+        Some(chords)
+    }
+
     fn compile(layout: &str, variant: &str) -> Option<Keymap> {
         let xkb = xkbcommon_option()?;
         let layout_c = CString::new(layout).ok()?;
@@ -434,8 +500,8 @@ mod tests {
         // test runner would affect unrelated layout tests and the user locale.
         if std::env::var_os("XREMAP_TEST_CUSTOM_COMPOSE").is_some() {
             let mut typist = Typist::new();
-            assert!(typist.chords(Some("de"), None, "中").is_err());
-            assert!(typist.chords(Some("de"), None, "字").is_err());
+            assert!(typist.chords(Some("de"), None, TextMethod::Layout, "中").is_err());
+            assert!(typist.chords(Some("de"), None, TextMethod::Layout, "字").is_err());
             // Ω also has a direct key on de; inspect the sequence table to
             // verify the custom Compose file was actually loaded.
             assert_eq!(typist.keymap("de", "").unwrap().unwrap().sequences[&'Ω'].len(), 2);
@@ -462,7 +528,7 @@ mod tests {
             return;
         }
         let mut typist = Typist::new();
-        let chords = typist.chords(Some("us"), None, "aA").unwrap();
+        let chords = typist.chords(Some("us"), None, TextMethod::Layout, "aA").unwrap();
         assert_eq!(chords[0], CharChord { modifiers: vec![], key: Key::KEY_A });
         assert_eq!(
             chords[1],
@@ -476,7 +542,7 @@ mod tests {
             return;
         }
         let mut typist = Typist::new();
-        let chords = typist.chords(Some("us"), None, "1!").unwrap();
+        let chords = typist.chords(Some("us"), None, TextMethod::Layout, "1!").unwrap();
         assert_eq!(chords[0], CharChord { modifiers: vec![], key: Key::KEY_1 });
         assert_eq!(
             chords[1],
@@ -490,7 +556,7 @@ mod tests {
             return;
         }
         let mut typist = Typist::new();
-        let chords = typist.chords(Some("us"), None, "\n\t").unwrap();
+        let chords = typist.chords(Some("us"), None, TextMethod::Layout, "\n\t").unwrap();
         assert_eq!(chords[0].key, Key::KEY_ENTER);
         assert_eq!(chords[1].key, Key::KEY_TAB);
     }
@@ -502,13 +568,13 @@ mod tests {
         }
         let mut typist = Typist::new();
         // `de` has a dead_acute key: `´` then `e` gives `é`.
-        let chords = typist.chords(Some("de"), None, "é").unwrap();
+        let chords = typist.chords(Some("de"), None, TextMethod::Layout, "é").unwrap();
         assert_eq!(chords.len(), 2, "expected a dead-key sequence: {chords:?}");
         // The first chord must be a bare key, the second a bare key too.
         assert!(chords[0].modifiers.is_empty());
 
         // A three-part sequence: dead_circumflex + dead_acute + a = ấ.
-        let chords = typist.chords(Some("de"), None, "ấ").unwrap();
+        let chords = typist.chords(Some("de"), None, TextMethod::Layout, "ấ").unwrap();
         assert_eq!(chords.len(), 3, "expected a three-part sequence: {chords:?}");
     }
 
@@ -519,9 +585,9 @@ mod tests {
         }
         let mut typist = Typist::new();
         // Plain `us` has no dead keys, so `é` is not reachable with real keys.
-        assert!(typist.chords(Some("us"), None, "é").is_err());
+        assert!(typist.chords(Some("us"), None, TextMethod::Layout, "é").is_err());
         // `us(intl)` does.
-        let chords = typist.chords(Some("us"), Some("intl"), "é");
+        let chords = typist.chords(Some("us"), Some("intl"), TextMethod::Layout, "é");
         assert!(chords.is_ok(), "us(intl) should reach é: {chords:?}");
     }
 
@@ -532,20 +598,56 @@ mod tests {
         }
         let mut typist = Typist::new();
         // German umlaut: not reachable on us.
-        assert!(typist.chords(Some("us"), None, "ü").is_err());
-        let chords = typist.chords(Some("de"), None, "ü").unwrap();
+        assert!(typist.chords(Some("us"), None, TextMethod::Layout, "ü").is_err());
+        let chords = typist.chords(Some("de"), None, TextMethod::Layout, "ü").unwrap();
         assert_eq!(chords.len(), 1);
     }
 
     #[test]
-    fn layout_prefers_a_direct_key() {
+    fn auto_falls_back_to_ctrl_shift_u() {
+        if !typist_available() {
+            return;
+        }
+        let mut typist = Typist::new();
+        // 中 = U+4E2D: Ctrl+Shift+U, 4, e, 2, d, Enter
+        let chords = typist.chords(Some("us"), None, TextMethod::Auto, "中").unwrap();
+        assert_eq!(chords.len(), 6);
+        assert_eq!(
+            chords[0],
+            CharChord {
+                modifiers: vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT],
+                key: Key::KEY_U
+            }
+        );
+        assert_eq!(chords[1].key, Key::KEY_4);
+        assert_eq!(chords[2].key, Key::KEY_E);
+        assert_eq!(chords[3].key, Key::KEY_2);
+        assert_eq!(chords[4].key, Key::KEY_D);
+        assert_eq!(chords[5], CharChord { modifiers: vec![], key: Key::KEY_ENTER });
+    }
+
+    #[test]
+    fn auto_prefers_the_layout() {
         if !typist_available() {
             return;
         }
         let mut typist = Typist::new();
         // `ü` exists on `de`, so no Unicode sequence is involved.
-        let chords = typist.chords(Some("de"), None, "ü").unwrap();
+        let chords = typist.chords(Some("de"), None, TextMethod::Auto, "ü").unwrap();
         assert_eq!(chords.len(), 1);
+    }
+
+    #[test]
+    fn unicode_method_forces_the_sequence_for_ascii() {
+        if !typist_available() {
+            return;
+        }
+        let mut typist = Typist::new();
+        let chords = typist.chords(Some("us"), None, TextMethod::Unicode, "a").unwrap();
+        // 'a' = U+61: Ctrl+Shift+U, 6, 1, Enter
+        assert_eq!(chords.len(), 4);
+        assert_eq!(chords[1].key, Key::KEY_6);
+        assert_eq!(chords[2].key, Key::KEY_1);
     }
 
     #[test]
@@ -554,7 +656,7 @@ mod tests {
             return;
         }
         let mut typist = Typist::new();
-        let err = typist.chords(Some("us"), None, "a中").unwrap_err();
+        let err = typist.chords(Some("us"), None, TextMethod::Layout, "a中").unwrap_err();
         assert!(err.contains("not available on layout"), "{err}");
     }
 }

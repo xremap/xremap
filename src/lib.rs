@@ -27,6 +27,7 @@ mod action_dispatcher;
 mod bridge;
 mod client;
 mod client_mode;
+mod clipboard;
 mod command_runner;
 mod config;
 mod device;

@@ -612,6 +612,9 @@ fn execute_ipc_command(
                 Ok(action)
             }
         }
+        IpcCommand::ClipboardPaste { text, paste, restore } => {
+            apply_clipboard_paste(&text, &paste, restore, dispatcher, mainctrl)
+        }
         IpcCommand::Sleep(duration) => dispatcher.on_action(Action::Delay(duration), mainctrl),
         IpcCommand::Wheel { horizontal, amount } => {
             // Without `enable_wheel` the output device has no REL_WHEEL/HWHEEL
@@ -685,6 +688,31 @@ fn apply_send_key(
             Ok(None)
         }
     }
+}
+
+/// Write text to the clipboard and send the paste keystroke. This is the only
+/// way to type arbitrary Unicode into applications that do not implement the
+/// `Ctrl+Shift+U` input convention.
+fn apply_clipboard_paste(
+    text: &str,
+    paste: &crate::ipc_server::Chord,
+    restore: bool,
+    dispatcher: &mut ActionDispatcher,
+    mainctrl: &mut MainController,
+) -> anyhow::Result<Option<MainAction>> {
+    // Save the previous clipboard first: writing the new text destroys it, and
+    // reading it back later would return the text we just wrote.
+    let previous = restore.then(crate::clipboard::read).flatten();
+    crate::clipboard::write(text).map_err(|err| anyhow!("failed to write clipboard: {err}"))?;
+    for action in paste.to_actions(true, true) {
+        if let Some(main_action) = dispatcher.on_action(action, mainctrl)? {
+            return Ok(Some(main_action));
+        }
+    }
+    if let Some(previous) = previous {
+        crate::clipboard::restore_later(previous, std::time::Duration::from_millis(500));
+    }
+    Ok(None)
 }
 
 fn handle_input_events(
