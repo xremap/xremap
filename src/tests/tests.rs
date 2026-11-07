@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, KeyValue, RelativeEvent};
 use crate::event_handler::EventHandler;
+use crate::ipc_server::InjectScope;
 use crate::operator_handler::OperatorHandler;
 use crate::timeout_manager::TimeoutManager;
 use evdev::{KeyCode as Key, RelativeAxisCode};
@@ -597,6 +598,10 @@ pub fn assert_actions_with_current_application(
     EventHandlerForTest::new_with_current_application(config_yaml, current_application).assert(events, actions);
 }
 
+pub fn assert_injection(config_yaml: &str, scope: InjectScope, events: Vec<Event>, actions: Vec<Action>) {
+    EventHandlerForTest::new(config_yaml).assert_injection(scope, events, actions);
+}
+
 pub struct EventHandlerForTest {
     event_handler: EventHandler,
     config: Config,
@@ -636,6 +641,15 @@ impl EventHandlerForTest {
         // Useful for writing new test cases
         // crate::tests::print_actions::print_actions(&actual);
 
+        assert_eq!(format!("{actions:?}"), format!("{actual:?}"));
+    }
+
+    /// Inject events through the IPC path with the given scope.
+    pub fn assert_injection(&mut self, scope: InjectScope, events: Vec<Event>, actions: Vec<Action>) {
+        let actual = self
+            .event_handler
+            .inject_events(events, scope, &self.config, &mut self.wmclient)
+            .unwrap();
         assert_eq!(format!("{actions:?}"), format!("{actual:?}"));
     }
 }

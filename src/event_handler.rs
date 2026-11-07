@@ -9,6 +9,7 @@ use crate::config::nested_remap::Remap;
 use crate::config::Config;
 use crate::device::InputDeviceInfo;
 use crate::event::{Event, KeyEvent, RelativeEvent};
+use crate::ipc_server::InjectScope;
 use crate::operator_handler::OperatorHandler;
 use crate::KeyValue;
 use evdev::KeyCode as Key;
@@ -76,6 +77,18 @@ impl EventHandler {
         }
     }
 
+    /// Switch the active mode from an external control channel (IPC socket).
+    /// Applied directly by the main loop, bypassing the input event pipeline:
+    /// IPC commands are state-level operations, not key events.
+    pub fn set_mode_external(&mut self, mode: &str) {
+        self.matching_state.set_mode(mode);
+    }
+
+    /// Current active keymap mode, for the IPC `get-mode` command.
+    pub fn current_mode(&self) -> &str {
+        &self.matching_state.mode
+    }
+
     #[cfg(test)]
     pub fn assert_base_state(&self) {
         assert!(self.modifiers.is_empty());
@@ -88,18 +101,54 @@ impl EventHandler {
         self.operator_handler.as_ref().map(|op| op.assert_base_state());
     }
 
-    // Handle an Event and return Actions. This should be the only public method of EventHandler.
+    // Handle an Event and return Actions.
     pub fn on_events(
         &mut self,
-        mut events: Vec<Event>,
+        events: Vec<Event>,
         config: &Config,
         wmclient: &mut WMClient,
     ) -> Result<Vec<Action>, Box<dyn Error>> {
+        let events = self.map_through_operators(events, wmclient);
+        self.process_events(events, config, wmclient, true)
+    }
+
+    /// Inject externally supplied keys (IPC `key` command). The scope is the
+    /// pipeline layer the key enters at, from where it flows to the app:
+    /// `keymap` → keymap → app, `modmap` → modmap → keymap → app,
+    /// `expmap` → experimental_map operators → modmap → keymap → app.
+    /// (`Raw` is handled at the call site without touching the handler.)
+    pub fn inject_events(
+        &mut self,
+        events: Vec<Event>,
+        scope: InjectScope,
+        config: &Config,
+        wmclient: &mut WMClient,
+    ) -> Result<Vec<Action>, Box<dyn Error>> {
+        let events = if scope == InjectScope::Expmap {
+            self.map_through_operators(events, wmclient)
+        } else {
+            events
+        };
+        // The scope is the layer the key enters at; keymap always runs after it.
+        let through_modmap = matches!(scope, InjectScope::Modmap | InjectScope::Expmap);
+        self.process_events(events, config, wmclient, through_modmap)
+    }
+
+    fn map_through_operators(&mut self, mut events: Vec<Event>, wmclient: &mut WMClient) -> Vec<Event> {
         if let Some(handler) = &mut self.operator_handler {
             wmclient.clear_app_class_and_title();
             events = handler.map_events(events, wmclient);
-        };
+        }
+        events
+    }
 
+    fn process_events(
+        &mut self,
+        events: Vec<Event>,
+        config: &Config,
+        wmclient: &mut WMClient,
+        through_modmap: bool,
+    ) -> Result<Vec<Action>, Box<dyn Error>> {
         debug_assert!(self.emit.is_empty());
         // a vector to collect mouse movement events to be able to send them all at once as one MouseMovementEventCollection.
         let mut mouse_movement_collection: Vec<RelativeEvent> = Vec::new();
@@ -111,7 +160,11 @@ impl EventHandler {
             }
 
             // Apply modmap
-            let modmap_events = self.apply_modmap(config, event, wmclient)?;
+            let modmap_events = if through_modmap {
+                self.apply_modmap(config, event, wmclient)?
+            } else {
+                vec![event]
+            };
 
             // Apply keymap
             for event in modmap_events {

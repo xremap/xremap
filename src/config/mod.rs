@@ -46,6 +46,7 @@ pub struct Config {
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
     pub enable_wheel: bool,
     pub bypass: ConfigBool,
+    pub ipc: Option<IpcOptions>,
 }
 
 impl Config {
@@ -65,6 +66,7 @@ impl Config {
             notifications: config.notifications,
             enable_wheel: config.enable_wheel,
             bypass,
+            ipc: config.ipc.and_then(|ipc| ipc.finish()),
         })
     }
 
@@ -113,6 +115,45 @@ pub struct ParseConfig {
 
     #[serde(default = "const_true")]
     pub enable_wheel: bool,
+
+    #[serde(default)]
+    pub ipc: Option<ParseIpc>,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+pub struct ParseIpc {
+    #[serde(default)]
+    pub socket: Option<SocketSpec>,
+    /// Enable the key-injection command family (`key`, `keydown`, `keyup`,
+    /// `sleep`, ...). Off by default.
+    #[serde(default)]
+    pub inject: bool,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum SocketSpec {
+    Bool(bool),
+    Path(PathBuf),
+}
+
+/// Resolved IPC options for the runtime.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IpcOptions {
+    pub socket: PathBuf,
+    pub inject: bool,
+}
+
+impl ParseIpc {
+    pub fn finish(self) -> Option<IpcOptions> {
+        let socket = match self.socket? {
+            // `socket: false` explicitly disables the IPC server.
+            SocketSpec::Bool(false) => return None,
+            SocketSpec::Bool(true) => crate::ipc_server::default_socket_path(),
+            SocketSpec::Path(path) => path,
+        };
+        Some(IpcOptions { socket, inject: self.inject })
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -152,6 +193,12 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
         config.modmap.extend(c.modmap);
         config.keymap.extend(c.keymap);
         config.virtual_modifiers.extend(c.virtual_modifiers);
+        // Sections that cannot be appended: a later file overrides an earlier
+        // one. Without this, e.g. an `ipc` section in the second file would be
+        // dropped silently.
+        if c.ipc.is_some() {
+            config.ipc = c.ipc;
+        }
     }
 
     Config::new(config)

@@ -8,6 +8,36 @@ use std::error;
 
 static mut ALIASES: Option<HashMap<String, Key>> = None;
 
+/// Roll back parsing-time aliases unless the runtime accepts the new config.
+/// Like the alias table itself, this is used by the single-threaded main loop.
+pub struct KeyAliasTransaction {
+    previous: Option<HashMap<String, Key>>,
+    committed: bool,
+}
+
+impl KeyAliasTransaction {
+    pub fn new() -> Self {
+        #[allow(static_mut_refs)]
+        let previous = unsafe { ALIASES.clone() };
+        Self {
+            previous,
+            committed: false,
+        }
+    }
+
+    pub fn commit(mut self) {
+        self.committed = true;
+    }
+}
+
+impl Drop for KeyAliasTransaction {
+    fn drop(&mut self) {
+        if !self.committed {
+            unsafe { ALIASES = self.previous.take() };
+        }
+    }
+}
+
 #[derive(Deserialize)]
 struct AliasConfig {
     // Using IndexMap makes sure two aliases with same LHS always

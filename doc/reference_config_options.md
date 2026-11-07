@@ -178,3 +178,17 @@ By default will the output device created by xremap support the mouse events `RE
 This does not affect the events/devices that are listened to, see the commandline argument `--mouse` for that.
 
 With `enable_wheel: false` will the output device not support `REL_HWHEEL`, `REL_WHEEL`.
+
+### ipc
+
+```yml
+ipc:
+  socket: true  # Default is no IPC server. `true` = $XDG_RUNTIME_DIR/xremap.sock
+  inject: false # Default is `false`
+```
+
+Exposes a unix control socket that lets external programs switch `mode`,
+reload the config, and (with `inject: true`) inject keys.
+[Full reference](reference_ipc.md).
+
+Since version 0.15.17.

@@ -38,6 +38,7 @@ See also: [Documentation section](doc/README.md)
 - Support [Emacs-like key remapping](example/emacs.yml), including the mark mode.
 - Trigger commands on key press/release events.
 - Use a non-modifier key as a virtual modifier key.
+- [IPC control socket](doc/reference_ipc.md): switch modes, reload config and (optionally) inject keys from external programs.
 
 ## Installation
 
