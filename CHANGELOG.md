@@ -1,3 +1,7 @@
+## Unreleased
+
+- Fix: `application`/`window`/`title` and `device` filters now support `only` and `not` combined. Both conditions must hold (AND); previously `not` was silently ignored when `only` was present.
+
 ## v0.15.17
 
 - Allow actions in key sequence timeout. https://github.com/xremap/xremap/pull/1037
