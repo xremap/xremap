@@ -4,9 +4,13 @@ use regex::Regex;
 use serde::{Deserialize, Deserializer};
 use std::str::FromStr;
 
-// TODO: Use trait to allow only either `only` or `not`
-// This struct is used in error messages to users
 // Used for both application and window-title matching.
+//
+// Matching semantics:
+// - `only`: matches if ANY of the matchers matches (OR).
+// - `not`:  matches if NONE of the matchers matches.
+// - Both set: both conditions must hold (AND).
+// - Neither set: never matches (keymap only applies with an explicit matcher).
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ApplicationMatch {
@@ -19,12 +23,16 @@ pub struct ApplicationMatch {
 impl ApplicationMatch {
     pub fn matches(&self, app: &str) -> bool {
         if let Some(only) = &self.only {
-            return only.iter().any(|m| m.matches(app));
+            if !only.iter().any(|m| m.matches(app)) {
+                return false;
+            }
         }
         if let Some(not) = &self.not {
-            return not.iter().all(|m| !m.matches(app));
+            if not.iter().any(|m| m.matches(app)) {
+                return false;
+            }
         }
-        false
+        self.only.is_some() || self.not.is_some()
     }
 }
 
@@ -172,5 +180,35 @@ mod tests {
         let given = r"/^Minecraft/i";
         let got = slash_unescape(given).unwrap_err();
         assert_eq!("Unexpected trailing string after closing / in application name regex", got.to_string());
+    }
+
+    fn match_config(only: Option<Vec<&str>>, not: Option<Vec<&str>>, app: &str) -> bool {
+        let parse = |items: Vec<&str>| -> Vec<ApplicationMatcher> {
+            items.iter().map(|s| ApplicationMatcher::from_str(s).unwrap()).collect()
+        };
+        ApplicationMatch {
+            only: only.map(|v| parse(v)),
+            not: not.map(|v| parse(v)),
+        }
+        .matches(app)
+    }
+
+    #[test]
+    fn test_match_only() {
+        assert!(match_config(Some(vec!["emacs"]), None, "emacs"));
+        assert!(!match_config(Some(vec!["emacs"]), None, "firefox"));
+    }
+
+    #[test]
+    fn test_match_not() {
+        assert!(match_config(None, Some(vec!["firefox"]), "emacs"));
+        assert!(!match_config(None, Some(vec!["firefox"]), "firefox"));
+    }
+
+    #[test]
+    fn test_match_only_and_not_combined() {
+        // only AND not must both hold
+        assert!(match_config(Some(vec!["emacs"]), Some(vec![r"/-pi\\*/"]), "emacs"));
+        assert!(!match_config(Some(vec!["emacs"]), Some(vec![r"/-pi\\*/"]), "firefox"));
     }
 }
