@@ -464,12 +464,17 @@ fn event_loop(
             };
             let mut lines = std::mem::take(&mut batch.lines).into_iter();
             while let Some(line) = lines.next() {
+                match &line {
+                    Ok(line) => log::debug!("ipc: received {:?} ({} bytes)", line, line.len()),
+                    Err(reason) => log::debug!("ipc: received undecodable line: {reason}"),
+                }
                 let (command, mut reply) = match (line, ipc.as_mut()) {
                     (Ok(line), Some(state)) => crate::ipc_server::handle_command(
                         &line,
                         handler.current_mode(),
                         state.inject_enabled,
                         &mut state.typist,
+                        state.type_delay,
                     ),
                     (Err(reason), _) => (None, crate::ipc_server::Reply::Err(reason)),
                     (_, None) => (None, crate::ipc_server::Reply::Err("IPC disabled".to_string())),
@@ -568,6 +573,8 @@ struct IpcState {
     inject_enabled: bool,
     /// Resolves text to key chords for the `type` command.
     typist: crate::typist::Typist,
+    /// Default pause between characters typed by the IPC `type` command.
+    type_delay: Duration,
 }
 
 const IPC_DEFAULT_DEVICE: &str = "xremap-ipc";
@@ -581,6 +588,7 @@ fn build_ipc(config: &Config) -> anyhow::Result<Option<IpcState>> {
         server,
         inject_enabled: ipc.inject,
         typist: crate::typist::Typist::new(),
+        type_delay: Duration::from_millis(config.type_delay_ms),
     }))
 }
 
@@ -591,6 +599,7 @@ fn sync_ipc(ipc: &mut Option<IpcState>, config: &Config) -> anyhow::Result<()> {
         (Some(state), Some(new_ipc)) if state.server.path() == new_ipc.socket => {
             state.inject_enabled = new_ipc.inject;
             state.typist = crate::typist::Typist::new();
+            state.type_delay = Duration::from_millis(config.type_delay_ms);
         }
         _ => {
             let replacement = build_ipc(config)?;
@@ -617,7 +626,8 @@ fn execute_ipc_command(
             device,
             chords,
             phases,
-        } => apply_send_key(scope, &device, &chords, phases, handler, dispatcher, config, mainctrl),
+            delay,
+        } => apply_send_key(scope, &device, &chords, phases, delay, handler, dispatcher, config, mainctrl),
         IpcCommand::ClipboardPaste { text, paste, restore } => {
             apply_clipboard_paste(&text, &paste, restore, dispatcher, mainctrl)
         }
@@ -655,6 +665,7 @@ fn apply_send_key(
     device: &Option<String>,
     chords: &[crate::ipc_server::Chord],
     phases: KeyPhases,
+    delay: Duration,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
     config: &Config,
@@ -668,11 +679,25 @@ fn apply_send_key(
     match scope {
         // Raw: no rule applies, emit straight through the output device.
         InjectScope::Raw => {
-            for chord in chords {
-                for action in chord.to_actions(down, up) {
+            let last = chords.len().saturating_sub(1);
+            // Same pause inside a chord: without it, modifier press → key
+            // press → key release happen microseconds apart, and Wayland
+            // compositors drop characters from such bursts (upstream xremap
+            // discussion #611).
+            let intra = delay;
+            for (index, chord) in chords.iter().enumerate() {
+                for (position, action) in chord.to_actions(down, up).into_iter().enumerate() {
+                    if intra != Duration::ZERO && position != 0 {
+                        std::thread::sleep(intra);
+                    }
                     if let Some(main_action) = dispatcher.on_action(action, mainctrl)? {
                         return Ok(Some(main_action));
                     }
+                }
+                // Space chords out for receivers that drop microsecond-fast
+                // bursts (see DEFAULT_TYPE_DELAY_MS).
+                if delay != Duration::ZERO && index != last {
+                    std::thread::sleep(delay);
                 }
             }
             Ok(None)

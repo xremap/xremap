@@ -8,17 +8,24 @@ use anyhow::Context;
 use evdev::{uinput::VirtualDevice, EventType, InputEvent, KeyCode as Key};
 use log::{debug, error};
 use std::thread;
+use std::time::Instant;
 
 pub struct ActionDispatcher {
     // Device to emit events
     device: VirtualDevice,
     // Throttle emitting events
     throttle_emit: Option<ThrottleEmit>,
+    // When the previous event was emitted; for gap logging.
+    last_emit: Instant,
 }
 
 impl ActionDispatcher {
     pub fn new(device: VirtualDevice, throttle_emit: Option<ThrottleEmit>) -> ActionDispatcher {
-        ActionDispatcher { device, throttle_emit }
+        ActionDispatcher {
+            device,
+            throttle_emit,
+            last_emit: Instant::now(),
+        }
     }
 
     // Execute Actions created by EventHandler. This should be the only public method of ActionDispatcher.
@@ -135,7 +142,10 @@ impl ActionDispatcher {
                 throttle_emit.sleep_if_needed(Key(event.code()), event.value());
             };
 
-            debug!("{}: {:?}", event.value(), Key::new(event.code()))
+            let now = Instant::now();
+            let gap = now.duration_since(self.last_emit);
+            self.last_emit = now;
+            debug!("emit: value={} key={:?} gap={}µs", event.value(), Key::new(event.code()), gap.as_micros());
         }
 
         self.device.emit(&[event])

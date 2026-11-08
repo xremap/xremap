@@ -40,6 +40,14 @@ const MAX_MODE_LEN: usize = 64;
 const MAX_CHORDS: usize = 16;
 const MAX_SLEEP_MS: u64 = 5000;
 const MAX_TYPE_CHARS: usize = 4096;
+/// Pause between injected chords, overridable per command with `type --delay`
+/// and by the `type_delay_ms` config option. Defaults to `0` like
+/// `keypress_delay_ms`, but real keyboards produce tens of milliseconds between
+/// characters, and Wayland compositors drop characters from microsecond-fast
+/// injected bursts (upstream xremap discussion #611), so production configs
+/// typically set this to 10--20.
+pub const DEFAULT_TYPE_DELAY_MS: u64 = 0;
+const MAX_TYPE_DELAY_MS: u64 = 1000;
 /// Decoded size limit for `type --base64`, which is how clients send raw
 /// multi-line text without escaping it onto the line protocol.
 const MAX_BASE64_TEXT_BYTES: usize = 8192;
@@ -172,6 +180,10 @@ pub enum IpcCommand {
         device: Option<String>,
         chords: Vec<Chord>,
         phases: KeyPhases,
+        /// Pause after each chord (except the last). Only honored by the Raw
+        /// scope: injected bursts are otherwise microsecond-fast and some
+        /// application/input-method layers drop characters.
+        delay: Duration,
     },
     /// Put text on the clipboard and send a paste keystroke.
     ClipboardPaste {
@@ -258,6 +270,7 @@ pub fn handle_command(
     current_mode: &str,
     inject_enabled: bool,
     typist: &mut Typist,
+    type_delay: Duration,
 ) -> (Option<IpcCommand>, Reply) {
     // Only the line terminator is stripped: the argument of `type` is literal
     // text, where leading and trailing spaces are meaningful.
@@ -293,6 +306,7 @@ pub fn handle_command(
                         device,
                         chords,
                         phases,
+                        delay: Duration::ZERO,
                     }),
                     Reply::Ok,
                 ),
@@ -303,7 +317,7 @@ pub fn handle_command(
             if !inject_enabled {
                 return (None, Reply::Err("injection disabled".to_string()));
             }
-            match parse_type_command(raw_arg, typist) {
+            match parse_type_command(raw_arg, typist, type_delay) {
                 Ok(command) => (Some(command), Reply::Ok),
                 Err(reason) => (None, Reply::Err(reason)),
             }
@@ -319,6 +333,7 @@ pub fn handle_command(
                         device: None,
                         chords,
                         phases: KeyPhases::Tap,
+                        delay: Duration::ZERO,
                     }),
                     Reply::Ok,
                 ),
@@ -365,7 +380,7 @@ pub fn handle_command(
 /// `type [--method METHOD] [--layout LAYOUT] [--variant VARIANT] [--paste CHORD] [--restore] [--] TEXT`
 /// — TEXT is the rest of the line, with `\\n`, `\\t` and `\\\\` escapes so
 /// newlines can be sent over the line-based protocol.
-fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, String> {
+fn parse_type_command(arg: &str, typist: &mut Typist, default_delay: Duration) -> Result<IpcCommand, String> {
     // Options come first, each a `--token`; everything after them is literal
     // text. Unknown tokens are an error instead of being typed out, and `--`
     // ends the options so text that starts with a dash stays reachable.
@@ -376,6 +391,7 @@ fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, Stri
     let mut paste: Option<Chord> = None;
     let mut restore = false;
     let mut base64 = false;
+    let mut delay = default_delay;
     while rest.starts_with("--") {
         let (token, tail) = split_first_word(rest);
         if token == "--" {
@@ -415,6 +431,18 @@ fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, Stri
             rest = tail;
             continue;
         }
+        if token == "--delay" {
+            let (value, next) = split_first_word(tail);
+            let millis: u64 = value
+                .parse()
+                .map_err(|_| format!("--delay requires a duration in milliseconds, got '{value}'"))?;
+            if millis > MAX_TYPE_DELAY_MS {
+                return Err(format!("--delay is capped at {MAX_TYPE_DELAY_MS} ms"));
+            }
+            delay = Duration::from_millis(millis);
+            rest = next;
+            continue;
+        }
         return Err(format!("unknown option '{token}' (use `type -- TEXT` for literal text)"));
     }
     if rest.is_empty() {
@@ -437,7 +465,7 @@ fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, Stri
         });
         return Ok(IpcCommand::ClipboardPaste { text, paste, restore });
     }
-    let chords = typist
+    let chords: Vec<Chord> = typist
         .chords(layout.as_deref(), variant.as_deref(), method, &text)
         .map_err(|err| err.to_string())?
         .into_iter()
@@ -446,11 +474,13 @@ fn parse_type_command(arg: &str, typist: &mut Typist) -> Result<IpcCommand, Stri
             key: chord.key,
         })
         .collect();
+    log::debug!("type: text={text:?} ({} chars) -> {} chords, delay={:?}", text.chars().count(), chords.len(), delay);
     Ok(IpcCommand::SendKey {
         scope: InjectScope::Raw,
         device: None,
         chords,
         phases: KeyPhases::Tap,
+        delay,
     })
 }
 
@@ -858,7 +888,7 @@ mod tests {
     /// typist tests, so a fresh (lazily compiled) one is enough here.
     fn cmd(line: &str, mode: &str, inject: bool) -> (Option<IpcCommand>, Reply) {
         init_aliases();
-        handle_command(line, mode, inject, &mut Typist::new())
+        handle_command(line, mode, inject, &mut Typist::new(), Duration::from_millis(DEFAULT_TYPE_DELAY_MS))
     }
 
     struct SocketDir(PathBuf);
@@ -1023,6 +1053,7 @@ mod tests {
                         key: Key::KEY_F13
                     }],
                     phases: KeyPhases::Tap,
+                    delay: Duration::ZERO,
                 }),
                 Reply::Ok
             )
@@ -1048,6 +1079,7 @@ mod tests {
                         }
                     ],
                     phases: KeyPhases::Tap,
+                    delay: Duration::ZERO,
                 }),
                 Reply::Ok
             )
@@ -1069,6 +1101,7 @@ mod tests {
                             key: Key::KEY_F13
                         }],
                         phases: KeyPhases::Tap,
+                        delay: Duration::ZERO,
                     }),
                     Reply::Ok
                 ),
@@ -1101,6 +1134,7 @@ mod tests {
                         },
                     ],
                     phases: KeyPhases::Tap,
+                    delay: Duration::ZERO,
                 }),
                 Reply::Ok
             )
@@ -1123,7 +1157,8 @@ mod tests {
                         scope: InjectScope::Raw,
                         device: None,
                         chords: chord.clone(),
-                        phases
+                        phases,
+                        delay: Duration::ZERO,
                     }),
                     Reply::Ok
                 )
@@ -1202,6 +1237,7 @@ mod tests {
                 device: None,
                 chords,
                 phases: KeyPhases::Tap,
+                delay: Duration::ZERO,
             })
         };
         assert_eq!(
@@ -1376,6 +1412,42 @@ mod tests {
     }
 
     #[test]
+    fn type_delay_defaults_and_parses() {
+        let delay_of = |line: &str, configured: u64| match handle_command(
+            line,
+            "insert",
+            true,
+            &mut Typist::new(),
+            Duration::from_millis(configured),
+        )
+        .0
+        .unwrap()
+        {
+            IpcCommand::SendKey { delay, .. } => delay,
+            other => panic!("expected SendKey, got {other:?}"),
+        };
+        // The config supplies the default; explicit --delay wins; 0 disables.
+        if crate::typist::available() {
+            assert_eq!(delay_of("type --layout us hi", 7), Duration::from_millis(7));
+            assert_eq!(
+                delay_of("type --layout us hi", DEFAULT_TYPE_DELAY_MS),
+                Duration::from_millis(DEFAULT_TYPE_DELAY_MS)
+            );
+            assert_eq!(delay_of("type --delay 25 --layout us hi", 7), Duration::from_millis(25));
+            assert_eq!(delay_of("type --delay 0 --layout us hi", 7), Duration::ZERO);
+        }
+        assert_eq!(
+            cmd("type --delay", "insert", true).1,
+            Reply::Err("--delay requires a duration in milliseconds, got ''".into())
+        );
+        assert_eq!(
+            cmd("type --delay abc", "insert", true).1,
+            Reply::Err("--delay requires a duration in milliseconds, got 'abc'".into())
+        );
+        assert_eq!(cmd("type --delay 1001", "insert", true).1, Reply::Err("--delay is capped at 1000 ms".into()));
+    }
+
+    #[test]
     fn type_builds_raw_chords() {
         if !crate::typist::available() {
             return;
@@ -1388,6 +1460,7 @@ mod tests {
                 device,
                 chords,
                 phases,
+                ..
             } => {
                 assert_eq!(scope, InjectScope::Raw);
                 assert_eq!(device, None);

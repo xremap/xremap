@@ -41,6 +41,9 @@ pub struct Config {
     pub virtual_modifiers: Vec<Key>,
     pub keypress_delay_ms: u64,
     pub throttle_ms: u64,
+    /// Default pause between characters injected by the IPC `type` command;
+    /// `type --delay` overrides it per command.
+    pub type_delay_ms: u64,
     pub config_watch_debounce_ms: u64,
     pub notifications: bool,
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
@@ -62,6 +65,7 @@ impl Config {
             virtual_modifiers: config.virtual_modifiers,
             keypress_delay_ms: config.keypress_delay_ms.unwrap_or(0),
             throttle_ms: config.throttle_ms.unwrap_or(0),
+            type_delay_ms: config.type_delay_ms.unwrap_or(crate::ipc_server::DEFAULT_TYPE_DELAY_MS),
             config_watch_debounce_ms: config.config_watch_debounce_ms.unwrap_or(0),
             notifications: config.notifications.unwrap_or(false),
             enable_wheel: config.enable_wheel.unwrap_or(true),
@@ -96,6 +100,8 @@ pub struct ParseConfig {
     #[serde(default)]
     pub throttle_ms: Option<u64>,
     #[serde(default)]
+    pub type_delay_ms: Option<u64>,
+    #[serde(default)]
     pub config_watch_debounce_ms: Option<u64>,
     #[serde(default)]
     pub notifications: Option<bool>,
@@ -125,8 +131,8 @@ pub struct ParseConfig {
 pub struct ParseIpc {
     #[serde(default)]
     pub socket: Option<SocketSpec>,
-    /// Enable the key-injection command family (`key`, `keydown`, `keyup`).
-    /// Off by default.
+    /// Enable the key-injection command family (`key`, `keydown`, `keyup`,
+    /// `type`, `click`, `wheel`, `mousemove`, `sleep`). Off by default.
     #[serde(default)]
     pub inject: Option<bool>,
 }
@@ -212,6 +218,7 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
             default_mode,
             keypress_delay_ms,
             throttle_ms,
+            type_delay_ms,
             config_watch_debounce_ms,
             notifications,
             bypass,

@@ -36,7 +36,7 @@ ping\n                                   → pong\n
 key [--device NAME] [SCOPE] CHORD...\n   → ok\n
 keydown [--device NAME] [SCOPE] CHORD...\n → ok\n
 keyup [--device NAME] [SCOPE] CHORD...\n   → ok\n
-type [OPTIONS] TEXT\n                    → ok\n  (--method auto|layout|unicode|clipboard, --layout, --variant,\n   --paste CHORD, --restore, --base64 PAYLOAD)\n
+type [OPTIONS] TEXT\n                    → ok\n  (--method auto|layout|unicode|clipboard, --layout, --variant,\n   --paste CHORD, --restore, --base64 PAYLOAD, --delay MS)\n
 click [left/middle/right]...        → ok\n
 wheel AMOUNT\n                        → ok\n
 hwheel AMOUNT\n                       → ok\n
@@ -45,8 +45,12 @@ sleep MILLISECONDS\n                     → ok\n
 ```
 
 Commands on a connection execute in order, and each reply follows execution.
-Execution failures return `err` without terminating the daemon; later commands
-can still run.
+For example, `set-mode normal\nget-mode\n` returns `ok\nnormal\n`,
+including when both lines arrive in one write. Execution failures return `err`
+without terminating the daemon; later commands can still run. Configured exit
+or full-restart key actions intentionally stop further commands on the connection.
+Replies confirm xremap processing, not that the focused application has consumed
+its input.
 
 Errors are `err REASON\n`. Free-form reply text escapes backslashes, CR and LF
 as `\\`, `\r` and `\n` so every reply stays on one line; this applies to
@@ -146,6 +150,13 @@ are rejected and the connection is closed.
   error (`unknown option '---paste'`) rather than being typed out as text;
   write `type -- TEXT` to type text that itself starts with a dash. `--restore`
   may appear anywhere among the options.
+
+  `--delay MS` pauses between characters (default: the `type_delay_ms` config
+  option, itself defaulting to 0 ms; capped at 1000 ms). Injected keystrokes
+  are otherwise microsecond-fast, and Wayland compositors drop characters from
+  such bursts, so consider a `type_delay_ms` of 10--20 in the config. The
+  delay blocks xremap's event loop just like `sleep`, so keep it small; note
+  that 4096 characters at a 10 ms delay take over 40 seconds to type.
 
   Limits for `type`: `TEXT` is at most 4096 characters, a protocol line at
   most 16384 bytes, and a `--base64` payload at most 8192 bytes once decoded.
@@ -251,8 +262,8 @@ same output device and throttle as remapped keys.
   500 ms instead of stopping the daemon or spinning in the input loop.
 - Startup only removes stale sockets owned by xremap's effective uid. Live
   sockets, ordinary files, symlinks, and foreign sockets are not replaced.
-- The injection command family (`key`/`keydown`/`keyup`/`click`/`wheel`/
-  `hwheel`/`mousemove`/`sleep`) is off by default
+- The injection command family (`key`/`keydown`/`keyup`/`type`/`click`/
+  `wheel`/`hwheel`/`mousemove`/`sleep`) is off by default
   (`ipc.inject: false`) and only widens what a same-uid process can already do
   (e.g. via dotool/uinput). It does not grant cross-user power.
 

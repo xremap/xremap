@@ -733,9 +733,10 @@ fn test_load_configs_first_scalar_setting_wins() {
 
     // Options that appear only in the second file apply.
     std::fs::write(&first, "keymap: []\n").unwrap();
-    std::fs::write(&second, "keypress_delay_ms: 30\n").unwrap();
+    std::fs::write(&second, "keypress_delay_ms: 30\ntype_delay_ms: 40\n").unwrap();
     let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
     assert_eq!(config.keypress_delay_ms, 30);
+    assert_eq!(config.type_delay_ms, 40);
 
     std::fs::remove_dir_all(&dir).ok();
 }
@@ -862,4 +863,17 @@ fn test_load_configs_ipc_fields_merge_first_wins() {
     );
 
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn test_yaml_type_delay_ms() {
+    // Defaults to the built-in pause.
+    let config = Config::new_from_str("keymap: []").unwrap();
+    assert_eq!(config.type_delay_ms, crate::ipc_server::DEFAULT_TYPE_DELAY_MS);
+    let config = Config::new_from_str(indoc! {"
+    keymap: []
+    type_delay_ms: 25
+    "})
+    .unwrap();
+    assert_eq!(config.type_delay_ms, 25);
 }

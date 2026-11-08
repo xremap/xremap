@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context};
 use base64::Engine;
 use clap::Subcommand;
+use log::debug;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
@@ -91,6 +92,9 @@ pub enum ClientCommand {
         /// Restore the previous clipboard after `--method clipboard`.
         #[arg(long)]
         restore: bool,
+        /// Pause after each chord in milliseconds (0-1000).
+        #[arg(long, value_name = "MS")]
+        delay: Option<u64>,
         /// Read the text from stdin instead of the arguments.
         #[arg(long, conflicts_with_all = ["text", "payload"])]
         stdin: bool,
@@ -120,6 +124,7 @@ impl ClientCommand {
                 method,
                 paste,
                 restore,
+                delay,
                 stdin,
                 payload,
                 text,
@@ -129,6 +134,7 @@ impl ClientCommand {
                 method.as_deref(),
                 paste.as_deref(),
                 *restore,
+                *delay,
                 *stdin,
                 payload.as_deref(),
                 text,
@@ -177,6 +183,7 @@ pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()
     })?;
 
     let mut reader = BufReader::new(stream.try_clone()?);
+    debug!("client: sending {:?} to {}", line, path.display());
     stream.write_all(line.as_bytes())?;
     stream.write_all(b"\n")?;
     stream.flush()?;
@@ -204,6 +211,7 @@ fn render_type_command(
     method: Option<&str>,
     paste: Option<&str>,
     restore: bool,
+    delay: Option<u64>,
     from_stdin: bool,
     payload: Option<&str>,
     text: &[String],
@@ -227,6 +235,10 @@ fn render_type_command(
     }
     if restore {
         line.push_str(" --restore");
+    }
+    if let Some(delay) = delay {
+        line.push_str(" --delay ");
+        line.push_str(&delay.to_string());
     }
     if let Some(payload) = payload {
         line.push_str(" --base64 ");
@@ -271,6 +283,7 @@ mod tests {
             method: None,
             paste: None,
             restore: false,
+            delay: None,
             stdin: false,
             payload: None,
             text: vec!["Grüße".into()],
@@ -286,6 +299,7 @@ mod tests {
             method: None,
             paste: None,
             restore: false,
+            delay: None,
             stdin: false,
             payload: Some("aGVsbG8=".into()),
             text: Vec::new(),
@@ -301,6 +315,7 @@ mod tests {
             method: None,
             paste: None,
             restore: false,
+            delay: None,
             stdin: false,
             payload: None,
             text: Vec::new(),
@@ -316,6 +331,7 @@ mod tests {
             method: Some("clipboard".into()),
             paste: Some("ctrl+v".into()),
             restore: true,
+            delay: None,
             stdin: false,
             payload: None,
             text: vec!["中文".into()],

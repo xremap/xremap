@@ -58,6 +58,25 @@ a key is pressed, and keep to key pressed enough time.
 
 Since version 0.14.14.
 
+### type_delay_ms
+
+```yml
+type_delay_ms: 10 # Default is `0`
+# Rest of your config file
+```
+
+Default pause in milliseconds between the characters that the IPC `type` command
+injects, and between the events of each typed key combo (modifier press, key
+press/release). Defaults to `0` like `keypress_delay_ms`, but consider setting
+10--20: real keyboards never produce microsecond-fast key bursts, and Wayland
+compositors drop characters from such bursts (upstream discussion xremap#611).
+The delay also blocks xremap's event loop just like `sleep`, so avoid large
+values: 4096 characters at a 10 ms delay take over 40 seconds.
+
+A `type --delay MS` command-line option overrides this per command; `--delay 0`
+disables the pause for that command. This option does not affect keymap remaps
+(see `keypress_delay_ms`) or other emitted events (see `throttle_ms`).
+
 ### default_mode
 
 ```yml
