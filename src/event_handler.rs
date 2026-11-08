@@ -88,6 +88,18 @@ impl EventHandler {
         self.operator_handler.as_ref().map(|op| op.assert_base_state());
     }
 
+    /// Switch the active mode from an external control channel (IPC socket).
+    /// Applied directly by the main loop, bypassing the input event pipeline:
+    /// IPC commands are state-level operations, not key events.
+    pub fn set_mode_external(&mut self, mode: &str) {
+        self.matching_state.set_mode(mode);
+    }
+
+    /// Current active keymap mode, for the IPC `get-mode` command.
+    pub fn current_mode(&self) -> &str {
+        &self.matching_state.mode
+    }
+
     // Handle an Event and return Actions. This should be the only public method of EventHandler.
     pub fn on_events(
         &mut self,

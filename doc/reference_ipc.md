@@ -28,6 +28,8 @@ Line-based text, one command per line, one reply line per command — the same
 shape as dotool's fifo protocol.
 
 ```
+set-mode MODE\n                          → ok\n
+get-mode\n                               → MODE\n
 ping\n                                   → pong\n
 ```
 
@@ -36,8 +38,16 @@ Execution failures return `err` without terminating the daemon; later commands
 can still run.
 
 Errors are `err REASON\n`. Free-form reply text escapes backslashes, CR and LF
-as `\\`, `\r` and `\n` so every reply stays on one line. Input must be valid
-UTF-8. Lines longer than 256 bytes are rejected and the connection is closed.
+as `\\`, `\r` and `\n` so every reply stays on one line; this applies to
+`REASON` and to `MODE`. Input must be valid UTF-8. Lines longer than 256 bytes
+are rejected and the connection is closed.
+
+- `MODE` is an opaque string matched against `mode:` keymap conditions
+  (`[a-zA-Z0-9_-]`, max 64 bytes for `set-mode`). It switches the mode exactly
+  like the `{ set_mode: ... }` keymap action. Config/keymap modes may contain
+  other characters; the `get-mode` reply is the bare escaped mode name and
+  stays on one line. Clients tell replies apart by order, and a reply is a
+  failure exactly when it starts with `err`.
 
 ## Security
 
@@ -63,6 +73,10 @@ The first argument selects a subcommand; everything else keeps its usual
 meaning (config files). Each invocation sends one command:
 
 ```console
+$ xremap set-mode normal
+ok
+$ xremap get-mode
+normal
 $ xremap ping
 pong
 ```

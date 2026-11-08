@@ -195,7 +195,7 @@ ipc:
   socket: true  # Default is no IPC server. `true` = $XDG_RUNTIME_DIR/xremap.sock
 ```
 
-Exposes a unix control socket that lets external programs talk to a running
-instance. [Full reference](reference_ipc.md).
+Exposes a unix control socket that lets external programs switch `mode` and
+talk to a running instance. [Full reference](reference_ipc.md).
 
 Since version 0.15.17.

@@ -12,7 +12,7 @@ use crate::device::{
 };
 use crate::event::Event;
 use crate::event_handler::EventHandler;
-use crate::ipc_server::IpcServer;
+use crate::ipc_server::{IpcCommand, IpcServer};
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
 use crate::plugin::{apply_plugin, Plugin};
@@ -445,12 +445,31 @@ fn event_loop(
                 continue;
             };
             for line in std::mem::take(&mut batch.lines) {
-                let reply = match line {
-                    Ok(line) => crate::ipc_server::handle_command(&line),
-                    Err(reason) => crate::ipc_server::Reply::Err(reason),
+                let (command, mut reply) = match line {
+                    Ok(line) => crate::ipc_server::handle_command(&line, handler.current_mode()),
+                    Err(reason) => (None, crate::ipc_server::Reply::Err(reason)),
                 };
-                if let Err(err) = batch.reply(&reply) {
+                let mut next_action = None;
+                if let Some(command) = command {
+                    match execute_ipc_command(command, handler) {
+                        Ok(action) => next_action = action,
+                        Err(err) => reply = crate::ipc_server::Reply::Err(format!("{err:#}")),
+                    }
+                }
+                // Execution errors are command-local. Reply only after the
+                // side effects so the next line observes the updated state.
+                let reply_failed = if let Err(err) = batch.reply(&reply) {
                     eprintln!("xremap ipc: failed to write reply: {err}");
+                    true
+                } else {
+                    false
+                };
+                // A disconnected client must not cancel an exit/restart that
+                // its configured key action already requested.
+                if let Some(action) = next_action {
+                    return Ok(action);
+                }
+                if reply_failed {
                     break;
                 }
             }
@@ -536,6 +555,15 @@ fn sync_ipc(ipc: &mut Option<IpcState>, config: &Config) -> anyhow::Result<()> {
         }
     }
     Ok(())
+}
+
+fn execute_ipc_command(command: IpcCommand, handler: &mut EventHandler) -> anyhow::Result<Option<MainAction>> {
+    match command {
+        IpcCommand::SetMode(mode) => {
+            handler.set_mode_external(&mode);
+            Ok(None)
+        }
+    }
 }
 
 fn handle_input_events(

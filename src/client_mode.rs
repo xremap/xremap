@@ -10,6 +10,13 @@ use std::path::PathBuf;
 pub enum ClientCommand {
     /// Liveness check.
     Ping,
+    /// Query the active keymap mode.
+    GetMode,
+    /// Switch the active keymap mode.
+    SetMode {
+        /// Mode name to switch to.
+        mode: String,
+    },
 }
 
 impl ClientCommand {
@@ -17,6 +24,8 @@ impl ClientCommand {
     fn protocol_line(&self) -> String {
         match self {
             ClientCommand::Ping => "ping".to_string(),
+            ClientCommand::GetMode => "get-mode".to_string(),
+            ClientCommand::SetMode { mode } => format!("set-mode {mode}"),
         }
     }
 }
@@ -24,6 +33,8 @@ impl ClientCommand {
 /// Send one subcommand to a running xremap and print the reply. Exit code is
 /// non-zero when the command fails.
 pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()> {
+    let line = command.protocol_line();
+    anyhow::ensure!(!line.contains(['\r', '\n']), "IPC command must be a single line (CR and LF are not allowed)");
     let path = socket
         .or_else(|| std::env::var("XREMAP_SOCKET").ok().map(PathBuf::from))
         .unwrap_or_else(crate::ipc_server::default_socket_path);
@@ -33,7 +44,6 @@ pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()
     })?;
 
     let mut reader = BufReader::new(stream.try_clone()?);
-    let line = command.protocol_line();
     stream.write_all(line.as_bytes())?;
     stream.write_all(b"\n")?;
     stream.flush()?;

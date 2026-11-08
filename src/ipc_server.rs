@@ -14,16 +14,28 @@ use std::time::{Duration, Instant};
 // line "<verb> [arg]\n". The server replies with a single line per command.
 //
 // Commands:
+//   set-mode MODE      Switch the active keymap mode. → "ok"
+//   get-mode           Query the active mode. → "MODE"
 //   ping               Liveness check. → "pong"
 //
-// Replies: "pong\n", "err REASON\n".
+// Replies: "ok\n", "MODE\n", "pong\n", "err REASON\n".
 
 pub const MAX_LINE_LEN: usize = 256;
+const MAX_MODE_LEN: usize = 64;
 const MAX_CONNECTIONS: usize = 64;
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(500);
 
+/// Commands that must be applied by the main loop (they touch
+/// EventHandler / ActionDispatcher / MainAction, which the IPC server must not own).
+#[derive(Debug, Clone, PartialEq)]
+pub enum IpcCommand {
+    SetMode(String),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reply {
+    Ok,
+    Mode(String),
     Pong,
     Err(String),
 }
@@ -31,26 +43,49 @@ pub enum Reply {
 impl Reply {
     pub fn encode(&self) -> String {
         match self {
+            Reply::Ok => "ok\n".to_string(),
+            // Config/keymap modes need not satisfy the IPC set-mode syntax.
+            // The mode name is the whole reply; clients tell replies apart by
+            // order, and a failure is any line starting with `err`.
+            Reply::Mode(mode) => format!("{}\n", escape_reply_text(mode)),
             Reply::Pong => "pong\n".to_string(),
             Reply::Err(reason) => format!("err {}\n", escape_reply_text(reason)),
         }
     }
 }
 
-/// Keep free-form reply text (`REASON`) on a single line.
+/// Keep free-form reply text (`MODE` and `REASON`) on a single line.
 /// Backslashes are escaped first, so a literal `\n` stays `\\n` instead of
 /// looking like the line break that terminates the reply.
 fn escape_reply_text(text: &str) -> String {
     text.replace('\\', "\\\\").replace('\r', "\\r").replace('\n', "\\n")
 }
 
+fn valid_mode_name(mode: &str) -> bool {
+    !mode.is_empty()
+        && mode.len() <= MAX_MODE_LEN
+        && mode.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 /// Pure command handling, testable without a socket.
-pub fn handle_command(line: &str) -> Reply {
+/// Returns the command to apply in the main loop (if any) and the reply.
+pub fn handle_command(line: &str, current_mode: &str) -> (Option<IpcCommand>, Reply) {
     let line = line.trim();
-    match line {
-        "ping" => Reply::Pong,
-        "" => Reply::Err("empty command".to_string()),
-        _ => Reply::Err("unknown command".to_string()),
+    let (verb, arg) = match line.split_once(' ') {
+        Some((verb, arg)) => (verb, arg.trim()),
+        None => (line, ""),
+    };
+    match verb {
+        "ping" => (None, Reply::Pong),
+        "get-mode" => (None, Reply::Mode(current_mode.to_string())),
+        "set-mode" => {
+            if !valid_mode_name(arg) {
+                return (None, Reply::Err("invalid mode name".to_string()));
+            }
+            (Some(IpcCommand::SetMode(arg.to_string())), Reply::Ok)
+        }
+        "" => (None, Reply::Err("empty command".to_string())),
+        _ => (None, Reply::Err("unknown command".to_string())),
     }
 }
 
@@ -440,24 +475,56 @@ mod tests {
         assert!(!server.holds_fd(fd));
     }
 
+    /// Parse a command.
+    fn cmd(line: &str, mode: &str) -> (Option<IpcCommand>, Reply) {
+        handle_command(line, mode)
+    }
+
     #[test]
     fn ping() {
-        assert_eq!(handle_command("ping"), Reply::Pong);
+        assert_eq!(cmd("ping", "insert"), (None, Reply::Pong));
+    }
+
+    #[test]
+    fn get_mode() {
+        assert_eq!(cmd("get-mode", "normal"), (None, Reply::Mode("normal".into())));
+    }
+
+    #[test]
+    fn set_mode() {
+        assert_eq!(cmd("set-mode normal", "insert"), (Some(IpcCommand::SetMode("normal".into())), Reply::Ok));
+    }
+
+    #[test]
+    fn set_mode_trims_whitespace() {
+        assert_eq!(cmd("  set-mode   visual  \n", "insert"), (Some(IpcCommand::SetMode("visual".into())), Reply::Ok));
+    }
+
+    #[test]
+    fn set_mode_rejects_bad_names() {
+        for arg in ["", "with space", " Semi；colon", &"x".repeat(MAX_MODE_LEN + 1)] {
+            let line = format!("set-mode {arg}");
+            assert_eq!(cmd(&line, "insert").1, Reply::Err("invalid mode name".into()), "{arg:?}");
+        }
     }
 
     #[test]
     fn unknown_and_empty() {
-        assert_eq!(handle_command("explode"), Reply::Err("unknown command".into()));
-        assert_eq!(handle_command(""), Reply::Err("empty command".into()));
+        assert_eq!(cmd("explode", "insert").1, Reply::Err("unknown command".into()));
+        assert_eq!(cmd("", "insert").1, Reply::Err("empty command".into()));
     }
 
     #[test]
     fn replies_encode_to_single_lines() {
+        assert_eq!(Reply::Ok.encode(), "ok\n");
+        assert_eq!(Reply::Mode("normal".into()).encode(), "normal\n");
+        assert_eq!(Reply::Mode("one\\ntwo\nthree\rfour".into()).encode(), "one\\\\ntwo\\nthree\\rfour\n");
         assert_eq!(Reply::Pong.encode(), "pong\n");
         assert_eq!(Reply::Err("boom".into()).encode(), "err boom\n");
         assert_eq!(Reply::Err("one\ntwo\rthree".into()).encode(), "err one\\ntwo\\rthree\n");
         // Backslashes are escaped first, so escaped-looking input stays literal.
         assert_eq!(Reply::Err("bad \\n here".into()).encode(), "err bad \\\\n here\n");
+        assert_eq!(Reply::Mode("win\\path".into()).encode(), "win\\\\path\n");
     }
 
     #[test]
@@ -478,7 +545,7 @@ mod tests {
             .find(|fd| *fd != listener_fd)
             .unwrap();
 
-        client.write_all(b"ping\n").unwrap();
+        client.write_all(b"set-mode normal\nget-mode\nping\n").unwrap();
         let mut batch = server.handle_readable(conn_fd).unwrap();
         // Framing must not acknowledge commands that have not executed yet.
         client.set_nonblocking(true).unwrap();
@@ -486,13 +553,17 @@ mod tests {
         assert_eq!(client.read(&mut buf).unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
         client.set_nonblocking(false).unwrap();
 
+        let mut mode = "insert".to_string();
         for line in std::mem::take(&mut batch.lines) {
-            let reply = handle_command(&line.unwrap());
+            let (command, reply) = cmd(&line.unwrap(), &mode);
+            if let Some(IpcCommand::SetMode(new_mode)) = command {
+                mode = new_mode;
+            }
             batch.reply(&reply).unwrap();
         }
-        let mut output = [0u8; 5];
+        let mut output = [0u8; 15];
         client.read_exact(&mut output).unwrap();
-        assert_eq!(&output, b"pong\n");
+        assert_eq!(&output, b"ok\nnormal\npong\n");
         drop(batch);
 
         drop(client);
