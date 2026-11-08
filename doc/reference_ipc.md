@@ -13,11 +13,13 @@ The feature is **disabled by default**.
 ipc:                    # omit the whole section to disable IPC entirely
   socket: true          # listen on $XDG_RUNTIME_DIR/xremap.sock (or an explicit path)
   # socket: /run/user/1000/my-xremap.sock
+  inject: false         # allow the key-injection commands (default: false)
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
 | `socket` | (none — IPC off) | `true` for the default path, or an explicit path. `false` explicitly disables. |
+| `inject` | `false` | Gate for the whole injection command family (`key`, `keydown`, `keyup`). When off, the server answers `err injection disabled`. |
 
 The default socket path falls back to `$TMPDIR/xremap-<uid>.sock` when
 `$XDG_RUNTIME_DIR` is unset.
@@ -31,6 +33,9 @@ shape as dotool's fifo protocol.
 set-mode MODE\n                          → ok\n
 get-mode\n                               → MODE\n
 ping\n                                   → pong\n
+key [--device NAME] [SCOPE] CHORD...\n   → ok\n
+keydown [--device NAME] [SCOPE] CHORD...\n → ok\n
+keyup [--device NAME] [SCOPE] CHORD...\n   → ok\n
 ```
 
 Commands on a connection execute in order, and each reply follows execution.
@@ -48,6 +53,50 @@ are rejected and the connection is closed.
   other characters; the `get-mode` reply is the bare escaped mode name and
   stays on one line. Clients tell replies apart by order, and a reply is a
   failure exactly when it starts with `err`.
+- `CHORD` is `MODIFIER+...+KEY` where modifiers are
+  `ctrl|control|alt|shift|super|meta|win|altgr` and the key name goes through
+  the same parser as config keys (`f13`, `KEY_F13`, `CODE_191`, ...).
+  Unlike dotool, a bare uppercase letter does not imply Shift:
+  `key A` presses the `a` key without modifiers — write `key shift+a`.
+  A chord may carry a `*N` repeat suffix (`Down*3` presses Down three times).
+  Up to 16 chords per command, so `key raw f13 f14 ctrl+a*2` sends four
+  keypresses in order.
+- `--device NAME` (optional) sets the device identity of the injected events,
+  i.e. which `device:` keymap conditions they match. It is a per-command
+  property, chosen by the client. The default is `xremap-ipc`.
+- `keydown`/`keyup` emit only the press / only the release half of each chord
+  (`keydown ctrl+a` = ctrl↓ a↓, `keyup ctrl+a` = a↑ ctrl↑). Pair them
+  yourself; held keys stay held.
+
+## The `key` scopes
+
+`SCOPE` is the pipeline layer the injected key **enters** at; from there it
+flows on to the application. The pipeline is **experimental_map (expmap)
+operators → modmap → keymap → app**. Each scope name is its entering layer.
+
+| Scope | Flow | Meaning |
+|---|---|---|
+| `raw` (default) | → app | Emit straight to the output device. No rule can rewrite it. Same semantics as dotool. |
+| `keymap` | → keymap → app | Triggers keymap rules (mode/application/window/device conditions, nested remaps); modmap is skipped. |
+| `modmap` | → modmap → keymap → app | Rewritten by `modmap` first, then flows through keymap. experimental_map operators are skipped. |
+| `expmap` | → expmap → modmap → keymap → app | Enters at the experimental_map operators: indistinguishable from a physical keypress; operators may buffer or reorder it. `experimental_map` is accepted as an alias. |
+
+Injected events carry a synthetic device identity (`--device NAME`, default
+`xremap-ipc`), so you can write keymap entries that only apply to injected
+keys:
+
+```yaml
+keymap:
+  - name: rules only for injected keys
+    device:
+      only: [xremap-ipc]
+    remap:
+      f13: { set_mode: normal }
+```
+
+The injection sequence per chord is: modifier presses → key press → key
+release → modifier releases (reverse order), and it is dispatched through the
+same output device and throttle as remapped keys.
 
 ## Security
 
@@ -59,11 +108,15 @@ are rejected and the connection is closed.
   peer; access control then rests on the 0600 socket mode and its parent
   directory, not on peer credentials.
 - The command set is a fixed whitelist; clients cannot supply arbitrary
-  executable names or arguments.
+  executable names or arguments. Pipeline key injection can trigger configured
+  actions under the normal `allow_launch` policy.
 - At most 64 connections are admitted. Accept resource errors back off for
   500 ms instead of stopping the daemon or spinning in the input loop.
 - Startup only removes stale sockets owned by xremap's effective uid. Live
   sockets, ordinary files, symlinks, and foreign sockets are not replaced.
+- The injection command family (`key`/`keydown`/`keyup`) is off by default
+  (`ipc.inject: false`) and only widens what a same-uid process can already do
+  (e.g. via dotool/uinput). It does not grant cross-user power.
 
 ## Clients
 
@@ -79,11 +132,15 @@ $ xremap get-mode
 normal
 $ xremap ping
 pong
+$ xremap key expmap ctrl+f
+ok
+$ xremap key --device my-kbd raw f13
+ok
 ```
 
 Exit code is non-zero if the command fails. Override the socket with
-`--socket PATH` (anywhere on the command line) or the `XREMAP_SOCKET`
-environment variable.
+`--socket PATH` (anywhere on the command line before a literal `--`
+argument separator) or the `XREMAP_SOCKET` environment variable.
 
 ### Any line-oriented socket tool
 
@@ -98,3 +155,5 @@ pong
 ## Status
 
 Experimental: the protocol may evolve before it is declared stable.
+The verb namespace is open: new injection verbs join the existing `inject`
+gate.

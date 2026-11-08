@@ -125,6 +125,10 @@ pub struct ParseConfig {
 pub struct ParseIpc {
     #[serde(default)]
     pub socket: Option<SocketSpec>,
+    /// Enable the key-injection command family (`key`, `keydown`, `keyup`).
+    /// Off by default.
+    #[serde(default)]
+    pub inject: Option<bool>,
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -138,6 +142,7 @@ pub enum SocketSpec {
 #[derive(Debug, Clone, PartialEq)]
 pub struct IpcOptions {
     pub socket: PathBuf,
+    pub inject: bool,
 }
 
 impl ParseIpc {
@@ -148,7 +153,10 @@ impl ParseIpc {
             SocketSpec::Bool(true) => crate::ipc_server::default_socket_path(),
             SocketSpec::Path(path) => path,
         };
-        Some(IpcOptions { socket })
+        Some(IpcOptions {
+            socket,
+            inject: self.inject.unwrap_or(false),
+        })
     }
 }
 
@@ -211,11 +219,14 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
         );
         // The `ipc` section follows the same first-wins rule as the
         // single-value options, per field: a later file may fill `socket`
-        // only when no earlier file set it.
+        // or `inject` only when no earlier file set them.
         match (&mut config.ipc, &mut c.ipc) {
             (Some(config_ipc), Some(c_ipc)) => {
                 if config_ipc.socket.is_none() {
                     config_ipc.socket = c_ipc.socket.take();
+                }
+                if config_ipc.inject.is_none() {
+                    config_ipc.inject = c_ipc.inject.take();
                 }
             }
             (None, Some(_)) => config.ipc = c.ipc.take(),

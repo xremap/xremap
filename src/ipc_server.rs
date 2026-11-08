@@ -8,6 +8,13 @@ use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use crate::action::Action;
+use crate::config::key::parse_key;
+use crate::device::InputDeviceInfo;
+use crate::event::{Event, KeyEvent, KeyValue};
+use evdev::KeyCode as Key;
+use std::rc::Rc;
+
 // ── Protocol ────────────────────────────────────────────────────────────────
 //
 // Line-based text protocol in the spirit of dotool: each command is a single
@@ -17,19 +24,165 @@ use std::time::{Duration, Instant};
 //   set-mode MODE      Switch the active keymap mode. → "ok"
 //   get-mode           Query the active mode. → "MODE"
 //   ping               Liveness check. → "pong"
+//   key [--device NAME] [SCOPE] CHORD...  → "ok"
+//   keydown / keyup    only the press / only the release half
 //
 // Replies: "ok\n", "MODE\n", "pong\n", "err REASON\n".
 
 pub const MAX_LINE_LEN: usize = 256;
 const MAX_MODE_LEN: usize = 64;
+const MAX_CHORDS: usize = 16;
 const MAX_CONNECTIONS: usize = 64;
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(500);
+
+/// How deep into the processing pipeline an injected key enters.
+/// From the entering layer, the key flows on to the app through the
+/// remaining layers. The pipeline is:
+/// **experimental_map (expmap) operators → modmap → keymap → app**.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum InjectScope {
+    /// Straight to the app; no layer applies. Same semantics as dotool.
+    Raw,
+    /// Enter at keymap: → keymap → app. Modmap is skipped.
+    Keymap,
+    /// Enter at modmap: → modmap → keymap → app. expmap operators are skipped.
+    Modmap,
+    /// Enter at the experimental_map operators:
+    /// → expmap → modmap → keymap → app.
+    /// Indistinguishable from a physical keypress.
+    Expmap,
+}
+
+impl InjectScope {
+    fn parse(word: &str) -> Option<InjectScope> {
+        match word {
+            "raw" => Some(InjectScope::Raw),
+            "modmap" => Some(InjectScope::Modmap),
+            "keymap" => Some(InjectScope::Keymap),
+            "expmap" | "experimental_map" => Some(InjectScope::Expmap),
+            _ => None,
+        }
+    }
+}
+
+/// A parsed `MODIFIER+...+KEY` chord. Modifiers are emitted around the key.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Chord {
+    pub modifiers: Vec<Key>,
+    pub key: Key,
+}
+
+fn modifier_key(name: &str) -> Option<Key> {
+    match name {
+        "ctrl" | "control" => Some(Key::KEY_LEFTCTRL),
+        "alt" => Some(Key::KEY_LEFTALT),
+        "shift" => Some(Key::KEY_LEFTSHIFT),
+        "super" | "meta" | "win" => Some(Key::KEY_LEFTMETA),
+        "altgr" => Some(Key::KEY_RIGHTALT),
+        _ => None,
+    }
+}
+
+impl Chord {
+    /// `ctrl+shift+a` → modifiers [LCTRL, LSHIFT], key A. Key names go through
+    /// the same `parse_key` used by the config (F13, KEY_F13, CODE_191, ...).
+    pub fn parse(input: &str) -> Result<Chord, String> {
+        let parts: Vec<&str> = input.split('+').collect();
+        let (key_part, modifier_parts) = parts.split_last().ok_or("empty chord")?;
+        let mut modifiers = Vec::new();
+        for part in modifier_parts {
+            let key = modifier_key(part).ok_or_else(|| format!("unknown modifier: {part}"))?;
+            modifiers.push(key);
+        }
+        let key = parse_key(key_part).map_err(|err| format!("invalid key: {err}"))?;
+        Ok(Chord { modifiers, key })
+    }
+
+    /// Parse a chord with an optional `*N` repeat suffix (`Down*3`).
+    pub fn parse_with_repeat(input: &str) -> Result<Vec<Chord>, String> {
+        let (base, repeat) = match input.rsplit_once('*') {
+            Some((base, count)) => {
+                let count: usize = count.parse().map_err(|_| format!("invalid repeat count: {count}"))?;
+                if count == 0 || count > MAX_CHORDS {
+                    return Err(format!("repeat count must be 1..={MAX_CHORDS}"));
+                }
+                (base, count)
+            }
+            None => (input, 1),
+        };
+        let chord = Chord::parse(base)?;
+        Ok(vec![chord; repeat])
+    }
+
+    /// Modifier presses, key press/release, modifier releases in reverse order.
+    /// `down`/`up` select which halves are produced (keydown/keyup commands).
+    pub fn to_actions(&self, down: bool, up: bool) -> Vec<Action> {
+        self.to_event_pairs(down, up)
+            .into_iter()
+            .map(|(key, value)| Action::KeyEvent(KeyEvent::new(key, value)))
+            .collect()
+    }
+
+    /// Same sequence as `to_actions`, but as pipeline events for scopes that
+    /// go through EventHandler. `device` is the synthetic IPC device identity.
+    pub fn to_events(&self, device: Rc<InputDeviceInfo>, down: bool, up: bool) -> Vec<Event> {
+        self.to_event_pairs(down, up)
+            .into_iter()
+            .map(|(key, value)| Event::KeyEvent(device.clone(), KeyEvent::new(key, value)))
+            .collect()
+    }
+
+    fn to_event_pairs(&self, down: bool, up: bool) -> Vec<(Key, KeyValue)> {
+        let mut pairs = Vec::with_capacity(self.modifiers.len() * 2 + 2);
+        if down {
+            for modifier in &self.modifiers {
+                pairs.push((*modifier, KeyValue::Press));
+            }
+            pairs.push((self.key, KeyValue::Press));
+        }
+        if up {
+            pairs.push((self.key, KeyValue::Release));
+            for modifier in self.modifiers.iter().rev() {
+                pairs.push((*modifier, KeyValue::Release));
+            }
+        }
+        pairs
+    }
+}
 
 /// Commands that must be applied by the main loop (they touch
 /// EventHandler / ActionDispatcher / MainAction, which the IPC server must not own).
 #[derive(Debug, Clone, PartialEq)]
 pub enum IpcCommand {
     SetMode(String),
+    SendKey {
+        scope: InjectScope,
+        /// Simulated source device name; matches `device:` keymap conditions.
+        device: Option<String>,
+        chords: Vec<Chord>,
+        phases: KeyPhases,
+    },
+}
+
+impl IpcCommand {
+    #[cfg(test)]
+    fn scope(&self) -> InjectScope {
+        match self {
+            IpcCommand::SendKey { scope, .. } => *scope,
+            _ => panic!("not a SendKey"),
+        }
+    }
+}
+
+/// Which halves of the press/release cycle a `key`-family command emits.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum KeyPhases {
+    /// keydown + keyup (the `key` command).
+    Tap,
+    /// keydown only (the `keydown` command).
+    Down,
+    /// keyup only (the `keyup` command).
+    Up,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -69,7 +222,7 @@ fn valid_mode_name(mode: &str) -> bool {
 
 /// Pure command handling, testable without a socket.
 /// Returns the command to apply in the main loop (if any) and the reply.
-pub fn handle_command(line: &str, current_mode: &str) -> (Option<IpcCommand>, Reply) {
+pub fn handle_command(line: &str, current_mode: &str, inject_enabled: bool) -> (Option<IpcCommand>, Reply) {
     let line = line.trim();
     let (verb, arg) = match line.split_once(' ') {
         Some((verb, arg)) => (verb, arg.trim()),
@@ -84,9 +237,62 @@ pub fn handle_command(line: &str, current_mode: &str) -> (Option<IpcCommand>, Re
             }
             (Some(IpcCommand::SetMode(arg.to_string())), Reply::Ok)
         }
+        "key" | "keydown" | "keyup" => {
+            if !inject_enabled {
+                return (None, Reply::Err("injection disabled".to_string()));
+            }
+            let phases = match verb {
+                "key" => KeyPhases::Tap,
+                "keydown" => KeyPhases::Down,
+                _ => KeyPhases::Up,
+            };
+            match parse_key_command(arg) {
+                Ok((scope, device, chords)) => (
+                    Some(IpcCommand::SendKey {
+                        scope,
+                        device,
+                        chords,
+                        phases,
+                    }),
+                    Reply::Ok,
+                ),
+                Err(reason) => (None, Reply::Err(reason)),
+            }
+        }
         "" => (None, Reply::Err("empty command".to_string())),
         _ => (None, Reply::Err("unknown command".to_string())),
     }
+}
+
+/// `key [--device NAME] [SCOPE] CHORD...` — both the device and the scope
+/// are optional (default device: xremap-ipc, default scope: raw).
+/// A chord may carry a `*N` repeat suffix (`Down*3`).
+fn parse_key_command(arg: &str) -> Result<(InjectScope, Option<String>, Vec<Chord>), String> {
+    let mut words = arg.split_whitespace();
+    let mut scope = InjectScope::Raw;
+    let mut device: Option<String> = None;
+    let mut chords: Vec<Chord> = Vec::new();
+    while let Some(word) = words.next() {
+        if word == "--device" {
+            let name = words.next().ok_or("--device requires a name")?;
+            if name.len() > MAX_MODE_LEN {
+                return Err("device name too long".to_string());
+            }
+            device = Some(name.to_string());
+        } else if chords.is_empty() && scope == InjectScope::Raw && InjectScope::parse(word).is_some() {
+            // The scope keyword is only recognized before the first chord.
+            scope = InjectScope::parse(word).unwrap();
+        } else {
+            chords.extend(Chord::parse_with_repeat(word)?);
+        }
+    }
+    if chords.is_empty() {
+        return Err("missing chords".to_string());
+    }
+    if chords.len() > MAX_CHORDS {
+        return Err(format!("too many chords (max {MAX_CHORDS})"));
+    }
+    Ok((scope, device, chords))
 }
 
 // ── Transport ───────────────────────────────────────────────────────────────
@@ -475,43 +681,246 @@ mod tests {
         assert!(!server.holds_fd(fd));
     }
 
-    /// Parse a command.
-    fn cmd(line: &str, mode: &str) -> (Option<IpcCommand>, Reply) {
-        handle_command(line, mode)
+    /// `parse_key` consults the global key-alias table, which is normally
+    /// populated while parsing a config file. Set it once here so these tests
+    /// do not depend on other tests having parsed a config first.
+    fn init_aliases() {
+        static ONCE: std::sync::Once = std::sync::Once::new();
+        ONCE.call_once(|| {
+            crate::config::key_aliases::pre_load_key_aliases("", crate::config::ConfigFiletype::Yaml).unwrap();
+        });
+    }
+
+    /// Parse a command after initializing the aliases used by key parsing.
+    fn cmd(line: &str, mode: &str, inject: bool) -> (Option<IpcCommand>, Reply) {
+        init_aliases();
+        handle_command(line, mode, inject)
     }
 
     #[test]
     fn ping() {
-        assert_eq!(cmd("ping", "insert"), (None, Reply::Pong));
+        assert_eq!(cmd("ping", "insert", false), (None, Reply::Pong));
     }
 
     #[test]
     fn get_mode() {
-        assert_eq!(cmd("get-mode", "normal"), (None, Reply::Mode("normal".into())));
+        assert_eq!(cmd("get-mode", "normal", false), (None, Reply::Mode("normal".into())));
     }
 
     #[test]
     fn set_mode() {
-        assert_eq!(cmd("set-mode normal", "insert"), (Some(IpcCommand::SetMode("normal".into())), Reply::Ok));
+        assert_eq!(cmd("set-mode normal", "insert", false), (Some(IpcCommand::SetMode("normal".into())), Reply::Ok));
     }
 
     #[test]
     fn set_mode_trims_whitespace() {
-        assert_eq!(cmd("  set-mode   visual  \n", "insert"), (Some(IpcCommand::SetMode("visual".into())), Reply::Ok));
+        assert_eq!(
+            cmd("  set-mode   visual  \n", "insert", false),
+            (Some(IpcCommand::SetMode("visual".into())), Reply::Ok)
+        );
     }
 
     #[test]
     fn set_mode_rejects_bad_names() {
         for arg in ["", "with space", " Semi；colon", &"x".repeat(MAX_MODE_LEN + 1)] {
             let line = format!("set-mode {arg}");
-            assert_eq!(cmd(&line, "insert").1, Reply::Err("invalid mode name".into()), "{arg:?}");
+            assert_eq!(cmd(&line, "insert", false).1, Reply::Err("invalid mode name".into()), "{arg:?}");
         }
     }
 
     #[test]
+    fn key_disabled_by_default() {
+        assert_eq!(cmd("key raw f13", "insert", false).1, Reply::Err("injection disabled".into()));
+    }
+
+    #[test]
+    fn key_single_chord_defaults_to_raw() {
+        assert_eq!(
+            cmd("key f13", "insert", true),
+            (
+                Some(IpcCommand::SendKey {
+                    scope: InjectScope::Raw,
+                    device: None,
+                    chords: vec![Chord {
+                        modifiers: vec![],
+                        key: Key::KEY_F13
+                    }],
+                    phases: KeyPhases::Tap,
+                }),
+                Reply::Ok
+            )
+        );
+    }
+
+    #[test]
+    fn key_scope_and_multiple_chords() {
+        assert_eq!(
+            cmd("key expmap ctrl+shift+a f13", "insert", true),
+            (
+                Some(IpcCommand::SendKey {
+                    scope: InjectScope::Expmap,
+                    device: None,
+                    chords: vec![
+                        Chord {
+                            modifiers: vec![Key::KEY_LEFTCTRL, Key::KEY_LEFTSHIFT],
+                            key: Key::KEY_A
+                        },
+                        Chord {
+                            modifiers: vec![],
+                            key: Key::KEY_F13
+                        }
+                    ],
+                    phases: KeyPhases::Tap,
+                }),
+                Reply::Ok
+            )
+        );
+    }
+
+    #[test]
+    fn key_device_option() {
+        // Before and after the scope keyword.
+        for line in ["key raw --device my-kbd f13", "key --device my-kbd raw f13"] {
+            assert_eq!(
+                cmd(line, "insert", true),
+                (
+                    Some(IpcCommand::SendKey {
+                        scope: InjectScope::Raw,
+                        device: Some("my-kbd".into()),
+                        chords: vec![Chord {
+                            modifiers: vec![],
+                            key: Key::KEY_F13
+                        }],
+                        phases: KeyPhases::Tap,
+                    }),
+                    Reply::Ok
+                ),
+                "{line}"
+            );
+        }
+        assert_eq!(cmd("key raw --device", "insert", true).1, Reply::Err("--device requires a name".into()));
+    }
+
+    #[test]
+    fn key_repeat_suffix() {
+        assert_eq!(
+            cmd("key raw Down*3", "insert", true),
+            (
+                Some(IpcCommand::SendKey {
+                    scope: InjectScope::Raw,
+                    device: None,
+                    chords: vec![
+                        Chord {
+                            modifiers: vec![],
+                            key: Key::KEY_DOWN
+                        },
+                        Chord {
+                            modifiers: vec![],
+                            key: Key::KEY_DOWN
+                        },
+                        Chord {
+                            modifiers: vec![],
+                            key: Key::KEY_DOWN
+                        },
+                    ],
+                    phases: KeyPhases::Tap,
+                }),
+                Reply::Ok
+            )
+        );
+        assert_eq!(cmd("key raw Down*0", "insert", true).1, Reply::Err("repeat count must be 1..=16".into()));
+        assert_eq!(cmd("key raw Down*17", "insert", true).1, Reply::Err("repeat count must be 1..=16".into()));
+    }
+
+    #[test]
+    fn keydown_keyup_phases() {
+        let chord = vec![Chord {
+            modifiers: vec![],
+            key: Key::KEY_F13,
+        }];
+        for (line, phases) in [("keydown f13", KeyPhases::Down), ("keyup f13", KeyPhases::Up)] {
+            assert_eq!(
+                cmd(line, "insert", true),
+                (
+                    Some(IpcCommand::SendKey {
+                        scope: InjectScope::Raw,
+                        device: None,
+                        chords: chord.clone(),
+                        phases
+                    }),
+                    Reply::Ok
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn key_down_up_actions_halves() {
+        init_aliases();
+        let chord = Chord::parse("ctrl+a").unwrap();
+        let keys = |actions: Vec<Action>| -> Vec<(Key, KeyValue)> {
+            actions
+                .iter()
+                .map(|a| match a {
+                    Action::KeyEvent(e) => (e.key, e.value),
+                    _ => panic!("unexpected"),
+                })
+                .collect()
+        };
+        assert_eq!(
+            keys(chord.to_actions(true, false)),
+            vec![(Key::KEY_LEFTCTRL, KeyValue::Press), (Key::KEY_A, KeyValue::Press)]
+        );
+        assert_eq!(
+            keys(chord.to_actions(false, true)),
+            vec![(Key::KEY_A, KeyValue::Release), (Key::KEY_LEFTCTRL, KeyValue::Release)]
+        );
+    }
+
+    #[test]
+    fn key_all_scopes() {
+        for word in ["raw", "modmap", "keymap", "expmap", "experimental_map"] {
+            let line = format!("key {word} x");
+            let (command, _) = cmd(&line, "insert", true);
+            assert_eq!(command.unwrap().scope(), InjectScope::parse(word).unwrap(), "{word}");
+        }
+    }
+
+    #[test]
+    fn key_rejects_bad_chords() {
+        for line in ["key", "key raw", "key raw foo+bar", "key raw ctrl+", "key warp f13"] {
+            let (_, reply) = cmd(line, "insert", true);
+            assert!(matches!(reply, Reply::Err(_)), "{line:?} → {reply:?}");
+        }
+    }
+
+    #[test]
+    fn chord_to_actions_press_release_order() {
+        init_aliases();
+        let chord = Chord::parse("ctrl+a").unwrap();
+        let actions = chord.to_actions(true, true);
+        let keys: Vec<(Key, KeyValue)> = actions
+            .iter()
+            .map(|action| match action {
+                Action::KeyEvent(event) => (event.key, event.value),
+                _ => panic!("unexpected action"),
+            })
+            .collect();
+        assert_eq!(
+            keys,
+            vec![
+                (Key::KEY_LEFTCTRL, KeyValue::Press),
+                (Key::KEY_A, KeyValue::Press),
+                (Key::KEY_A, KeyValue::Release),
+                (Key::KEY_LEFTCTRL, KeyValue::Release),
+            ]
+        );
+    }
+
+    #[test]
     fn unknown_and_empty() {
-        assert_eq!(cmd("explode", "insert").1, Reply::Err("unknown command".into()));
-        assert_eq!(cmd("", "insert").1, Reply::Err("empty command".into()));
+        assert_eq!(cmd("explode", "insert", false).1, Reply::Err("unknown command".into()));
+        assert_eq!(cmd("", "insert", false).1, Reply::Err("empty command".into()));
     }
 
     #[test]
@@ -555,7 +964,7 @@ mod tests {
 
         let mut mode = "insert".to_string();
         for line in std::mem::take(&mut batch.lines) {
-            let (command, reply) = cmd(&line.unwrap(), &mode);
+            let (command, reply) = cmd(&line.unwrap(), &mode, false);
             if let Some(IpcCommand::SetMode(new_mode)) = command {
                 mode = new_mode;
             }

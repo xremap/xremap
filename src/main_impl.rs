@@ -12,7 +12,7 @@ use crate::device::{
 };
 use crate::event::Event;
 use crate::event_handler::EventHandler;
-use crate::ipc_server::{IpcCommand, IpcServer};
+use crate::ipc_server::{InjectScope, IpcBatch, IpcCommand, IpcServer, KeyPhases};
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
 use crate::plugin::{apply_plugin, Plugin};
@@ -310,12 +310,16 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             mainctrl.show_popup("Ready", None);
         }
 
+        // Keep unexecuted protocol lines across partial reloads, even when
+        // the reload disables IPC or replaces its listener.
+        let mut pending_ipc: Option<IpcBatch> = None;
         'event_loop: loop {
             let main_action = event_loop(
                 &mut input_devices,
                 &device_watcher,
                 &mut config_watcher,
                 &mut ipc,
+                &mut pending_ipc,
                 &timeout_manager,
                 &mut handler,
                 &mut dispatcher,
@@ -389,6 +393,7 @@ fn event_loop(
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &mut Option<ConfigWatcher>,
     ipc: &mut Option<IpcState>,
+    pending_ipc: &mut Option<IpcBatch>,
     timeout_manager: &Rc<TimeoutManager>,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
@@ -401,8 +406,12 @@ fn event_loop(
     plugin: &mut impl Plugin,
 ) -> anyhow::Result<MainAction> {
     'event_loop: loop {
-        let readable_fds =
-            select_readable(input_devices.values(), &device_watcher, &config_watcher, ipc, &handler, &timeout_manager)?;
+        let readable_fds = if pending_ipc.is_some() {
+            // Framed lines need no new socket readability notification.
+            Vec::new()
+        } else {
+            select_readable(input_devices.values(), &device_watcher, &config_watcher, ipc, &handler, &timeout_manager)?
+        };
 
         if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
             match handle_events(handler, dispatcher, &config, vec![Event::OverrideTimeout], mainctrl, plugin) {
@@ -439,19 +448,30 @@ fn event_loop(
             .copied()
             .filter(|fd| ipc.as_ref().is_some_and(|state| state.server.holds_fd(*fd)))
             .collect();
-        for fd in readable_ipc_fds {
-            let Some(state) = ipc.as_mut() else { break };
-            let Some(mut batch) = state.server.handle_readable(fd) else {
-                continue;
+        let mut readable_ipc_fds = readable_ipc_fds.into_iter();
+        loop {
+            let mut batch = if let Some(batch) = pending_ipc.take() {
+                batch
+            } else {
+                let Some(fd) = readable_ipc_fds.next() else { break };
+                let Some(state) = ipc.as_mut() else { break };
+                let Some(batch) = state.server.handle_readable(fd) else {
+                    continue;
+                };
+                batch
             };
-            for line in std::mem::take(&mut batch.lines) {
-                let (command, mut reply) = match line {
-                    Ok(line) => crate::ipc_server::handle_command(&line, handler.current_mode()),
-                    Err(reason) => (None, crate::ipc_server::Reply::Err(reason)),
+            let mut lines = std::mem::take(&mut batch.lines).into_iter();
+            while let Some(line) = lines.next() {
+                let (command, mut reply) = match (line, ipc.as_mut()) {
+                    (Ok(line), Some(state)) => {
+                        crate::ipc_server::handle_command(&line, handler.current_mode(), state.inject_enabled)
+                    }
+                    (Err(reason), _) => (None, crate::ipc_server::Reply::Err(reason)),
+                    (_, None) => (None, crate::ipc_server::Reply::Err("IPC disabled".to_string())),
                 };
                 let mut next_action = None;
                 if let Some(command) = command {
-                    match execute_ipc_command(command, handler) {
+                    match execute_ipc_command(command, config, handler, dispatcher, mainctrl) {
                         Ok(action) => next_action = action,
                         Err(err) => reply = crate::ipc_server::Reply::Err(format!("{err:#}")),
                     }
@@ -467,6 +487,12 @@ fn event_loop(
                 // A disconnected client must not cancel an exit/restart that
                 // its configured key action already requested.
                 if let Some(action) = next_action {
+                    if !reply_failed && matches!(action, MainAction::Reload { full: false }) {
+                        batch.lines = lines.collect();
+                        if !batch.lines.is_empty() {
+                            *pending_ipc = Some(batch);
+                        }
+                    }
                     return Ok(action);
                 }
                 if reply_failed {
@@ -534,21 +560,29 @@ fn select_readable<'a>(
 /// Runtime state of the IPC server.
 struct IpcState {
     server: IpcServer,
+    inject_enabled: bool,
 }
+
+const IPC_DEFAULT_DEVICE: &str = "xremap-ipc";
 
 fn build_ipc(config: &Config) -> anyhow::Result<Option<IpcState>> {
     let Some(ipc) = &config.ipc else { return Ok(None) };
     let server = IpcServer::new(&ipc.socket)
         .with_context(|| format!("Failed to start IPC server on {}", ipc.socket.display()))?;
     println!("IPC socket listening on {}", ipc.socket.display());
-    Ok(Some(IpcState { server }))
+    Ok(Some(IpcState {
+        server,
+        inject_enabled: ipc.inject,
+    }))
 }
 
 /// Preserve client connections at the same socket path. At a different path,
 /// bind first so a bind failure leaves the old IPC server/config usable.
 fn sync_ipc(ipc: &mut Option<IpcState>, config: &Config) -> anyhow::Result<()> {
     match (&mut *ipc, &config.ipc) {
-        (Some(state), Some(new_ipc)) if state.server.path() == new_ipc.socket => {}
+        (Some(state), Some(new_ipc)) if state.server.path() == new_ipc.socket => {
+            state.inject_enabled = new_ipc.inject;
+        }
         _ => {
             let replacement = build_ipc(config)?;
             *ipc = replacement;
@@ -557,10 +591,75 @@ fn sync_ipc(ipc: &mut Option<IpcState>, config: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn execute_ipc_command(command: IpcCommand, handler: &mut EventHandler) -> anyhow::Result<Option<MainAction>> {
+fn execute_ipc_command(
+    command: IpcCommand,
+    config: &Config,
+    handler: &mut EventHandler,
+    dispatcher: &mut ActionDispatcher,
+    mainctrl: &mut MainController,
+) -> anyhow::Result<Option<MainAction>> {
     match command {
         IpcCommand::SetMode(mode) => {
             handler.set_mode_external(&mode);
+            Ok(None)
+        }
+        IpcCommand::SendKey {
+            scope,
+            device,
+            chords,
+            phases,
+        } => apply_send_key(scope, &device, &chords, phases, handler, dispatcher, config, mainctrl),
+    }
+}
+
+fn apply_send_key(
+    scope: InjectScope,
+    device: &Option<String>,
+    chords: &[crate::ipc_server::Chord],
+    phases: KeyPhases,
+    handler: &mut EventHandler,
+    dispatcher: &mut ActionDispatcher,
+    config: &Config,
+    mainctrl: &mut MainController,
+) -> anyhow::Result<Option<MainAction>> {
+    let (down, up) = match phases {
+        KeyPhases::Tap => (true, true),
+        KeyPhases::Down => (true, false),
+        KeyPhases::Up => (false, true),
+    };
+    match scope {
+        // Raw: no rule applies, emit straight through the output device.
+        InjectScope::Raw => {
+            for chord in chords {
+                for action in chord.to_actions(down, up) {
+                    if let Some(main_action) = dispatcher.on_action(action, mainctrl)? {
+                        return Ok(Some(main_action));
+                    }
+                }
+            }
+            Ok(None)
+        }
+        // Keymap / Modmap / Expmap: feed pipeline events with the synthetic
+        // IPC device identity so `device:` conditions can match them.
+        InjectScope::Modmap | InjectScope::Keymap | InjectScope::Expmap => {
+            let device_info = Rc::new(InputDeviceInfo {
+                name: device.clone().unwrap_or_else(|| IPC_DEFAULT_DEVICE.to_string()),
+                path: PathBuf::from("ipc"),
+                product: 0,
+                vendor: 0,
+            });
+            let mut events = Vec::new();
+            for chord in chords {
+                events.extend(chord.to_events(device_info.clone(), down, up));
+            }
+            let actions = handler
+                .inject_events(events, scope, config, mainctrl.wmclient())
+                .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;
+            for action in actions {
+                if let Some(main_action) = dispatcher.on_action(action, mainctrl)? {
+                    return Ok(Some(main_action));
+                }
+            }
             Ok(None)
         }
     }
@@ -641,4 +740,40 @@ fn handle_device_changes(
             None
         }
     }));
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+    use crate::client_mode::ClientCommand;
+
+    #[test]
+    fn key_commands_recognize_socket_options_after_chords() {
+        for verb in ["key", "keydown", "keyup"] {
+            for args in [
+                vec!["xremap", "--socket", "/tmp/control.sock", verb, "raw", "f13", "ctrl+a"],
+                vec!["xremap", verb, "raw", "--socket", "/tmp/control.sock", "f13", "ctrl+a"],
+                vec!["xremap", verb, "raw", "f13", "ctrl+a", "--socket", "/tmp/control.sock"],
+            ] {
+                let parsed = Args::try_parse_from(args).unwrap();
+                assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+                let chords = vec!["raw".into(), "f13".into(), "ctrl+a".into()];
+                let expected = match verb {
+                    "key" => ClientCommand::Key {
+                        device: None,
+                        args: chords,
+                    },
+                    "keydown" => ClientCommand::Keydown {
+                        device: None,
+                        args: chords,
+                    },
+                    _ => ClientCommand::Keyup {
+                        device: None,
+                        args: chords,
+                    },
+                };
+                assert_eq!(parsed.command, Some(expected));
+            }
+        }
+    }
 }

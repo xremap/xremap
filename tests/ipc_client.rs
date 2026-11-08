@@ -28,3 +28,11 @@ fn mode_arguments_cannot_inject_protocol_lines() {
         assert_rejected_before_connect(&["set-mode", mode]);
     }
 }
+
+#[test]
+fn key_arguments_cannot_inject_protocol_lines() {
+    for verb in ["key", "keydown", "keyup"] {
+        assert_rejected_before_connect(&[verb, "raw", "f13\nset-mode injected"]);
+        assert_rejected_before_connect(&[verb, "--device", "kbd\nset-mode injected", "raw", "f13"]);
+    }
+}

@@ -17,6 +17,33 @@ pub enum ClientCommand {
         /// Mode name to switch to.
         mode: String,
     },
+    /// Inject key chords, each a press and a release.
+    Key {
+        /// Simulated source device name (matches `device:` keymap conditions).
+        #[arg(long, value_name = "NAME")]
+        device: Option<String>,
+        /// `[SCOPE] CHORD...`, e.g. `raw ctrl+a f13` or `Down*3`.
+        #[arg(required = true, num_args = 1..)]
+        args: Vec<String>,
+    },
+    /// Press and hold the given chords.
+    Keydown {
+        /// Simulated source device name (matches `device:` keymap conditions).
+        #[arg(long, value_name = "NAME")]
+        device: Option<String>,
+        /// `[SCOPE] CHORD...`, e.g. `raw ctrl+a` or `ctrl+a`.
+        #[arg(required = true, num_args = 1..)]
+        args: Vec<String>,
+    },
+    /// Release the given chords.
+    Keyup {
+        /// Simulated source device name (matches `device:` keymap conditions).
+        #[arg(long, value_name = "NAME")]
+        device: Option<String>,
+        /// `[SCOPE] CHORD...`, e.g. `raw ctrl+a` or `ctrl+a`.
+        #[arg(required = true, num_args = 1..)]
+        args: Vec<String>,
+    },
 }
 
 impl ClientCommand {
@@ -26,8 +53,33 @@ impl ClientCommand {
             ClientCommand::Ping => "ping".to_string(),
             ClientCommand::GetMode => "get-mode".to_string(),
             ClientCommand::SetMode { mode } => format!("set-mode {mode}"),
+            ClientCommand::Key { device, args }
+            | ClientCommand::Keydown { device, args }
+            | ClientCommand::Keyup { device, args } => {
+                let verb = match self {
+                    ClientCommand::Key { .. } => "key",
+                    ClientCommand::Keydown { .. } => "keydown",
+                    _ => "keyup",
+                };
+                render_key_command(verb, device, args)
+            }
         }
     }
+}
+
+/// Build a `key`/`keydown`/`keyup` protocol line. The scope (if any) is the
+/// first positional argument; the server parses it.
+fn render_key_command(verb: &str, device: &Option<String>, args: &[String]) -> String {
+    let mut line = verb.to_string();
+    if let Some(device) = device {
+        line.push_str(" --device ");
+        line.push_str(device);
+    }
+    for arg in args {
+        line.push(' ');
+        line.push_str(arg);
+    }
+    line
 }
 
 /// Send one subcommand to a running xremap and print the reply. Exit code is
@@ -55,8 +107,8 @@ pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()
     }
     print!("{reply}");
     std::io::stdout().flush()?;
-    // Replies are "pong" or "err REASON". Any reply that is not an error
-    // succeeded.
+    // Replies are "ok", "pong", the bare mode name of get-mode, or
+    // "err REASON". Any reply that is not an error succeeded.
     if reply.starts_with("err") {
         anyhow::bail!("the command failed");
     }

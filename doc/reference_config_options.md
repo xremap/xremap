@@ -193,9 +193,11 @@ With `enable_wheel: false` will the output device not support `REL_HWHEEL`, `REL
 ```yml
 ipc:
   socket: true  # Default is no IPC server. `true` = $XDG_RUNTIME_DIR/xremap.sock
+  inject: false # Default is `false`
 ```
 
-Exposes a unix control socket that lets external programs switch `mode` and
-talk to a running instance. [Full reference](reference_ipc.md).
+Exposes a unix control socket that lets external programs switch `mode`,
+and (with `inject: true`) inject keys.
+[Full reference](reference_ipc.md).
 
 Since version 0.15.17.
