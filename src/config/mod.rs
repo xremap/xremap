@@ -51,19 +51,19 @@ pub struct Config {
 impl Config {
     pub fn new(config: ParseConfig) -> Result<Config, Box<dyn error::Error>> {
         validate_config_file(&config)?;
-        let bypass = ConfigBool(config.bypass);
+        let bypass = ConfigBool(config.bypass.unwrap_or(false));
 
         Ok(Self {
             experimental_map: config.experimental_map,
             modmaps: ParseModmap::finish(config.modmap, bypass),
             keymap_table: Keymap::finish(config.keymap),
-            default_mode: config.default_mode,
+            default_mode: config.default_mode.unwrap_or_else(default_mode),
             virtual_modifiers: config.virtual_modifiers,
-            keypress_delay_ms: config.keypress_delay_ms,
-            throttle_ms: config.throttle_ms,
-            config_watch_debounce_ms: config.config_watch_debounce_ms,
-            notifications: config.notifications,
-            enable_wheel: config.enable_wheel,
+            keypress_delay_ms: config.keypress_delay_ms.unwrap_or(0),
+            throttle_ms: config.throttle_ms.unwrap_or(0),
+            config_watch_debounce_ms: config.config_watch_debounce_ms.unwrap_or(0),
+            notifications: config.notifications.unwrap_or(false),
+            enable_wheel: config.enable_wheel.unwrap_or(true),
             bypass,
         })
     }
@@ -85,20 +85,20 @@ pub struct ParseConfig {
     pub modmap: Vec<ParseModmap>,
     #[serde(default = "Vec::new")]
     pub keymap: Vec<Keymap>,
-    #[serde(default = "default_mode")]
-    pub default_mode: String,
+    #[serde(default)]
+    pub default_mode: Option<String>,
     #[serde(deserialize_with = "deserialize_virtual_modifier", default = "Vec::new")]
     pub virtual_modifiers: Vec<Key>,
     #[serde(default)]
-    pub keypress_delay_ms: u64,
+    pub keypress_delay_ms: Option<u64>,
     #[serde(default)]
-    pub throttle_ms: u64,
+    pub throttle_ms: Option<u64>,
     #[serde(default)]
-    pub config_watch_debounce_ms: u64,
+    pub config_watch_debounce_ms: Option<u64>,
     #[serde(default)]
-    pub notifications: bool,
+    pub notifications: Option<bool>,
     #[serde(default)]
-    pub bypass: bool,
+    pub bypass: Option<bool>,
 
     // Key aliases are parsed in a pre-step, to make sure
     // they're available when the rest of the config is parsed.
@@ -111,8 +111,8 @@ pub struct ParseConfig {
     #[serde(default)]
     pub shared: IgnoredAny,
 
-    #[serde(default = "const_true")]
-    pub enable_wheel: bool,
+    #[serde(default)]
+    pub enable_wheel: Option<bool>,
 }
 
 #[derive(Copy, Clone)]
@@ -144,7 +144,7 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
 
     for filename in &filenames[1..] {
         let config_contents = fs::read_to_string(filename)?;
-        let c: ParseConfig = match get_file_ext(filename) {
+        let mut c: ParseConfig = match get_file_ext(filename) {
             ConfigFiletype::Yaml => serde_yaml::from_str(&config_contents)?,
             ConfigFiletype::Toml => toml::from_str(&config_contents)?,
         };
@@ -152,6 +152,26 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
         config.modmap.extend(c.modmap);
         config.keymap.extend(c.keymap);
         config.virtual_modifiers.extend(c.virtual_modifiers);
+        // Single-value options may live in any of the files. Matching the
+        // list sections, where earlier rules win, the first file that sets
+        // an option wins, and later files only fill options still unset:
+        // put generic defaults in later files, overrides in earlier ones.
+        macro_rules! fill_if_unset {
+            ($($field:ident),+ $(,)?) => {
+                $(if config.$field.is_none() && c.$field.is_some() {
+                    config.$field = c.$field.take();
+                })+
+            };
+        }
+        fill_if_unset!(
+            default_mode,
+            keypress_delay_ms,
+            throttle_ms,
+            config_watch_debounce_ms,
+            notifications,
+            bypass,
+            enable_wheel,
+        );
     }
 
     Config::new(config)
@@ -205,11 +225,7 @@ where
     Ok(keys)
 }
 
-fn const_true() -> bool {
-    true
-}
-
-pub fn deserialize_single_field<'de, D, T>(deserializer: D, name: &str) -> Result<T, D::Error>
+fn deserialize_single_field<'de, D, T>(deserializer: D, name: &str) -> Result<T, D::Error>
 where
     D: Deserializer<'de>,
     T: Deserialize<'de>,

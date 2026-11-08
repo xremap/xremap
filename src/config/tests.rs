@@ -1,5 +1,6 @@
-use crate::config::{load_first_config, Config, ConfigFiletype};
+use crate::config::{load_configs, load_first_config, Config, ConfigFiletype};
 use indoc::indoc;
+use std::path::PathBuf;
 
 #[test]
 fn test_yaml_modmap_basic() {
@@ -705,4 +706,36 @@ fn yaml_assert_parse(yaml: &str) {
 pub fn assert_invalid_config(config: &str, expected: &str) {
     let errmsg = Config::new_from_str(config).unwrap_err().to_string();
     assert_eq!(&errmsg, expected);
+}
+
+/// Single-value options may live in any file. Matching the list sections,
+/// where earlier rules win, the first file that sets an option wins; later
+/// files only fill options still unset.
+#[test]
+fn test_load_configs_first_scalar_setting_wins() {
+    let dir = std::env::temp_dir().join(format!("xremap-merge-scalars-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let first = dir.join("first.yml");
+    let second = dir.join("second.yml");
+
+    // The first file that sets an option wins.
+    std::fs::write(&first, "keypress_delay_ms: 10\nnotifications: true\n").unwrap();
+    std::fs::write(&second, "keypress_delay_ms: 25\n").unwrap();
+    let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
+    assert_eq!(config.keypress_delay_ms, 10);
+    assert!(config.notifications);
+
+    // A later file fills options the earlier files did not set.
+    std::fs::write(&second, "keypress_delay_ms: 25\nbypass: true\n").unwrap();
+    let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
+    assert_eq!(config.keypress_delay_ms, 10);
+    assert!(config.bypass.0);
+
+    // Options that appear only in the second file apply.
+    std::fs::write(&first, "keymap: []\n").unwrap();
+    std::fs::write(&second, "keypress_delay_ms: 30\n").unwrap();
+    let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
+    assert_eq!(config.keypress_delay_ms, 30);
+
+    std::fs::remove_dir_all(&dir).ok();
 }
