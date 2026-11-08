@@ -1,5 +1,14 @@
 ## Configuration options
 
+When multiple config files are passed to xremap, list sections (`modmap`,
+`keymap`, `virtual_modifiers`) are concatenated across the files. Single-value
+options (`default_mode`, `keypress_delay_ms`, `throttle_ms`,
+`config_watch_debounce_ms`, `notifications`, `bypass`, `enable_wheel`) may live
+in any of the files. Matching the list sections, where earlier rules win,
+the first file that sets an option wins, and later files only fill options
+that no earlier file set: put generic defaults in later files and overrides
+in earlier ones.
+
 ### virtual_modifiers
 
 You can declare keys that should act like modifiers.
