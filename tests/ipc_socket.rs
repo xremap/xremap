@@ -209,3 +209,58 @@ fn subcommand_sends_one_command_and_prints_the_reply() {
     assert_eq!(output.stdout, b"ok\n");
     assert_eq!(send(&daemon.socket, "get-mode"), "normal\n");
 }
+
+#[test]
+fn pointer_subcommands_parse_negative_values_and_use_the_trailing_socket() {
+    // The disabled injection gate checks client parsing without moving the pointer.
+    let daemon = DaemonGuard::start(false);
+    for args in [
+        vec!["wheel", "-2"],
+        vec!["hwheel", "-1"],
+        vec!["mousemove", "4", "-4"],
+        vec!["mousemove", "-4", "4"],
+        vec!["click", "left", "right"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_xremap"))
+            .args(args)
+            .arg("--socket")
+            .arg(&daemon.socket)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        assert_eq!(output.stdout, b"err injection disabled\n", "{}", String::from_utf8_lossy(&output.stderr));
+    }
+}
+
+#[test]
+fn mouse_and_wheel_commands_are_dispatched_without_touching_keys() {
+    let mut daemon = DaemonGuard::start(true);
+    let mut stream = connect(&daemon.socket).unwrap();
+    let replies = exchange(&mut stream, "wheel -2\nhwheel 1\nmousemove 4 -4\nclick left middle right\nping\n", 5);
+    assert_eq!(replies, ["ok\n", "ok\n", "ok\n", "ok\n", "pong\n"]);
+    assert!(daemon.child.try_wait().unwrap().is_none());
+
+    // Parse errors are command-local.
+    let replies = exchange(&mut stream, "click up\nwheel x\nmousemove 1\nping\n", 4);
+    assert_eq!(
+        replies,
+        [
+            "err unknown button: up (left/middle/right)\n",
+            "err wheel takes an integer amount\n",
+            "err mousemove takes X and Y coordinates\n",
+            "pong\n"
+        ]
+    );
+}
+
+#[test]
+fn wheel_fails_loudly_when_enable_wheel_is_false() {
+    // The output device then has no REL_WHEEL/HWHEEL axis, and an emit on an
+    // unregistered axis is silently dropped, so the command must not reply `ok`.
+    let mut daemon = DaemonGuard::start_with_config(true, "enable_wheel: false\n");
+    let mut stream = connect(&daemon.socket).unwrap();
+    let replies = exchange(&mut stream, "wheel 1\nhwheel 1\nmousemove 1 1\nclick left\nping\n", 5);
+    let wheel_error = "err wheel events are disabled (set `enable_wheel: true` to inject them)\n";
+    assert_eq!(replies, [wheel_error, wheel_error, "ok\n", "ok\n", "pong\n"],);
+    assert!(daemon.child.try_wait().unwrap().is_none());
+}

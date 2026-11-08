@@ -26,6 +26,9 @@ use std::rc::Rc;
 //   ping               Liveness check. → "pong"
 //   key [--device NAME] [SCOPE] CHORD...  → "ok"
 //   keydown / keyup    only the press / only the release half
+//   click BUTTON...    press and release mouse buttons
+//   wheel / hwheel AMOUNT  scroll vertically / horizontally
+//   mousemove X Y      move the pointer
 //   sleep MILLISECONDS pause command processing (max 5000)
 //
 // Replies: "ok\n", "MODE\n", "pong\n", "err REASON\n".
@@ -166,6 +169,16 @@ pub enum IpcCommand {
     },
     /// Pause command processing; maps to the existing Action::Delay.
     Sleep(std::time::Duration),
+    /// Scroll by `amount` lines (REL_WHEEL) or columns (REL_HWHEEL).
+    Wheel {
+        horizontal: bool,
+        amount: i32,
+    },
+    /// Move the pointer by x/y units, sent as one REL_X/REL_Y batch.
+    MoveMouse {
+        x: i32,
+        y: i32,
+    },
 }
 
 impl IpcCommand {
@@ -263,6 +276,47 @@ pub fn handle_command(line: &str, current_mode: &str, inject_enabled: bool) -> (
                 Err(reason) => (None, Reply::Err(reason)),
             }
         }
+        "click" => {
+            if !inject_enabled {
+                return (None, Reply::Err("injection disabled".to_string()));
+            }
+            match parse_click_command(arg) {
+                Ok(chords) => (
+                    Some(IpcCommand::SendKey {
+                        scope: InjectScope::Raw,
+                        device: None,
+                        chords,
+                        phases: KeyPhases::Tap,
+                    }),
+                    Reply::Ok,
+                ),
+                Err(reason) => (None, Reply::Err(reason)),
+            }
+        }
+        "wheel" | "hwheel" => {
+            if !inject_enabled {
+                return (None, Reply::Err("injection disabled".to_string()));
+            }
+            match arg.trim().parse::<i32>() {
+                Ok(amount) => (
+                    Some(IpcCommand::Wheel {
+                        horizontal: verb == "hwheel",
+                        amount,
+                    }),
+                    Reply::Ok,
+                ),
+                Err(_) => (None, Reply::Err(format!("{verb} takes an integer amount"))),
+            }
+        }
+        "mousemove" => {
+            if !inject_enabled {
+                return (None, Reply::Err("injection disabled".to_string()));
+            }
+            match parse_mousemove_command(arg) {
+                Ok((x, y)) => (Some(IpcCommand::MoveMouse { x, y }), Reply::Ok),
+                Err(reason) => (None, Reply::Err(reason)),
+            }
+        }
         "sleep" => {
             if !inject_enabled {
                 return (None, Reply::Err("injection disabled".to_string()));
@@ -306,6 +360,40 @@ fn parse_key_command(arg: &str) -> Result<(InjectScope, Option<String>, Vec<Chor
         return Err(format!("too many chords (max {MAX_CHORDS})"));
     }
     Ok((scope, device, chords))
+}
+
+/// `click BUTTON...` — button names map to the evdev BTN_* keys, so the
+/// command is a plain raw `key` tap and reuses the SendKey execution path.
+fn parse_click_command(arg: &str) -> Result<Vec<Chord>, String> {
+    let chords: Vec<Chord> = arg
+        .split_whitespace()
+        .map(|button| {
+            let key = match button {
+                "left" | "1" => "btn_left",
+                "middle" | "2" => "btn_middle",
+                "right" | "3" => "btn_right",
+                _ => return Err(format!("unknown button: {button} (left/middle/right)")),
+            };
+            Chord::parse(key)
+        })
+        .collect::<Result<_, _>>()?;
+    if chords.is_empty() {
+        return Err("click requires a button (left/middle/right)".to_string());
+    }
+    Ok(chords)
+}
+
+/// `mousemove X Y` — two integers, REL_X and REL_Y values.
+fn parse_mousemove_command(arg: &str) -> Result<(i32, i32), String> {
+    let mut values = arg
+        .split_whitespace()
+        .map(|word| word.parse::<i32>().map_err(|_| format!("invalid coordinate: {word}")));
+    let (x, y) = (values.next().transpose()?, values.next().transpose()?);
+    match (x, y, values.next()) {
+        (Some(x), Some(y), None) => Ok((x, y)),
+        (None, _, _) | (_, None, _) => Err("mousemove takes X and Y coordinates".to_string()),
+        (_, _, Some(_)) => Err("mousemove takes exactly two coordinates".to_string()),
+    }
 }
 
 // ── Transport ───────────────────────────────────────────────────────────────
@@ -928,6 +1016,96 @@ mod tests {
                 (Key::KEY_LEFTCTRL, KeyValue::Release),
             ]
         );
+    }
+
+    #[test]
+    fn click_command() {
+        let raw = |chords| {
+            Some(IpcCommand::SendKey {
+                scope: InjectScope::Raw,
+                device: None,
+                chords,
+                phases: KeyPhases::Tap,
+            })
+        };
+        assert_eq!(
+            cmd("click left", "insert", true),
+            (
+                raw(vec![Chord {
+                    modifiers: vec![],
+                    key: Key::BTN_LEFT
+                }]),
+                Reply::Ok
+            )
+        );
+        assert_eq!(
+            cmd("click left middle right", "insert", true),
+            (
+                raw(vec![
+                    Chord {
+                        modifiers: vec![],
+                        key: Key::BTN_LEFT
+                    },
+                    Chord {
+                        modifiers: vec![],
+                        key: Key::BTN_MIDDLE
+                    },
+                    Chord {
+                        modifiers: vec![],
+                        key: Key::BTN_RIGHT
+                    },
+                ]),
+                Reply::Ok
+            )
+        );
+        // Numeric aliases and injection gating.
+        assert_eq!(
+            cmd("click 3", "insert", true),
+            (
+                raw(vec![Chord {
+                    modifiers: vec![],
+                    key: Key::BTN_RIGHT
+                }]),
+                Reply::Ok
+            )
+        );
+        assert_eq!(cmd("click left", "insert", false).1, Reply::Err("injection disabled".into()));
+        assert_eq!(cmd("click up", "insert", true).1, Reply::Err("unknown button: up (left/middle/right)".into()));
+        assert_eq!(cmd("click", "insert", true).1, Reply::Err("click requires a button (left/middle/right)".into()));
+    }
+
+    #[test]
+    fn wheel_and_mousemove_commands() {
+        assert_eq!(
+            cmd("wheel -2", "insert", true),
+            (
+                Some(IpcCommand::Wheel {
+                    horizontal: false,
+                    amount: -2
+                }),
+                Reply::Ok
+            )
+        );
+        assert_eq!(
+            cmd("hwheel 1", "insert", true),
+            (
+                Some(IpcCommand::Wheel {
+                    horizontal: true,
+                    amount: 1
+                }),
+                Reply::Ok
+            )
+        );
+        assert_eq!(cmd("mousemove 4 -4", "insert", true), (Some(IpcCommand::MoveMouse { x: 4, y: -4 }), Reply::Ok));
+        assert_eq!(cmd("wheel 1", "insert", false).1, Reply::Err("injection disabled".into()));
+        assert_eq!(cmd("wheel x", "insert", true).1, Reply::Err("wheel takes an integer amount".into()));
+        assert_eq!(cmd("hwheel", "insert", true).1, Reply::Err("hwheel takes an integer amount".into()));
+        assert_eq!(cmd("mousemove 1", "insert", true).1, Reply::Err("mousemove takes X and Y coordinates".into()));
+        assert_eq!(
+            cmd("mousemove 1 2 3", "insert", true).1,
+            Reply::Err("mousemove takes exactly two coordinates".into())
+        );
+        assert_eq!(cmd("mousemove a 2", "insert", true).1, Reply::Err("invalid coordinate: a".into()));
     }
 
     #[test]

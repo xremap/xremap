@@ -49,6 +49,30 @@ pub enum ClientCommand {
         /// Milliseconds to pause.
         milliseconds: u64,
     },
+    /// Press and release mouse buttons (`left`, `middle`, `right`).
+    Click {
+        #[arg(required = true, num_args = 1..)]
+        buttons: Vec<String>,
+    },
+    /// Scroll vertically (REL_WHEEL).
+    Wheel {
+        /// Positive scrolls up, negative down.
+        #[arg(allow_negative_numbers = true)]
+        amount: i32,
+    },
+    /// Scroll horizontally (REL_HWHEEL).
+    Hwheel {
+        /// Positive scrolls right, negative left.
+        #[arg(allow_negative_numbers = true)]
+        amount: i32,
+    },
+    /// Move the pointer by X/Y units (REL_X / REL_Y).
+    Mousemove {
+        #[arg(allow_negative_numbers = true)]
+        x: i32,
+        #[arg(allow_negative_numbers = true)]
+        y: i32,
+    },
 }
 
 impl ClientCommand {
@@ -58,6 +82,10 @@ impl ClientCommand {
             ClientCommand::Ping => "ping".to_string(),
             ClientCommand::GetMode => "get-mode".to_string(),
             ClientCommand::SetMode { mode } => format!("set-mode {mode}"),
+            ClientCommand::Wheel { amount } => format!("wheel {amount}"),
+            ClientCommand::Hwheel { amount } => format!("hwheel {amount}"),
+            ClientCommand::Mousemove { x, y } => format!("mousemove {x} {y}"),
+            ClientCommand::Click { buttons } => format!("click {}", buttons.join(" ")),
             ClientCommand::Key { device, args }
             | ClientCommand::Keydown { device, args }
             | ClientCommand::Keyup { device, args } => {

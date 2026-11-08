@@ -30,6 +30,11 @@ fn mode_arguments_cannot_inject_protocol_lines() {
 }
 
 #[test]
+fn click_arguments_cannot_inject_protocol_lines() {
+    assert_rejected_before_connect(&["click", "left\nset-mode injected"]);
+}
+
+#[test]
 fn key_arguments_cannot_inject_protocol_lines() {
     for verb in ["key", "keydown", "keyup"] {
         assert_rejected_before_connect(&[verb, "raw", "f13\nset-mode injected"]);

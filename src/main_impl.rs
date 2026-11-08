@@ -11,7 +11,7 @@ use crate::device::{
     choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
     InputDevice, InputDeviceInfo,
 };
-use crate::event::Event;
+use crate::event::{Event, RelativeEvent};
 use crate::event_handler::EventHandler;
 use crate::ipc_server::{InjectScope, IpcBatch, IpcCommand, IpcServer, KeyPhases};
 use crate::main_controller::MainController;
@@ -22,6 +22,7 @@ use crate::timeout_manager::TimeoutManager;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
+use evdev::RelativeAxisCode;
 use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
 use nix::sys::time::{TimeVal, TimeValLike};
@@ -611,6 +612,31 @@ fn execute_ipc_command(
             phases,
         } => apply_send_key(scope, &device, &chords, phases, handler, dispatcher, config, mainctrl),
         IpcCommand::Sleep(duration) => dispatcher.on_action(Action::Delay(duration), mainctrl),
+        IpcCommand::Wheel { horizontal, amount } => {
+            // Without `enable_wheel` the output device has no REL_WHEEL/HWHEEL
+            // axis, and emitting an unregistered axis is silently dropped by
+            // the kernel. Fail loudly instead of replying `ok` for no effect.
+            anyhow::ensure!(config.enable_wheel, "wheel events are disabled (set `enable_wheel: true` to inject them)");
+            let code = if horizontal {
+                RelativeAxisCode::REL_HWHEEL.0
+            } else {
+                RelativeAxisCode::REL_WHEEL.0
+            };
+            dispatcher.on_action(Action::RelativeEvent(RelativeEvent { code, value: amount }), mainctrl)
+        }
+        IpcCommand::MoveMouse { x, y } => dispatcher.on_action(
+            Action::MouseMovementEventCollection(vec![
+                RelativeEvent {
+                    code: RelativeAxisCode::REL_X.0,
+                    value: x,
+                },
+                RelativeEvent {
+                    code: RelativeAxisCode::REL_Y.0,
+                    value: y,
+                },
+            ]),
+            mainctrl,
+        ),
     }
 }
 
@@ -777,5 +803,42 @@ mod cli_tests {
                 assert_eq!(parsed.command, Some(expected));
             }
         }
+    }
+
+    #[test]
+    fn pointer_commands_accept_negative_numbers_and_trailing_socket_options() {
+        for amount in ["-2", "-2147483648"] {
+            for verb in ["wheel", "hwheel"] {
+                let parsed = Args::try_parse_from(["xremap", verb, amount, "--socket", "/tmp/control.sock"]).unwrap();
+                assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+                let amount = amount.parse().unwrap();
+                let expected = if verb == "wheel" {
+                    ClientCommand::Wheel { amount }
+                } else {
+                    ClientCommand::Hwheel { amount }
+                };
+                assert_eq!(parsed.command, Some(expected));
+            }
+        }
+        for (x, y) in [("4", "-4"), ("-4", "4"), ("-4", "-4")] {
+            let parsed = Args::try_parse_from(["xremap", "mousemove", x, y, "--socket", "/tmp/control.sock"]).unwrap();
+            assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+            assert_eq!(
+                parsed.command,
+                Some(ClientCommand::Mousemove {
+                    x: x.parse().unwrap(),
+                    y: y.parse().unwrap()
+                })
+            );
+        }
+        let parsed =
+            Args::try_parse_from(["xremap", "click", "left", "right", "--socket", "/tmp/control.sock"]).unwrap();
+        assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+        assert_eq!(
+            parsed.command,
+            Some(ClientCommand::Click {
+                buttons: vec!["left".into(), "right".into()]
+            })
+        );
     }
 }
