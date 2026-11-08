@@ -44,6 +44,11 @@ pub enum ClientCommand {
         #[arg(required = true, num_args = 1..)]
         args: Vec<String>,
     },
+    /// Pause command processing (1-5000 ms). Blocks xremap's event loop.
+    Sleep {
+        /// Milliseconds to pause.
+        milliseconds: u64,
+    },
 }
 
 impl ClientCommand {
@@ -63,6 +68,7 @@ impl ClientCommand {
                 };
                 render_key_command(verb, device, args)
             }
+            ClientCommand::Sleep { milliseconds } => format!("sleep {milliseconds}"),
         }
     }
 }

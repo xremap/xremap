@@ -26,12 +26,14 @@ use std::rc::Rc;
 //   ping               Liveness check. → "pong"
 //   key [--device NAME] [SCOPE] CHORD...  → "ok"
 //   keydown / keyup    only the press / only the release half
+//   sleep MILLISECONDS pause command processing (max 5000)
 //
 // Replies: "ok\n", "MODE\n", "pong\n", "err REASON\n".
 
 pub const MAX_LINE_LEN: usize = 256;
 const MAX_MODE_LEN: usize = 64;
 const MAX_CHORDS: usize = 16;
+const MAX_SLEEP_MS: u64 = 5000;
 const MAX_CONNECTIONS: usize = 64;
 const ACCEPT_BACKOFF: Duration = Duration::from_millis(500);
 
@@ -162,6 +164,8 @@ pub enum IpcCommand {
         chords: Vec<Chord>,
         phases: KeyPhases,
     },
+    /// Pause command processing; maps to the existing Action::Delay.
+    Sleep(std::time::Duration),
 }
 
 impl IpcCommand {
@@ -258,6 +262,15 @@ pub fn handle_command(line: &str, current_mode: &str, inject_enabled: bool) -> (
                 ),
                 Err(reason) => (None, Reply::Err(reason)),
             }
+        }
+        "sleep" => {
+            if !inject_enabled {
+                return (None, Reply::Err("injection disabled".to_string()));
+            }
+            let Some(ms) = arg.parse::<u64>().ok().filter(|ms| (1..=MAX_SLEEP_MS).contains(ms)) else {
+                return (None, Reply::Err(format!("sleep takes 1..={MAX_SLEEP_MS} milliseconds")));
+            };
+            (Some(IpcCommand::Sleep(std::time::Duration::from_millis(ms))), Reply::Ok)
         }
         "" => (None, Reply::Err("empty command".to_string())),
         _ => (None, Reply::Err("unknown command".to_string())),
@@ -915,6 +928,15 @@ mod tests {
                 (Key::KEY_LEFTCTRL, KeyValue::Release),
             ]
         );
+    }
+
+    #[test]
+    fn sleep_command() {
+        assert_eq!(cmd("sleep 100", "insert", true), (Some(IpcCommand::Sleep(Duration::from_millis(100))), Reply::Ok));
+        assert_eq!(cmd("sleep 100", "insert", false).1, Reply::Err("injection disabled".into()));
+        assert_eq!(cmd("sleep 0", "insert", true).1, Reply::Err("sleep takes 1..=5000 milliseconds".into()));
+        assert_eq!(cmd("sleep 5001", "insert", true).1, Reply::Err("sleep takes 1..=5000 milliseconds".into()));
+        assert_eq!(cmd("sleep abc", "insert", true).1, Reply::Err("sleep takes 1..=5000 milliseconds".into()));
     }
 
     #[test]
