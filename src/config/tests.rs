@@ -1,6 +1,6 @@
-use crate::config::{load_configs, load_first_config, Config, ConfigFiletype};
+use crate::config::{load_configs, load_first_config, Config, ConfigFiletype, IpcOptions};
 use indoc::indoc;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[test]
 fn test_yaml_modmap_basic() {
@@ -736,6 +736,124 @@ fn test_load_configs_first_scalar_setting_wins() {
     std::fs::write(&second, "keypress_delay_ms: 30\n").unwrap();
     let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
     assert_eq!(config.keypress_delay_ms, 30);
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn test_ipc_config_defaults() {
+    let config = Config::new_from_str(indoc! {"
+        keymap:
+          - remap:
+              f13: { set_mode: normal }
+        ipc:
+          socket: true
+        "})
+    .unwrap();
+    let ipc = config.ipc.expect("ipc should be enabled");
+    assert_eq!(ipc.socket, crate::ipc_server::default_socket_path());
+}
+
+#[test]
+fn test_ipc_config_explicit() {
+    let config = Config::new_from_str(indoc! {"
+        ipc:
+          socket: /tmp/my.sock
+        "})
+    .unwrap();
+    let ipc = config.ipc.expect("ipc should be enabled");
+    assert_eq!(ipc.socket, Path::new("/tmp/my.sock"));
+}
+
+#[test]
+fn test_ipc_disabled_without_section() {
+    let config = Config::new_from_str(indoc! {"
+        keymap:
+          - remap:
+              f13: { set_mode: normal }
+        "})
+    .unwrap();
+    assert!(config.ipc.is_none(), "no ipc section means no IPC server");
+}
+
+#[test]
+fn test_ipc_socket_false_disables() {
+    let config = Config::new_from_str(indoc! {"
+        ipc:
+          socket: false
+        "})
+    .unwrap();
+    assert!(config.ipc.is_none(), "socket: false explicitly disables IPC");
+}
+
+/// Two config files are the normal setup for people who keep a shared and a
+/// machine-specific file, so every top-level section must survive the merge.
+#[test]
+fn test_load_configs_keeps_ipc_from_the_second_file() {
+    let dir = std::env::temp_dir().join(format!("xremap-merge-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let first = dir.join("first.yml");
+    let second = dir.join("second.yml");
+    std::fs::write(
+        &first,
+        indoc! {"
+        modmap:
+          - remap:
+              CapsLock: Esc
+        "},
+    )
+    .unwrap();
+    std::fs::write(
+        &second,
+        indoc! {"
+        ipc:
+          socket: /tmp/xremap-merge-test.sock
+        "},
+    )
+    .unwrap();
+
+    let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
+    assert_eq!(
+        config.ipc,
+        Some(IpcOptions {
+            socket: PathBuf::from("/tmp/xremap-merge-test.sock")
+        })
+    );
+    // The modmap of the first file is still there.
+    assert_eq!(config.modmaps.len(), 1);
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// The `ipc` section follows the same first-wins rule as the single-value
+/// options, per field.
+#[test]
+fn test_load_configs_ipc_fields_merge_first_wins() {
+    let dir = std::env::temp_dir().join(format!("xremap-merge-ipc-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let first = dir.join("first.yml");
+    let second = dir.join("second.yml");
+
+    // The first file's socket wins.
+    std::fs::write(&first, "ipc:\n  socket: /tmp/one.sock\n").unwrap();
+    std::fs::write(&second, "ipc:\n  socket: /tmp/two.sock\n").unwrap();
+    let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
+    assert_eq!(
+        config.ipc,
+        Some(IpcOptions {
+            socket: PathBuf::from("/tmp/one.sock")
+        })
+    );
+
+    // An `ipc` section only in the second file still applies.
+    std::fs::write(&first, "keymap: []\n").unwrap();
+    let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
+    assert_eq!(
+        config.ipc,
+        Some(IpcOptions {
+            socket: PathBuf::from("/tmp/two.sock")
+        })
+    );
 
     std::fs::remove_dir_all(&dir).ok();
 }

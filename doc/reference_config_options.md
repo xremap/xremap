@@ -3,11 +3,11 @@
 When multiple config files are passed to xremap, list sections (`modmap`,
 `keymap`, `virtual_modifiers`) are concatenated across the files. Single-value
 options (`default_mode`, `keypress_delay_ms`, `throttle_ms`,
-`config_watch_debounce_ms`, `notifications`, `bypass`, `enable_wheel`) may live
-in any of the files. Matching the list sections, where earlier rules win,
-the first file that sets an option wins, and later files only fill options
-that no earlier file set: put generic defaults in later files and overrides
-in earlier ones.
+`config_watch_debounce_ms`, `notifications`, `bypass`, `enable_wheel`) and the
+`ipc` section (per field) may live in any of the files. Matching the list
+sections, where earlier rules win, the first file that sets an option wins,
+and later files only fill options that no earlier file set: put generic
+defaults in later files and overrides in earlier ones.
 
 ### virtual_modifiers
 
@@ -187,3 +187,15 @@ By default will the output device created by xremap support the mouse events `RE
 This does not affect the events/devices that are listened to, see the commandline argument `--mouse` for that.
 
 With `enable_wheel: false` will the output device not support `REL_HWHEEL`, `REL_WHEEL`.
+
+### ipc
+
+```yml
+ipc:
+  socket: true  # Default is no IPC server. `true` = $XDG_RUNTIME_DIR/xremap.sock
+```
+
+Exposes a unix control socket that lets external programs talk to a running
+instance. [Full reference](reference_ipc.md).
+
+Since version 0.15.17.
