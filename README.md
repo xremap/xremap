@@ -331,6 +331,9 @@ keymap:
 The application name can be specified as a normal string to exactly match the name,
 or a regex surrounded by `/` like `/application/`.
 
+If both `only` and `not` are specified, both conditions must hold (AND): the application must
+match one of the `only` entries and none of the `not` entries.
+
 To check the application names, you can use the following command:
 
 ```
@@ -407,7 +410,9 @@ keymap:
 
 Unlike for `application`, regexs are not supported for `device`.
 
-If both `not` and `only` is specified, then `only` is used for matching, and `not` has no effect.
+If both `only` and `not` are specified, both conditions must hold (AND), same as for
+[`application`](#application): the device must match one of the `only` entries and none of
+the `not` entries.
 
 Vendor and product ids must be given in hexadecimal, with or without '0x' prefix. It's possible to only
 match on vendor id with: `ids:0x3f0:0`, and only on product id with `ids:0:0x24`.
