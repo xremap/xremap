@@ -29,11 +29,6 @@ impl GnomeClient {
         }
     }
 
-    fn get_focused_title(&mut self) -> anyhow::Result<String> {
-        let window = self.get_active_window()?;
-        Ok(window.title)
-    }
-
     fn get_active_window(&mut self) -> anyhow::Result<ActiveWindow> {
         let json;
         if self.socket_path.is_some() {
@@ -129,8 +124,8 @@ impl Client for GnomeClient {
     }
 
     fn current_window(&mut self) -> Option<String> {
-        match self.get_focused_title() {
-            Ok(x) => Some(x),
+        match self.get_active_window() {
+            Ok(window) => window.title,
             Err(e) => {
                 println!("Error when fetching window title: {e:?}");
                 None
@@ -140,7 +135,7 @@ impl Client for GnomeClient {
 
     fn current_application(&mut self) -> Option<String> {
         if let Ok(window) = self.get_active_window() {
-            return Some(window.wm_class);
+            return window.wm_class;
         } else if self.socket_path.is_some() {
             // no fallback if GNOME_SOCKET has a value
             return None;
