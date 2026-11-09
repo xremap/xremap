@@ -1,6 +1,10 @@
-## Unreleased
+## v0.15.18
 
-- Fix: `application`/`window`/`title` and `device` filters now support `only` and `not` combined. Both conditions must hold (AND); previously `not` was silently ignored when `only` was present.
+- Fix: GNOME extension can send null values https://github.com/xremap/xremap/pull/1043
+- Add automated release notes to GitHub releases https://github.com/xremap/xremap/pull/1040
+- Fix: `application`, `window-title` and `device` filters now support
+  `only` and `not` combined. Both conditions must hold. https://github.com/xremap/xremap/pull/1039
+- Merge single-value config options across multiple config files https://github.com/xremap/xremap/pull/1041
 
 ## v0.15.17
 
