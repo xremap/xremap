@@ -47,7 +47,10 @@ impl SocketClient {
         let json = self.call_via_socket("ActiveWindow")?;
         match serde_json::from_str::<Response>(&json) {
             Ok(response) => match response {
-                Response::ActiveWindow { title, wm_class } => Ok(ActiveWindow { title, wm_class }),
+                Response::ActiveWindow { title, wm_class } => Ok(ActiveWindow {
+                    title: Some(title),
+                    wm_class: Some(wm_class),
+                }),
                 Response::Error(message) => bail!(message),
                 response => bail!("Wrong response from client {response:?}"),
             },
@@ -115,7 +118,7 @@ impl Client for SocketClient {
 
     fn current_window(&mut self) -> Option<String> {
         match self.get_active_window() {
-            Ok(window) => Some(window.title),
+            Ok(window) => window.title,
             Err(err) => {
                 error!("{err:?}");
                 None
@@ -125,7 +128,7 @@ impl Client for SocketClient {
 
     fn current_application(&mut self) -> Option<String> {
         match self.get_active_window() {
-            Ok(window) => Some(window.wm_class),
+            Ok(window) => window.wm_class,
             Err(err) => {
                 error!("{err:?}");
                 None

@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct ActiveWindow {
     #[serde(default)]
-    pub wm_class: String,
+    pub wm_class: Option<String>,
     #[serde(default)]
-    pub title: String,
+    pub title: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -51,16 +51,31 @@ fn test_legacy_bridge_response() {
     // Used by gnome extension
     assert_eq!(
         ActiveWindow {
-            title: "".into(),
-            wm_class: "".into()
+            title: None,
+            wm_class: None
         },
         serde_json::from_str::<ActiveWindow>("{}\n").unwrap()
     );
     assert_eq!(
         ActiveWindow {
-            title: "foo".into(),
-            wm_class: "bar".into()
+            title: Some("foo".into()),
+            wm_class: Some("bar".into())
         },
         serde_json::from_str::<ActiveWindow>("{\"title\":\"foo\",\"wm_class\":\"bar\"}\n").unwrap()
+    );
+    // Accept null values.
+    assert_eq!(
+        ActiveWindow {
+            title: None,
+            wm_class: Some("bar".into())
+        },
+        serde_json::from_str::<ActiveWindow>("{\"title\":null,\"wm_class\":\"bar\"}\n").unwrap()
+    );
+    assert_eq!(
+        ActiveWindow {
+            title: Some("foo".into()),
+            wm_class: None,
+        },
+        serde_json::from_str::<ActiveWindow>("{\"title\":\"foo\",\"wm_class\":null}\n").unwrap()
     );
 }
