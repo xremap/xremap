@@ -53,3 +53,10 @@ if (workspace.windowList) {
     // KDE 5
     workspace.clientActivated.connect(onWindowActivated);
 }
+
+// Follow the window that is already active when this script loads. This code only adds
+// the listener, because the one-off script in kwin_scripts.rs sends this window's title.
+currentActiveWindow = workspace.activeClient ? workspace.activeClient : workspace.activeWindow;
+if (currentActiveWindow && currentActiveWindow.captionChanged) {
+    currentActiveWindow.captionChanged.connect(onCaptionChanged);
+}
