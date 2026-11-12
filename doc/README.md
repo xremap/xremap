@@ -35,6 +35,7 @@ Each method has pros and cons, it's worth checking out the pages before choosing
 - [Select between operators](reference_select.md)
 - [FreeBSD](reference_freebsd.md)
 - [Scripting](reference_scripting.md)
+- [IPC control socket](reference_ipc.md)
 
 ### Troubleshooting
 

@@ -9,6 +9,7 @@ repository = "https://github.com/xremap/xremap"
 
 [dependencies]
 anyhow = "1.0.102"
+base64 = "0.22.1"
 clap = { version = "4.3.19", features = ["derive"] }
 clap_complete = "4.3.2"
 derive-where = "1.6.1"
@@ -18,7 +19,7 @@ fork = "0.10"
 futures-util = {version = "0.3", optional = true}
 indoc = "2.0"
 log = "0.4.31"
-nix = { version = "0.31", features = ["inotify", "poll", "time", "signal", "user"] }
+nix = { version = "0.31", features = ["fs", "inotify", "poll", "socket", "time", "signal", "user"] }
 niri-ipc = { version = "25.11.0", optional = true }
 regex = "1.12.2"
 serde = { version = "1.0", features = ["derive"] }
@@ -35,6 +36,7 @@ wayland-protocols = { version = "0.32.10", features = ["client"], optional = tru
 wayland-scanner = { version = "0.31.10", optional = true }
 wayland-backend = { version = "0.3.15", optional = true }
 indexmap = { version = "2.14.0", features = ["serde"] }
+xkbcommon = { version = "0.9", default-features = false }
 
 [dev-dependencies]
 fastrand = "2.4.1"

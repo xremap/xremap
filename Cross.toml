@@ -1,0 +1,18 @@
+# The musl release binaries statically link libxkbcommon: with `-static`,
+# the linker resolves `-lxkbcommon` to `libxkbcommon.a`, which the cross
+# images don't ship. The pre-build below fetches Alpine's `libxkbcommon-static`
+# package (same musl ABI) into /musl-deps, which build.rs adds to the linker
+# search path. The file name is resolved from the repository index at build
+# time, so this follows Alpine upgrades without manual bumps; if the package
+# layout ever changes, CI fails loudly instead of silently mis-linking.
+[target.x86_64-unknown-linux-musl]
+pre-build = [
+  "apt-get update && apt-get install -y --no-install-recommends curl ca-certificates",
+  "curl -fsSL https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/x86_64/ -o /tmp/idx.html && apk=$(grep -o 'libxkbcommon-static[^\" ]*\\.apk' /tmp/idx.html | tail -1) && curl -fsSL \"https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/x86_64/$apk\" -o /tmp/xkb.apk && tar -xzf /tmp/xkb.apk -C /tmp && mkdir -p /musl-deps && cp /tmp/usr/lib/libxkbcommon.a /musl-deps/",
+]
+
+[target.aarch64-unknown-linux-musl]
+pre-build = [
+  "apt-get update && apt-get install -y --no-install-recommends curl ca-certificates",
+  "curl -fsSL https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/aarch64/ -o /tmp/idx.html && apk=$(grep -o 'libxkbcommon-static[^\" ]*\\.apk' /tmp/idx.html | tail -1) && curl -fsSL \"https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/aarch64/$apk\" -o /tmp/xkb.apk && tar -xzf /tmp/xkb.apk -C /tmp && mkdir -p /musl-deps && cp /tmp/usr/lib/libxkbcommon.a /musl-deps/",
+]

@@ -3,6 +3,7 @@ use crate::platform_freebsd::{ConfigWatcher, DeviceWatcher};
 #[cfg(target_os = "linux")]
 use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
 
+use crate::action::Action;
 use crate::action_dispatcher::ActionDispatcher;
 use crate::client::{print_open_windows, print_supported_desktops};
 use crate::config::{load_configs, Config};
@@ -10,8 +11,9 @@ use crate::device::{
     choose_device_name, open_device, output_device, print_device_details, print_device_list, select_input_devices,
     InputDevice, InputDeviceInfo,
 };
-use crate::event::Event;
+use crate::event::{Event, RelativeEvent};
 use crate::event_handler::EventHandler;
+use crate::ipc_server::{InjectScope, IpcBatch, IpcCommand, IpcServer, KeyPhases};
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
 use crate::plugin::{apply_plugin, Plugin};
@@ -20,8 +22,10 @@ use crate::timeout_manager::TimeoutManager;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
+use evdev::RelativeAxisCode;
 use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
+use nix::sys::time::{TimeVal, TimeValLike};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
@@ -32,7 +36,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 #[derive(Parser, Debug)]
-#[command(version)]
+#[command(version, subcommand_negates_reqs = true)]
 struct Args {
     /// Limit input devices to the given names or paths. Default is all keyboards.
     #[arg(long, value_delimiter = ',')]
@@ -118,6 +122,16 @@ struct Args {
     /// Since v0.15.1
     #[arg(long, verbatim_doc_comment)]
     bridge: bool,
+    /// Control a running xremap over its IPC socket.
+    ///
+    /// The first argument selects the subcommand; everything else is a config
+    /// file. See doc/reference_ipc.md for the protocol.
+    #[command(subcommand)]
+    command: Option<crate::client_mode::ClientCommand>,
+    /// IPC socket path for the client subcommands. Default is
+    /// $XDG_RUNTIME_DIR/xremap.sock, overridable with XREMAP_SOCKET.
+    #[arg(long, global = true)]
+    socket: Option<PathBuf>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -180,9 +194,15 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         no_window_logging,
         allow_launch,
         bridge,
+        command,
+        socket,
     } = Args::parse();
 
     let desktop = desktop.unwrap_or(Desktop::Auto);
+
+    if let Some(command) = command {
+        return crate::client_mode::run(command, socket);
+    }
 
     if let Some(shell) = completions {
         clap_complete::generate(shell, &mut Args::command(), "xremap", &mut stdout());
@@ -253,6 +273,9 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         let mut config_watcher =
             ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
 
+        // IPC server (disabled unless `ipc.socket` is set in the config)
+        let mut ipc = build_ipc(&config)?;
+
         // Default allow launch (Change to false in a major upgrade)
         let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true), desktop);
 
@@ -289,11 +312,16 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
             mainctrl.show_popup("Ready", None);
         }
 
+        // Keep unexecuted protocol lines across partial reloads, even when
+        // the reload disables IPC or replaces its listener.
+        let mut pending_ipc: Option<IpcBatch> = None;
         'event_loop: loop {
             let main_action = event_loop(
                 &mut input_devices,
                 &device_watcher,
                 &mut config_watcher,
+                &mut ipc,
+                &mut pending_ipc,
                 &timeout_manager,
                 &mut handler,
                 &mut dispatcher,
@@ -312,6 +340,18 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                 }
                 MainAction::Reload { full } => match load_configs(&config_paths) {
                     Ok(new_config) => {
+                        // A partial reload keeps running with the new config, so
+                        // the IPC listener must follow its socket path. If that
+                        // fails, keep the old config and listener usable.
+                        if !full {
+                            if let Err(err) = sync_ipc(&mut ipc, &new_config) {
+                                if config.notifications {
+                                    mainctrl.show_popup("Config error", Some(&err.to_string()));
+                                }
+                                println!("Config error: {}", err.to_string());
+                                continue 'event_loop;
+                            }
+                        }
                         config = new_config;
                         if config.notifications {
                             mainctrl.show_popup("Ready", None);
@@ -354,6 +394,8 @@ fn event_loop(
     input_devices: &mut HashMap<PathBuf, InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &mut Option<ConfigWatcher>,
+    ipc: &mut Option<IpcState>,
+    pending_ipc: &mut Option<IpcBatch>,
     timeout_manager: &Rc<TimeoutManager>,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
@@ -366,8 +408,12 @@ fn event_loop(
     plugin: &mut impl Plugin,
 ) -> anyhow::Result<MainAction> {
     'event_loop: loop {
-        let readable_fds =
-            select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
+        let readable_fds = if pending_ipc.is_some() {
+            // Framed lines need no new socket readability notification.
+            Vec::new()
+        } else {
+            select_readable(input_devices.values(), &device_watcher, &config_watcher, ipc, &handler, &timeout_manager)?
+        };
 
         if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
             match handle_events(handler, dispatcher, &config, vec![Event::OverrideTimeout], mainctrl, plugin) {
@@ -399,6 +445,72 @@ fn event_loop(
             }
         }
 
+        let readable_ipc_fds: Vec<RawFd> = readable_fds
+            .iter()
+            .copied()
+            .filter(|fd| ipc.as_ref().is_some_and(|state| state.server.holds_fd(*fd)))
+            .collect();
+        let mut readable_ipc_fds = readable_ipc_fds.into_iter();
+        loop {
+            let mut batch = if let Some(batch) = pending_ipc.take() {
+                batch
+            } else {
+                let Some(fd) = readable_ipc_fds.next() else { break };
+                let Some(state) = ipc.as_mut() else { break };
+                let Some(batch) = state.server.handle_readable(fd) else {
+                    continue;
+                };
+                batch
+            };
+            let mut lines = std::mem::take(&mut batch.lines).into_iter();
+            while let Some(line) = lines.next() {
+                match &line {
+                    Ok(line) => log::debug!("ipc: received {:?} ({} bytes)", line, line.len()),
+                    Err(reason) => log::debug!("ipc: received undecodable line: {reason}"),
+                }
+                let (command, mut reply) = match (line, ipc.as_mut()) {
+                    (Ok(line), Some(state)) => crate::ipc_server::handle_command(
+                        &line,
+                        handler.current_mode(),
+                        state.inject_enabled,
+                        &mut state.typist,
+                        state.type_delay,
+                    ),
+                    (Err(reason), _) => (None, crate::ipc_server::Reply::Err(reason)),
+                    (_, None) => (None, crate::ipc_server::Reply::Err("IPC disabled".to_string())),
+                };
+                let mut next_action = None;
+                if let Some(command) = command {
+                    match execute_ipc_command(command, config, handler, dispatcher, mainctrl) {
+                        Ok(action) => next_action = action,
+                        Err(err) => reply = crate::ipc_server::Reply::Err(format!("{err:#}")),
+                    }
+                }
+                // Execution errors are command-local. Reply only after the
+                // side effects so the next line observes the updated state.
+                let reply_failed = if let Err(err) = batch.reply(&reply) {
+                    eprintln!("xremap ipc: failed to write reply: {err}");
+                    true
+                } else {
+                    false
+                };
+                // A disconnected client must not cancel an exit/restart that
+                // its configured key action already requested.
+                if let Some(action) = next_action {
+                    if !reply_failed && matches!(action, MainAction::Reload { full: false }) {
+                        batch.lines = lines.collect();
+                        if !batch.lines.is_empty() {
+                            *pending_ipc = Some(batch);
+                        }
+                    }
+                    return Ok(action);
+                }
+                if reply_failed {
+                    break;
+                }
+            }
+        }
+
         if let Some(device_watcher) = &device_watcher {
             if let Ok(events) = device_watcher.read_events() {
                 handle_device_changes(events, input_devices, &device_filter, &ignore_filter, mouse, &own_device);
@@ -419,14 +531,26 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
+    ipc: &Option<IpcState>,
     event_handler: &impl AsFd,
     timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<Vec<RawFd>> {
+    // Snapshot the retry delay before collecting fds, so an expiring backoff
+    // cannot leave a select call with neither a listener nor a wakeup timeout.
+    let mut timeout = ipc
+        .as_ref()
+        .and_then(|state| state.server.accept_retry_delay())
+        .map(|delay| TimeVal::microseconds(delay.as_micros() as i64));
     let mut read_fds = FdSet::new();
     read_fds.insert(event_handler.as_fd());
     read_fds.insert(timeout_manager.as_fd());
     for device in devices {
         read_fds.insert(device.as_fd());
+    }
+    if let Some(ipc) = ipc {
+        for fd in ipc.server.fds() {
+            read_fds.insert(fd);
+        }
     }
     #[cfg(target_os = "linux")]
     if let Some(device_watcher) = device_watcher {
@@ -437,10 +561,196 @@ fn select_readable<'a>(
         read_fds.insert(config_watcher.borrow_timer());
         read_fds.insert(config_watcher.borrow_inotify());
     }
-    select(None, &mut read_fds, None, None, None)?;
+    select(None, &mut read_fds, None, None, timeout.as_mut())?;
 
     // Make the result independent of borrowed fds
     Ok(read_fds.fds(None).map(|fd| fd.as_raw_fd()).collect())
+}
+
+/// Runtime state of the IPC server.
+struct IpcState {
+    server: IpcServer,
+    inject_enabled: bool,
+    /// Resolves text to key chords for the `type` command.
+    typist: crate::typist::Typist,
+    /// Default pause between characters typed by the IPC `type` command.
+    type_delay: Duration,
+}
+
+const IPC_DEFAULT_DEVICE: &str = "xremap-ipc";
+
+fn build_ipc(config: &Config) -> anyhow::Result<Option<IpcState>> {
+    let Some(ipc) = &config.ipc else { return Ok(None) };
+    let server = IpcServer::new(&ipc.socket)
+        .with_context(|| format!("Failed to start IPC server on {}", ipc.socket.display()))?;
+    println!("IPC socket listening on {}", ipc.socket.display());
+    Ok(Some(IpcState {
+        server,
+        inject_enabled: ipc.inject,
+        typist: crate::typist::Typist::new(),
+        type_delay: Duration::from_millis(config.type_delay_ms),
+    }))
+}
+
+/// Preserve client connections at the same socket path. At a different path,
+/// bind first so a bind failure leaves the old IPC server/config usable.
+fn sync_ipc(ipc: &mut Option<IpcState>, config: &Config) -> anyhow::Result<()> {
+    match (&mut *ipc, &config.ipc) {
+        (Some(state), Some(new_ipc)) if state.server.path() == new_ipc.socket => {
+            state.inject_enabled = new_ipc.inject;
+            state.typist = crate::typist::Typist::new();
+            state.type_delay = Duration::from_millis(config.type_delay_ms);
+        }
+        _ => {
+            let replacement = build_ipc(config)?;
+            *ipc = replacement;
+        }
+    }
+    Ok(())
+}
+
+fn execute_ipc_command(
+    command: IpcCommand,
+    config: &Config,
+    handler: &mut EventHandler,
+    dispatcher: &mut ActionDispatcher,
+    mainctrl: &mut MainController,
+) -> anyhow::Result<Option<MainAction>> {
+    match command {
+        IpcCommand::SetMode(mode) => {
+            handler.set_mode_external(&mode);
+            Ok(None)
+        }
+        IpcCommand::SendKey {
+            scope,
+            device,
+            chords,
+            phases,
+            delay,
+        } => apply_send_key(scope, &device, &chords, phases, delay, handler, dispatcher, config, mainctrl),
+        IpcCommand::ClipboardPaste { text, paste, restore } => {
+            apply_clipboard_paste(&text, &paste, restore, dispatcher, mainctrl)
+        }
+        IpcCommand::Sleep(duration) => dispatcher.on_action(Action::Delay(duration), mainctrl),
+        IpcCommand::Wheel { horizontal, amount } => {
+            // Without `enable_wheel` the output device has no REL_WHEEL/HWHEEL
+            // axis, and emitting an unregistered axis is silently dropped by
+            // the kernel. Fail loudly instead of replying `ok` for no effect.
+            anyhow::ensure!(config.enable_wheel, "wheel events are disabled (set `enable_wheel: true` to inject them)");
+            let code = if horizontal {
+                RelativeAxisCode::REL_HWHEEL.0
+            } else {
+                RelativeAxisCode::REL_WHEEL.0
+            };
+            dispatcher.on_action(Action::RelativeEvent(RelativeEvent { code, value: amount }), mainctrl)
+        }
+        IpcCommand::MoveMouse { x, y } => dispatcher.on_action(
+            Action::MouseMovementEventCollection(vec![
+                RelativeEvent {
+                    code: RelativeAxisCode::REL_X.0,
+                    value: x,
+                },
+                RelativeEvent {
+                    code: RelativeAxisCode::REL_Y.0,
+                    value: y,
+                },
+            ]),
+            mainctrl,
+        ),
+    }
+}
+
+fn apply_send_key(
+    scope: InjectScope,
+    device: &Option<String>,
+    chords: &[crate::ipc_server::Chord],
+    phases: KeyPhases,
+    delay: Duration,
+    handler: &mut EventHandler,
+    dispatcher: &mut ActionDispatcher,
+    config: &Config,
+    mainctrl: &mut MainController,
+) -> anyhow::Result<Option<MainAction>> {
+    let (down, up) = match phases {
+        KeyPhases::Tap => (true, true),
+        KeyPhases::Down => (true, false),
+        KeyPhases::Up => (false, true),
+    };
+    match scope {
+        // Raw: no rule applies, emit straight through the output device.
+        InjectScope::Raw => {
+            let last = chords.len().saturating_sub(1);
+            // Same pause inside a chord: without it, modifier press → key
+            // press → key release happen microseconds apart, and Wayland
+            // compositors drop characters from such bursts (upstream xremap
+            // discussion #611).
+            let intra = delay;
+            for (index, chord) in chords.iter().enumerate() {
+                for (position, action) in chord.to_actions(down, up).into_iter().enumerate() {
+                    if intra != Duration::ZERO && position != 0 {
+                        std::thread::sleep(intra);
+                    }
+                    if let Some(main_action) = dispatcher.on_action(action, mainctrl)? {
+                        return Ok(Some(main_action));
+                    }
+                }
+                // Space chords out for receivers that drop microsecond-fast
+                // bursts (see DEFAULT_TYPE_DELAY_MS).
+                if delay != Duration::ZERO && index != last {
+                    std::thread::sleep(delay);
+                }
+            }
+            Ok(None)
+        }
+        // Keymap / Modmap / Expmap: feed pipeline events with the synthetic
+        // IPC device identity so `device:` conditions can match them.
+        InjectScope::Modmap | InjectScope::Keymap | InjectScope::Expmap => {
+            let device_info = Rc::new(InputDeviceInfo {
+                name: device.clone().unwrap_or_else(|| IPC_DEFAULT_DEVICE.to_string()),
+                path: PathBuf::from("ipc"),
+                product: 0,
+                vendor: 0,
+            });
+            let mut events = Vec::new();
+            for chord in chords {
+                events.extend(chord.to_events(device_info.clone(), down, up));
+            }
+            let actions = handler
+                .inject_events(events, scope, config, mainctrl.wmclient())
+                .map_err(|err| anyhow!("EventHandler failed: {err:?}"))?;
+            for action in actions {
+                if let Some(main_action) = dispatcher.on_action(action, mainctrl)? {
+                    return Ok(Some(main_action));
+                }
+            }
+            Ok(None)
+        }
+    }
+}
+
+/// Write text to the clipboard and send the paste keystroke. This is the only
+/// way to type arbitrary Unicode into applications that do not implement the
+/// `Ctrl+Shift+U` input convention.
+fn apply_clipboard_paste(
+    text: &str,
+    paste: &crate::ipc_server::Chord,
+    restore: bool,
+    dispatcher: &mut ActionDispatcher,
+    mainctrl: &mut MainController,
+) -> anyhow::Result<Option<MainAction>> {
+    // Save the previous clipboard first: writing the new text destroys it, and
+    // reading it back later would return the text we just wrote.
+    let previous = restore.then(crate::clipboard::read).flatten();
+    crate::clipboard::write(text).map_err(|err| anyhow!("failed to write clipboard: {err}"))?;
+    for action in paste.to_actions(true, true) {
+        if let Some(main_action) = dispatcher.on_action(action, mainctrl)? {
+            return Ok(Some(main_action));
+        }
+    }
+    if let Some(previous) = previous {
+        crate::clipboard::restore_later(previous, std::time::Duration::from_millis(500));
+    }
+    Ok(None)
 }
 
 fn handle_input_events(
@@ -518,4 +828,134 @@ fn handle_device_changes(
             None
         }
     }));
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+    use crate::client_mode::ClientCommand;
+
+    #[test]
+    fn key_commands_recognize_socket_options_after_chords() {
+        for verb in ["key", "keydown", "keyup"] {
+            for args in [
+                vec!["xremap", "--socket", "/tmp/control.sock", verb, "raw", "f13", "ctrl+a"],
+                vec!["xremap", verb, "raw", "--socket", "/tmp/control.sock", "f13", "ctrl+a"],
+                vec!["xremap", verb, "raw", "f13", "ctrl+a", "--socket", "/tmp/control.sock"],
+            ] {
+                let parsed = Args::try_parse_from(args).unwrap();
+                assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+                let chords = vec!["raw".into(), "f13".into(), "ctrl+a".into()];
+                let expected = match verb {
+                    "key" => ClientCommand::Key {
+                        device: None,
+                        args: chords,
+                    },
+                    "keydown" => ClientCommand::Keydown {
+                        device: None,
+                        args: chords,
+                    },
+                    _ => ClientCommand::Keyup {
+                        device: None,
+                        args: chords,
+                    },
+                };
+                assert_eq!(parsed.command, Some(expected));
+            }
+        }
+    }
+
+    #[test]
+    fn pointer_commands_accept_negative_numbers_and_trailing_socket_options() {
+        for amount in ["-2", "-2147483648"] {
+            for verb in ["wheel", "hwheel"] {
+                let parsed = Args::try_parse_from(["xremap", verb, amount, "--socket", "/tmp/control.sock"]).unwrap();
+                assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+                let amount = amount.parse().unwrap();
+                let expected = if verb == "wheel" {
+                    ClientCommand::Wheel { amount }
+                } else {
+                    ClientCommand::Hwheel { amount }
+                };
+                assert_eq!(parsed.command, Some(expected));
+            }
+        }
+        for (x, y) in [("4", "-4"), ("-4", "4"), ("-4", "-4")] {
+            let parsed = Args::try_parse_from(["xremap", "mousemove", x, y, "--socket", "/tmp/control.sock"]).unwrap();
+            assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+            assert_eq!(
+                parsed.command,
+                Some(ClientCommand::Mousemove {
+                    x: x.parse().unwrap(),
+                    y: y.parse().unwrap()
+                })
+            );
+        }
+        let parsed =
+            Args::try_parse_from(["xremap", "click", "left", "right", "--socket", "/tmp/control.sock"]).unwrap();
+        assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+        assert_eq!(
+            parsed.command,
+            Some(ClientCommand::Click {
+                buttons: vec!["left".into(), "right".into()]
+            })
+        );
+    }
+
+    #[test]
+    fn type_recognizes_socket_options_before_between_and_after_words() {
+        for args in [
+            vec![
+                "xremap",
+                "--socket",
+                "/tmp/control.sock",
+                "type",
+                "--layout",
+                "us",
+                "hello",
+                "world",
+            ],
+            vec![
+                "xremap",
+                "type",
+                "--layout",
+                "us",
+                "hello",
+                "--socket",
+                "/tmp/control.sock",
+                "world",
+            ],
+            vec![
+                "xremap",
+                "type",
+                "--layout",
+                "us",
+                "hello",
+                "world",
+                "--socket",
+                "/tmp/control.sock",
+            ],
+        ] {
+            let parsed = Args::try_parse_from(args).unwrap();
+            assert_eq!(parsed.socket, Some(PathBuf::from("/tmp/control.sock")));
+            match parsed.command.unwrap() {
+                ClientCommand::Type { layout, text, .. } => {
+                    assert_eq!(layout.as_deref(), Some("us"));
+                    assert_eq!(text, ["hello", "world"]);
+                }
+                other => panic!("unexpected command: {other:?}"),
+            }
+        }
+    }
+
+    #[test]
+    fn type_literal_separator_preserves_option_like_text() {
+        let parsed = Args::try_parse_from(["xremap", "type", "--", "--socket", "literal", "-text"]).unwrap();
+        assert_eq!(parsed.socket, None);
+        match parsed.command.unwrap() {
+            ClientCommand::Type { text, .. } => assert_eq!(text, ["--socket", "literal", "-text"]),
+            other => panic!("unexpected command: {other:?}"),
+        }
+        assert!(Args::try_parse_from(["xremap", "type", "---layout", "us", "hello"]).is_err());
+    }
 }

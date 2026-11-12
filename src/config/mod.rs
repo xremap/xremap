@@ -41,11 +41,15 @@ pub struct Config {
     pub virtual_modifiers: Vec<Key>,
     pub keypress_delay_ms: u64,
     pub throttle_ms: u64,
+    /// Default pause between characters injected by the IPC `type` command;
+    /// `type --delay` overrides it per command.
+    pub type_delay_ms: u64,
     pub config_watch_debounce_ms: u64,
     pub notifications: bool,
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
     pub enable_wheel: bool,
     pub bypass: ConfigBool,
+    pub ipc: Option<IpcOptions>,
 }
 
 impl Config {
@@ -61,10 +65,12 @@ impl Config {
             virtual_modifiers: config.virtual_modifiers,
             keypress_delay_ms: config.keypress_delay_ms.unwrap_or(0),
             throttle_ms: config.throttle_ms.unwrap_or(0),
+            type_delay_ms: config.type_delay_ms.unwrap_or(crate::ipc_server::DEFAULT_TYPE_DELAY_MS),
             config_watch_debounce_ms: config.config_watch_debounce_ms.unwrap_or(0),
             notifications: config.notifications.unwrap_or(false),
             enable_wheel: config.enable_wheel.unwrap_or(true),
             bypass,
+            ipc: config.ipc.and_then(|ipc| ipc.finish()),
         })
     }
 
@@ -94,6 +100,8 @@ pub struct ParseConfig {
     #[serde(default)]
     pub throttle_ms: Option<u64>,
     #[serde(default)]
+    pub type_delay_ms: Option<u64>,
+    #[serde(default)]
     pub config_watch_debounce_ms: Option<u64>,
     #[serde(default)]
     pub notifications: Option<bool>,
@@ -113,6 +121,49 @@ pub struct ParseConfig {
 
     #[serde(default)]
     pub enable_wheel: Option<bool>,
+
+    #[serde(default)]
+    pub ipc: Option<ParseIpc>,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ParseIpc {
+    #[serde(default)]
+    pub socket: Option<SocketSpec>,
+    /// Enable the key-injection command family (`key`, `keydown`, `keyup`,
+    /// `type`, `click`, `wheel`, `mousemove`, `sleep`). Off by default.
+    #[serde(default)]
+    pub inject: Option<bool>,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum SocketSpec {
+    Bool(bool),
+    Path(PathBuf),
+}
+
+/// Resolved IPC options for the runtime.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IpcOptions {
+    pub socket: PathBuf,
+    pub inject: bool,
+}
+
+impl ParseIpc {
+    pub fn finish(self) -> Option<IpcOptions> {
+        let socket = match self.socket? {
+            // `socket: false` explicitly disables the IPC server.
+            SocketSpec::Bool(false) => return None,
+            SocketSpec::Bool(true) => crate::ipc_server::default_socket_path(),
+            SocketSpec::Path(path) => path,
+        };
+        Some(IpcOptions {
+            socket,
+            inject: self.inject.unwrap_or(false),
+        })
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -167,11 +218,27 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
             default_mode,
             keypress_delay_ms,
             throttle_ms,
+            type_delay_ms,
             config_watch_debounce_ms,
             notifications,
             bypass,
             enable_wheel,
         );
+        // The `ipc` section follows the same first-wins rule as the
+        // single-value options, per field: a later file may fill `socket`
+        // or `inject` only when no earlier file set them.
+        match (&mut config.ipc, &mut c.ipc) {
+            (Some(config_ipc), Some(c_ipc)) => {
+                if config_ipc.socket.is_none() {
+                    config_ipc.socket = c_ipc.socket.take();
+                }
+                if config_ipc.inject.is_none() {
+                    config_ipc.inject = c_ipc.inject.take();
+                }
+            }
+            (None, Some(_)) => config.ipc = c.ipc.take(),
+            _ => {}
+        }
     }
 
     Config::new(config)
