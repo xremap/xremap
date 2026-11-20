@@ -14,7 +14,6 @@ use crate::timeout_manager::TimeoutManager;
 use evdev::KeyCode as Key;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::usize;
 
 pub struct OperatorHandler {
     active: Vec<Box<dyn ActiveOperator>>,
