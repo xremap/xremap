@@ -57,21 +57,21 @@ mod tests {
     }
 
     #[test]
-    fn test_match_only() {
+    fn test_device_match_only() {
         let device = device_info("Cool Device");
         assert!(matches_config(Some(&["Cool Device"]), None, &device));
         assert!(!matches_config(Some(&["Other Device"]), None, &device));
     }
 
     #[test]
-    fn test_match_not() {
+    fn test_device_match_not() {
         let device = device_info("Cool Device");
         assert!(matches_config(None, Some(&["Other Device"]), &device));
         assert!(!matches_config(None, Some(&["Cool Device"]), &device));
     }
 
     #[test]
-    fn test_match_only_and_not_combined() {
+    fn test_device_match_only_and_not_combined() {
         // only AND not must both hold
         let device = device_info("Cool Device");
         assert!(matches_config(Some(&["Cool"]), Some(&["Other"]), &device));
@@ -81,7 +81,7 @@ mod tests {
     }
 
     #[test]
-    fn test_match_neither_set() {
+    fn test_device_match_neither_set() {
         assert!(!matches_config(None, None, &device_info("Cool Device")));
     }
 }
