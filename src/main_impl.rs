@@ -490,13 +490,11 @@ struct IpcState {
 
 impl IpcState {
     fn handle(&mut self, readable_fds: &Vec<RawFd>, handler: &mut EventHandler) -> anyhow::Result<Option<MainAction>> {
-        let readable_ipc_fds: Vec<RawFd> = readable_fds
-            .iter()
-            .copied()
-            .filter(|fd| self.server.holds_fd(*fd))
-            .collect();
-        for fd in readable_ipc_fds {
-            let Some(mut batch) = self.server.handle_readable(fd) else {
+        for fd in readable_fds {
+            if !self.server.holds_fd(*fd) {
+                continue;
+            }
+            let Some(mut batch) = self.server.handle_readable(*fd) else {
                 continue;
             };
             for line in std::mem::take(&mut batch.lines) {
