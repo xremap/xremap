@@ -216,10 +216,6 @@ impl IpcServer {
         })
     }
 
-    pub fn holds_fd(&self, fd: RawFd) -> bool {
-        fd == self.listener.as_raw_fd() || self.connections.contains_key(&fd)
-    }
-
     /// All fds the server wants select(2)ed on: the listener plus connections.
     pub fn fds(&self) -> impl Iterator<Item = BorrowedFd<'_>> {
         std::iter::once(self.listener.as_fd())
@@ -470,7 +466,6 @@ mod tests {
         let mut reply = String::new();
         client.read_to_string(&mut reply).unwrap();
         assert_eq!(reply, "err line too long\n");
-        assert!(!server.holds_fd(fd));
     }
 
     /// Parse a command.

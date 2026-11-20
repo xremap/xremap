@@ -491,9 +491,6 @@ struct IpcState {
 impl IpcState {
     fn handle(&mut self, readable_fds: &Vec<RawFd>, handler: &mut EventHandler) -> anyhow::Result<Option<MainAction>> {
         for fd in readable_fds {
-            if !self.server.holds_fd(*fd) {
-                continue;
-            }
             let Some(mut batch) = self.server.handle_readable(*fd) else {
                 continue;
             };
