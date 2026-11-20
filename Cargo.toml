@@ -16,7 +16,7 @@ env_logger = "0.11.10"
 evdev = "0.13.2"
 fork = "0.10"
 futures-util = {version = "0.3", optional = true}
-indoc = "2.0"
+indoc = { version = "2.0", optional = true }
 log = "0.4.31"
 nix = { version = "0.31", features = ["inotify", "poll", "time", "signal", "user"] }
 niri-ipc = { version = "25.11.0", optional = true }
@@ -38,13 +38,14 @@ indexmap = { version = "2.14.0", features = ["serde"] }
 
 [dev-dependencies]
 fastrand = "2.4.1"
+indoc = "2.0"
 
 [features]
 full = ["gnome", "x11", "hypr", "kde", "wlroots", "niri", "cosmic", "pantheon", "socket"]
 gnome = ["zbus"]
 x11 = ["x11rb"]
 hypr = ["hyprland"]
-kde = ["zbus"]
+kde = ["zbus","indoc"]
 wlroots = ["wayland-client", "wayland-protocols-wlr"]
 niri = ["niri-ipc"]
 cosmic = [ "wayland-client","wayland-scanner","wayland-backend"]
