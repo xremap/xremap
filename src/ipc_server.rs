@@ -1,5 +1,6 @@
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use nix::sys::socket::sockopt::PeerCredentials;
+use nix::sys::time::{TimeVal, TimeValLike};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
@@ -228,9 +229,12 @@ impl IpcServer {
 
     /// Wake select when accept can be retried; a resource error must not cause
     /// a hot readable-listener loop or prevent physical input processing.
-    pub fn accept_retry_delay(&self) -> Option<Duration> {
+    /// Snapshot the retry delay before collecting fds, so an expiring backoff
+    /// cannot leave a select call with neither a listener nor a wakeup timeout.
+    pub fn accept_retry_delay(&self) -> Option<TimeVal> {
         self.accept_retry_at
             .and_then(|at| at.checked_duration_since(Instant::now()))
+            .map(|delay| TimeVal::microseconds(delay.as_micros() as i64))
     }
 
     fn check_peer(stream: &UnixStream) -> anyhow::Result<()> {

@@ -23,7 +23,6 @@ use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
 use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
-use nix::sys::time::{TimeVal, TimeValLike};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
@@ -491,12 +490,7 @@ fn select_readable<'a>(
     event_handler: &impl AsFd,
     timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<Vec<RawFd>> {
-    // Snapshot the retry delay before collecting fds, so an expiring backoff
-    // cannot leave a select call with neither a listener nor a wakeup timeout.
-    let mut timeout = ipc
-        .as_ref()
-        .and_then(|state| state.server.accept_retry_delay())
-        .map(|delay| TimeVal::microseconds(delay.as_micros() as i64));
+    let mut timeout = ipc.as_ref().and_then(|ipc| ipc.server.accept_retry_delay());
     let mut read_fds = FdSet::new();
     read_fds.insert(event_handler.as_fd());
     read_fds.insert(timeout_manager.as_fd());
