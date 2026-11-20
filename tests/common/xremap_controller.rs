@@ -31,6 +31,7 @@ pub struct XremapBuilder {
     validate_config_: bool,
     config_file: Option<String>,
     env_var: Option<(String, String)>,
+    controller_logging: bool,
 }
 
 impl XremapBuilder {
@@ -49,6 +50,7 @@ impl XremapBuilder {
             validate_config_: false,
             config_file: None,
             env_var: None,
+            controller_logging: true,
         }
     }
 
@@ -141,6 +143,7 @@ pub struct XremapController {
     output_device: Option<Device>,
     device_filter: Option<String>,
     config_file: String,
+    controller_logging: bool,
 }
 
 impl XremapController {
@@ -169,7 +172,9 @@ impl XremapController {
 
         let config_file = match &def.config_file {
             Some(config) => {
-                println!("Using custom config: {:?}", config);
+                if def.controller_logging {
+                    println!("Using custom config: {:?}", config);
+                }
                 builder.arg(config);
                 config
             }
@@ -244,16 +249,17 @@ impl XremapController {
             output_device: None,
             device_filter,
             config_file: config_file.to_string(),
+            controller_logging: def.controller_logging,
         };
 
         match &ctrl.input_device {
             None => {
-                println!("No input device configured for xremap.");
+                ctrl.log("No input device configured for xremap.");
             }
             Some(input_device) => {
                 wait_for_grabbed(&input_device.path)?;
 
-                println!("Input device grabbed by xremap");
+                ctrl.log("Input device grabbed by xremap");
             }
         }
 
@@ -274,18 +280,24 @@ impl XremapController {
         &self.config_file
     }
 
+    pub fn log(&self, str: &str) {
+        if self.controller_logging {
+            println!("{str}");
+        }
+    }
+
     pub fn open_input_device(&mut self, name: impl Into<String>) -> anyhow::Result<()> {
         if self.input_device.is_some() {
             bail!("Input device already opened.")
         }
 
-        println!("Preparing new input device for xremap, that is already running.");
+        self.log("Preparing new input device for xremap, that is already running.");
 
         let dev_info = get_virtual_device(name)?;
 
         wait_for_grabbed(&dev_info.path)?;
 
-        println!("Input device grabbed by xremap");
+        self.log("Input device grabbed by xremap");
 
         self.input_device = Some(dev_info);
 
@@ -298,7 +310,7 @@ impl XremapController {
         }
 
         self.input_device = None;
-        println!("Input device closed");
+        self.log("Input device closed");
 
         Ok(())
     }
@@ -312,7 +324,7 @@ impl XremapController {
 
         device.grab()?;
 
-        println!("Output device from xremap grabbed");
+        self.log("Output device from xremap grabbed");
 
         self.output_device = Some(device);
 
@@ -428,7 +440,7 @@ impl XremapController {
 
     /// Expects xremap to stop by itself.
     fn wait_for_output_inner(&self, mut child: Child) -> anyhow::Result<Output> {
-        println!("Waiting for xremap to exit");
+        self.log("Waiting for xremap to exit");
 
         let is_stopped = until(
             || child.try_wait().is_ok_and(|val| !val.is_none()),
@@ -438,12 +450,12 @@ impl XremapController {
 
         if is_stopped.is_err() {
             child.kill()?;
-            println!("Xremap killed");
+            self.log("Xremap killed");
         };
 
         let res = child.wait_with_output()?;
 
-        println!("Xremap stopped");
+        self.log("Xremap stopped");
 
         let stdout = String::from_utf8(res.stdout)?;
         let stderr = String::from_utf8(res.stderr)?;
@@ -454,11 +466,11 @@ impl XremapController {
             assert_eq!("", stderr);
         } else {
             // To make debugging easier always print output.
-            println!("{SEPARATOR}");
-            println!("stdout:\n{stdout}");
-            println!("{SEPARATOR}");
-            println!("stderr:\n{stderr}");
-            println!("{SEPARATOR}");
+            self.log(&format!("{SEPARATOR}"));
+            self.log(&format!("stdout:\n{stdout}"));
+            self.log(&format!("{SEPARATOR}"));
+            self.log(&format!("stderr:\n{stderr}"));
+            self.log(&format!("{SEPARATOR}"));
         }
 
         if !self.allow_stdio_errors {
@@ -492,7 +504,7 @@ impl XremapController {
 
         let result = child.kill();
 
-        println!("Xremap killed");
+        self.log("Xremap killed");
 
         self.child.set(Some(child));
 
@@ -504,14 +516,14 @@ impl XremapController {
         if let Some(mut child) = self.child.take() {
             if child.try_wait()?.is_none() {
                 child.kill()?;
-                println!("Xremap killed");
+                self.log("Xremap killed");
             } else {
-                println!("Xremap already stopped when attempting to kill.");
+                self.log("Xremap already stopped when attempting to kill.");
             }
 
             let _ = self.wait_for_output_inner(child)?;
         } else {
-            println!("Some sort of shutdown has already been requested.");
+            self.log("Some sort of shutdown has already been requested.");
         }
 
         Ok(())
@@ -523,14 +535,14 @@ impl XremapController {
 // is ungrabbed so events don't go to the 'host'.
 impl Drop for XremapController {
     fn drop(&mut self) {
-        println!("XremapController dropped");
+        self.log("XremapController dropped");
         self.child.take().map(|child| {
             match self.wait_for_output_inner(child) {
                 Ok(_) => {
                     // Has already been printed.
                 }
                 Err(err) => {
-                    println!("While dropping xremap command: {err:?}");
+                    self.log(&format!("While dropping xremap command: {err:?}"));
                 }
             }
         });
