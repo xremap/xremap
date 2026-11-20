@@ -387,13 +387,18 @@ mod tests {
     }
 
     #[test]
-    fn live_socket_and_ordinary_files_are_not_unlinked() {
+    fn live_socket_is_not_unlinked() {
         let dir = SocketDir::new();
         let path = dir.0.join("control.sock");
-        let server = IpcServer::new(&path).unwrap();
+        let _server = IpcServer::new(&path).unwrap();
         assert!(IpcServer::new(&path).is_err());
         assert!(UnixStream::connect(&path).is_ok());
-        drop(server);
+    }
+
+    #[test]
+    fn ordinary_file_is_not_unlinked() {
+        let dir = SocketDir::new();
+        let path = dir.0.join("control.sock");
         std::fs::write(&path, "keep this file").unwrap();
         assert!(IpcServer::new(&path).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "keep this file");
