@@ -30,8 +30,10 @@ pub struct XremapBuilder {
     watch_config_: bool,
     validate_config_: bool,
     config_file: Option<String>,
+    free_form: Vec<String>,
     env_var: Option<(String, String)>,
     controller_logging: bool,
+    ipc_path: Option<String>,
 }
 
 impl XremapBuilder {
@@ -49,8 +51,10 @@ impl XremapBuilder {
             watch_config_: false,
             validate_config_: false,
             config_file: Some("tests/common/config-test.yml".to_string()),
+            free_form: vec![],
             env_var: None,
             controller_logging: true,
+            ipc_path: None,
         }
     }
 
@@ -113,6 +117,24 @@ impl XremapBuilder {
         Ok(self)
     }
 
+    pub fn config_with_ipc(&mut self, config: &str) -> Result<&mut Self> {
+        self.ipc_path = Some(
+            std::env::temp_dir()
+                .join(format!("xremap-socket-{}", fastrand::u64(..)))
+                .to_string_lossy()
+                .to_string(),
+        );
+        let ipc_config = format!(
+            "
+ipc:
+    socket: {}
+",
+            self.ipc_path.as_ref().unwrap()
+        );
+        self.config(&format!("{config}\n{ipc_config}"))?;
+        Ok(self)
+    }
+
     pub fn env_var(&mut self, name: &str, value: &str) -> &mut Self {
         self.env_var = Some((name.to_string(), value.to_string()));
         self
@@ -144,6 +166,7 @@ pub struct XremapController {
     device_filter: Option<String>,
     config_file: Option<String>,
     controller_logging: bool,
+    ipc_path: Option<String>,
 }
 
 impl XremapController {
@@ -180,6 +203,10 @@ impl XremapController {
             }
             None => None,
         };
+
+        for text in &def.free_form {
+            builder.arg(text);
+        }
 
         if !def.nocapture_ {
             // Can remove these to get stdio from xremap
@@ -246,6 +273,7 @@ impl XremapController {
             device_filter,
             config_file,
             controller_logging: def.controller_logging,
+            ipc_path: def.ipc_path.clone(),
         };
 
         match &ctrl.input_device {
@@ -274,6 +302,10 @@ impl XremapController {
 
     pub fn get_config_file<'a>(&'a mut self) -> &'a str {
         &self.config_file.as_ref().unwrap()
+    }
+
+    pub fn get_ipc_path(&self) -> &str {
+        self.ipc_path.as_ref().unwrap()
     }
 
     pub fn log(&self, str: &str) {
@@ -345,6 +377,26 @@ impl XremapController {
                 bail!("No output device to forget.")
             }
         }
+    }
+
+    /// Run ipc command by running xremap-cli subcommand.
+    pub fn ipc_client(&self, cmds: Vec<&str>) -> anyhow::Result<String> {
+        let mut builder = XremapController::builder();
+
+        builder.config_file = None;
+        builder.free_form = cmds.into_iter().map(|cmd| cmd.into()).collect();
+        builder.controller_logging = false;
+        builder.allow_stdio_errors_ = true;
+
+        let ctrl = builder
+            .env_var("XREMAP_SOCKET", self.get_ipc_path())
+            .input_device(InputDeviceFilter::NoFilter)
+            .not_open_for_fetch()
+            .build()?;
+
+        let stdio = ctrl.wait_for_output()?;
+        assert_eq!(stdio.stderr, "");
+        Ok(stdio.stdout)
     }
 
     pub fn emit_events(&mut self, events: &[InputEvent]) -> anyhow::Result<()> {

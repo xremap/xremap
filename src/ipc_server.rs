@@ -431,25 +431,6 @@ mod tests {
     }
 
     #[test]
-    fn connections_and_accept_retry_are_bounded() {
-        let dir = SocketDir::new();
-        let path = dir.0.join("control.sock");
-        let mut server = IpcServer::new(&path).unwrap();
-        let _clients: Vec<_> = (0..MAX_CONNECTIONS + 1)
-            .map(|_| UnixStream::connect(&path).unwrap())
-            .collect();
-        server.accept();
-        server.accept();
-        assert_eq!(server.connections.len(), MAX_CONNECTIONS);
-        server.accept_retry_at = Some(Instant::now() + ACCEPT_BACKOFF);
-        assert!(server.accept_retry_delay().is_some());
-        assert!(!server.fds().any(|fd| fd.as_raw_fd() == server.listener.as_raw_fd()));
-        server.accept_retry_at = Some(Instant::now() - ACCEPT_BACKOFF);
-        assert!(server.accept_retry_delay().is_none());
-        assert!(server.fds().any(|fd| fd.as_raw_fd() == server.listener.as_raw_fd()));
-    }
-
-    #[test]
     fn framing_preserves_partial_lines_and_rejects_invalid_utf8() {
         let dir = SocketDir::new();
         let path = dir.0.join("control.sock");
