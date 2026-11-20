@@ -1,5 +1,6 @@
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use nix::sys::socket::sockopt::PeerCredentials;
+use nix::sys::socket::{connect, socket, AddressFamily, SockFlag, SockType, UnixAddr};
 use nix::sys::time::{TimeVal, TimeValLike};
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -165,7 +166,6 @@ fn socket_identity(meta: &std::fs::Metadata) -> (u64, u64, i64, i64) {
 
 /// Never unlink an ordinary file, symlink, foreign socket, or live listener.
 fn remove_stale_socket(path: &Path) -> anyhow::Result<()> {
-    use nix::sys::socket::{connect, socket, AddressFamily, SockFlag, SockType, UnixAddr};
     let meta = match std::fs::symlink_metadata(path) {
         Ok(meta) => meta,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
