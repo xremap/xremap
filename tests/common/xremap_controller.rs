@@ -48,7 +48,7 @@ impl XremapBuilder {
             watch_: false,
             watch_config_: false,
             validate_config_: false,
-            config_file: None,
+            config_file: Some("tests/common/config-test.yml".to_string()),
             env_var: None,
             controller_logging: true,
         }
@@ -142,7 +142,7 @@ pub struct XremapController {
     output_device_name: String,
     output_device: Option<Device>,
     device_filter: Option<String>,
-    config_file: String,
+    config_file: Option<String>,
     controller_logging: bool,
 }
 
@@ -173,16 +173,12 @@ impl XremapController {
         let config_file = match &def.config_file {
             Some(config) => {
                 if def.controller_logging {
-                    println!("Using custom config: {:?}", config);
+                    println!("Using config: {:?}", config);
                 }
                 builder.arg(config);
-                config
+                Some(config.to_string())
             }
-            None => {
-                let config = "tests/common/config-test.yml";
-                builder.arg(config);
-                config
-            }
+            None => None,
         };
 
         if !def.nocapture_ {
@@ -248,7 +244,7 @@ impl XremapController {
             output_device_name,
             output_device: None,
             device_filter,
-            config_file: config_file.to_string(),
+            config_file,
             controller_logging: def.controller_logging,
         };
 
@@ -277,7 +273,7 @@ impl XremapController {
     }
 
     pub fn get_config_file<'a>(&'a mut self) -> &'a str {
-        &self.config_file
+        &self.config_file.as_ref().unwrap()
     }
 
     pub fn log(&self, str: &str) {
