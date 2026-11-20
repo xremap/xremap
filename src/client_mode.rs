@@ -39,12 +39,12 @@ pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()
         format!("cannot connect to xremap IPC socket {} (is `ipc.socket` enabled in the config?)", path.display())
     })?;
 
-    let mut reader = BufReader::new(stream.try_clone()?);
     let line = command.request_line();
     stream.write_all(line.as_bytes())?;
     stream.write_all(b"\n")?;
     stream.flush()?;
 
+    let mut reader = BufReader::new(stream);
     let mut reply = String::new();
     reader.read_line(&mut reply)?;
     if reply.is_empty() {
