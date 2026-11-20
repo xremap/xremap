@@ -355,12 +355,6 @@ impl IpcServer {
     }
 }
 
-impl AsFd for IpcServer {
-    fn as_fd(&self) -> BorrowedFd<'_> {
-        self.listener.as_fd()
-    }
-}
-
 impl Drop for IpcServer {
     fn drop(&mut self) {
         if let Ok(meta) = std::fs::symlink_metadata(&self.path) {
@@ -546,8 +540,8 @@ mod tests {
         let mut client = UnixStream::connect(&path).unwrap();
         // Accept the connection, then find the server-side fd of the connection
         // (different from the client-side fd in this single-process test).
-        server.handle_readable(server.as_fd().as_raw_fd());
-        let listener_fd = server.as_fd().as_raw_fd();
+        server.handle_readable(server.listener.as_fd().as_raw_fd());
+        let listener_fd = server.listener.as_fd().as_raw_fd();
         let conn_fd = server
             .fds()
             .map(|fd| fd.as_raw_fd())
