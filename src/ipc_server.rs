@@ -321,33 +321,30 @@ impl IpcServer {
 
     fn accept(&mut self) {
         self.accept_retry_at = None;
-        // Bound work and descriptors even when a client keeps reconnecting.
-        for _ in 0..MAX_CONNECTIONS {
-            match self.listener.accept() {
-                Ok((stream, _)) => {
-                    if self.connections.len() >= MAX_CONNECTIONS
-                        || (stream.as_raw_fd() as usize) >= nix::sys::select::FD_SETSIZE
-                    {
-                        continue;
-                    }
-                    if let Err(err) = Self::check_peer(&stream) {
-                        eprintln!("xremap ipc: {err}");
-                        continue;
-                    }
-                    if let Err(err) = stream.set_nonblocking(true) {
-                        eprintln!("xremap ipc: failed to configure connection: {err}");
-                        continue;
-                    }
-                    self.buffers.insert(stream.as_raw_fd(), Vec::new());
-                    self.connections.insert(stream.as_raw_fd(), stream);
+
+        match self.listener.accept() {
+            Ok((stream, _)) => {
+                if self.connections.len() >= MAX_CONNECTIONS
+                    || (stream.as_raw_fd() as usize) >= nix::sys::select::FD_SETSIZE
+                {
+                    return;
                 }
-                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(err) => {
-                    eprintln!("xremap ipc: accept failed, will retry: {err}");
-                    self.accept_retry_at = Some(Instant::now() + ACCEPT_BACKOFF);
-                    break;
+                if let Err(err) = Self::check_peer(&stream) {
+                    eprintln!("xremap ipc: {err}");
+                    return;
                 }
+                if let Err(err) = stream.set_nonblocking(true) {
+                    eprintln!("xremap ipc: failed to configure connection: {err}");
+                    return;
+                }
+                self.buffers.insert(stream.as_raw_fd(), Vec::new());
+                self.connections.insert(stream.as_raw_fd(), stream);
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(err) if err.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(err) => {
+                eprintln!("xremap ipc: accept failed, will retry: {err}");
+                self.accept_retry_at = Some(Instant::now() + ACCEPT_BACKOFF);
             }
         }
     }
