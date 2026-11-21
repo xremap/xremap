@@ -21,13 +21,6 @@ pub enum ClientCommand {
     },
 }
 
-impl ClientCommand {
-    /// Render this command as one JSON request line.
-    fn request_line(&self) -> String {
-        serde_json::to_string(self).expect("client command serializes")
-    }
-}
-
 /// Send one subcommand to a running xremap and print the reply. Exit code is
 /// non-zero when the command fails.
 pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()> {
@@ -39,12 +32,12 @@ pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()
         format!("cannot connect to xremap IPC socket {} (is `ipc.socket` enabled in the config?)", path.display())
     })?;
 
-    let mut reader = BufReader::new(stream.try_clone()?);
-    let line = command.request_line();
+    let line = serde_json::to_string(&command)?;
     stream.write_all(line.as_bytes())?;
     stream.write_all(b"\n")?;
     stream.flush()?;
 
+    let mut reader = BufReader::new(stream);
     let mut reply = String::new();
     reader.read_line(&mut reply)?;
     if reply.is_empty() {
@@ -66,13 +59,13 @@ mod tests {
 
     #[test]
     fn request_line_matches_the_server_protocol() {
-        assert_eq!(ClientCommand::Ping.request_line(), r#"{"command":"ping"}"#);
-        assert_eq!(ClientCommand::GetMode.request_line(), r#"{"command":"get-mode"}"#);
+        assert_eq!(serde_json::to_string(&ClientCommand::Ping).unwrap(), r#"{"command":"ping"}"#);
+        assert_eq!(serde_json::to_string(&ClientCommand::GetMode).unwrap(), r#"{"command":"get-mode"}"#);
         assert_eq!(
-            ClientCommand::SetMode {
+            serde_json::to_string(&ClientCommand::SetMode {
                 mode: "normal".to_string()
-            }
-            .request_line(),
+            })
+            .unwrap(),
             r#"{"command":"set-mode","mode":"normal"}"#
         );
     }

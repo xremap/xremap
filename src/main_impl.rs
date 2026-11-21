@@ -23,7 +23,6 @@ use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
 use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
-use nix::sys::time::{TimeVal, TimeValLike};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
 use std::io::stdout;
@@ -426,45 +425,11 @@ fn event_loop(
             }
         }
 
-        let readable_ipc_fds: Vec<RawFd> = readable_fds
-            .iter()
-            .copied()
-            .filter(|fd| ipc.as_ref().is_some_and(|state| state.server.holds_fd(*fd)))
-            .collect();
-        for fd in readable_ipc_fds {
-            let Some(state) = ipc.as_mut() else { break };
-            let Some(mut batch) = state.server.handle_readable(fd) else {
-                continue;
+        if let Some(ipc) = ipc {
+            match ipc.handle(&readable_fds, handler)? {
+                Some(action) => return Ok(action),
+                None => {} // No main action.
             };
-            for line in std::mem::take(&mut batch.lines) {
-                let (command, mut reply) = match line {
-                    Ok(line) => crate::ipc_server::handle_command(&line, handler.current_mode()),
-                    Err(reason) => (None, crate::ipc_server::Reply::Err(reason)),
-                };
-                let mut next_action = None;
-                if let Some(command) = command {
-                    match execute_ipc_command(command, handler) {
-                        Ok(action) => next_action = action,
-                        Err(err) => reply = crate::ipc_server::Reply::Err(format!("{err:#}")),
-                    }
-                }
-                // Execution errors are command-local. Reply only after the
-                // side effects so the next line observes the updated state.
-                let reply_failed = if let Err(err) = batch.reply(&reply) {
-                    eprintln!("xremap ipc: failed to write reply: {err}");
-                    true
-                } else {
-                    false
-                };
-                // A disconnected client must not cancel an exit/restart that
-                // its configured key action already requested.
-                if let Some(action) = next_action {
-                    return Ok(action);
-                }
-                if reply_failed {
-                    break;
-                }
-            }
         }
 
         if let Some(device_watcher) = &device_watcher {
@@ -491,12 +456,7 @@ fn select_readable<'a>(
     event_handler: &impl AsFd,
     timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<Vec<RawFd>> {
-    // Snapshot the retry delay before collecting fds, so an expiring backoff
-    // cannot leave a select call with neither a listener nor a wakeup timeout.
-    let mut timeout = ipc
-        .as_ref()
-        .and_then(|state| state.server.accept_retry_delay())
-        .map(|delay| TimeVal::microseconds(delay.as_micros() as i64));
+    let mut timeout = ipc.as_ref().and_then(|ipc| ipc.server.accept_retry_delay());
     let mut read_fds = FdSet::new();
     read_fds.insert(event_handler.as_fd());
     read_fds.insert(timeout_manager.as_fd());
@@ -526,6 +486,47 @@ fn select_readable<'a>(
 /// Runtime state of the IPC server.
 struct IpcState {
     server: IpcServer,
+}
+
+impl IpcState {
+    fn handle(&mut self, readable_fds: &Vec<RawFd>, handler: &mut EventHandler) -> anyhow::Result<Option<MainAction>> {
+        for fd in readable_fds {
+            let Some(mut batch) = self.server.handle_readable(*fd) else {
+                continue;
+            };
+            for line in std::mem::take(&mut batch.lines) {
+                let (command, mut reply) = match line {
+                    Ok(line) => crate::ipc_server::handle_command(&line, handler.current_mode()),
+                    Err(reason) => (None, crate::ipc_server::Reply::Err(reason)),
+                };
+                let mut next_action = None;
+                if let Some(command) = command {
+                    match execute_ipc_command(command, handler) {
+                        Ok(action) => next_action = action,
+                        Err(err) => reply = crate::ipc_server::Reply::Err(format!("{err:#}")),
+                    }
+                }
+                // Execution errors are command-local. Reply only after the
+                // side effects so the next line observes the updated state.
+                let reply_failed = if let Err(err) = batch.reply(&reply) {
+                    eprintln!("xremap ipc: failed to write reply: {err}");
+                    true
+                } else {
+                    false
+                };
+                // A disconnected client must not cancel an exit/restart that
+                // its configured key action already requested.
+                if let Some(action) = next_action {
+                    return Ok(Some(action));
+                }
+                if reply_failed {
+                    break;
+                }
+            }
+        }
+
+        Ok(None)
+    }
 }
 
 fn build_ipc(config: &Config) -> anyhow::Result<Option<IpcState>> {

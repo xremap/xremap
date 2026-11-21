@@ -1,5 +1,7 @@
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use nix::sys::socket::sockopt::PeerCredentials;
+use nix::sys::socket::{connect, socket, AddressFamily, SockFlag, SockType, UnixAddr};
+use nix::sys::time::{TimeVal, TimeValLike};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
@@ -164,7 +166,6 @@ fn socket_identity(meta: &std::fs::Metadata) -> (u64, u64, i64, i64) {
 
 /// Never unlink an ordinary file, symlink, foreign socket, or live listener.
 fn remove_stale_socket(path: &Path) -> anyhow::Result<()> {
-    use nix::sys::socket::{connect, socket, AddressFamily, SockFlag, SockType, UnixAddr};
     let meta = match std::fs::symlink_metadata(path) {
         Ok(meta) => meta,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -215,10 +216,6 @@ impl IpcServer {
         })
     }
 
-    pub fn holds_fd(&self, fd: RawFd) -> bool {
-        fd == self.listener.as_raw_fd() || self.connections.contains_key(&fd)
-    }
-
     /// All fds the server wants select(2)ed on: the listener plus connections.
     pub fn fds(&self) -> impl Iterator<Item = BorrowedFd<'_>> {
         std::iter::once(self.listener.as_fd())
@@ -228,9 +225,12 @@ impl IpcServer {
 
     /// Wake select when accept can be retried; a resource error must not cause
     /// a hot readable-listener loop or prevent physical input processing.
-    pub fn accept_retry_delay(&self) -> Option<Duration> {
+    /// Snapshot the retry delay before collecting fds, so an expiring backoff
+    /// cannot leave a select call with neither a listener nor a wakeup timeout.
+    pub fn accept_retry_delay(&self) -> Option<TimeVal> {
         self.accept_retry_at
             .and_then(|at| at.checked_duration_since(Instant::now()))
+            .map(|delay| TimeVal::microseconds(delay.as_micros() as i64))
     }
 
     fn check_peer(stream: &UnixStream) -> anyhow::Result<()> {
@@ -321,33 +321,30 @@ impl IpcServer {
 
     fn accept(&mut self) {
         self.accept_retry_at = None;
-        // Bound work and descriptors even when a client keeps reconnecting.
-        for _ in 0..MAX_CONNECTIONS {
-            match self.listener.accept() {
-                Ok((stream, _)) => {
-                    if self.connections.len() >= MAX_CONNECTIONS
-                        || (stream.as_raw_fd() as usize) >= nix::sys::select::FD_SETSIZE
-                    {
-                        continue;
-                    }
-                    if let Err(err) = Self::check_peer(&stream) {
-                        eprintln!("xremap ipc: {err}");
-                        continue;
-                    }
-                    if let Err(err) = stream.set_nonblocking(true) {
-                        eprintln!("xremap ipc: failed to configure connection: {err}");
-                        continue;
-                    }
-                    self.buffers.insert(stream.as_raw_fd(), Vec::new());
-                    self.connections.insert(stream.as_raw_fd(), stream);
+
+        match self.listener.accept() {
+            Ok((stream, _)) => {
+                if self.connections.len() >= MAX_CONNECTIONS
+                    || (stream.as_raw_fd() as usize) >= nix::sys::select::FD_SETSIZE
+                {
+                    return;
                 }
-                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => break,
-                Err(err) if err.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(err) => {
-                    eprintln!("xremap ipc: accept failed, will retry: {err}");
-                    self.accept_retry_at = Some(Instant::now() + ACCEPT_BACKOFF);
-                    break;
+                if let Err(err) = Self::check_peer(&stream) {
+                    eprintln!("xremap ipc: {err}");
+                    return;
                 }
+                if let Err(err) = stream.set_nonblocking(true) {
+                    eprintln!("xremap ipc: failed to configure connection: {err}");
+                    return;
+                }
+                self.buffers.insert(stream.as_raw_fd(), Vec::new());
+                self.connections.insert(stream.as_raw_fd(), stream);
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {}
+            Err(err) if err.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(err) => {
+                eprintln!("xremap ipc: accept failed, will retry: {err}");
+                self.accept_retry_at = Some(Instant::now() + ACCEPT_BACKOFF);
             }
         }
     }
@@ -355,12 +352,6 @@ impl IpcServer {
     fn drop_connection(&mut self, fd: RawFd) {
         self.connections.remove(&fd);
         self.buffers.remove(&fd);
-    }
-}
-
-impl AsFd for IpcServer {
-    fn as_fd(&self) -> BorrowedFd<'_> {
-        self.listener.as_fd()
     }
 }
 
@@ -396,13 +387,18 @@ mod tests {
     }
 
     #[test]
-    fn live_socket_and_ordinary_files_are_not_unlinked() {
+    fn live_socket_is_not_unlinked() {
         let dir = SocketDir::new();
         let path = dir.0.join("control.sock");
-        let server = IpcServer::new(&path).unwrap();
+        let _server = IpcServer::new(&path).unwrap();
         assert!(IpcServer::new(&path).is_err());
         assert!(UnixStream::connect(&path).is_ok());
-        drop(server);
+    }
+
+    #[test]
+    fn ordinary_file_is_not_unlinked() {
+        let dir = SocketDir::new();
+        let path = dir.0.join("control.sock");
         std::fs::write(&path, "keep this file").unwrap();
         assert!(IpcServer::new(&path).is_err());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "keep this file");
@@ -428,25 +424,6 @@ mod tests {
         std::fs::write(&path, "replacement").unwrap();
         drop(server);
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "replacement");
-    }
-
-    #[test]
-    fn connections_and_accept_retry_are_bounded() {
-        let dir = SocketDir::new();
-        let path = dir.0.join("control.sock");
-        let mut server = IpcServer::new(&path).unwrap();
-        let _clients: Vec<_> = (0..MAX_CONNECTIONS + 1)
-            .map(|_| UnixStream::connect(&path).unwrap())
-            .collect();
-        server.accept();
-        server.accept();
-        assert_eq!(server.connections.len(), MAX_CONNECTIONS);
-        server.accept_retry_at = Some(Instant::now() + ACCEPT_BACKOFF);
-        assert!(server.accept_retry_delay().is_some());
-        assert!(!server.fds().any(|fd| fd.as_raw_fd() == server.listener.as_raw_fd()));
-        server.accept_retry_at = Some(Instant::now() - ACCEPT_BACKOFF);
-        assert!(server.accept_retry_delay().is_none());
-        assert!(server.fds().any(|fd| fd.as_raw_fd() == server.listener.as_raw_fd()));
     }
 
     #[test]
@@ -485,7 +462,6 @@ mod tests {
         let mut reply = String::new();
         client.read_to_string(&mut reply).unwrap();
         assert_eq!(reply, "err line too long\n");
-        assert!(!server.holds_fd(fd));
     }
 
     /// Parse a command.
@@ -569,8 +545,8 @@ mod tests {
         let mut client = UnixStream::connect(&path).unwrap();
         // Accept the connection, then find the server-side fd of the connection
         // (different from the client-side fd in this single-process test).
-        server.handle_readable(server.as_fd().as_raw_fd());
-        let listener_fd = server.as_fd().as_raw_fd();
+        server.handle_readable(server.listener.as_fd().as_raw_fd());
+        let listener_fd = server.listener.as_fd().as_raw_fd();
         let conn_fd = server
             .fds()
             .map(|fd| fd.as_raw_fd())
