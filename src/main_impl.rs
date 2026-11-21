@@ -12,6 +12,7 @@ use crate::device::{
 };
 use crate::event::Event;
 use crate::event_handler::EventHandler;
+use crate::ipc_server::{IpcCommand, IpcServer};
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
 use crate::plugin::{apply_plugin, Plugin};
@@ -32,7 +33,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 #[derive(Parser, Debug)]
-#[command(version)]
+#[command(version, subcommand_negates_reqs = true)]
 struct Args {
     /// Limit input devices to the given names or paths. Default is all keyboards.
     #[arg(long, value_delimiter = ',')]
@@ -118,6 +119,16 @@ struct Args {
     /// Since v0.15.1
     #[arg(long, verbatim_doc_comment)]
     bridge: bool,
+    /// Control a running xremap over its IPC socket.
+    ///
+    /// The first argument selects the subcommand; everything else is a config
+    /// file. See doc/reference_ipc.md for the protocol.
+    #[command(subcommand)]
+    command: Option<crate::client_mode::ClientCommand>,
+    /// IPC socket path for the client subcommands. Default is
+    /// $XDG_RUNTIME_DIR/xremap.sock, overridable with XREMAP_SOCKET.
+    #[arg(long, global = true)]
+    socket: Option<PathBuf>,
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
@@ -180,9 +191,15 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         no_window_logging,
         allow_launch,
         bridge,
+        command,
+        socket,
     } = Args::parse();
 
     let desktop = desktop.unwrap_or(Desktop::Auto);
+
+    if let Some(command) = command {
+        return crate::client_mode::run(command, socket);
+    }
 
     if let Some(shell) = completions {
         clap_complete::generate(shell, &mut Args::command(), "xremap", &mut stdout());
@@ -253,6 +270,9 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
         let mut config_watcher =
             ConfigWatcher::new(watch_config, config_paths.clone(), config.config_watch_debounce_ms)?;
 
+        // IPC server (disabled unless `ipc.socket` is set in the config)
+        let mut ipc = build_ipc(&config)?;
+
         // Default allow launch (Change to false in a major upgrade)
         let mut mainctrl = MainController::new(!no_window_logging, allow_launch.unwrap_or(true), desktop);
 
@@ -294,6 +314,7 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                 &mut input_devices,
                 &device_watcher,
                 &mut config_watcher,
+                &mut ipc,
                 &timeout_manager,
                 &mut handler,
                 &mut dispatcher,
@@ -312,6 +333,10 @@ pub fn xremap_cli(mut plugin: impl Plugin) -> anyhow::Result<()> {
                 }
                 MainAction::Reload { full } => match load_configs(&config_paths) {
                     Ok(new_config) => {
+                        // A partial reload deliberately leaves the IPC listener
+                        // untouched: rebuilding it would drop client connections,
+                        // and `ipc:` settings rarely change. They take effect on
+                        // a full reload ({ action: reload }) or a restart.
                         config = new_config;
                         if config.notifications {
                             mainctrl.show_popup("Ready", None);
@@ -354,6 +379,7 @@ fn event_loop(
     input_devices: &mut HashMap<PathBuf, InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &mut Option<ConfigWatcher>,
+    ipc: &mut Option<IpcState>,
     timeout_manager: &Rc<TimeoutManager>,
     handler: &mut EventHandler,
     dispatcher: &mut ActionDispatcher,
@@ -367,7 +393,7 @@ fn event_loop(
 ) -> anyhow::Result<MainAction> {
     'event_loop: loop {
         let readable_fds =
-            select_readable(input_devices.values(), &device_watcher, &config_watcher, &handler, &timeout_manager)?;
+            select_readable(input_devices.values(), &device_watcher, &config_watcher, ipc, &handler, &timeout_manager)?;
 
         if readable_fds.contains(&handler.as_fd().as_raw_fd()) {
             match handle_events(handler, dispatcher, &config, vec![Event::OverrideTimeout], mainctrl, plugin) {
@@ -399,6 +425,13 @@ fn event_loop(
             }
         }
 
+        if let Some(ipc) = ipc {
+            match ipc.handle(&readable_fds, handler)? {
+                Some(action) => return Ok(action),
+                None => {} // No main action.
+            };
+        }
+
         if let Some(device_watcher) = &device_watcher {
             if let Ok(events) = device_watcher.read_events() {
                 handle_device_changes(events, input_devices, &device_filter, &ignore_filter, mouse, &own_device);
@@ -419,14 +452,21 @@ fn select_readable<'a>(
     devices: impl Iterator<Item = &'a InputDevice>,
     device_watcher: &Option<DeviceWatcher>,
     config_watcher: &Option<ConfigWatcher>,
+    ipc: &Option<IpcState>,
     event_handler: &impl AsFd,
     timeout_manager: &Rc<TimeoutManager>,
 ) -> anyhow::Result<Vec<RawFd>> {
+    let mut timeout = ipc.as_ref().and_then(|ipc| ipc.server.accept_retry_delay());
     let mut read_fds = FdSet::new();
     read_fds.insert(event_handler.as_fd());
     read_fds.insert(timeout_manager.as_fd());
     for device in devices {
         read_fds.insert(device.as_fd());
+    }
+    if let Some(ipc) = ipc {
+        for fd in ipc.server.fds() {
+            read_fds.insert(fd);
+        }
     }
     #[cfg(target_os = "linux")]
     if let Some(device_watcher) = device_watcher {
@@ -437,10 +477,73 @@ fn select_readable<'a>(
         read_fds.insert(config_watcher.borrow_timer());
         read_fds.insert(config_watcher.borrow_inotify());
     }
-    select(None, &mut read_fds, None, None, None)?;
+    select(None, &mut read_fds, None, None, timeout.as_mut())?;
 
     // Make the result independent of borrowed fds
     Ok(read_fds.fds(None).map(|fd| fd.as_raw_fd()).collect())
+}
+
+/// Runtime state of the IPC server.
+struct IpcState {
+    server: IpcServer,
+}
+
+impl IpcState {
+    fn handle(&mut self, readable_fds: &Vec<RawFd>, handler: &mut EventHandler) -> anyhow::Result<Option<MainAction>> {
+        for fd in readable_fds {
+            let Some(mut batch) = self.server.handle_readable(*fd) else {
+                continue;
+            };
+            for line in std::mem::take(&mut batch.lines) {
+                let (command, mut reply) = match line {
+                    Ok(line) => crate::ipc_server::handle_command(&line, handler.current_mode()),
+                    Err(reason) => (None, crate::ipc_server::Reply::Err(reason)),
+                };
+                let mut next_action = None;
+                if let Some(command) = command {
+                    match execute_ipc_command(command, handler) {
+                        Ok(action) => next_action = action,
+                        Err(err) => reply = crate::ipc_server::Reply::Err(format!("{err:#}")),
+                    }
+                }
+                // Execution errors are command-local. Reply only after the
+                // side effects so the next line observes the updated state.
+                let reply_failed = if let Err(err) = batch.reply(&reply) {
+                    eprintln!("xremap ipc: failed to write reply: {err}");
+                    true
+                } else {
+                    false
+                };
+                // A disconnected client must not cancel an exit/restart that
+                // its configured key action already requested.
+                if let Some(action) = next_action {
+                    return Ok(Some(action));
+                }
+                if reply_failed {
+                    break;
+                }
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+fn build_ipc(config: &Config) -> anyhow::Result<Option<IpcState>> {
+    let Some(ipc) = &config.ipc else { return Ok(None) };
+    let server = IpcServer::new(&ipc.socket)
+        .with_context(|| format!("Failed to start IPC server on {}", ipc.socket.display()))?;
+    println!("IPC socket listening on {}", ipc.socket.display());
+    Ok(Some(IpcState { server }))
+}
+
+fn execute_ipc_command(command: IpcCommand, handler: &mut EventHandler) -> anyhow::Result<Option<MainAction>> {
+    match command {
+        IpcCommand::SetMode(mode) => {
+            handler.set_mode_external(&mode);
+            Ok(None)
+        }
+    }
 }
 
 fn handle_input_events(

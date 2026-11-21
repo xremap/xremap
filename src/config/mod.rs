@@ -46,6 +46,7 @@ pub struct Config {
     pub keymap_table: HashMap<Key, Vec<KeymapEntry>>,
     pub enable_wheel: bool,
     pub bypass: ConfigBool,
+    pub ipc: Option<IpcOptions>,
 }
 
 impl Config {
@@ -65,6 +66,7 @@ impl Config {
             notifications: config.notifications.unwrap_or(false),
             enable_wheel: config.enable_wheel.unwrap_or(true),
             bypass,
+            ipc: config.ipc.and_then(|ipc| ipc.finish()),
         })
     }
 
@@ -113,6 +115,41 @@ pub struct ParseConfig {
 
     #[serde(default)]
     pub enable_wheel: Option<bool>,
+
+    #[serde(default)]
+    pub ipc: Option<ParseIpc>,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ParseIpc {
+    #[serde(default)]
+    pub socket: Option<SocketSpec>,
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(untagged)]
+pub enum SocketSpec {
+    Bool(bool),
+    Path(PathBuf),
+}
+
+/// Resolved IPC options for the runtime.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IpcOptions {
+    pub socket: PathBuf,
+}
+
+impl ParseIpc {
+    pub fn finish(self) -> Option<IpcOptions> {
+        let socket = match self.socket? {
+            // `socket: false` explicitly disables the IPC server.
+            SocketSpec::Bool(false) => return None,
+            SocketSpec::Bool(true) => crate::ipc_server::default_socket_path(),
+            SocketSpec::Path(path) => path,
+        };
+        Some(IpcOptions { socket })
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -172,6 +209,18 @@ pub fn load_configs(filenames: &[PathBuf]) -> Result<Config, Box<dyn error::Erro
             bypass,
             enable_wheel,
         );
+        // The `ipc` section follows the same first-wins rule as the
+        // single-value options, per field: a later file may fill `socket`
+        // only when no earlier file set it.
+        match (&mut config.ipc, &mut c.ipc) {
+            (Some(config_ipc), Some(c_ipc)) => {
+                if config_ipc.socket.is_none() {
+                    config_ipc.socket = c_ipc.socket.take();
+                }
+            }
+            (None, Some(_)) => config.ipc = c.ipc.take(),
+            _ => {}
+        }
     }
 
     Config::new(config)
