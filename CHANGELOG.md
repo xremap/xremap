@@ -1,3 +1,11 @@
+## v0.15.19
+
+- Add IPC control socket. https://github.com/xremap/xremap/pull/1047
+- Fix: Follow the initially active window's title in KWin script. https://github.com/xremap/xremap/pull/1042
+- Chore: Fix warnings. https://github.com/xremap/xremap/pull/1049
+- Chore: Add global-min-publish-age. https://github.com/xremap/xremap/pull/1045
+- Chore: GitHub workflow: Remove sudo -E in build.yml. https://github.com/xremap/xremap/pull/1046
+
 ## v0.15.18
 
 - Fix: GNOME extension can send null values https://github.com/xremap/xremap/pull/1043
