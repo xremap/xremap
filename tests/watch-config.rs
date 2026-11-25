@@ -1,4 +1,5 @@
-#![cfg(feature = "device-test")]
+// Watch not support in freebsd
+#![cfg(all(feature = "device-test", target_os = "linux"))]
 
 use crate::common::{assert_events, containsn, key_press, key_release, xremap_controller::XremapController};
 use evdev::KeyCode;

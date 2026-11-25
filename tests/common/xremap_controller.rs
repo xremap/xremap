@@ -475,7 +475,8 @@ impl XremapController {
 
     pub fn fetch(&mut self) -> anyhow::Result<Vec<InputEvent>> {
         // Sync key
-        self.emit_events(&vec![key_press(Key::KEY_MOVE), key_release(Key::KEY_MOVE)])?;
+        self.emit_events(&vec![key_press(Key::KEY_MOVE)])?;
+        self.emit_events(&vec![key_release(Key::KEY_MOVE)])?;
 
         // Fetch until sync key.
         Ok(self.fetch_until_key(Key::KEY_MOVE)?)

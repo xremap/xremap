@@ -4,7 +4,7 @@ use crate::common::key_press;
 use crate::common::xremap_controller::XremapController;
 use evdev::KeyCode;
 use indoc::indoc;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::os::unix::net::UnixStream;
 
 mod common;
@@ -82,7 +82,11 @@ pub fn e2e_ipc_max_connections() -> anyhow::Result<()> {
         let reader = UnixStream::connect(ctrl.get_ipc_path()).and_then(|mut stream| {
             stream.write_all(b"get-mode\n")?;
             let mut reader = BufReader::new(stream);
-            reader.read_line(&mut String::new())?;
+            let mut reply = String::new();
+            reader.read_line(&mut reply)?;
+            if reply.is_empty() {
+                return Err(Error::new(ErrorKind::Other, "xremap closed the connection before replying"));
+            }
             Ok(reader)
         });
         match reader {

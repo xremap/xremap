@@ -1,7 +1,8 @@
 #![cfg(feature = "device-test")]
 
-use crate::common::{final_event_state, key_press, xremap_controller::XremapController};
+use crate::common::{assert_events, key_press, xremap_controller::XremapController};
 use evdev::KeyCode;
+use indoc::indoc;
 
 mod common;
 
@@ -11,8 +12,13 @@ pub fn e2e_keymap_no_op() -> anyhow::Result<()> {
 
     ctrl.emit_events(&vec![key_press(KeyCode::KEY_W)])?;
 
-    // keymap clicks when triggered so ends in released state.
-    assert_eq!(Some(0), final_event_state(KeyCode::KEY_W, ctrl.fetch_events()?));
+    assert_events(
+        ctrl.fetch_until_key(KeyCode::KEY_W)?,
+        indoc! {"
+            w:1
+            w:0
+        "},
+    );
 
     ctrl.kill()
 }
