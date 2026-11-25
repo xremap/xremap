@@ -10,6 +10,7 @@ pub use evdev::KeyCode;
 // Exports used by integration/e2e test cases.
 pub mod private {
     pub use crate::device::{select_input_devices, SEPARATOR};
+    pub use crate::platform::{ENODEV_EVDEV, ENODEV_UNGRAB};
     pub use crate::util::{until, until_value};
 }
 

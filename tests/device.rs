@@ -2,8 +2,8 @@
 
 use crate::common::xremap_controller::{InputDeviceFilter, XremapController};
 use crate::common::{
-    assert_err, assert_events, assert_str_contains, fetch_events, get_random_device_name, get_raw_device_pair,
-    get_virtual_device, key_press, key_release, wait_for_device,
+    assert_err, assert_events, assert_str_contains, get_random_device_name, get_raw_device_pair, get_virtual_device,
+    key_press, key_release, try_fetch_events, wait_for_device,
 };
 use anyhow::Result;
 use evdev::uinput::VirtualDevice;
@@ -79,7 +79,7 @@ pub fn test_device_that_is_already_grabbed() -> Result<()> {
     let output = ctrl.kill_for_output()?;
 
     assert_str_contains("Failed to prepare input devices", &output.stderr);
-    assert_str_contains("Device or resource busy", &output.stderr);
+    assert_str_contains("busy", &output.stderr);
     assert_str_contains("Another program might have grabbed the device", &output.stderr);
 
     Ok(())
@@ -121,7 +121,7 @@ pub fn test_wait_for_all_up_keys_up() -> Result<()> {
     std::thread::sleep(Duration::from_millis(200));
 
     // The release event was not swallowed by xremap
-    let events: Vec<_> = fetch_events(&mut input)?.collect();
+    let events = try_fetch_events(&mut input)?.unwrap();
     assert_events(
         events,
         indoc! {"

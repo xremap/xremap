@@ -6,14 +6,14 @@ pub mod xremap_controller;
 use crate::common::inputevent_formatter::get_pretty_events;
 use anyhow::bail;
 use evdev::uinput::VirtualDevice;
-use evdev::{AttributeSet, BusType, Device, EventType, FetchEventsSynced, InputEvent, InputId, KeyCode, SwitchCode};
+use evdev::{AttributeSet, BusType, Device, EventType, InputEvent, InputId, KeyCode, SwitchCode};
 use nix::sys::select::{select, FdSet};
 use nix::sys::time::TimeValLike;
 use std::iter::repeat_with;
 use std::os::fd::AsFd;
 use std::path::PathBuf;
 use std::time::Duration;
-use xremap::private::{until, until_value};
+use xremap::private::{until, until_value, ENODEV_EVDEV};
 
 pub fn key_click(key: KeyCode) -> Vec<InputEvent> {
     vec![key_press(key), key_release(key)]
@@ -179,7 +179,8 @@ pub fn containsn(count: u64, hackstack: &str, needle: &str) -> bool {
     !hackstack.contains(needle)
 }
 
-pub fn fetch_events(device: &mut Device) -> anyhow::Result<FetchEventsSynced<'_>> {
+// Returns None if the device is gone.
+pub fn try_fetch_events(device: &mut Device) -> anyhow::Result<Option<Vec<InputEvent>>> {
     let mut fds = FdSet::new();
     fds.insert(device.as_fd());
 
@@ -189,7 +190,11 @@ pub fn fetch_events(device: &mut Device) -> anyhow::Result<FetchEventsSynced<'_>
         bail!("Timed out waiting for xremap events.");
     }
 
-    Ok(device.fetch_events()?)
+    match device.fetch_events() {
+        Err(err) if err.raw_os_error() == Some(ENODEV_EVDEV) => Ok(None),
+        Err(err) => Err(err.into()),
+        Ok(events) => Ok(Some(events.collect())),
+    }
 }
 
 #[test]

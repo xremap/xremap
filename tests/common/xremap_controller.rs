@@ -1,16 +1,15 @@
 use crate::common::{
-    fetch_events, get_random_device_name, get_virtual_device, key_press, key_release, wait_for_device,
+    get_random_device_name, get_virtual_device, key_press, key_release, try_fetch_events, wait_for_device,
     wait_for_grabbed, VirtualDeviceInfo,
 };
 use anyhow::{bail, Result};
-use evdev::{Device, EventType, FetchEventsSynced, InputEvent, KeyCode as Key};
-use nix::libc::ENODEV;
+use evdev::{Device, EventType, InputEvent, KeyCode as Key};
 use std::cell::Cell;
 use std::iter::repeat_with;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
-use xremap::private::{until, SEPARATOR};
+use xremap::private::{until, ENODEV_EVDEV, SEPARATOR};
 
 pub enum InputDeviceFilter {
     NoFilter,
@@ -363,7 +362,12 @@ impl XremapController {
         match &mut self.output_device {
             Some(device) => {
                 device.ungrab().or_else(|err| {
-                    if err.raw_os_error() == Some(ENODEV) {
+                    #[cfg(target_os = "freebsd")]
+                    if err.raw_os_error() == Some(xremap::private::ENODEV_UNGRAB) {
+                        return Ok(());
+                    }
+
+                    if err.raw_os_error() == Some(ENODEV_EVDEV) {
                         // Suppress when device is already gone.
                         Ok(())
                     } else {
@@ -414,8 +418,12 @@ impl XremapController {
         Ok(input_device.device.emit(events)?)
     }
 
-    pub fn fetch_events(&mut self) -> anyhow::Result<FetchEventsSynced<'_>> {
-        fetch_events(self.output_device.as_mut().expect("Output device is not opened"))
+    pub fn fetch_events(&mut self) -> anyhow::Result<Vec<InputEvent>> {
+        Ok(self.try_fetch_events()?.unwrap())
+    }
+
+    pub fn try_fetch_events(&mut self) -> anyhow::Result<Option<Vec<InputEvent>>> {
+        try_fetch_events(self.output_device.as_mut().expect("Output device is not opened"))
     }
 
     pub fn fetch_until_end(&mut self) -> anyhow::Result<Vec<InputEvent>> {
@@ -441,15 +449,17 @@ impl XremapController {
                 break;
             }
 
-            let events = self.fetch_events();
-
-            if let Err(err) = &events {
-                if allow_eof && err.to_string() == "No such device (os error 19)" {
+            let events = match self.try_fetch_events()? {
+                Some(x) => x,
+                None => {
+                    if !allow_eof {
+                        bail!("Device is gone")
+                    }
                     return Ok(result);
                 }
-            }
+            };
 
-            for event in events? {
+            for event in events {
                 if let Some(key) = key {
                     if event.event_type() == EventType::KEY && event.code() == key.0 && event.value() == 0 {
                         done = true;

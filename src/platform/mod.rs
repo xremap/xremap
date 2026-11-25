@@ -4,6 +4,6 @@ mod platform_freebsd;
 mod platform_linux;
 
 #[cfg(target_os = "freebsd")]
-pub use platform_freebsd::{ConfigWatcher, DeviceWatcher};
+pub use platform_freebsd::{ConfigWatcher, DeviceWatcher, ENODEV_EVDEV, ENODEV_UNGRAB};
 #[cfg(target_os = "linux")]
-pub use platform_linux::{ConfigWatcher, DeviceWatcher};
+pub use platform_linux::{ConfigWatcher, DeviceWatcher, ENODEV_EVDEV, ENODEV_UNGRAB};

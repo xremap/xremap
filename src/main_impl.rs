@@ -10,14 +10,13 @@ use crate::event_handler::EventHandler;
 use crate::ipc_server::{IpcCommand, IpcServer};
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
-use crate::platform::{ConfigWatcher, DeviceWatcher};
+use crate::platform::{ConfigWatcher, DeviceWatcher, ENODEV_EVDEV};
 use crate::plugin::{apply_plugin, Plugin};
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;
 use anyhow::{anyhow, bail, Context};
 use clap::{CommandFactory, Parser, ValueEnum};
 use clap_complete::Shell;
-use nix::libc::ENODEV;
 use nix::sys::select::{select, FdSet};
 use nix::sys::timerfd::{ClockId, TimerFd, TimerFlags};
 use std::collections::HashMap;
@@ -552,7 +551,7 @@ fn handle_input_events(
 ) -> anyhow::Result<Option<MainAction>> {
     let info = Rc::new(input_device.to_info());
     let events = match input_device.fetch_events() {
-        Err(err) if err.raw_os_error() == Some(ENODEV) => {
+        Err(err) if err.raw_os_error() == Some(ENODEV_EVDEV) => {
             // The device doesn't exist anymore.
             return Ok(Some(MainAction::RemoveDevice(info)));
         }
