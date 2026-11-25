@@ -1,8 +1,3 @@
-#[cfg(target_os = "freebsd")]
-use crate::platform_freebsd::{ConfigWatcher, DeviceWatcher};
-#[cfg(target_os = "linux")]
-use crate::platform_linux::{ConfigWatcher, DeviceWatcher};
-
 use crate::action_dispatcher::ActionDispatcher;
 use crate::client::{print_open_windows, print_supported_desktops};
 use crate::config::{load_configs, Config};
@@ -15,6 +10,7 @@ use crate::event_handler::EventHandler;
 use crate::ipc_server::{IpcCommand, IpcServer};
 use crate::main_controller::MainController;
 use crate::operator_handler::OperatorHandler;
+use crate::platform::{ConfigWatcher, DeviceWatcher};
 use crate::plugin::{apply_plugin, Plugin};
 use crate::throttle_emit::ThrottleEmit;
 use crate::timeout_manager::TimeoutManager;

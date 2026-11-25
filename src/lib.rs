@@ -14,10 +14,6 @@ pub mod private {
 }
 
 // Modules
-#[cfg(target_os = "freebsd")]
-mod platform_freebsd;
-#[cfg(target_os = "linux")]
-mod platform_linux;
 
 #[cfg(test)]
 mod tests;
@@ -42,6 +38,7 @@ mod operator_oneshot;
 mod operator_sim;
 mod operator_throttle;
 mod operators;
+mod platform;
 mod plugin;
 mod throttle_emit;
 mod timeout_manager;
