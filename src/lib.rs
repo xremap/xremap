@@ -10,14 +10,11 @@ pub use evdev::KeyCode;
 // Exports used by integration/e2e test cases.
 pub mod private {
     pub use crate::device::{select_input_devices, SEPARATOR};
+    pub use crate::platform::{ENODEV_EVDEV, ENODEV_UNGRAB};
     pub use crate::util::{until, until_value};
 }
 
 // Modules
-#[cfg(target_os = "freebsd")]
-mod platform_freebsd;
-#[cfg(target_os = "linux")]
-mod platform_linux;
 
 #[cfg(test)]
 mod tests;
@@ -42,6 +39,7 @@ mod operator_oneshot;
 mod operator_sim;
 mod operator_throttle;
 mod operators;
+mod platform;
 mod plugin;
 mod throttle_emit;
 mod timeout_manager;

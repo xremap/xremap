@@ -1,4 +1,5 @@
-#![cfg(feature = "device-test")]
+// Watch not support in freebsd
+#![cfg(all(feature = "device-test", target_os = "linux"))]
 
 use crate::common::xremap_controller::{InputDeviceFilter, XremapController};
 use crate::common::{
