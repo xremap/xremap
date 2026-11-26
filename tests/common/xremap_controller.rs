@@ -34,6 +34,7 @@ pub struct XremapBuilder {
     env_var: Option<(String, String)>,
     controller_logging: bool,
     ipc_path: Option<String>,
+    ipc_inject: bool,
 }
 
 impl XremapBuilder {
@@ -55,6 +56,7 @@ impl XremapBuilder {
             env_var: None,
             controller_logging: true,
             ipc_path: None,
+            ipc_inject: false,
         }
     }
 
@@ -128,11 +130,19 @@ impl XremapBuilder {
             "
 ipc:
     socket: {}
+    inject: {}
 ",
-            self.ipc_path.as_ref().unwrap()
+            self.ipc_path.as_ref().unwrap(),
+            self.ipc_inject
         );
         self.config(&format!("{config}\n{ipc_config}"))?;
         Ok(self)
+    }
+
+    /// Enable the IPC injection command family in the generated `ipc:` block.
+    pub fn ipc_inject(&mut self, value: bool) -> &mut Self {
+        self.ipc_inject = value;
+        self
     }
 
     pub fn env_var(&mut self, name: &str, value: &str) -> &mut Self {
@@ -381,6 +391,15 @@ impl XremapController {
 
     /// Run ipc command by running xremap-cli subcommand.
     pub fn ipc_client(&self, cmds: Vec<&str>) -> anyhow::Result<String> {
+        self.ipc_client_with(cmds, true)
+    }
+
+    /// Run an ipc command that is expected to fail, returning its `err` reply.
+    pub fn ipc_client_failure(&self, cmds: Vec<&str>) -> anyhow::Result<String> {
+        self.ipc_client_with(cmds, false)
+    }
+
+    fn ipc_client_with(&self, cmds: Vec<&str>, expect_success: bool) -> anyhow::Result<String> {
         let mut builder = XremapController::builder();
 
         builder.config_file = None;
@@ -395,7 +414,13 @@ impl XremapController {
             .build()?;
 
         let stdio = ctrl.wait_for_output()?;
-        assert_eq!(stdio.stderr, "");
+        if expect_success {
+            assert_eq!(stdio.stderr, "");
+        } else {
+            // A failing subcommand prints the `err` reply on stdout and exits
+            // non-zero; the client also reports the failure on stderr.
+            assert!(stdio.stdout.starts_with("err "), "{:?}", stdio.stdout);
+        }
         Ok(stdio.stdout)
     }
 

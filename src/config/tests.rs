@@ -752,6 +752,7 @@ fn test_ipc_config_defaults() {
     .unwrap();
     let ipc = config.ipc.expect("ipc should be enabled");
     assert_eq!(ipc.socket, crate::ipc_server::default_socket_path());
+    assert!(!ipc.inject, "injection is off by default");
 }
 
 #[test]
@@ -759,10 +760,12 @@ fn test_ipc_config_explicit() {
     let config = Config::new_from_str(indoc! {"
         ipc:
           socket: /tmp/my.sock
+          inject: true
         "})
     .unwrap();
     let ipc = config.ipc.expect("ipc should be enabled");
     assert_eq!(ipc.socket, Path::new("/tmp/my.sock"));
+    assert!(ipc.inject);
 }
 
 #[test]
@@ -816,7 +819,8 @@ fn test_load_configs_keeps_ipc_from_the_second_file() {
     assert_eq!(
         config.ipc,
         Some(IpcOptions {
-            socket: PathBuf::from("/tmp/xremap-merge-test.sock")
+            socket: PathBuf::from("/tmp/xremap-merge-test.sock"),
+            inject: false
         })
     );
     // The modmap of the first file is still there.
@@ -834,14 +838,15 @@ fn test_load_configs_ipc_fields_merge_first_wins() {
     let first = dir.join("first.yml");
     let second = dir.join("second.yml");
 
-    // The first file's socket wins.
+    // The first file's socket wins; the second file fills `inject`.
     std::fs::write(&first, "ipc:\n  socket: /tmp/one.sock\n").unwrap();
-    std::fs::write(&second, "ipc:\n  socket: /tmp/two.sock\n").unwrap();
+    std::fs::write(&second, "ipc:\n  socket: /tmp/two.sock\n  inject: true\n").unwrap();
     let config = load_configs(&[PathBuf::from(&first), PathBuf::from(&second)]).unwrap();
     assert_eq!(
         config.ipc,
         Some(IpcOptions {
-            socket: PathBuf::from("/tmp/one.sock")
+            socket: PathBuf::from("/tmp/one.sock"),
+            inject: true
         })
     );
 
@@ -851,7 +856,8 @@ fn test_load_configs_ipc_fields_merge_first_wins() {
     assert_eq!(
         config.ipc,
         Some(IpcOptions {
-            socket: PathBuf::from("/tmp/two.sock")
+            socket: PathBuf::from("/tmp/two.sock"),
+            inject: true
         })
     );
 

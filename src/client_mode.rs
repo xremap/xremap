@@ -19,6 +19,53 @@ pub enum ClientCommand {
         /// Mode name to switch to.
         mode: String,
     },
+    /// Inject key chords, each a press and a release. Requires `ipc.inject`.
+    Key {
+        /// Simulated source device name (matches `device:` keymap conditions).
+        #[arg(long, value_name = "NAME")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        device: Option<String>,
+        /// Pipeline layer the chords enter at: raw (default), keymap, modmap, expmap.
+        #[arg(long, value_name = "SCOPE")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope: Option<crate::ipc_server::InjectScope>,
+        /// Chords like `ctrl+a`, `f13` or `Down*3` (repeat suffix).
+        #[arg(value_name = "CHORD", required = true, num_args = 1.., trailing_var_arg = true, allow_hyphen_values = true)]
+        chords: Vec<String>,
+    },
+    /// Press and hold the given chords. Requires `ipc.inject`.
+    Keydown {
+        /// Simulated source device name (matches `device:` keymap conditions).
+        #[arg(long, value_name = "NAME")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        device: Option<String>,
+        /// Pipeline layer the chords enter at: raw (default), keymap, modmap, expmap.
+        #[arg(long, value_name = "SCOPE")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope: Option<crate::ipc_server::InjectScope>,
+        /// Chords like `ctrl+a`, `f13` or `Down*3` (repeat suffix).
+        #[arg(value_name = "CHORD", required = true, num_args = 1.., trailing_var_arg = true, allow_hyphen_values = true)]
+        chords: Vec<String>,
+    },
+    /// Release the given chords. Requires `ipc.inject`.
+    Keyup {
+        /// Simulated source device name (matches `device:` keymap conditions).
+        #[arg(long, value_name = "NAME")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        device: Option<String>,
+        /// Pipeline layer the chords enter at: raw (default), keymap, modmap, expmap.
+        #[arg(long, value_name = "SCOPE")]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope: Option<crate::ipc_server::InjectScope>,
+        /// Chords like `ctrl+a`, `f13` or `Down*3` (repeat suffix).
+        #[arg(value_name = "CHORD", required = true, num_args = 1.., trailing_var_arg = true, allow_hyphen_values = true)]
+        chords: Vec<String>,
+    },
+    /// Pause command processing (1-5000 ms). Blocks xremap's event loop. Requires `ipc.inject`.
+    Sleep {
+        /// Milliseconds to pause.
+        milliseconds: u64,
+    },
 }
 
 /// Send one subcommand to a running xremap and print the reply. Exit code is
@@ -45,8 +92,8 @@ pub fn run(command: ClientCommand, socket: Option<PathBuf>) -> anyhow::Result<()
     }
     print!("{reply}");
     std::io::stdout().flush()?;
-    // Replies are "pong" or "err REASON". Any reply that is not an error
-    // succeeded.
+    // Replies are "ok", "pong", the bare mode name of get-mode, or
+    // "err REASON". Any reply that is not an error succeeded.
     if reply.starts_with("err") {
         anyhow::bail!("the command failed");
     }
@@ -67,6 +114,28 @@ mod tests {
             })
             .unwrap(),
             r#"{"command":"set-mode","mode":"normal"}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&ClientCommand::Key {
+                device: None,
+                scope: None,
+                chords: vec!["ctrl+a".to_string(), "Down*3".to_string()]
+            })
+            .unwrap(),
+            r#"{"command":"key","chords":["ctrl+a","Down*3"]}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&ClientCommand::Key {
+                device: Some("my-kbd".to_string()),
+                scope: Some(crate::ipc_server::InjectScope::Remap),
+                chords: vec!["f13".to_string()]
+            })
+            .unwrap(),
+            r#"{"command":"key","device":"my-kbd","scope":"remap","chords":["f13"]}"#
+        );
+        assert_eq!(
+            serde_json::to_string(&ClientCommand::Sleep { milliseconds: 100 }).unwrap(),
+            r#"{"command":"sleep","milliseconds":100}"#
         );
     }
 }

@@ -106,3 +106,59 @@ pub fn e2e_ipc_max_connections() -> anyhow::Result<()> {
     ctrl.wait_for_output()?;
     Ok(())
 }
+
+#[test]
+pub fn e2e_ipc_key_injection_is_disabled_by_default() -> anyhow::Result<()> {
+    let ctrl = XremapController::builder()
+        .config_with_ipc(&indoc! {"
+            keymap:
+                - remap:
+                    f12: { action: exit }
+            ",
+        })?
+        .build()?;
+
+    // Injection requires `ipc.inject: true`; the daemon must stay up.
+    assert_eq!("err injection disabled\n", ctrl.ipc_client_failure(vec!["key", "f24"])?);
+    assert_eq!("err injection disabled\n", ctrl.ipc_client_failure(vec!["keydown", "shift"])?);
+    assert_eq!("err injection disabled\n", ctrl.ipc_client_failure(vec!["sleep", "1"])?);
+    assert_eq!("pong\n", ctrl.ipc_client(vec!["ping"])?);
+    Ok(())
+}
+
+#[test]
+pub fn e2e_ipc_injected_keys_enter_the_keymap() -> anyhow::Result<()> {
+    let mut ctrl = XremapController::builder()
+        .ipc_inject(true)
+        .config_with_ipc(&indoc! {"
+            keymap:
+                - remap:
+                    f24: { action: exit }
+            ",
+        })?
+        .build()?;
+
+    // `keydown`/`keyup` are accepted; the injected key then flows through the
+    // keymap (scope `remap`) and triggers the configured exit. The raw scope
+    // bypasses the pipeline, so the mapping would not match.
+    assert_eq!("ok\n", ctrl.ipc_client(vec!["keydown", "--scope", "remap", "f24"])?);
+    ctrl.wait_for_output()?;
+    Ok(())
+}
+
+#[test]
+pub fn e2e_ipc_sleep_pauses_but_keeps_the_daemon_responsive() -> anyhow::Result<()> {
+    let ctrl = XremapController::builder()
+        .ipc_inject(true)
+        .config_with_ipc(&indoc! {"
+            keymap:
+                - remap:
+                    f12: { action: exit }
+            ",
+        })?
+        .build()?;
+
+    assert_eq!("ok\n", ctrl.ipc_client(vec!["sleep", "1"])?);
+    assert_eq!("pong\n", ctrl.ipc_client(vec!["ping"])?);
+    Ok(())
+}

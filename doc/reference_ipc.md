@@ -13,11 +13,13 @@ The feature is **disabled by default**.
 ipc:                    # omit the whole section to disable IPC entirely
   socket: true          # listen on $XDG_RUNTIME_DIR/xremap.sock (or an explicit path)
   # socket: /run/user/1000/my-xremap.sock
+  inject: false         # true enables the key injection commands
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
 | `socket` | (none — IPC off) | `true` for the default path, or an explicit path. `false` explicitly disables. |
+| `inject` | `false` | Enables the injection command family: `key`, `keydown`, `keyup` and `sleep`. |
 
 The default socket path falls back to `$TMPDIR/xremap-<uid>.sock` when
 `$XDG_RUNTIME_DIR` is unset.
@@ -39,13 +41,52 @@ line per command, in order.
 {"command":"ping"}                     → pong\n
 ```
 
+### Injection commands
+
+With `ipc.inject: true`, the key injection commands become available. They
+reply `ok\n` on success and `err REASON\n` on failure.
+
+- `key` / `keydown` / `keyup` — inject key chords:
+
+  ```
+  {"command":"key","scope":"raw","device":"my-kbd","chords":["ctrl+a","Down*3"]}
+  ```
+
+  A chord is `MODIFIER+...+KEY` using the config key names (`ctrl`, `shift`,
+  `alt`, `super`, `altgr`, then e.g. `f13`, `KEY_F13`, `CODE_183`), with an
+  optional `*N` repeat suffix (1–16 per command). A lone modifier chord
+  (`shift`) means the left-hand key. `keydown` emits only the press half and
+  `keyup` only the release half, so a held modifier can span several commands:
+
+  ```
+  {"command":"keydown","chords":["shift"]}
+  {"command":"key","chords":["a"]}
+  {"command":"keyup","chords":["shift"]}
+  ```
+
+  `scope` selects whether the chords go through remapping:
+
+  | scope | flow |
+  |---|---|
+  | `raw` (default) | straight to the app, no rule applies |
+  | `remap` | through the normal pipeline (experimental_map → modmap → keymap), exactly like a physical key |
+
+  `device` is a simulated source device name (default `xremap-ipc`) that
+  `device:` keymap conditions can match. With `raw` the chords never match a
+  rule; with `remap` you can still control when rules apply with `mode`,
+  `device:` and the usual conditions.
+
+- `sleep` — pause command processing for 1–5000 ms:
+  `{"command":"sleep","milliseconds":100}`. This blocks xremap's event loop,
+  so it is meant for short sequencing pauses.
+
 Commands on a connection execute in order, and each reply follows execution.
 Execution failures return `err` without terminating the daemon; later commands
 can still run.
 
 Errors are `err REASON\n`. Free-form reply text escapes backslashes, CR and LF
 as `\\`, `\r` and `\n` so every reply stays on one line; this applies to
-`REASON` and to `MODE`. Input must be valid UTF-8. Lines longer than 512 bytes
+`REASON` and to `MODE`. Input must be valid UTF-8. Lines longer than 16384 bytes
 are rejected and the connection is closed. Unknown fields, unknown commands,
 and malformed JSON are rejected with an `err` reply.
 
@@ -92,6 +133,14 @@ $ xremap get-mode
 normal
 $ xremap ping
 pong
+$ xremap key --scope raw ctrl+a
+ok
+$ xremap keydown shift
+ok
+$ xremap sleep 50
+ok
+$ xremap keyup shift
+ok
 ```
 
 Exit code is non-zero if the command fails. Override the socket with
@@ -107,6 +156,14 @@ $ socat - UNIX-CONNECT:$XDG_RUNTIME_DIR/xremap.sock
 {"command":"ping"}
 pong
 {"command":"set-mode","mode":"emacs-read-only"}
+ok
+{"command":"key","chords":["shift"]}
+ok
+{"command":"sleep","milliseconds":50}
+ok
+{"command":"key","chords":["x"]}
+ok
+{"command":"keyup","chords":["shift"]}
 ok
 ```
 
