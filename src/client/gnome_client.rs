@@ -120,7 +120,9 @@ impl Client for GnomeClient {
 
         // Fallback to DBus
         self.connect();
-        self.current_application().is_some()
+        // ActiveWindow may return a null wm_class when no window is focused (e.g. right after
+        // login). Treat a successful reply as supported, since the result is cached forever.
+        self.current_application().is_some() || self.get_active_window().is_ok()
     }
 
     fn current_window(&mut self) -> Option<String> {
